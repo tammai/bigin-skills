@@ -20,6 +20,7 @@ vue-best-practices         → .claude/skills/vue-best-practices/
 vue-testing-best-practices → .claude/skills/vue-testing-best-practices/
 vitest                     → .claude/skills/vitest/
 vueuse-functions           → .claude/skills/vueuse-functions/
+zod                        → .claude/skills/zod/
 pnpm                       → .claude/skills/pnpm/
 cloudflare-pages           → .claude/skills/cloudflare-pages/
 drizzle                    → .claude/skills/drizzle/           (optional — only when D1 is enabled)
@@ -27,7 +28,7 @@ nuxt-auth-utils            → .claude/skills/nuxt-auth-utils/  (optional — on
 github-actions             → .claude/skills/github-actions/
 ```
 
-**Total: 14 skills** (11 base + drizzle optional + nuxt-auth-utils optional + github-actions)
+**Total: 15 skills** (12 base + drizzle optional + nuxt-auth-utils optional + github-actions)
 
 ---
 
@@ -43,12 +44,13 @@ vue-best-practices         → .claude/skills/vue-best-practices/
 vue-testing-best-practices → .claude/skills/vue-testing-best-practices/
 vitest                     → .claude/skills/vitest/
 vueuse-functions           → .claude/skills/vueuse-functions/
+zod                        → .claude/skills/zod/
 pnpm                       → .claude/skills/pnpm/
 nuxt-auth-utils            → .claude/skills/nuxt-auth-utils/  (optional — only when auth is needed)
 github-actions             → .claude/skills/github-actions/
 ```
 
-**Total: 12 skills** (no cloudflare-pages/drizzle — SPA has no Cloudflare server binding needs; nuxt-auth-utils optional)
+**Total: 13 skills** (no cloudflare-pages/drizzle — SPA has no Cloudflare server binding needs; nuxt-auth-utils optional)
 
 ---
 

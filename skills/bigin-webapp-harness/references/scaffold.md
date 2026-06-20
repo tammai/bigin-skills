@@ -38,7 +38,9 @@ If any exist, skip scaffold entirely — assume the project is already bootstrap
     "cf-dev": "nitro-cloudflare-dev",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
   },
   "dependencies": {
     "@nuxt/ui": "latest",
@@ -47,10 +49,13 @@ If any exist, skip scaffold entirely — assume the project is already bootstrap
     "@pinia/nuxt": "latest",
     "@vueuse/nuxt": "latest",
     "nuxt": "latest",
-    "pinia": "latest"
+    "pinia": "latest",
+    "zod": "latest"
   },
   "devDependencies": {
     "@nuxt/devtools": "latest",
+    "@nuxt/eslint": "latest",
+    "eslint": "latest",
     "@nuxt/test-utils": "latest",
     "@vitest/coverage-v8": "latest",
     "@vue/test-utils": "latest",
@@ -69,11 +74,13 @@ If any exist, skip scaffold entirely — assume the project is already bootstrap
 export default defineNuxtConfig({
   compatibilityDate: '2025-01-01',
   future: { compatibilityVersion: 4 },
+  devtools: { enabled: false },
 
   ssr: false,
 
   modules: [
     '@nuxt/ui',
+    '@nuxt/eslint',
     '@pinia/nuxt',
     '@pinia/colada-nuxt',
     '@vueuse/nuxt',
@@ -254,6 +261,25 @@ pages_build_output_dir = ".output/public"
 
 > Use `.heading-1` / `.heading-2` / `.heading-3` / `.heading-4` utility classes from `main.css` instead of raw Tailwind font-size classes.
 
+#### `.claude/settings.json`
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // empty' | { read -r f; [[ \"$f\" =~ \\.(vue|ts|js|mjs)$ ]] && pnpm eslint --fix \"$f\"; } 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
 ### Directories to create (empty, add `.gitkeep`)
 ```
 app/
@@ -307,7 +333,9 @@ Now generating your agent team...
     "typecheck": "vue-tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
   },
   "dependencies": {
     "@nuxt/ui": "latest",
@@ -316,10 +344,13 @@ Now generating your agent team...
     "@pinia/nuxt": "latest",
     "@vueuse/nuxt": "latest",
     "nuxt": "latest",
-    "pinia": "latest"
+    "pinia": "latest",
+    "zod": "latest"
   },
   "devDependencies": {
     "@nuxt/devtools": "latest",
+    "@nuxt/eslint": "latest",
+    "eslint": "latest",
     "@nuxt/test-utils": "latest",
     "@vitest/coverage-v8": "latest",
     "@vue/test-utils": "latest",
@@ -336,11 +367,13 @@ Now generating your agent team...
 export default defineNuxtConfig({
   compatibilityDate: '2025-01-01',
   future: { compatibilityVersion: 4 },
+  devtools: { enabled: false },
 
   ssr: false,
 
   modules: [
     '@nuxt/ui',
+    '@nuxt/eslint',
     '@pinia/nuxt',
     '@pinia/colada-nuxt',
     '@vueuse/nuxt',
@@ -481,21 +514,44 @@ NUXT_PUBLIC_API_URL=http://localhost:3001
 #### `app/layouts/default.vue`
 ```vue
 <template>
-  <div class="min-h-screen bg-neutral-50 dark:bg-neutral-950">
+  <div class="min-h-screen">
     <slot />
   </div>
 </template>
 ```
 
+> Body background is set globally via `var(--ui-bg-muted)` in `main.css` — no need to add bg classes on the layout div.
+
 #### `app/pages/index.vue`
 ```vue
 <template>
   <UContainer class="py-16">
-    <h1 class="text-3xl font-bold text-neutral-900 dark:text-neutral-100">
+    <h1 class="heading-1 text-neutral-900 dark:text-neutral-100">
       Hello World
     </h1>
   </UContainer>
 </template>
+```
+
+> Use `.heading-1` / `.heading-2` / `.heading-3` / `.heading-4` utility classes from `main.css` instead of raw Tailwind font-size classes.
+
+#### `.claude/settings.json`
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // empty' | { read -r f; [[ \"$f\" =~ \\.(vue|ts|js|mjs)$ ]] && pnpm eslint --fix \"$f\"; } 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  }
+}
 ```
 
 ### Directories to create (empty, add `.gitkeep`)

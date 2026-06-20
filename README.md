@@ -1,7 +1,7 @@
 # bigin-webapp-harness
 
 **Web App Harness Factory for Claude Code**  
-*Nhà máy tạo Harness Ứng dụng Web cho Claude Code*
+_Nhà máy tạo Harness Ứng dụng Web cho Claude Code_
 
 A meta-skill that turns a project description into a specialized agent team and the skills they use — focused on three web development stacks.
 
@@ -9,11 +9,11 @@ A meta-skill that turns a project description into a specialized agent team and 
 
 ## Project Types / Loại dự án
 
-| Type | Stack | Description |
-|------|-------|-------------|
+| Type              | Stack                | Description                                                                               |
+| ----------------- | -------------------- | ----------------------------------------------------------------------------------------- |
 | **Fullstack MVP** | Nuxt v4 + Cloudflare | Nuxt UI, Tailwind, Pinia, VueUse, Nitro (cloudflare-pages), D1/R2/KV (optional), Wrangler |
-| **SPA Frontend** | Nuxt v4, SSR false | Nuxt UI, Tailwind, Pinia, Pinia Colada, VueUse, client-side only |
-| **Backend** | Go | chi router, standard project layout, testify |
+| **SPA Frontend**  | Nuxt v4, SSR false   | Nuxt UI, Tailwind, Pinia, Pinia Colada, VueUse, client-side only                          |
+| **Backend**       | Go                   | chi router, standard project layout, testify                                              |
 
 **All Nuxt types share:** Google Sans font, primary blue / neutral slate theme, `ssr: false`.
 
@@ -31,6 +31,7 @@ Cấu hình harness
 ```
 
 The skill will guide you through:
+
 1. Choosing your project type (Fullstack MVP / SPA / Backend Go)
 2. Selecting which agent roles you want
 3. Confirming your stack and optional services
@@ -66,18 +67,6 @@ your-project/
 
 ---
 
-## Key Differences from revfactory/harness
-
-| Feature | revfactory/harness | bigin-webapp-harness |
-|---------|-------------------|---------------------|
-| Default mode | Agent Teams | **Sub-agents** |
-| Domain | General purpose | **Web apps only** |
-| Stack | Any | **Nuxt v4, Go** |
-| User input | Domain description | **Project type + role selection** |
-| Language | Korean | **English + Vietnamese** |
-
----
-
 ## Installation / Cài đặt
 
 ### Via Marketplace
@@ -99,11 +88,11 @@ cp -r skills/bigin-webapp-harness ~/.claude/skills/bigin-webapp-harness
 
 ## Architecture Patterns Used
 
-| Pattern | When | Default? |
-|---------|------|---------|
-| **Pipeline** | Architect → Build → QA sequential | ✅ All types |
+| Pattern            | When                               | Default?              |
+| ------------------ | ---------------------------------- | --------------------- |
+| **Pipeline**       | Architect → Build → QA sequential  | ✅ All types          |
 | **Fan-out/Fan-in** | Parallel builder agents in Phase 2 | ✅ Fullstack MVP, SPA |
-| **Sub-agents** | All agent execution | ✅ Default mode |
+| **Sub-agents**     | All agent execution                | ✅ Default mode       |
 
 ---
 
@@ -131,10 +120,13 @@ bigin-webapp-harness/
 │   ├── vue/                               ← Vue 3 core patterns
 │   ├── vue-best-practices/                ← Vue best practices
 │   ├── vue-testing-best-practices/        ← Vue testing
+│   ├── vitest/                            ← Unit testing with Vitest
 │   ├── vueuse-functions/                  ← VueUse function reference
+│   ├── zod/                               ← Schema validation + type inference
 │   ├── pnpm/                              ← pnpm package manager conventions
 │   ├── cloudflare-pages/                  ← Cloudflare Pages deployment
 │   ├── drizzle/                           ← Drizzle ORM + D1 (SQLite)
+│   ├── nuxt-auth-utils/                   ← Auth: sessions, OAuth, passwords, WebAuthn
 │   └── github-actions/                    ← GitHub Actions CI/CD workflows
 └── README.md
 ```
@@ -143,20 +135,23 @@ bigin-webapp-harness/
 
 ## Bundled Skills
 
-| Skill | Purpose | Project types |
-|-------|---------|---------------|
-| `nuxt` | Nuxt v4 core config, routing, data fetching | Fullstack MVP, SPA |
-| `nuxt-ui` | Component library, design system, forms, layouts | Fullstack MVP, SPA |
-| `pinia` | Stores, composables, SSR patterns, testing | Fullstack MVP, SPA |
-| `pinia-colada` | Async queries, mutations, cache, patterns | Fullstack MVP, SPA |
-| `vue` | Script setup, new APIs, advanced patterns | Fullstack MVP, SPA |
-| `vue-best-practices` | Component design, performance, accessibility | Fullstack MVP, SPA |
-| `vue-testing-best-practices` | Unit tests, component tests, E2E | Fullstack MVP, SPA |
-| `vueuse-functions` | Per-function reference for entire VueUse library | Fullstack MVP, SPA |
-| `pnpm` | Package manager conventions, lockfile, CI setup | All |
-| `cloudflare-pages` | Wrangler config, D1/R2/KV bindings, env vars, deploy | Fullstack MVP |
-| `drizzle` | Drizzle ORM schema, migrations, queries for D1 | Fullstack MVP (D1 opt) |
-| `github-actions` | CI (typecheck + build) and deploy workflows | Fullstack MVP, SPA |
+| Skill                        | Purpose                                              | Project types          |
+| ---------------------------- | ---------------------------------------------------- | ---------------------- |
+| `nuxt`                       | Nuxt v4 core config, routing, data fetching          | Fullstack MVP, SPA     |
+| `nuxt-ui`                    | Component library, design system, forms, layouts     | Fullstack MVP, SPA     |
+| `pinia`                      | Stores, composables, SSR patterns, testing           | Fullstack MVP, SPA     |
+| `pinia-colada`               | Async queries, mutations, cache, patterns            | Fullstack MVP, SPA     |
+| `vue`                        | Script setup, new APIs, advanced patterns            | Fullstack MVP, SPA     |
+| `vue-best-practices`         | Component design, performance, accessibility         | Fullstack MVP, SPA     |
+| `vue-testing-best-practices` | Unit tests, component tests, E2E                     | Fullstack MVP, SPA     |
+| `vitest`                     | Unit/component test setup, patterns, coverage        | Fullstack MVP, SPA     |
+| `vueuse-functions`           | Per-function reference for entire VueUse library     | Fullstack MVP, SPA     |
+| `zod`                        | Schema validation, type inference, form + API guards | Fullstack MVP, SPA     |
+| `pnpm`                       | Package manager conventions, lockfile, CI setup      | All                    |
+| `cloudflare-pages`           | Wrangler config, D1/R2/KV bindings, env vars, deploy | Fullstack MVP          |
+| `drizzle`                    | Drizzle ORM schema, migrations, queries for D1       | Fullstack MVP (D1 opt) |
+| `nuxt-auth-utils`            | Sessions, OAuth, password hashing, WebAuthn          | Fullstack MVP, SPA (opt) |
+| `github-actions`             | CI (typecheck + build) and deploy workflows          | Fullstack MVP, SPA     |
 
 ---
 

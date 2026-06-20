@@ -29,6 +29,7 @@ skills/
   cloudflare-pages/
   drizzle/
   nuxt-auth-utils/
+  zod/
   github-actions/
 ```
 

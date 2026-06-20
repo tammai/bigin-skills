@@ -8,7 +8,7 @@
 | Framework | Nuxt v4 |
 | UI Library | Nuxt UI (latest) |
 | CSS | Tailwind CSS v4 |
-| Font | Google Sans (default, loaded via Google Fonts) |
+| Font | Google Sans (via `@theme static --font-sans`, no CDN import) |
 | Theme Primary | Blue |
 | Theme Neutral | Slate |
 | State | Pinia + Pinia Colada |
@@ -36,10 +36,13 @@ Ask the user which optional services to enable during Phase 3.
 export default defineNuxtConfig({
   compatibilityDate: '2025-01-01',
   future: { compatibilityVersion: 4 },
+  devtools: { enabled: false },
 
   modules: [
     '@nuxt/ui',
+    '@nuxt/eslint',
     '@pinia/nuxt',
+    '@pinia/colada-nuxt',
     '@vueuse/nuxt',
   ],
 
@@ -75,15 +78,75 @@ export default defineAppConfig({
 ## assets/css/main.css
 
 ```css
-@import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap');
-
 @import "tailwindcss";
 @import "@nuxt/ui";
 
-:root {
-  font-family: 'Google Sans', sans-serif;
+@theme static {
+  --font-sans: 'Google Sans', sans-serif;
+
+  --ui-container: 90rem;
+}
+
+@layer base {
+  body {
+    background-color: var(--ui-bg-muted);
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--ui-color-neutral-300) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: var(--ui-color-neutral-300);
+    border-radius: 9999px;
+  }
+
+  .dark *::-webkit-scrollbar-thumb {
+    background-color: var(--ui-color-neutral-600);
+  }
+}
+
+@layer utilities {
+  .heading-1 {
+    font-size: 2.25rem;
+    line-height: 2.5rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+  }
+
+  .heading-2 {
+    font-size: 1.875rem;
+    line-height: 2.25rem;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+  }
+
+  .heading-3 {
+    font-size: 1.5rem;
+    line-height: 2rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .heading-4 {
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+    font-weight: 500;
+  }
 }
 ```
+
+> No Google Fonts CDN import — `--font-sans` in `@theme static` registers Google Sans as the default font via Tailwind CSS v4. Google Sans is expected to be available via the OS or deployment environment.
 
 ---
 
@@ -110,15 +173,51 @@ pages_build_output_dir = ".output/public"
 # id = "YOUR_KV_NAMESPACE_ID"
 ```
 
-## package.json scripts
+## package.json
 
 ```json
 {
+  "name": "my-app",
+  "private": true,
+  "packageManager": "pnpm@9.15.4",
+  "type": "module",
   "scripts": {
     "dev": "nuxt dev",
     "build": "nuxt build",
+    "preview": "nuxt preview",
+    "typecheck": "vue-tsc --noEmit",
     "deploy": "wrangler pages deploy .output/public",
-    "cf-dev": "nitro-cloudflare-dev"
+    "cf-dev": "nitro-cloudflare-dev",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
+  },
+  "dependencies": {
+    "@nuxt/ui": "latest",
+    "@pinia/colada": "latest",
+    "@pinia/colada-nuxt": "latest",
+    "@pinia/nuxt": "latest",
+    "@vueuse/nuxt": "latest",
+    "nuxt": "latest",
+    "nuxt-auth-utils": "latest",
+    "pinia": "latest",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "@nuxt/devtools": "latest",
+    "@nuxt/eslint": "latest",
+    "eslint": "latest",
+    "@nuxt/test-utils": "latest",
+    "@vitest/coverage-v8": "latest",
+    "@vue/test-utils": "latest",
+    "happy-dom": "latest",
+    "nitro-cloudflare-dev": "latest",
+    "typescript": "latest",
+    "vitest": "latest",
+    "vue-tsc": "latest",
+    "wrangler": "latest"
   }
 }
 ```
