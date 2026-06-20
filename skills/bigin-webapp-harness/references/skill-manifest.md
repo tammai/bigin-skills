@@ -22,11 +22,12 @@ vitest                     → .claude/skills/vitest/
 vueuse-functions           → .claude/skills/vueuse-functions/
 pnpm                       → .claude/skills/pnpm/
 cloudflare-pages           → .claude/skills/cloudflare-pages/
-drizzle                    → .claude/skills/drizzle/        (optional — only when D1 is enabled)
+drizzle                    → .claude/skills/drizzle/           (optional — only when D1 is enabled)
+nuxt-auth-utils            → .claude/skills/nuxt-auth-utils/  (optional — only when auth is needed)
 github-actions             → .claude/skills/github-actions/
 ```
 
-**Total: 13 skills** (11 base + drizzle optional + github-actions)
+**Total: 14 skills** (11 base + drizzle optional + nuxt-auth-utils optional + github-actions)
 
 ---
 
@@ -43,10 +44,11 @@ vue-testing-best-practices → .claude/skills/vue-testing-best-practices/
 vitest                     → .claude/skills/vitest/
 vueuse-functions           → .claude/skills/vueuse-functions/
 pnpm                       → .claude/skills/pnpm/
+nuxt-auth-utils            → .claude/skills/nuxt-auth-utils/  (optional — only when auth is needed)
 github-actions             → .claude/skills/github-actions/
 ```
 
-**Total: 11 skills** (no cloudflare-pages/drizzle — SPA has no Cloudflare server binding needs)
+**Total: 12 skills** (no cloudflare-pages/drizzle — SPA has no Cloudflare server binding needs; nuxt-auth-utils optional)
 
 ---
 

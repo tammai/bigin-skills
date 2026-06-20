@@ -1,6 +1,6 @@
 {
   "name": "bigin-webapp-harness",
-  "version": "1.2.0",
+  "version": "1.4.0",
   "description": "Web app harness factory for Claude Code — a meta-skill that turns a project description into a specialized agent team and the skills they use, focused on Nuxt v4 fullstack MVP, SPA frontend, and Go backend. / Nhà máy tạo harness ứng dụng web cho Claude Code — meta-skill chuyển mô tả dự án thành nhóm agent chuyên biệt và các skill tương ứng.",
   "author": {
     "name": "Tam Mai",
