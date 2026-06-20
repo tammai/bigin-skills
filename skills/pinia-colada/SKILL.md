@@ -18,6 +18,12 @@ metadata:
 client-side caching with request deduplication, stale-while-revalidate, garbage collection,
 mutations with lifecycle hooks, optimistic updates, and SSR support. ~2kb, zero deps beyond Pinia.
 
+## Installation
+
+```bash
+pnpm add @pinia/colada @pinia/colada-nuxt
+```
+
 ## Setup
 
 ```ts
