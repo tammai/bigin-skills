@@ -35,7 +35,10 @@ If any exist, skip scaffold entirely — assume the project is already bootstrap
     "preview": "nuxt preview",
     "typecheck": "vue-tsc --noEmit",
     "deploy": "wrangler pages deploy .output/public",
-    "cf-dev": "nitro-cloudflare-dev"
+    "cf-dev": "nitro-cloudflare-dev",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@nuxt/ui": "latest",
@@ -46,8 +49,13 @@ If any exist, skip scaffold entirely — assume the project is already bootstrap
   },
   "devDependencies": {
     "@nuxt/devtools": "latest",
+    "@nuxt/test-utils": "latest",
+    "@vitest/coverage-v8": "latest",
+    "@vue/test-utils": "latest",
+    "happy-dom": "latest",
     "nitro-cloudflare-dev": "latest",
     "typescript": "latest",
+    "vitest": "latest",
     "vue-tsc": "latest",
     "wrangler": "latest"
   }
@@ -96,15 +104,75 @@ export default defineAppConfig({
 
 #### `assets/css/main.css`
 ```css
-@import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap');
-
 @import "tailwindcss";
 @import "@nuxt/ui";
 
-:root {
-  font-family: 'Google Sans', sans-serif;
+@theme static {
+  --font-sans: 'Google Sans', sans-serif;
+
+  --ui-container: 90rem;
+}
+
+@layer base {
+  body {
+    background-color: var(--ui-bg-muted);
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--ui-color-neutral-300) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: var(--ui-color-neutral-300);
+    border-radius: 9999px;
+  }
+
+  .dark *::-webkit-scrollbar-thumb {
+    background-color: var(--ui-color-neutral-600);
+  }
+}
+
+@layer utilities {
+  .heading-1 {
+    font-size: 2.25rem;
+    line-height: 2.5rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+  }
+
+  .heading-2 {
+    font-size: 1.875rem;
+    line-height: 2.25rem;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+  }
+
+  .heading-3 {
+    font-size: 1.5rem;
+    line-height: 2rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .heading-4 {
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+    font-weight: 500;
+  }
 }
 ```
+
+> **Note:** Google Sans is expected to be available via OS or CDN in the deployment environment. No Google Fonts import is needed — `--font-sans` in `@theme static` registers it as the default sans-serif font through Tailwind CSS v4.
 
 #### `.npmrc`
 ```ini
@@ -162,22 +230,26 @@ pages_build_output_dir = ".output/public"
 #### `app/layouts/default.vue`
 ```vue
 <template>
-  <div class="min-h-screen bg-neutral-50 dark:bg-neutral-950">
+  <div class="min-h-screen">
     <slot />
   </div>
 </template>
 ```
 
+> Body background is set globally via `var(--ui-bg-muted)` in `main.css` — no need to repeat it on the layout div.
+
 #### `app/pages/index.vue`
 ```vue
 <template>
   <UContainer class="py-16">
-    <h1 class="text-3xl font-bold text-neutral-900 dark:text-neutral-100">
+    <h1 class="heading-1 text-neutral-900 dark:text-neutral-100">
       Hello World
     </h1>
   </UContainer>
 </template>
 ```
+
+> Use `.heading-1` / `.heading-2` / `.heading-3` / `.heading-4` utility classes from `main.css` instead of raw Tailwind font-size classes.
 
 ### Directories to create (empty, add `.gitkeep`)
 ```
@@ -193,6 +265,10 @@ server/
   middleware/
   database/
     migrations/
+tests/
+  components/
+  composables/
+  stores/
 public/
 ```
 
@@ -225,7 +301,10 @@ Now generating your agent team...
     "dev": "nuxt dev",
     "build": "nuxt build",
     "preview": "nuxt preview",
-    "typecheck": "vue-tsc --noEmit"
+    "typecheck": "vue-tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@nuxt/ui": "latest",
@@ -236,7 +315,12 @@ Now generating your agent team...
   },
   "devDependencies": {
     "@nuxt/devtools": "latest",
+    "@nuxt/test-utils": "latest",
+    "@vitest/coverage-v8": "latest",
+    "@vue/test-utils": "latest",
+    "happy-dom": "latest",
     "typescript": "latest",
+    "vitest": "latest",
     "vue-tsc": "latest"
   }
 }
@@ -286,13 +370,71 @@ export default defineAppConfig({
 
 #### `assets/css/main.css`
 ```css
-@import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap');
-
 @import "tailwindcss";
 @import "@nuxt/ui";
 
-:root {
-  font-family: 'Google Sans', sans-serif;
+@theme static {
+  --font-sans: 'Google Sans', sans-serif;
+
+  --ui-container: 90rem;
+}
+
+@layer base {
+  body {
+    background-color: var(--ui-bg-muted);
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--ui-color-neutral-300) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: var(--ui-color-neutral-300);
+    border-radius: 9999px;
+  }
+
+  .dark *::-webkit-scrollbar-thumb {
+    background-color: var(--ui-color-neutral-600);
+  }
+}
+
+@layer utilities {
+  .heading-1 {
+    font-size: 2.25rem;
+    line-height: 2.5rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+  }
+
+  .heading-2 {
+    font-size: 1.875rem;
+    line-height: 2.25rem;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+  }
+
+  .heading-3 {
+    font-size: 1.5rem;
+    line-height: 2rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .heading-4 {
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+    font-weight: 500;
+  }
 }
 ```
 

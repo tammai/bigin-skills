@@ -11,40 +11,42 @@ Copy them to `{project}/.claude/skills/{skill-name}/`.
 ## Type 1: Fullstack MVP
 
 ```
-nuxt                    → .claude/skills/nuxt/
-nuxt-ui                 → .claude/skills/nuxt-ui/
-pinia                   → .claude/skills/pinia/
-pinia-colada            → .claude/skills/pinia-colada/
-vue                     → .claude/skills/vue/
-vue-best-practices      → .claude/skills/vue-best-practices/
+nuxt                       → .claude/skills/nuxt/
+nuxt-ui                    → .claude/skills/nuxt-ui/
+pinia                      → .claude/skills/pinia/
+pinia-colada               → .claude/skills/pinia-colada/
+vue                        → .claude/skills/vue/
+vue-best-practices         → .claude/skills/vue-best-practices/
 vue-testing-best-practices → .claude/skills/vue-testing-best-practices/
-vueuse-functions        → .claude/skills/vueuse-functions/
-pnpm                    → .claude/skills/pnpm/
-cloudflare-pages        → .claude/skills/cloudflare-pages/
-drizzle                 → .claude/skills/drizzle/        (optional — only when D1 is enabled)
-github-actions          → .claude/skills/github-actions/
+vitest                     → .claude/skills/vitest/
+vueuse-functions           → .claude/skills/vueuse-functions/
+pnpm                       → .claude/skills/pnpm/
+cloudflare-pages           → .claude/skills/cloudflare-pages/
+drizzle                    → .claude/skills/drizzle/        (optional — only when D1 is enabled)
+github-actions             → .claude/skills/github-actions/
 ```
 
-**Total: 12 skills** (10 base + drizzle optional + github-actions)
+**Total: 13 skills** (11 base + drizzle optional + github-actions)
 
 ---
 
 ## Type 2: SPA Frontend
 
 ```
-nuxt                    → .claude/skills/nuxt/
-nuxt-ui                 → .claude/skills/nuxt-ui/
-pinia                   → .claude/skills/pinia/
-pinia-colada            → .claude/skills/pinia-colada/
-vue                     → .claude/skills/vue/
-vue-best-practices      → .claude/skills/vue-best-practices/
+nuxt                       → .claude/skills/nuxt/
+nuxt-ui                    → .claude/skills/nuxt-ui/
+pinia                      → .claude/skills/pinia/
+pinia-colada               → .claude/skills/pinia-colada/
+vue                        → .claude/skills/vue/
+vue-best-practices         → .claude/skills/vue-best-practices/
 vue-testing-best-practices → .claude/skills/vue-testing-best-practices/
-vueuse-functions        → .claude/skills/vueuse-functions/
-pnpm                    → .claude/skills/pnpm/
-github-actions          → .claude/skills/github-actions/
+vitest                     → .claude/skills/vitest/
+vueuse-functions           → .claude/skills/vueuse-functions/
+pnpm                       → .claude/skills/pnpm/
+github-actions             → .claude/skills/github-actions/
 ```
 
-**Total: 10 skills** (no cloudflare-pages/drizzle — SPA has no Cloudflare server binding needs)
+**Total: 11 skills** (no cloudflare-pages/drizzle — SPA has no Cloudflare server binding needs)
 
 ---
 

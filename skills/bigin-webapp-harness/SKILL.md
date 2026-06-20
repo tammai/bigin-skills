@@ -206,8 +206,8 @@ Use file copy tools or bash `cp -r`. Never overwrite an existing `.claude/skills
 
 | Type | Skills installed |
 |------|-----------------|
-| Fullstack MVP | nuxt, nuxt-ui, pinia, pinia-colada, vue, vue-best-practices, vue-testing-best-practices, vueuse-functions, pnpm, cloudflare-pages |
-| SPA Frontend | nuxt, nuxt-ui, pinia, pinia-colada, vue, vue-best-practices, vue-testing-best-practices, vueuse-functions, pnpm |
+| Fullstack MVP | nuxt, nuxt-ui, pinia, pinia-colada, vue, vue-best-practices, vue-testing-best-practices, vitest, vueuse-functions, pnpm, cloudflare-pages |
+| SPA Frontend | nuxt, nuxt-ui, pinia, pinia-colada, vue, vue-best-practices, vue-testing-best-practices, vitest, vueuse-functions, pnpm |
 | Backend (Go) | *(none — generate inline; see 5-3)* |
 
 ### 5-3. Generate project-specific orchestrator skills
