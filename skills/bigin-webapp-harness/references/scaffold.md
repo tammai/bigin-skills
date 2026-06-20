@@ -43,9 +43,11 @@ If any exist, skip scaffold entirely — assume the project is already bootstrap
   "dependencies": {
     "@nuxt/ui": "latest",
     "@pinia/colada": "latest",
+    "@pinia/colada-nuxt": "latest",
     "@pinia/nuxt": "latest",
     "@vueuse/nuxt": "latest",
-    "nuxt": "latest"
+    "nuxt": "latest",
+    "pinia": "latest"
   },
   "devDependencies": {
     "@nuxt/devtools": "latest",
@@ -73,6 +75,7 @@ export default defineNuxtConfig({
   modules: [
     '@nuxt/ui',
     '@pinia/nuxt',
+    '@pinia/colada-nuxt',
     '@vueuse/nuxt',
   ],
 
@@ -309,9 +312,11 @@ Now generating your agent team...
   "dependencies": {
     "@nuxt/ui": "latest",
     "@pinia/colada": "latest",
+    "@pinia/colada-nuxt": "latest",
     "@pinia/nuxt": "latest",
     "@vueuse/nuxt": "latest",
-    "nuxt": "latest"
+    "nuxt": "latest",
+    "pinia": "latest"
   },
   "devDependencies": {
     "@nuxt/devtools": "latest",
@@ -337,6 +342,7 @@ export default defineNuxtConfig({
   modules: [
     '@nuxt/ui',
     '@pinia/nuxt',
+    '@pinia/colada-nuxt',
     '@vueuse/nuxt',
   ],
 

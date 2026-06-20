@@ -10,15 +10,8 @@ Pinia works seamlessly with Nuxt 3/4, handling SSR, serialization, and XSS prote
 ## Installation
 
 ```bash
-npx nuxi@latest module add pinia
+pnpm add pinia @pinia/nuxt
 ```
-
-This installs both `@pinia/nuxt` and `pinia`. If `pinia` isn't installed, add it manually.
-
-> **npm users:** If you get `ERESOLVE unable to resolve dependency tree`, add to `package.json`:
-> ```json
-> "overrides": { "vue": "latest" }
-> ```
 
 ## Configuration
 
