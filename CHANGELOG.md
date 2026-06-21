@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] - 2026-06-21
+
+### Changed
+
+- **Go backend stack:** Switched the HTTP router from `chi` to **Gin** (`github.com/gin-gonic/gin`) across `references/backend-go.md`, `references/scaffold.md`, and `references/agent-roles.md`
+  - `backend-go.md`: rewritten `main.go`, handler, testing sections for Gin (`*gin.Context`, `c.JSON`, `c.Param`); added new sections for **Request binding & validation** (`c.ShouldBindJSON` + `binding:"..."` tags), **Route Registration** (`r.Group("/api/v1")`), and **Middleware Pattern** (`gin.HandlerFunc` + `c.Next()`/`c.AbortWithStatusJSON`)
+  - `scaffold.md`: `cmd/server/main.go` now uses `gin.Default()` + `r.Run()`; added `internal/middleware/` to the created-directories list
+  - `agent-roles.md`: `backend-dev` stack knowledge updated to Gin (routing, binding, `c.Request.Context()`); `qa` testing note now mentions `gin.SetMode(gin.TestMode)` + `r.ServeHTTP(w, req)`
+  - Service/repository layers and project layout are unchanged (framework-agnostic)
+- **Version:** Bumped to `1.8.0`
+
+---
+
 ## [1.7.0] - 2026-06-21
 
 ### Removed

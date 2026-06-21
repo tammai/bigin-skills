@@ -451,11 +451,12 @@ Implement the full Go backend: handlers, services, repositories.
 
 ## Stack Knowledge / Kiến thức stack
 
-- chi router for HTTP routing and middleware
+- Gin router for HTTP routing, middleware, and request binding/validation
 - Standard project layout: `cmd/`, `internal/handler/`, `internal/service/`, `internal/repository/`
 - Error handling: always return errors, never swallow
-- context.Context: always first parameter in service/repository methods
-- JSON encoding: `encoding/json`, snake_case field tags
+- context.Context: always first parameter in service/repository methods (pass `c.Request.Context()` from handlers)
+- Request binding: `c.ShouldBindJSON` with `binding:"..."` struct tags
+- JSON responses: `c.JSON(status, gin.H{...})` or domain structs with snake_case tags
 - Testing: `testing` stdlib + `testify/assert`
 
 ## Task Principles / Nguyên tắc làm việc
@@ -494,7 +495,7 @@ Write and review Go unit tests. Ensure all handlers validate input, all services
 - `testing` stdlib: `t.Run`, `t.Fatal`, `t.Errorf`
 - `testify/assert` and `testify/mock` for assertions and mocking interfaces
 - Table-driven tests: `[]struct{ name, input, expected }` pattern
-- `httptest.NewRecorder()` + `httptest.NewRequest()` for handler tests
+- `httptest.NewRecorder()` + `httptest.NewRequest()` for handler tests; for Gin, call `gin.SetMode(gin.TestMode)` and drive through `r.ServeHTTP(w, req)`
 - Interface mocking: generate mocks for service/repository interfaces
 
 ## Unit Test Authoring
