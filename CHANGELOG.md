@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.2] - 2026-06-30
+
+### Fixed
+
+- **nuxt scaffold — reset git history after clone:** Step 3 now removes `.git` and runs `git init` after copying the template files. The project starts with a clean repo with no template history.
+
+---
+
+## [1.12.1] - 2026-06-30
+
+### Fixed
+
+- **nuxt scaffold — remove all Wrangler references:** `wrangler.toml` is now deleted during scaffold (Step 4) — it's not used by the BFF layer. Removed the `wrangler.toml name` customization step that referenced it.
+- **nuxt scaffold — ask for customization inputs upfront:** new Step 2 collects project name and theme (primary/neutral colors) before cloning, shows a summary, and asks the user to confirm before proceeding. Previously customization happened inline during Step 3 without a consolidated prompt.
+
+---
+
+## [1.12.0] - 2026-06-30
+
+### Changed
+
+- **bigin-harness-setup — Nuxt scaffold generates a project skill instead of depending on local skills:** Phase 0.5 no longer relies on the locally-installed `nuxt-fullstack-scaffold` skill or any local template codebase. Instead it:
+  1. Generates `.claude/skills/nuxt-scaffold/SKILL.md` in the target project (self-contained skill, no external dependencies) from `references/scaffold-nuxt.md`.
+  2. Immediately executes that skill's steps to scaffold the Nuxt app.
+  The generated skill is preserved in the project so teammates can re-run it without needing `bigin-skills` installed. Idempotent: skill file is skipped if it already exists.
+- **`references/scaffold-nuxt.md`** restructured as a SKILL.md template (frontmatter + steps) rather than a prose reference. Removed the cross-reference to `nuxt-fullstack-scaffold` skill.
+
+---
+
 ## [1.11.0] - 2026-06-30
 
 ### Changed
