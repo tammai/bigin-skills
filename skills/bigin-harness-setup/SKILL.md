@@ -34,9 +34,13 @@ Store result as `PROFILE`. Load `references/profile-{PROFILE}.md` for all templa
 
 ## Phase 0.5: Nuxt Project Scaffold / Khởi tạo dự án Nuxt
 
-**nuxt profile only.** If `PROFILE = nuxt` **and** the repo has no `nuxt.config.ts`, the repo isn't a Nuxt project yet — scaffold the full app before installing the harness. Follow `references/scaffold-nuxt.md` (clones `tammai/nuxt-fullstack-template` in place, customizes, installs deps + `simple-git-hooks`).
+**nuxt profile only.** If `PROFILE = nuxt` **and** the repo has no `nuxt.config.ts`:
 
-Set `SCAFFOLDED = true` when this runs (the governance overlay reconciles with what the template already provides — see Phases 1 and 5).
+1. **Generate the scaffold skill.** Read the `## SKILL.md Content` block from `references/scaffold-nuxt.md` and write it verbatim to `.claude/skills/nuxt-scaffold/SKILL.md` in the target project (create the directory if needed). Skip if the file already exists. This skill is self-contained — no dependency on any externally-installed skills.
+
+2. **Execute the scaffold now.** Follow the steps defined in that content: confirm with the user → clone `tammai/nuxt-fullstack-template` in place → customize + strip DB layer → `pnpm install` + `pnpm simple-git-hooks`.
+
+3. Set `SCAFFOLDED = true` when the scaffold completes (the governance overlay reconciles with what the template already provides — see Phases 1 and 5).
 
 Skip this phase entirely if `nuxt.config.ts` already exists (onboarding an existing repo) or for the `go` / `nodejs` profiles.
 
@@ -203,9 +207,10 @@ Print a short summary of what was created and what's next:
 ```
 BigIn harness setup complete for profile: {PROFILE}
 
-[if SCAFFOLDED] Scaffolded Nuxt app from tammai/nuxt-fullstack-template.
+[if SCAFFOLDED] Generated .claude/skills/nuxt-scaffold/SKILL.md and scaffolded Nuxt app from tammai/nuxt-fullstack-template.
 
 Created:
+  .claude/skills/nuxt-scaffold/SKILL.md [nuxt + empty repo only]
   AI_TASK_GUIDE.md
   AI_REVIEW_CHECKLIST.md
   .claude/rules/security.md
@@ -237,14 +242,14 @@ Next steps:
 - `README.md` — append only; never overwrite; check for `## AI Onboarding` first.
 - `git init` — only if not already a repo (never re-init).
 - pre-commit hook — skip if a hook manager (simple-git-hooks/husky) or hook already exists; otherwise install only if absent or already ours, confirming before replacing a foreign hook.
-- Nuxt scaffold (Phase 0.5) — only if `PROFILE=nuxt` and no `nuxt.config.ts`; confirm before writing. When `SCAFFOLDED`, do not overwrite the template's `CLAUDE.md` / `.vscode/settings.json` / pre-commit — overlay additively.
+- Nuxt scaffold (Phase 0.5) — only if `PROFILE=nuxt` and no `nuxt.config.ts`; confirm before writing. Generates `.claude/skills/nuxt-scaffold/SKILL.md` (skip if already exists), then executes it. When `SCAFFOLDED`, do not overwrite the template's `CLAUDE.md` / `.vscode/settings.json` / pre-commit — overlay additively.
 - Never delete files not part of the harness.
 
 ---
 
 ## Output Checklist
 
-- [ ] **nuxt + empty repo** — full app scaffolded from `tammai/nuxt-fullstack-template` (Phase 0.5)
+- [ ] **nuxt + empty repo** — `.claude/skills/nuxt-scaffold/SKILL.md` generated (Phase 0.5) and scaffold executed from `tammai/nuxt-fullstack-template`
 - [ ] `CLAUDE.md` — profile-specific, ≤30 lines (or pointer appended if the template shipped one)
 - [ ] `.claude/rules/conventions.md` — profile-specific patterns (skipped when scaffolded — template + profile cover it)
 - [ ] `.claude/rules/security.md` — shared security rules
