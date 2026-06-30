@@ -148,6 +148,11 @@ Formatting is ESLint via `@nuxt/eslint`. **Prettier is disabled** — never add 
 ## architecture addendum
 
 ```markdown
+## [Nuxt] BFF Boundary
+- `server/api/` is the **sole caller** of the external backend REST API. Client-side code never calls the backend directly.
+- Backend access token lives in the `nuxt-auth-utils` sealed session (server-side only). It never reaches the browser.
+- `openapi.yaml` types are generated and consumed **server-side** (`server/types/api.d.ts`). Client components receive data already shaped by server routes — no raw API types on the client.
+
 ## [Nuxt] Layers & Boundaries
 - Use Nuxt Layers (`layers/`) for hard domain separation when the app grows beyond 3 domains.
 - No business logic in components — composables or Pinia stores only.

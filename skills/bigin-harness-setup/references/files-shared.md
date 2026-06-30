@@ -105,7 +105,7 @@ Before marking any task complete, every item must be checked.
 
 ## Contract
 - [ ] `openapi.yaml` updated if any route signature changed
-- [ ] Types regenerated from `openapi.yaml` if routes changed (frontend repos)
+- [ ] Types regenerated from `openapi.yaml` if API surface changed
 
 ## Scope
 - [ ] Spec was approved before implementation (non-trivial features only)
