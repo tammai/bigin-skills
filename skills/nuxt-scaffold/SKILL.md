@@ -50,6 +50,8 @@ Store `CONFIRM`. If `no` → stop.
 
 Ask everything up front (Enter = default), then confirm. Store each in a SHOUTING-CAPS var.
 
+**Ask this as one plain conversational message, not via the AskUserQuestion tool.** There are 6-7 items and one (theme color) offers 17 options — both exceed AskUserQuestion's limits (max 4 questions, max 4 options each) and will fail with "Invalid tool parameters." Two items are also free text with regex/format constraints (project name, D1 database ID), which that tool can't express either.
+
 ```
 Customize the scaffold (press Enter to keep the default):
 
@@ -109,9 +111,9 @@ Store `CONFIRM_CUSTOM`. If `no` → stop.
 
 ## Phase 3: Non-interactive Init / Khởi tạo không tương tác
 
-Follow `references/bootstrap.md` → **Stage 1** (`npm create nuxt@3.36.1 . -- --template ui --packageManager pnpm --gitInit --force --modules pinia,auth-utils,vueuse`). The `--modules` flag installs and registers `@pinia/nuxt`, `nuxt-auth-utils`, and `@vueuse/nuxt` atomically during init. This installs the base dependencies (the `ui` template already brings `@nuxt/ui`, `@nuxt/eslint`, `vue-tsc`) and creates the git repo (`--gitInit` fires only when install runs — do not pair it with `--no-install`). If `npm create` does not forward flags, use the `npx nuxi@3.36.1 init` fallback in `references/bootstrap.md`.
+Follow `references/bootstrap.md` → **Stage 1** (`npm create nuxt@latest . -- --template ui --packageManager pnpm --gitInit --force --modules pinia,auth-utils,vueuse`). The `--modules` flag installs and registers `@pinia/nuxt`, `nuxt-auth-utils`, and `@vueuse/nuxt` atomically during init. This installs the base dependencies (the `ui` template already brings `@nuxt/ui`, `@nuxt/eslint`, `vue-tsc`) and creates the git repo (`--gitInit` fires only when install runs — do not pair it with `--no-install`). If `npm create` does not forward flags, use the `npx nuxi@latest init` fallback in `references/bootstrap.md`.
 
-Then follow **Stage 1b** to refresh the template-installed packages (`nuxt`, `@nuxt/ui`, `tailwindcss`, `@nuxt/eslint`, `eslint`, `vue-tsc`, `typescript`, `@pinia/nuxt`, `nuxt-auth-utils`, `@vueuse/nuxt`) per the `VERSION_POLICY` chosen in Phase 2 — this is what keeps the scaffold off a stale `create-nuxt@3.36.1` snapshot.
+Then follow **Stage 1b** to refresh the template-installed packages (`nuxt`, `@nuxt/ui`, `tailwindcss`, `@nuxt/eslint`, `eslint`, `vue-tsc`, `typescript`, `@pinia/nuxt`, `nuxt-auth-utils`, `@vueuse/nuxt`) per the `VERSION_POLICY` chosen in Phase 2 — this is what keeps the scaffold off a stale `create-nuxt` template snapshot.
 
 Run the pre-flight checks in bootstrap.md (Node 22+ and pnpm) before executing Stage 1.
 

@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.16.2] - 2026-07-02
+
+### Changed
+
+- **`nuxt-scaffold`:** unpinned `create-nuxt` from `@3.36.1` to `@latest` in Stage 1 (and its `nuxi` fallbacks) per updated policy — re-verify Stage 1 reactively if it starts failing, rather than tracking a pinned version.
+
+### Fixed
+
+- Added a registration check right after Stage 1's `--modules` install (mirroring the existing Stage 2b check for the optional `image` module) — an unpinned `create-nuxt@latest` changing `--modules` semantics would otherwise fail silently and only surface confusingly at Stage 5 or later.
+- Guarded Stage 1b's package-refresh script against a future `create-nuxt@latest` dropping/renaming one of the 9 hardcoded template packages — it now stops with a clear message instead of an uncaught `ENOENT` stack trace.
+- Extended Stage 1b's safety check to also assert the template shape Stage 3's merge instructions depend on (`app/app.config.ts`, `eslint.config.mjs`, `nuxt.config.ts` keys), not just the Nuxt major version.
+- Caveated the remaining template-content assumptions in `artifacts.md` (`nuxt.config.ts` key order, `tsconfig.json` shape) and `modules.md` as last verified against `create-nuxt@3.36.1`, now that Stage 1 runs unpinned.
+
 ## [1.16.1] - 2026-07-02
 
 ### Fixed

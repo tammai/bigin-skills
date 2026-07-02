@@ -15,7 +15,7 @@ The BFF preset is installed by default. Optional modules and the Drizzle/D1 laye
 | `tailwindcss` | Styling engine (via `@nuxt/ui`) |
 | `vue-tsc`, `typescript` | Required by `nuxt typecheck` |
 
-The `--template ui` init installs whatever versions `create-nuxt@3.36.1` bundled — not necessarily current. `references/bootstrap.md` → Stage 1b immediately refreshes all of these (plus `nuxt`, `@pinia/nuxt`, `nuxt-auth-utils`, `@vueuse/nuxt`) per `VERSION_POLICY`, so a stale template snapshot never reaches the scaffolded app.
+The `--template ui` init installs whatever versions the resolved `create-nuxt@latest` release bundled at publish time — not necessarily current. `references/bootstrap.md` → Stage 1b immediately refreshes all of these (plus `nuxt`, `@pinia/nuxt`, `nuxt-auth-utils`, `@vueuse/nuxt`) per `VERSION_POLICY`, so a stale template snapshot never reaches the scaffolded app.
 
 The template also ships the eslint stylistic config (`commaDangle: 'never'`, `braceStyle: '1tbs'`), `app.vue`, `app.config.ts`, `pages/index.vue`, `eslint.config.mjs`, and `main.css`.
 
@@ -65,4 +65,4 @@ When opted in (`WANT_DRIZZLE = yes`):
 
 - **Node.js 22+** (Nuxt 4 minimum; active LTS recommended).
 - **pnpm** (the only supported package manager for this stack).
-- `nuxi module add` resolves **latest** versions (no pin). Document the tested `create-nuxt` / Node version; re-validate periodically.
+- `nuxi module add` resolves **latest** versions (no pin), same as Stage 1's now-unpinned `create-nuxt@latest`. Re-verify Stage 1/Stage 2b behavior reactively if `create-nuxt` or `nuxi` start failing — not on a fixed schedule.

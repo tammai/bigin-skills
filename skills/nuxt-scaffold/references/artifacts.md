@@ -1,5 +1,7 @@
 # Artifacts — files written into the scaffolded project
 
+> Template-content assumptions below (files/keys provided, default theme colors, key order, `tsconfig.json` shape) were last verified against `create-nuxt@3.36.1`'s `ui` template. Stage 1 now runs `create-nuxt@latest` (unpinned) — re-verify these if a future release changes the template and something here starts failing lint/typecheck.
+
 The `--template ui` init already provides a working Nuxt UI app: `nuxt.config.ts` (with `@nuxt/eslint` + `@nuxt/ui` modules and the stylistic eslint config), `app/app.vue` (landing page), `app/pages/index.vue`, `app/app.config.ts` (theme), `eslint.config.mjs`, `app/assets/css/main.css`, and `tsconfig.json`. **Do not overwrite those** — only *merge* the specific keys listed below and add new files.
 
 The new code follows the **BFF proxy** convention: the Nuxt server (`server/api/`) is the sole caller of the backend; the browser calls same-origin `/api/*` only, never attaching auth headers or knowing the backend URL.
@@ -10,7 +12,7 @@ Substitute `{PROJECT_NAME}`, `{PRIMARY}`, `{NEUTRAL}`, `{D1_DATABASE_ID}`, `{COM
 
 ## nuxt.config.ts (merge — add one key)
 
-The template's `nuxt.config.ts` already has these top-level keys in this order: `modules`, `devtools`, `css`, `routeRules`, `compatibilityDate`, `eslint` — that order is enforced by the `nuxt/nuxt-config-keys-order` ESLint rule, and `eslint --fix` won't cleanly relocate a misplaced key's comment for you. Insert `runtimeConfig` **between `css` and `routeRules`**, with the comment on its own line above it (a trailing comment here trips `@stylistic/no-multi-spaces` and doesn't survive `--fix`):
+The template's `nuxt.config.ts` already has these top-level keys in this order: `modules`, `devtools`, `css`, `routeRules`, `compatibilityDate`, `eslint` — that order is enforced by the `nuxt/nuxt-config-keys-order` ESLint rule, and `eslint --fix` won't cleanly relocate a misplaced key's comment for you. (Last verified against `create-nuxt@3.36.1`/`ui` template — re-check this order if `pnpm lint` starts failing on `nuxt.config.ts`.) Insert `runtimeConfig` **between `css` and `routeRules`**, with the comment on its own line above it (a trailing comment here trips `@stylistic/no-multi-spaces` and doesn't survive `--fix`):
 
 ```ts
   // server-only; set via NUXT_BACKEND_URL env
@@ -21,7 +23,7 @@ The template's `nuxt.config.ts` already has these top-level keys in this order: 
 
 > For SSR-safe Pinia Colada queries (server-rendered `useQuery` results hydrated to the client), add `'@pinia/colada/nuxt'` to the `modules` array. The sample `session.ts` store is client-fetched (auth-dependent), so the module is optional for the default BFF pattern.
 
-> **Trailing newline:** the `create-nuxt@3.36.1` template's `nuxt.config.ts` already ships *without* a trailing newline — this is true before this merge even touches the file, on every scaffold, not just when `image` is selected. `@stylistic/eol-last` fails `pnpm lint` on this file unless it's fixed. After merging `runtimeConfig` (and the `image` module registration in Stage 2b, if applicable), confirm the file ends with `\n` — append one if not, or run `pnpm exec eslint --fix nuxt.config.ts` once as part of this stage.
+> **Trailing newline:** as of `create-nuxt@3.36.1`, the `ui` template's `nuxt.config.ts` ships *without* a trailing newline — this was true before this merge even touches the file, on every scaffold, not just when `image` is selected. `@stylistic/eol-last` fails `pnpm lint` on this file unless it's fixed. Since Stage 1 now runs `create-nuxt@latest` (unpinned), re-check whether this still reproduces; until re-verified, treat it as still present. After merging `runtimeConfig` (and the `image` module registration in Stage 2b, if applicable), confirm the file ends with `\n` — append one if not, or run `pnpm exec eslint --fix nuxt.config.ts` once as part of this stage.
 
 ---
 
@@ -71,7 +73,7 @@ export default defineEventHandler(async (event) => {
 
 Augments `nuxt-auth-utils`' `SecureSessionData` (not `User`) so `secure.token` type-checks. `secure` is the sealed-session field that `nuxt-auth-utils` keeps server-only — putting the token there instead of on `User` is what actually keeps it out of the browser (`User` fields ARE returned by `/api/_auth/session`). Lives at `shared/types/auth.d.ts` per Nuxt 4 conventions.
 
-> Do **not** add a `tsconfig.json` `include` entry for this. The current `--template ui` ships a solution-style `tsconfig.json` (`"files": []` + `"references"` to per-layer `.nuxt/tsconfig.*.json` projects, no `extends`) — adding a plain `include` key to it breaks `pnpm type-check` outright (`TS6306`/`TS6310`, referenced projects must be `composite: true`). It's also unnecessary: Nuxt 4 already auto-generates `.nuxt/tsconfig.shared.json` covering `shared/**/*`, so this file type-checks with zero `tsconfig.json` changes.
+> Do **not** add a `tsconfig.json` `include` entry for this. The current `--template ui` ships a solution-style `tsconfig.json` (`"files": []` + `"references"` to per-layer `.nuxt/tsconfig.*.json` projects, no `extends`) — adding a plain `include` key to it breaks `pnpm type-check` outright (`TS6306`/`TS6310`, referenced projects must be `composite: true`). It's also unnecessary: Nuxt 4 already auto-generates `.nuxt/tsconfig.shared.json` covering `shared/**/*`, so this file type-checks with zero `tsconfig.json` changes. (Last verified against `create-nuxt@3.36.1`/`ui` template — re-check this shape if `pnpm type-check` starts failing here.)
 
 ```ts
 declare module '#auth-utils' {
