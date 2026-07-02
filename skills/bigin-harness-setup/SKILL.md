@@ -168,6 +168,33 @@ If yes: read from `references/files-shared.md` → `## code-reviewer agent`. Wri
 
 ---
 
+## Phase 5.5: Knowledge Bundle (optional) / Gói tri thức (tùy chọn)
+
+Ask:
+```
+Add the Knowledge Bundle convention? (yes/no)
+Structured domain knowledge under knowledge/ — concept files with frontmatter, linked from an index, validated by a script. See references/knowledge-bundle.md for the spec.
+```
+
+If yes, set `KNOWLEDGE_BUNDLE = true`. Read all templates from `references/knowledge-bundle.md`. Replace `{DATE}` with today's date in ISO 8601 (`YYYY-MM-DD`) in every template before writing.
+
+1. **Rule file** — `## knowledge.md` → write to `.claude/rules/knowledge.md`. Skip if `INSTALL_MODE=new` and it exists.
+2. **Starter bundle** — write each (skip existing under `INSTALL_MODE=new`):
+   - `## knowledge/meta/knowledge-bundle-spec.md` → `knowledge/meta/knowledge-bundle-spec.md`
+   - `## knowledge/index.md` → `knowledge/index.md`
+   - `## knowledge/contracts/openapi-contract.md` → `knowledge/contracts/openapi-contract.md`
+   - `## knowledge/constraints/agent-rules.md` → `knowledge/constraints/agent-rules.md`
+   - `## knowledge/log.md` → `knowledge/log.md`
+3. **Validator** — `## tools/knowledge_validate.py` → `tools/knowledge_validate.py`, then `chmod +x tools/knowledge_validate.py`.
+4. **Wire into the enforcement gate.** If `scripts/pre-commit.sh` exists (created in Phase 5-1), append a step running `uv run tools/knowledge_validate.py`. If the repo instead uses `simple-git-hooks`/`husky` (Phase 5-1 skipped creating our script), add the same command to that existing hook config rather than creating a second script.
+5. **Wire into CLAUDE.md.** Append one line under the profile's `CLAUDE.md` (written in Phase 2): `For system/domain context, read knowledge/index.md before non-trivial changes.`
+6. **Wire into AI_REVIEW_CHECKLIST.md.** Append one line to the `## Scope` section (written in Phase 4): `- [ ] Behavior-changing PR → related knowledge/ concept updated?`
+7. If the repo has CI config (`.gitlab-ci.yml`, `.github/workflows/*.yml`, etc.), do **not** edit it automatically — note in the Phase 7 summary that `uv run tools/knowledge_validate.py` should also be added as a CI job/step there.
+
+If no, leave `KNOWLEDGE_BUNDLE` unset and skip everything above — no other phase depends on it.
+
+---
+
 ## Phase 6: Update README / Cập nhật README
 
 Check for `README.md`. If found, check whether it already contains `## AI Onboarding`.
@@ -211,15 +238,18 @@ Created:
   .claude/rules/conventions.md
   scripts/pre-commit.sh [skipped if a hook manager already exists]
   [.claude/agents/code-reviewer.md] (if opted in)
+  [Knowledge Bundle: .claude/rules/knowledge.md, knowledge/*, tools/knowledge_validate.py] (if opted in)
 
 Enabled:
   git repo [initialized/already present]
   pre-commit gate [scripts/pre-commit.sh hook | existing simple-git-hooks/husky]
+  [knowledge bundle validation wired into the pre-commit gate] (if opted in)
 
 Next steps:
   1. {LINT} && {TYPECHECK} && {TEST}
   2. Read CLAUDE.md + AI_TASK_GUIDE.md
   3. One scoped task through all gates — confirm the harness works.
+  [4. Add `uv run tools/knowledge_validate.py` to CI — not wired automatically.] (if opted in and CI config detected)
 ```
 
 ---
@@ -233,6 +263,7 @@ Next steps:
 - `git init` — only if not already a repo (never re-init).
 - pre-commit hook — skip if a hook manager (simple-git-hooks/husky) or hook already exists; otherwise install only if absent or already ours, confirming before replacing a foreign hook.
 - Nuxt scaffold (Phase 0.5) — only if `PROFILE=nuxt` and no `nuxt.config.ts`; delegates to the `nuxt-scaffold` skill (no clone, no embedded copy into the target). When `SCAFFOLDED`, do not overwrite the scaffold's `.vscode/settings.json` or pre-commit — overlay additively.
+- Knowledge Bundle (Phase 5.5) — opt-in only (`KNOWLEDGE_BUNDLE`); skip entirely if declined. Never edit unknown CI config automatically — only note it's needed.
 - Never delete files not part of the harness.
 
 ---
@@ -252,6 +283,7 @@ Next steps:
 - [ ] **nuxt only** — `.vscode/settings.json` with ESLint format-on-save (Prettier disabled), merged if it existed
 - [ ] git repo initialized (if it wasn't one) and `.git/hooks/pre-commit` installed (or foreign hook left untouched with confirmation)
 - [ ] `README.md` — AI Onboarding section appended (if README existed)
+- [ ] **if opted in** — Knowledge Bundle: `.claude/rules/knowledge.md`, `knowledge/{meta,contracts,constraints}/*.md`, `knowledge/index.md`, `knowledge/log.md`, `tools/knowledge_validate.py` (executable), wired into the pre-commit gate, `CLAUDE.md` + `AI_REVIEW_CHECKLIST.md` each get one added line
 
 ---
 
@@ -262,3 +294,4 @@ Next steps:
 - `references/profile-nodejs.md` — templates for nodejs profile
 - `references/files-shared.md` — shared files: security, architecture, AI task guide, review checklist, code-reviewer agent
 - `references/hook-guard.md` — bash-guard.py script + pre-commit scripts per profile
+- `references/knowledge-bundle.md` — optional Knowledge Bundle: rule file, spec, starter concept files, validator script

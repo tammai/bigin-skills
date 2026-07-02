@@ -14,8 +14,8 @@ A **Claude Code plugin** (`bigin-skills`) — a collection of skills installed i
   marketplace.json   ← marketplace registry entry (used by /plugin marketplace)
 skills/
   bigin-harness-setup/   ← scaffolds an AI workflow harness into a target repo
-    SKILL.md             ← 8-phase workflow
-    references/          ← per-profile templates + shared files + hook/guard scripts
+    SKILL.md             ← phased workflow (stack profile + optional knowledge bundle)
+    references/          ← per-profile templates + shared files + hook/guard scripts + knowledge bundle
   nuxt-scaffold/         ← scaffolds a Nuxt 4 BFF app (npm create nuxt, no clone)
     SKILL.md
     references/          ← bootstrap, modules, artifacts
@@ -44,6 +44,7 @@ Key reference files:
 - `references/profile-{nuxt,go,nodejs}.md` — per-profile `CLAUDE.md`, `conventions.md`, architecture addendum, `settings.json`, commands
 - `references/files-shared.md` — `security.md`, `architecture.md` base, `AI_TASK_GUIDE.md`, `AI_REVIEW_CHECKLIST.md`, optional `code-reviewer` agent
 - `references/hook-guard.md` — `bash-guard.py` + per-profile `pre-commit.sh`
+- `references/knowledge-bundle.md` — optional Knowledge Bundle: `.claude/rules/knowledge.md`, `knowledge/` starter concept files, `tools/knowledge_validate.py`
 
 The skill is **idempotent** — re-running on a set-up repo never clobbers without confirmation; `settings.json` is merged, `README.md` is append-only.
 

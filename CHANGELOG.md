@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.14.0] - 2026-07-02
+
+### Added
+
+- **Knowledge Bundle convention (`bigin-harness-setup` Phase 5.5, optional):** an internal knowledge-management format inspired by Open Knowledge Format v0.1 (no OKF tooling dependency). Scaffolds `knowledge/` — one concept file per Markdown file, required `type` frontmatter (`Index`, `Contract`, `System`, `Domain`, `Table`, `Metric`, `Playbook`, `Constraint`, `Log`), bundle-relative linking, link-don't-copy pointing to sources of truth (`openapi.yaml`, `.claude/rules/`, source code). New `references/knowledge-bundle.md` holds the templates: `.claude/rules/knowledge.md` rule file, `knowledge/meta/knowledge-bundle-spec.md`, starter `knowledge/index.md` + `knowledge/contracts/openapi-contract.md` + `knowledge/constraints/agent-rules.md` + `knowledge/log.md`, and `tools/knowledge_validate.py` — a PEP 723 (`uv run`-compatible) validator that hard-fails on missing/invalid frontmatter, disallowed `type`, or broken bundle-relative links, and warns on missing description/tags or files unreachable from the index.
+- When opted in, the validator is wired into the existing pre-commit gate, and one line each is appended to `CLAUDE.md` (pointer to `knowledge/index.md`) and `AI_REVIEW_CHECKLIST.md` (behavior-changing PR → concept file updated). CI wiring is never done automatically — the setup summary flags it if CI config is detected.
+
 ## [1.13.0] - 2026-07-01
 
 ### Added
