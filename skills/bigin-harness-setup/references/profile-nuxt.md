@@ -2,7 +2,7 @@
 
 Stack: Nuxt 4 fullstack (Cloudflare Pages), Nuxt ESLint, Pinia + Pinia Colada, VueUse, Nuxt UI, nuxt-auth-utils, Zod, Vitest — BFF proxy layer (no Drizzle/D1/KV/R2; the backend owns data persistence)
 
-Empty repo → scaffolded from `tammai/nuxt-fullstack-template` (SKILL.md Phase 0.5 / `references/scaffold-nuxt.md`).
+Empty repo → scaffolded by the **`nuxt-scaffold`** skill (non-interactive `npm create nuxt@latest` + BFF preset; no GitHub clone). See `skills/nuxt-scaffold/`.
 
 ---
 
@@ -164,6 +164,8 @@ Formatting is ESLint via `@nuxt/eslint`. **Prettier is disabled** — never add 
 
 ## settings.json Template
 
+Governance superset: `permissions` + `PostToolUse` lint-fix (the `nuxt-scaffold` baseline) **plus** the `PreToolUse` `bash-guard.py` hook (governance). Used when onboarding an existing nuxt repo (Phase 5-3). Keep the `permissions` / `PostToolUse` keys in sync with `skills/nuxt-scaffold/references/artifacts.md`.
+
 ```json
 {
   "permissions": {
@@ -173,6 +175,8 @@ Formatting is ESLint via `@nuxt/eslint`. **Prettier is disabled** — never add 
       "Bash(pnpm lint:*)",
       "Bash(pnpm test:*)",
       "Bash(pnpm type-check:*)",
+      "Bash(pnpm typecheck:*)",
+      "Bash(npx nuxi:*)",
       "Bash(pnpm add:*)",
       "Bash(pnpm remove:*)",
       "Bash(pnpm install:*)",
@@ -205,7 +209,7 @@ Formatting is ESLint via `@nuxt/eslint`. **Prettier is disabled** — never add 
         "hooks": [
           {
             "type": "command",
-            "command": "pnpm lint --fix"
+            "command": "pnpm lint --fix --cache"
           }
         ]
       }
@@ -218,7 +222,7 @@ Formatting is ESLint via `@nuxt/eslint`. **Prettier is disabled** — never add 
 
 ## .vscode/settings.json Template
 
-Editor format-on-save through the ESLint extension (matches `nuxt-fullstack-template`). Merge into an existing `.vscode/settings.json` rather than overwriting.
+Editor format-on-save through the ESLint extension (matches the `nuxt-scaffold` skill's baseline). Merge into an existing `.vscode/settings.json` rather than overwriting. Keep in sync with `skills/nuxt-scaffold/references/artifacts.md`.
 
 ```json
 {

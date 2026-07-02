@@ -21,6 +21,10 @@ import re
 data = json.load(sys.stdin)
 command = data.get("tool_input", {}).get("command", "")
 
+# Strip quoted strings so flags inside commit messages don't trigger false positives.
+scrubbed = re.sub(r"'[^']*'", "''", command)
+scrubbed = re.sub(r'"[^"]*"', '""', scrubbed)
+
 BLOCKED = [
     (r"--no-verify", "Error: --no-verify bypasses pre-commit gates. Fix the underlying issue."),
     # -n only in the flag region (a chain of -flags after `commit`), never inside a quoted message
@@ -31,7 +35,7 @@ BLOCKED = [
 ]
 
 for pattern, message in BLOCKED:
-    if re.search(pattern, command):
+    if re.search(pattern, scrubbed):
         print(message, file=sys.stderr)
         sys.exit(2)  # exit 2 = block the tool call in Claude Code
 ```
@@ -74,8 +78,8 @@ set -e
 
 echo "Running pre-commit gates..."
 
-echo "  vet..."
-go vet ./...
+echo "  build/typecheck..."
+go build ./...
 
 echo "  lint..."
 if command -v staticcheck >/dev/null 2>&1; then

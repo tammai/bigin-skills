@@ -12,6 +12,7 @@ Skills for standardized, AI-assisted development across BigIn's stacks.
 | Skill                  | Purpose                                                                                                  |
 | ---------------------- | -------------------------------------------------------------------------------------------------------- |
 | **bigin-harness-setup** | Scaffolds an AI workflow harness into a repo — `CLAUDE.md`, scoped rules, and enforcement gates. Profiles: `nuxt`, `go`, `nodejs`. |
+| **nuxt-scaffold**       | Scaffolds a Nuxt 4 BFF app from scratch — non-interactive `npm create nuxt@latest` + BFF preset + config/sample code. No GitHub clone. |
 | **session-handoff**     | Saves session state (tasks, decisions, uncommitted changes) to `SESSION.md` and restores it on resume.   |
 
 ---
@@ -31,13 +32,13 @@ Sets up a consistent "harness level" on any repo so team members of mixed skill 
 
 | Profile  | Stack                                                                          |
 | -------- | ------------------------------------------------------------------------------ |
-| `nuxt`   | Nuxt 4 fullstack (Cloudflare Pages), Nuxt ESLint, Pinia + Pinia Colada, VueUse, Nuxt UI, nuxt-auth-utils, Zod, Vitest — BFF proxy layer (no D1/KV/R2; backend owns data). Empty repo → scaffolded from `tammai/nuxt-fullstack-template` |
+| `nuxt`   | Nuxt 4 fullstack (Cloudflare Pages), Nuxt ESLint, Pinia + Pinia Colada, VueUse, Nuxt UI, nuxt-auth-utils, Zod, Vitest — BFF proxy layer (no D1/KV/R2; backend owns data). Empty repo → scaffolded by the `nuxt-scaffold` skill (`npm create nuxt@latest`, no clone) |
 | `go`     | Go REST API (Gin)                                                              |
 | `nodejs` | Node.js TypeScript REST API                                                    |
 
 ### What gets generated
 
-**nuxt on an empty repo:** the full app is first scaffolded from `tammai/nuxt-fullstack-template` (`nuxt.config.ts`, modules, `eslint.config.mjs`, `app/`, `server/`, `simple-git-hooks`). Drizzle/D1/KV bindings are stripped during scaffold — the Nuxt app is a BFF proxy layer; the backend owns data persistence. The harness layer is then overlaid additively.
+**nuxt on an empty repo:** the full app is first scaffolded **by the `nuxt-scaffold` skill** — non-interactive `npm create nuxt@latest` + the BFF preset modules + config and sample code (`nuxt.config.ts`, `eslint.config.mjs`, `app/`, `server/`, `simple-git-hooks`). The Nuxt app is a BFF proxy layer (no DB by default — the backend owns data persistence; Drizzle + D1 is an opt-in). The harness governance layer is then overlaid additively.
 
 ```
 your-repo/
@@ -75,7 +76,7 @@ The skill detects the stack profile (or asks), confirms before overwriting anyth
 
 - **`scripts/pre-commit.sh`** — runs lint + typecheck + tests; fails closed. The skill installs it as a git hook (and `git init`s the repo if needed).
 - **`.claude/guards/bash-guard.py`** — a `PreToolUse` hook that blocks the agent from weakening its own gates (`--no-verify`, `git commit -n`, force-push to main). `--force-with-lease` on a feature branch is allowed.
-- **Auto-format** (nuxt) — ESLint via `@nuxt/eslint` is the only formatter (Prettier disabled). A `PostToolUse` hook runs `pnpm lint --fix` after every agent Write/Edit; humans get the same via `.vscode/settings.json` format-on-save. Aligned with `nuxt-fullstack-template`. No custom script.
+- **Auto-format** (nuxt) — set up by the `nuxt-scaffold` skill. ESLint via `@nuxt/eslint` is the only formatter (Prettier disabled). A `PostToolUse` hook runs `pnpm lint --fix` after every agent Write/Edit; humans get the same via `.vscode/settings.json` format-on-save. No custom script.
 - **`.claude/settings.json`** — pre-approves safe profile commands to reduce prompt friction.
 
 ---
@@ -113,6 +114,12 @@ bigin-skills/
 │   │       ├── profile-nodejs.md
 │   │       ├── files-shared.md    ← security, architecture, task guide, review checklist, code-reviewer
 │   │       └── hook-guard.md      ← bash-guard.py + pre-commit scripts per profile
+│   ├── nuxt-scaffold/             ← Nuxt 4 BFF app scaffolder (npm create nuxt, no clone)
+│   │   ├── SKILL.md
+│   │   └── references/
+│   │       ├── bootstrap.md       ← non-interactive init + module install + verify
+│   │       ├── modules.md         ← BFF preset, optional modules, Drizzle opt-in
+│   │       └── artifacts.md       ← config + sample code written into the project
 │   └── session-handoff/           ← session state persistence
 │       └── SKILL.md
 ├── CHANGELOG.md

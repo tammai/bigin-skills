@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.0] - 2026-07-01
+
+### Added
+
+- **`nuxt-scaffold` skill:** New standalone skill (`skills/nuxt-scaffold/`) that scaffolds a Nuxt 4 BFF app **from scratch** — non-interactive `npm create nuxt@latest` (`--template ui`, `--packageManager pnpm`, `--gitInit`, `--force`), then the BFF preset modules (`pinia`, `nuxt-auth-utils`, `@vueuse/nuxt`, `@pinia/colada`, `zod`, `vitest`, `@nuxt/test-utils`, `simple-git-hooks`, `lint-staged`, `openapi-typescript`), then config + sample BFF code (proxy route, Pinia store, `vitest.config.ts`, `openapi.yaml` stub). Optional module extras (`image`, `content`) and an opt-in Drizzle + Cloudflare D1 layer. No GitHub template clone. Usable standalone and invoked by `bigin-harness-setup` Phase 0.5.
+
+### Changed
+
+- **bigin-harness-setup — Phase 0.5 delegates to the `nuxt-scaffold` skill** instead of cloning `tammai/nuxt-fullstack-template` and embedding a scaffold skill into the target. No more SSH/clone dependency; the project starts from a clean `npm create nuxt` base with `--gitInit`.
+- **Ownership split (prevents drift):** `bash-guard.py` + its `PreToolUse` hook remain governance (harness). `nuxt-scaffold` writes `.claude/settings.json` with only `permissions` + a `PostToolUse` lint-fix hook; the harness Phase 5-3 merges the `PreToolUse` bash-guard hook on top (preserving the scaffold's `PostToolUse`). `profile-nuxt.md`'s `## settings.json Template` is now documented as the governance superset (used when onboarding an existing nuxt repo).
+- **Phase 2 (CLAUDE.md):** the SCAFFOLDED "append pointer to the template's CLAUDE.md" special-case is removed — the scaffold no longer ships a `CLAUDE.md`, so the harness writes it fresh.
+- **profile-nuxt.md:** line 5 now points to the `nuxt-scaffold` skill; the stale "matches nuxt-fullstack-template" note updated.
+
+### Removed
+
+- **`references/scaffold-nuxt.md`** (clone-based embedded scaffold) — superseded by the standalone `nuxt-scaffold` skill. The `git clone tammai/nuxt-fullstack-template` step is gone from the scaffold flow.
+
+---
+
 ## [1.12.2] - 2026-06-30
 
 ### Fixed

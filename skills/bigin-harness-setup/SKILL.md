@@ -36,11 +36,9 @@ Store result as `PROFILE`. Load `references/profile-{PROFILE}.md` for all templa
 
 **nuxt profile only.** If `PROFILE = nuxt` **and** the repo has no `nuxt.config.ts`:
 
-1. **Generate the scaffold skill.** Read the `## SKILL.md Content` block from `references/scaffold-nuxt.md` and write it verbatim to `.claude/skills/nuxt-scaffold/SKILL.md` in the target project (create the directory if needed). Skip if the file already exists. This skill is self-contained — no dependency on any externally-installed skills.
+**Delegate to the `nuxt-scaffold` skill.** Load and follow `skills/nuxt-scaffold/SKILL.md` (installed as part of this same plugin) from its Phase 1 through Phase 8. It scaffolds the Nuxt 4 BFF app **from scratch** — non-interactive `npm create nuxt@latest` + the BFF preset + config + sample code. **No GitHub template clone, no embedded skill copy.** Do not write any project files yourself while it runs.
 
-2. **Execute the scaffold now.** Follow the steps defined in that content: confirm with the user → clone `tammai/nuxt-fullstack-template` in place → customize + strip DB layer → `pnpm install` + `pnpm simple-git-hooks`.
-
-3. Set `SCAFFOLDED = true` when the scaffold completes (the governance overlay reconciles with what the template already provides — see Phases 1 and 5).
+Set `SCAFFOLDED = true` when `nuxt-scaffold` returns (the governance overlay reconciles with what the scaffold provides — see Phases 1 and 5).
 
 Skip this phase entirely if `nuxt.config.ts` already exists (onboarding an existing repo) or for the `go` / `nodejs` profiles.
 
@@ -48,7 +46,7 @@ Skip this phase entirely if `nuxt.config.ts` already exists (onboarding an exist
 
 ## Phase 1: Detect Existing Harness / Phát hiện harness hiện có
 
-If `SCAFFOLDED = true`, the template already brought `CLAUDE.md`, `.vscode/settings.json`, eslint config, and a `simple-git-hooks` pre-commit gate. Treat those as pre-existing (do not clobber) and skip straight to adding the BigIn guardrails the template lacks.
+If `SCAFFOLDED = true`, the `nuxt-scaffold` skill already brought `nuxt.config.ts`, `app/`, `server/`, `eslint.config.mjs`, `.claude/settings.json` (permissions + a `PostToolUse` lint-fix hook), `.vscode/settings.json`, and a `simple-git-hooks` pre-commit gate. Treat those as pre-existing (do not clobber) and skip straight to adding the BigIn guardrails the scaffold lacks: `bash-guard.py` (+ its `PreToolUse` hook), governance rules, and AI files.
 
 Check for existing harness files:
 ```
@@ -77,11 +75,7 @@ Read the content from `references/profile-{PROFILE}.md` → `## CLAUDE.md Templa
 Write to `CLAUDE.md` in the project root.
 Skip if `INSTALL_MODE=new` and `CLAUDE.md` already exists.
 
-**If `SCAFFOLDED = true`** (the template shipped its own CLAUDE.md): do **not** overwrite it. Instead append a short pointer block so both coexist:
-```markdown
-## BigIn AI Guardrails
-Task workflow: `AI_TASK_GUIDE.md` · Done = `AI_REVIEW_CHECKLIST.md` · Rules: `.claude/rules/`
-```
+(The `nuxt-scaffold` skill does **not** write a `CLAUDE.md` — governance is this skill's job — so for `SCAFFOLDED = true` nuxt repos there is no existing `CLAUDE.md` to preserve; write it fresh.)
 
 ---
 
@@ -148,14 +142,11 @@ Read from `references/hook-guard.md` → `## bash-guard.py`. Write to `.claude/g
 
 ### 5-3. .claude/settings.json
 
-Read the template from `references/profile-{PROFILE}.md` → `## settings.json Template`.
+For **nuxt**:
+- **If `SCAFFOLDED = true`**: the `nuxt-scaffold` skill already wrote `.claude/settings.json` with `permissions.allow` + a `PostToolUse` `pnpm lint --fix` hook. Merge **only** the `PreToolUse` `bash-guard.py` hook (and any missing `permissions.allow` entries). Do **not** re-add `PostToolUse` — it is already present. Merge per-event; show additions before writing.
+- **Otherwise** (onboarding an existing nuxt repo): read the full template from `references/profile-nuxt.md` → `## settings.json Template`. If `.claude/settings.json` exists, merge the `hooks` block + missing `permissions.allow` entries (per-event, never drop the user's); if not, write fresh.
 
-If `.claude/settings.json` already exists:
-- **Merge**: add the `hooks` block (for nuxt this includes **both** the `PreToolUse` bash guard and the `PostToolUse` ESLint formatter) and any missing `permissions.allow` entries. Never remove existing entries.
-- If the file already has a `hooks` block, merge per-event: append our hook entries without dropping the user's.
-- Show the additions before writing.
-
-If it doesn't exist: write fresh.
+For **go** / **nodejs**: read the template from `references/profile-{PROFILE}.md` → `## settings.json Template`. If the file exists, merge the `hooks` block + missing `permissions.allow` entries (per-event); otherwise write fresh.
 
 ### 5-3b. .vscode/settings.json (nuxt only)
 
@@ -207,18 +198,17 @@ Print a short summary of what was created and what's next:
 ```
 BigIn harness setup complete for profile: {PROFILE}
 
-[if SCAFFOLDED] Generated .claude/skills/nuxt-scaffold/SKILL.md and scaffolded Nuxt app from tammai/nuxt-fullstack-template.
+[if SCAFFOLDED] Scaffolded the Nuxt 4 BFF app via the `nuxt-scaffold` skill.
 
 Created:
-  .claude/skills/nuxt-scaffold/SKILL.md [nuxt + empty repo only]
   AI_TASK_GUIDE.md
   AI_REVIEW_CHECKLIST.md
   .claude/rules/security.md
   .claude/rules/architecture.md
   .claude/guards/bash-guard.py
   .claude/settings.json [created/merged]
-  CLAUDE.md [created | pointer appended to template's]
-  .claude/rules/conventions.md [skipped if scaffolded — see template + profile]
+  CLAUDE.md [created]
+  .claude/rules/conventions.md
   scripts/pre-commit.sh [skipped if a hook manager already exists]
   [.claude/agents/code-reviewer.md] (if opted in)
 
@@ -242,16 +232,16 @@ Next steps:
 - `README.md` — append only; never overwrite; check for `## AI Onboarding` first.
 - `git init` — only if not already a repo (never re-init).
 - pre-commit hook — skip if a hook manager (simple-git-hooks/husky) or hook already exists; otherwise install only if absent or already ours, confirming before replacing a foreign hook.
-- Nuxt scaffold (Phase 0.5) — only if `PROFILE=nuxt` and no `nuxt.config.ts`; confirm before writing. Generates `.claude/skills/nuxt-scaffold/SKILL.md` (skip if already exists), then executes it. When `SCAFFOLDED`, do not overwrite the template's `CLAUDE.md` / `.vscode/settings.json` / pre-commit — overlay additively.
+- Nuxt scaffold (Phase 0.5) — only if `PROFILE=nuxt` and no `nuxt.config.ts`; delegates to the `nuxt-scaffold` skill (no clone, no embedded copy into the target). When `SCAFFOLDED`, do not overwrite the scaffold's `.vscode/settings.json` or pre-commit — overlay additively.
 - Never delete files not part of the harness.
 
 ---
 
 ## Output Checklist
 
-- [ ] **nuxt + empty repo** — `.claude/skills/nuxt-scaffold/SKILL.md` generated (Phase 0.5) and scaffold executed from `tammai/nuxt-fullstack-template`
-- [ ] `CLAUDE.md` — profile-specific, ≤30 lines (or pointer appended if the template shipped one)
-- [ ] `.claude/rules/conventions.md` — profile-specific patterns (skipped when scaffolded — template + profile cover it)
+- [ ] **nuxt + empty repo** — `nuxt-scaffold` skill executed (Phase 0.5); `nuxt.config.ts` now present
+- [ ] `CLAUDE.md` — profile-specific, ≤30 lines
+- [ ] `.claude/rules/conventions.md` — profile-specific patterns
 - [ ] `.claude/rules/security.md` — shared security rules
 - [ ] `.claude/rules/architecture.md` — shared base + profile addendum
 - [ ] `AI_TASK_GUIDE.md` — spec gate + task workflow
@@ -267,7 +257,6 @@ Next steps:
 
 ## References
 
-- `references/scaffold-nuxt.md` — in-place Nuxt scaffold from the fullstack template (Phase 0.5)
 - `references/profile-nuxt.md` — templates for nuxt profile
 - `references/profile-go.md` — templates for go profile
 - `references/profile-nodejs.md` — templates for nodejs profile
