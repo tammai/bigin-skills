@@ -66,18 +66,26 @@ Customize the scaffold (press Enter to keep the default):
 
 3. Theme — neutral color (Nuxt UI)
    > Default: slate
-   > Options: slate / gray / zinc / neutral / stone
+   > Options: slate / gray / zinc / neutral / stone / taupe / mauve / mist / olive
 
 4. Optional modules (comma-separated, or Enter for none)
    > Options: image / content   (fonts / icon / color-mode already come with Nuxt UI)
 
-5. Database layer — add Drizzle + Cloudflare D1? (BFF default = no DB)
+5. Dependency freshness for framework packages (nuxt, @nuxt/ui, tailwindcss, eslint,
+   vue-tsc, typescript, @pinia/nuxt, nuxt-auth-utils, @vueuse/nuxt)
+   > Default: capped — latest minor/patch within the major this scaffold ships (safe)
+   > Options: capped / latest (latest = always newest release, including a future major —
+              may need manual fixes until this skill is re-validated against it)
+
+6. Database layer — add Drizzle + Cloudflare D1? (BFF default = no DB)
    > Default: no   (yes / no)
 
 [If WANT_DRIZZLE = yes:]
-6. Cloudflare D1 database ID (from `wrangler d1 list` — the UUID `wrangler d1 create` returns)
+7. Cloudflare D1 database ID (from `wrangler d1 list` — the UUID `wrangler d1 create` returns)
    > Default: leave as placeholder (replace before first deploy)
 ```
+
+Store `VERSION_POLICY` (`capped` or `latest`).
 
 If `WANT_DRIZZLE = yes`, store `D1_DATABASE_ID` (or the literal `{D1_DATABASE_ID}` if the user accepted the default). Otherwise store the empty string.
 
@@ -87,6 +95,7 @@ Summary:
   project:  <PROJECT_NAME>
   theme:    primary=<PRIMARY>, neutral=<NEUTRAL>
   modules:  <OPT_MODULES or none>
+  deps:     <VERSION_POLICY — capped to current major | latest, including future majors>
   database: <WANT_DRIZZLE — no | Drizzle + D1>
   d1-id:    <D1_DATABASE_ID or "(placeholder — replace before deploy)">
 
@@ -101,6 +110,8 @@ Store `CONFIRM_CUSTOM`. If `no` → stop.
 ## Phase 3: Non-interactive Init / Khởi tạo không tương tác
 
 Follow `references/bootstrap.md` → **Stage 1** (`npm create nuxt@3.36.1 . -- --template ui --packageManager pnpm --gitInit --force --modules pinia,auth-utils,vueuse`). The `--modules` flag installs and registers `@pinia/nuxt`, `nuxt-auth-utils`, and `@vueuse/nuxt` atomically during init. This installs the base dependencies (the `ui` template already brings `@nuxt/ui`, `@nuxt/eslint`, `vue-tsc`) and creates the git repo (`--gitInit` fires only when install runs — do not pair it with `--no-install`). If `npm create` does not forward flags, use the `npx nuxi@3.36.1 init` fallback in `references/bootstrap.md`.
+
+Then follow **Stage 1b** to refresh the template-installed packages (`nuxt`, `@nuxt/ui`, `tailwindcss`, `@nuxt/eslint`, `eslint`, `vue-tsc`, `typescript`, `@pinia/nuxt`, `nuxt-auth-utils`, `@vueuse/nuxt`) per the `VERSION_POLICY` chosen in Phase 2 — this is what keeps the scaffold off a stale `create-nuxt@3.36.1` snapshot.
 
 Run the pre-flight checks in bootstrap.md (Node 22+ and pnpm) before executing Stage 1.
 
@@ -122,7 +133,7 @@ Follow `references/bootstrap.md` → **Stage 2** (`pnpm add @pinia/colada zod` +
 
 Follow `references/bootstrap.md` → **Stage 3** (the artifact-application stage). Read `references/artifacts.md` and write/merge each block, substituting `{PROJECT_NAME}`, `{PRIMARY}`, `{NEUTRAL}`, `{D1_DATABASE_ID}`, and `{COMPAT_DATE}` (generated from today's date: `node -e "console.log(new Date().toISOString().split('T')[0])"`).
 
-- **Merge** (never overwrite): `nuxt.config.ts` (add `compatibilityVersion` + `runtimeConfig` only), `app/app.config.ts` (set theme colors), `package.json`, `tsconfig.json` (add `shared/` to `include`), `.claude/settings.json`, `.vscode/settings.json`.
+- **Merge** (never overwrite): `nuxt.config.ts` (add `runtimeConfig` only, between `css` and `routeRules`), `app/app.config.ts` (set theme colors), `package.json`, `.claude/settings.json`, `.vscode/settings.json`. Do **not** edit `tsconfig.json` — see `artifacts.md` for why.
 - **Write fresh**: `server/api/me.get.ts`, `server/api/login.post.ts`, `server/api/users.get.ts`, `shared/types/auth.d.ts`, `app/stores/session.ts`, `app/stores/session.test.ts`, `vitest.config.ts`, `.prettierignore`, `app/composables/useUsers.ts`, `app/middleware/auth.global.ts`, `server/middleware/auth.ts`, `openapi.yaml`, `.env.example` (and the Drizzle files if opted in).
 - **Do not touch** the template's own `app/app.vue`, `app/pages/index.vue`, `eslint.config.mjs`, or `app/assets/css/main.css`.
 - After writing `.env.example`, verify `.env` is listed in `.gitignore` — append it if missing (before Phase 7's commit).
@@ -133,19 +144,19 @@ Write the Drizzle opt-in blocks only when `WANT_DRIZZLE = yes`.
 
 ## Phase 6: Activate Hooks & Verify / Kích hoạt hook & Kiểm tra
 
-Follow `references/bootstrap.md` → **Stage 4** (`pnpm simple-git-hooks`) and **Stage 5**:
+Follow `references/bootstrap.md` → **Stage 4** (`pnpm approve-builds simple-git-hooks` then `pnpm simple-git-hooks`) and **Stage 5**:
 ```sh
 pnpm lint
 pnpm type-check
 pnpm test
 ```
-`lint`, `type-check`, and `test` must pass before continuing. (The `ui` template pins `@nuxt/ui` ^4, so no v3/v4 fallback is needed. `session.test.ts` was written in Phase 5 — `pnpm test` validates the Vitest + Nuxt + Pinia Colada chain.)
+`lint`, `type-check`, and `test` must pass before continuing. (Stage 1b's safety check already confirmed `nuxt` stayed on v4 before Stage 2 ran, so no v3/v4 fallback is needed here. `session.test.ts` was written in Phase 5 — `pnpm test` validates the Vitest + Nuxt + Pinia Colada chain.)
 
 ---
 
 ## Phase 7: Initial Commit / Commit đầu tiên
 
-Only if `.git` exists and the working tree is dirty (`git status --porcelain` is non-empty — the `--gitInit` flag already creates an initial commit for the template, but Phases 4–6 add uncommitted BFF changes):
+Only if `.git` exists and the working tree is dirty (`git status --porcelain` is non-empty — `--gitInit` only runs `git init`, it does **not** create an initial commit, so this is normally the project's first commit):
 ```sh
 git add -A
 git commit -m "chore: scaffold Nuxt 4 BFF app"
@@ -167,6 +178,8 @@ Next:
      pnpm openapi-types
   3. Overlay governance: run bigin-harness-setup (CLAUDE.md, rules, bash-guard).
   4. Start: pnpm dev
+  [5. VERSION_POLICY=latest was chosen — skim the changelogs for nuxt/@nuxt/ui/tailwindcss
+     (and the other Stage 1b packages) for breaking changes before shipping.] (if VERSION_POLICY=latest)
 ```
 
 ---

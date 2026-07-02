@@ -8,16 +8,20 @@ Substitute `{PROJECT_NAME}`, `{PRIMARY}`, `{NEUTRAL}`, `{D1_DATABASE_ID}`, `{COM
 
 ---
 
-## nuxt.config.ts (merge — add two keys)
+## nuxt.config.ts (merge — add one key)
 
-The template's `nuxt.config.ts` already has `modules`, `devtools`, `css`, `routeRules`, `compatibilityDate`, and the `eslint` stylistic config. Add **only** the server-only backend URL and `compatibilityVersion: 4` (Nuxt 4 explicit opt-in):
+The template's `nuxt.config.ts` already has these top-level keys in this order: `modules`, `devtools`, `css`, `routeRules`, `compatibilityDate`, `eslint` — that order is enforced by the `nuxt/nuxt-config-keys-order` ESLint rule, and `eslint --fix` won't cleanly relocate a misplaced key's comment for you. Insert `runtimeConfig` **between `css` and `routeRules`**, with the comment on its own line above it (a trailing comment here trips `@stylistic/no-multi-spaces` and doesn't survive `--fix`):
 
 ```ts
-  compatibilityVersion: 4,
-  runtimeConfig: { backendUrl: '' }   // server-only; set via NUXT_BACKEND_URL env
+  // server-only; set via NUXT_BACKEND_URL env
+  runtimeConfig: { backendUrl: '' },
 ```
 
+> Do **not** add `compatibilityVersion: 4` — that was a Nuxt 3→4 migration opt-in flag. A project scaffolded via `create-nuxt` already installs Nuxt 4 directly, so the key is stale; current Nuxt versions don't recognize it and strip it on start.
+
 > For SSR-safe Pinia Colada queries (server-rendered `useQuery` results hydrated to the client), add `'@pinia/colada/nuxt'` to the `modules` array. The sample `session.ts` store is client-fetched (auth-dependent), so the module is optional for the default BFF pattern.
+
+> **Trailing newline:** the `create-nuxt@3.36.1` template's `nuxt.config.ts` already ships *without* a trailing newline — this is true before this merge even touches the file, on every scaffold, not just when `image` is selected. `@stylistic/eol-last` fails `pnpm lint` on this file unless it's fixed. After merging `runtimeConfig` (and the `image` module registration in Stage 2b, if applicable), confirm the file ends with `\n` — append one if not, or run `pnpm exec eslint --fix nuxt.config.ts` once as part of this stage.
 
 ---
 
@@ -63,23 +67,11 @@ export default defineEventHandler(async (event) => {
 
 ---
 
-## tsconfig.json (merge — ensure shared/ is compiled)
-
-The `--template ui` init ships a `tsconfig.json` that extends `.nuxt/tsconfig.json`. Ensure `shared/` is included so the `#auth-utils` type augmentation below is picked up by `pnpm type-check`:
-
-```json
-{
-  "include": ["shared/**/*.ts"]
-}
-```
-
-Merge this into the existing `tsconfig.json` — if it already has an `include` array, add `"shared/**/*.ts"` to it. If no `include` key exists, add the block above.
-
----
-
 ## shared/types/auth.d.ts (write)
 
-Augments `nuxt-auth-utils`' `SecureSessionData` (not `User`) so `secure.token` type-checks. `secure` is the sealed-session field that `nuxt-auth-utils` keeps server-only — putting the token there instead of on `User` is what actually keeps it out of the browser (`User` fields ARE returned by `/api/_auth/session`). Lives at `shared/types/auth.d.ts` per Nuxt 4 conventions; ensure `tsconfig.json` includes this path.
+Augments `nuxt-auth-utils`' `SecureSessionData` (not `User`) so `secure.token` type-checks. `secure` is the sealed-session field that `nuxt-auth-utils` keeps server-only — putting the token there instead of on `User` is what actually keeps it out of the browser (`User` fields ARE returned by `/api/_auth/session`). Lives at `shared/types/auth.d.ts` per Nuxt 4 conventions.
+
+> Do **not** add a `tsconfig.json` `include` entry for this. The current `--template ui` ships a solution-style `tsconfig.json` (`"files": []` + `"references"` to per-layer `.nuxt/tsconfig.*.json` projects, no `extends`) — adding a plain `include` key to it breaks `pnpm type-check` outright (`TS6306`/`TS6310`, referenced projects must be `composite: true`). It's also unnecessary: Nuxt 4 already auto-generates `.nuxt/tsconfig.shared.json` covering `shared/**/*`, so this file type-checks with zero `tsconfig.json` changes.
 
 ```ts
 declare module '#auth-utils' {

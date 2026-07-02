@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.15.1] - 2026-07-02
+
+### Fixed
+
+`nuxt-scaffold` no longer inherits a stale `create-nuxt@3.36.1` template snapshot, and 10 real bugs (all found and confirmed via actual end-to-end scaffold runs, not just review) are fixed:
+
+- **Dependency freshness:** new Stage 1b re-pins `nuxt`, `@nuxt/ui`, `@nuxt/eslint`, `eslint`, `tailwindcss`, `vue-tsc`, `typescript`, `@pinia/nuxt`, `nuxt-auth-utils`, `@vueuse/nuxt` to current releases right after init, per a new `VERSION_POLICY` choice in Phase 2 (`capped` — stay on the currently-installed major, default; `latest` — allow a future major). Fixes scaffolds silently shipping on Tailwind/Nuxt UI releases old enough to predate current features (e.g. Tailwind's `mauve`/`olive`/`mist`/`taupe` neutral palettes, now listed as Phase 2 options).
+- Rewrote the refresh step as a single `node -e` script using `execFileSync` with an argument array — the previous shell `for` loop relied on word-splitting zsh doesn't do by default, and plain `require('<pkg>/package.json')` throws on packages with a restrictive `exports` map.
+- Removed the stale `compatibilityVersion: 4` key from the `nuxt.config.ts` merge template — a Nuxt 3→4 migration opt-in flag that current Nuxt versions reject and strip; scaffolds already install Nuxt 4 directly.
+- Fixed the `nuxt.config.ts` `runtimeConfig` merge to respect `nuxt/nuxt-config-keys-order` and `@stylistic/no-multi-spaces` (correct key position, comment on its own line).
+- Removed a stale `tsconfig.json` merge instruction that broke `pnpm type-check` (`TS6306`/`TS6310`) against the current solution-style config — `.nuxt/tsconfig.shared.json` already covers `shared/**/*` automatically.
+- Added `happy-dom` to the preset install — `@nuxt/test-utils`'s `environment: 'nuxt'` fails without it.
+- Documented and sequenced pnpm 10+'s build-script approval gate correctly: `pnpm add` for a gated package exits 1 with `ERR_PNPM_IGNORED_BUILDS` but still installs (non-fatal, expected) — `simple-git-hooks`, `better-sqlite3` (`@nuxt/content`), and `esbuild`/`workerd` (`wrangler`) each get an immediate, separate `pnpm approve-builds <pkg> || true` (naming a non-pending package fails the whole call if combined).
+- `@nuxt/content`: pre-install and approve `better-sqlite3` before `nuxi module add content`, or the command hangs forever on a non-interactive prompt.
+- `@nuxt/image`: dropped an ineffective "pre-install `sharp`" step (doesn't prevent `nuxi` from hitting its own gate on an internally-resolved `sharp` version) in favor of a mandatory post-hoc check that `'@nuxt/image'` actually landed in `nuxt.config.ts`'s `modules` array, plus a required `pnpm approve-builds sharp || true` — without it, every subsequent `pnpm` command fails, not just the registration.
+- The `create-nuxt@3.36.1` template's `nuxt.config.ts` ships without a trailing newline on every scaffold (not just when `image` is chosen) — `@stylistic/eol-last` fails `pnpm lint` until it's fixed; the Stage 3 merge now ensures the file ends with `\n`.
+- Corrected a false claim that `--gitInit` creates an initial commit — it only runs `git init`.
+
 ## [1.15.0] - 2026-07-02
 
 ### Added
