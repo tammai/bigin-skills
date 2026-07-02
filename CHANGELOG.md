@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.15.0] - 2026-07-02
+
+### Added
+
+- **CI config (`bigin-harness-setup` Phase 5.6, optional):** generates a GitHub Actions workflow (`.github/workflows/ci.yml`) and/or a GitLab CI pipeline (`.gitlab-ci.yml`) that run the profile's lint + typecheck + test commands on push to `main` and on merge/pull requests. Asks `github/gitlab/both/no`. New `references/ci.md` holds the per-profile templates (nuxt/nodejs via pnpm, go via `actions/setup-go`/`golang` image + staticcheck).
+- If the Knowledge Bundle convention (Phase 5.5) was also opted into, the generated CI file automatically gets a `uv run tools/knowledge_validate.py` step wired in — no manual follow-up needed. Phase 5.5's step 7 note now only applies to pre-existing, hand-written CI config this skill didn't generate.
+
 ## [1.14.0] - 2026-07-02
 
 ### Added
