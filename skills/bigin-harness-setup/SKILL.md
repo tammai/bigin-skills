@@ -36,7 +36,7 @@ Store result as `PROFILE`. Load `references/profile-{PROFILE}.md` for all templa
 
 Scaffolding is done by the `nuxt-scaffold` skill's deterministic script — **not** conversationally. Three steps, and **all questions happen up front, in one batch; zero prompts once scaffolding starts**:
 
-1. **Gather every scaffold decision now**, in a single message, alongside (not interleaved with) this skill's own questions: the question list is `skills/nuxt-scaffold/SKILL.md` → Step 2 (project name, primary/neutral theme colors, optional modules, version policy). Confirm the summary once.
+1. **Gather every scaffold decision now**, in a single message, alongside (not interleaved with) this skill's own questions: the question list is `skills/nuxt-scaffold/SKILL.md` → Step 2 (project name, primary/neutral theme colors, version policy). Confirm the summary once.
 2. **Write the config JSON** (schema in `skills/nuxt-scaffold/SKILL.md` → Step 3) to a temp file outside the repo, with `"packageManager": "pnpm"`.
 3. **Run the script and stream its output** (several minutes — installs + verify gates):
    ```sh

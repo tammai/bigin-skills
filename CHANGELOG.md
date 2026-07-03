@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.22.1] - 2026-07-03
+
+### Fixed
+
+- **`nuxt-scaffold` Step 2 still split into two `AskUserQuestion` calls / vẫn tách thành 2 lệnh gọi `AskUserQuestion`:** the numbered 1-4 question list read as "one tool call per item," so even after v1.21.6 bundled everything into one nominal "Call 1," the model kept emitting 2 separate `AskUserQuestion` invocations (2 questions each) in the same turn. Reworded to state the exact single-array shape (`questions: [ {...}, {...}, {...}, {...} ]`) and explicitly forbid a second invocation in the same turn, and dropped the vestigial "Call 1" numbering now that there's no "Call 2" left after v1.22.0. / Danh sách câu hỏi đánh số 1-4 khiến model hiểu là "mỗi mục một lệnh gọi", nên dù v1.21.6 đã gộp vào một "Call 1" trên danh nghĩa, model vẫn phát ra 2 lệnh `AskUserQuestion` riêng trong cùng lượt. Đã viết lại để nêu rõ hình dạng mảng `questions` duy nhất và cấm lệnh gọi thứ hai trong cùng lượt, đồng thời bỏ đánh số "Call 1" thừa vì không còn "Call 2".
+
+## [1.22.0] - 2026-07-03
+
+### Removed
+
+- **`nuxt-scaffold` optional-module opt-in (`image`/`content`) / bỏ tuỳ chọn cài module bổ sung:** dropped Step 2's optional-modules `AskUserQuestion` call, the `optionalModules` config field, and `scaffold.mjs`'s Stage 2b (`nuxi module add image|content`, the `sharp`/`better-sqlite3` build-approval handling). The scaffolder never installs `@nuxt/image` or `@nuxt/content` now — add them by hand later if a project needs them. / Bỏ câu hỏi Step 2 về module tuỳ chọn, trường cấu hình `optionalModules`, và Stage 2b trong `scaffold.mjs`. Bộ scaffold không còn cài `@nuxt/image`/`@nuxt/content` — thêm thủ công sau nếu cần.
+
 ## [1.21.6] - 2026-07-03
 
 ### Fixed

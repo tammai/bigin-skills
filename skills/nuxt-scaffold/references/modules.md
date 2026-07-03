@@ -1,6 +1,6 @@
 # Modules — what gets installed
 
-The BFF preset is installed for every `template` (`starter` and every cloned template alike — see `references/bootstrap.md`'s "Stage 1 (cloned templates)" section for how `@pinia/nuxt`/`nuxt-auth-utils`/`@vueuse/nuxt` get added and registered on the clone path). Optional modules are added only when the user opts in during SKILL.md Step 2, and only for `template: starter` (cloned templates already bundle what they need — `optionalModules` must be empty otherwise). BFF is a proxy layer only — the Nuxt app never accesses a database directly; there is no DB opt-in.
+The BFF preset is installed for every `template` (`starter` and every cloned template alike — see `references/bootstrap.md`'s "Stage 1 (cloned templates)" section for how `@pinia/nuxt`/`nuxt-auth-utils`/`@vueuse/nuxt` get added and registered on the clone path). There is no optional-module menu — the scaffolder never installs `@nuxt/image` or `@nuxt/content`. BFF is a proxy layer only — the Nuxt app never accesses a database directly; there is no DB opt-in.
 
 Installing `nuxt-auth-utils` doesn't mean a template ships an auth *flow* — only `saas` writes a sample login/session/dashboard implementation (a demo one, not backend-proxied; see `references/artifacts.md`'s `## saas opt-in`). For `starter` and every other cloned template, the module is present but unused until hand-wired.
 
@@ -38,18 +38,7 @@ The template also ships the eslint stylistic config — explicit override `comma
 | `pnpm add -D lint-staged` | `lint-staged` | Run ESLint on staged files at commit |
 | `pnpm add -D openapi-typescript` | `openapi-typescript` | Generate server API types from `openapi.yaml` |
 
----
-
-## Optional Modules Menu (SKILL.md Step 2 multi-select; empty allowed)
-
-| Choice | Adds | Use when |
-| --- | --- | --- |
-| `image` | `@nuxt/image` | Responsive optimized images — `nuxi` frequently fails to register it in `nuxt.config.ts`'s `modules` array (silently, over a `sharp` build-approval prompt with no TTY) — a manual registration check after adding it is mandatory, not optional, and `pnpm approve-builds sharp` is required afterward or every later `pnpm` command fails (see `bootstrap.md` Stage 2b) |
-| `content` | `@nuxt/content` | Git-based Markdown CMS — needs `better-sqlite3` pre-installed and its build approved *before* adding the module, or `nuxi module add content` hangs forever on a non-interactive prompt (see `bootstrap.md` Stage 2b) |
-
 > **Already installed as dependencies of `@nuxt/ui`** (no need to add): `@nuxt/icon`, `@nuxt/fonts`, `@nuxtjs/color-mode`. They register automatically when `@nuxt/ui` is installed.
-
-Each optional module is added via `nuxi module add <slug>` (auto-registers in `nuxt.config.ts` — except `image`, which sometimes doesn't; verify after running it).
 
 ---
 
@@ -57,4 +46,4 @@ Each optional module is added via `nuxi module add <slug>` (auto-registers in `n
 
 - **Node.js 22+** (Nuxt 4 minimum; active LTS recommended).
 - **pnpm** (the only supported package manager for this stack).
-- `nuxi module add` resolves **latest** versions (no pin), same as Stage 1's now-unpinned `create-nuxt@latest`. Re-verify Stage 1/Stage 2b behavior reactively if `create-nuxt` or `nuxi` start failing — not on a fixed schedule.
+- Stage 1 resolves versions per `create-nuxt@latest`'s own pin, then Stage 1b refreshes per `VERSION_POLICY`. Re-verify Stage 1 behavior reactively if `create-nuxt` starts failing — not on a fixed schedule.

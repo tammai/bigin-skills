@@ -17,7 +17,7 @@ pnpm --version >/dev/null 2>&1 || { echo "pnpm is required but not installed. In
 
 **Monorepo warning:** if a parent `pnpm-workspace.yaml` exists above the target directory, `pnpm add` may hoist dependencies to the root. Scaffold outside the workspace, or use `--ignore-workspace` on each `pnpm add` call.
 
-**Build-script approval:** pnpm 10+ blocks a dependency's postinstall/build scripts by default. `simple-git-hooks`, `better-sqlite3` (via `@nuxt/content`), `sharp` (via `@nuxt/image`), and `esbuild`/`workerd` (via `wrangler`) all hit this. `sharp` is the odd one out for *when* it's approved — pre-installing it before `nuxi module add image` doesn't reliably help, since `nuxi` can resolve a different version internally anyway, so approval has to happen *after* that call (see Stage 2b) alongside a mandatory post-hoc registration check. It still needs `pnpm approve-builds sharp` like the others — skipping it breaks every later `pnpm` command, not just the module registration. For all four packages, two things matter here:
+**Build-script approval:** pnpm 10+ blocks a dependency's postinstall/build scripts by default. `simple-git-hooks` and `esbuild`/`workerd` (via `wrangler`) hit this. For these packages, two things matter here:
 
 1. **The `pnpm add` that introduces the package exits 1 with `ERR_PNPM_IGNORED_BUILDS` — but the package still installs**, just with its build script deferred pending approval. This is *not* the "partial install, stop" failure the stages below otherwise warn about — treat this specific error as expected, run `pnpm approve-builds <pkg>` (named in the error output) immediately after, and continue.
 2. **Naming a package that isn't actually pending approval fails the whole `pnpm approve-builds` call** (`ERR_PNPM_APPROVE_BUILDS_UNKNOWN_PACKAGES`) — which packages end up pending is environment-dependent (already-approved/already-built packages don't need it again). Where a stage below approves more than one package, run each as its own `pnpm approve-builds <pkg> || true` so one non-pending name doesn't block the others.
@@ -75,9 +75,9 @@ npx nuxi@latest init . --template gh:nuxt-ui-templates/<slug> --packageManager p
 pnpm add @pinia/nuxt nuxt-auth-utils @vueuse/nuxt
 ```
 
-followed by `ensureModuleRegistered()` for each (the same helper Stage 2b already uses for `@nuxt/image`/`@nuxt/content` when `nuxi module add` silently fails to register) — this puts the cloned-template path at parity with what `--modules` gives the `starter` path *before* Stage 1b runs, so Stage 1b's refresh + safety checks work unmodified across every template.
+followed by `ensureModuleRegistered()` for each (the same helper Stage 2 uses for `@pinia/colada-nuxt` when `nuxi module add` silently fails to register) — this puts the cloned-template path at parity with what `--modules` gives the `starter` path *before* Stage 1b runs, so Stage 1b's refresh + safety checks work unmodified across every template.
 
-Shape verified during authoring (fetched live from GitHub): only `nuxt-ui-templates/saas`. It has `app/app.config.ts` with `css:`/`routeRules` present in `nuxt.config.ts` (Stage 1b's safety check passes), `ui: { colors: { primary, neutral } }` in `app.config.ts` (the theme regex in `applyArtifacts` matches `primary:\s*(['"])[a-z]+\1` anywhere in the file regardless of nesting, so no special-casing was needed), and already bundles `@nuxt/content` + `@nuxt/image` (which is why `optionalModules` must be empty for non-`starter` templates — see Stage 2b below). The other 7 slugs (`dashboard`, `landing`, `docs`, `portfolio`, `chat`, `changelog`, `editor`) were **not** individually fetched — they rely solely on Stage 1b's generic safety checks (`nuxt` v4, `app/app.config.ts` + `eslint.config.mjs` existing, `css:`/`routeRules` in `nuxt.config.ts`) to fail loudly rather than silently if their shape doesn't match. Re-verify a slug's shape the first time a real scaffold with that `template` value is attempted.
+Shape verified during authoring (fetched live from GitHub): only `nuxt-ui-templates/saas`. It has `app/app.config.ts` with `css:`/`routeRules` present in `nuxt.config.ts` (Stage 1b's safety check passes) and `ui: { colors: { primary, neutral } }` in `app.config.ts` (the theme regex in `applyArtifacts` matches `primary:\s*(['"])[a-z]+\1` anywhere in the file regardless of nesting, so no special-casing was needed). The other 7 slugs (`dashboard`, `landing`, `docs`, `portfolio`, `chat`, `changelog`, `editor`) were **not** individually fetched — they rely solely on Stage 1b's generic safety checks (`nuxt` v4, `app/app.config.ts` + `eslint.config.mjs` existing, `css:`/`routeRules` in `nuxt.config.ts`) to fail loudly rather than silently if their shape doesn't match. Re-verify a slug's shape the first time a real scaffold with that `template` value is attempted.
 
 ---
 
@@ -130,33 +130,11 @@ pnpm add -D vitest @nuxt/test-utils happy-dom simple-git-hooks lint-staged opena
 pnpm approve-builds simple-git-hooks || true
 ```
 
-`zod` and the dev tooling are plain packages (not Nuxt modules) — consumed in code, no `nuxt.config.ts` registration needed. `@pinia/colada-nuxt` **is** a Nuxt module and must be registered in `nuxt.config.ts`'s `modules` array — per the [official Nuxt guide](https://pinia-colada.esm.dev/nuxt.html), this isn't an optional SSR nicety, it's required for `useQuery`/`useMutation` to work at all; the module also auto-installs the `PiniaColadaSSRNoGc` plugin so SSR caching needs no extra `await`. `nuxi module add` is unreliable non-interactively (see the `image`/`content` caveats below), so the script registers it directly via `ensureModuleRegistered('@pinia/colada-nuxt')` right after `pnpm add` rather than shelling out to `nuxi`. `happy-dom` is required by `@nuxt/test-utils`'s `environment: 'nuxt'` (set in `vitest.config.ts`, Stage 3) — without it `pnpm test` fails outright with "Could not resolve happy-dom". The second `pnpm add` line above will exit 1 with `ERR_PNPM_IGNORED_BUILDS` because of `simple-git-hooks` — that's expected (see "Build-script approval" above); the `approve-builds` line immediately after handles it.
+`zod` and the dev tooling are plain packages (not Nuxt modules) — consumed in code, no `nuxt.config.ts` registration needed. `@pinia/colada-nuxt` **is** a Nuxt module and must be registered in `nuxt.config.ts`'s `modules` array — per the [official Nuxt guide](https://pinia-colada.esm.dev/nuxt.html), this isn't an optional SSR nicety, it's required for `useQuery`/`useMutation` to work at all; the module also auto-installs the `PiniaColadaSSRNoGc` plugin so SSR caching needs no extra `await`. `nuxi module add` is unreliable non-interactively, so the script registers it directly via `ensureModuleRegistered('@pinia/colada-nuxt')` right after `pnpm add` rather than shelling out to `nuxi`. `happy-dom` is required by `@nuxt/test-utils`'s `environment: 'nuxt'` (set in `vitest.config.ts`, Stage 3) — without it `pnpm test` fails outright with "Could not resolve happy-dom". The second `pnpm add` line above will exit 1 with `ERR_PNPM_IGNORED_BUILDS` because of `simple-git-hooks` — that's expected (see "Build-script approval" above); the `approve-builds` line immediately after handles it.
 
 If any `pnpm add` fails, report which package failed and stop — do not continue with a partial install. (`ERR_PNPM_IGNORED_BUILDS` is the one exception — see "Build-script approval" above.)
 
----
-
-## Stage 2b — Optional extras / Module tuỳ chọn (only if the user opted in)
-
-Skipped entirely when `template !== 'starter'` — every cloned template already bundles whatever `image`/`content`-equivalent it needs (the `saas` template ships both already); `optionalModules` must be `[]` for those templates (`validateConfig` fails fast otherwise).
-
-If `image` was chosen:
-```sh
-pnpm exec nuxi module add image          # @nuxt/image
-pnpm approve-builds sharp || true
-```
-`nuxi module add image`'s internal install of `sharp` (native image processing) can hit the build-approval gate — when it does, `nuxi` silently defaults "No" to a hidden "continue anyway?" prompt instead of failing loudly, leaving `@nuxt/image` unregistered in `nuxt.config.ts`. Pre-installing `sharp` yourself first does **not** reliably prevent this — `nuxi` can resolve a different `sharp` version internally and hit the gate again regardless. The `approve-builds sharp` call above is still required even though `nuxi` already failed once: `sharp` was installed with its build deferred, and **every subsequent `pnpm` command** (`pnpm exec eslint`, `pnpm lint`, etc.) fails outright with `ERR_PNPM_IGNORED_BUILDS` during pnpm's own deps-status check until it's approved — this is not just a registration problem, it blocks the Stage 5 verify gate entirely if skipped.
-
-**Always** read `nuxt.config.ts` after this command and confirm `'@nuxt/image'` is actually in the `modules` array — this is not a rare edge case, treat it as expected. If it's missing, add it with your normal edit tool (not a shell regex/sed one-liner — a naive text substitution can silently strip the file's trailing newline and trip `@stylistic/eol-last` in `pnpm lint`). Note: the template's `nuxt.config.ts` is already missing its trailing newline before this edit even happens (see `artifacts.md`'s Stage 3 note) — check for `\n` at EOF regardless of whether this edit was needed.
-
-If `content` was chosen, install its SQLite driver **before** adding the module — otherwise `nuxi module add content` hangs forever on a non-interactive stdin prompt asking to install it, with no timeout:
-```sh
-pnpm add -D better-sqlite3 || true   # expected exit 1 (ERR_PNPM_IGNORED_BUILDS) — better-sqlite3 still installs, script deferred
-pnpm approve-builds better-sqlite3 || true
-pnpm exec nuxi module add content        # @nuxt/content
-```
-
-> `@nuxt/icon`, `@nuxt/fonts`, and `@nuxtjs/color-mode` are already installed as dependencies of `@nuxt/ui` (the `ui` template) — do not re-add them.
+> `@nuxt/icon`, `@nuxt/fonts`, and `@nuxtjs/color-mode` are already installed as dependencies of `@nuxt/ui` (the `ui` template) — do not re-add them. There is no optional-module stage — `@nuxt/image`/`@nuxt/content` are never installed by this scaffolder.
 
 ---
 

@@ -39,7 +39,6 @@ const TEMPLATES = path.join(SCRIPT_DIR, 'templates')
 
 const PRIMARY_COLORS = ['blue', 'green', 'emerald', 'teal', 'cyan', 'sky', 'indigo', 'violet', 'purple', 'fuchsia', 'pink', 'rose', 'amber', 'yellow', 'lime', 'orange', 'red']
 const NEUTRAL_COLORS = ['slate', 'gray', 'zinc', 'neutral', 'stone', 'taupe', 'mauve', 'mist', 'olive']
-const OPTIONAL_MODULES = ['image', 'content']
 const PROJECT_NAME_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/
 // Packages create-nuxt's `ui` template + `--modules` install; Stage 1b re-pins them.
 const TEMPLATE_PKGS = ['nuxt', '@nuxt/ui', '@nuxt/eslint', 'eslint', 'tailwindcss', 'vue-tsc', 'typescript', '@pinia/nuxt', 'nuxt-auth-utils', '@vueuse/nuxt']
@@ -88,7 +87,7 @@ function loadConfig() {
 }
 
 function validateConfig(cfg) {
-  const KNOWN = ['projectName', 'targetDir', 'packageManager', 'template', 'theme', 'optionalModules', 'versionPolicy', 'resume', 'gitCommit']
+  const KNOWN = ['projectName', 'targetDir', 'packageManager', 'template', 'theme', 'versionPolicy', 'resume', 'gitCommit', 'skipInstall']
   for (const k of Object.keys(cfg)) {
     if (!KNOWN.includes(k)) fail(`unknown config key "${k}" (known: ${KNOWN.join(', ')})`, 2)
   }
@@ -103,24 +102,19 @@ function validateConfig(cfg) {
     packageManager: cfg.packageManager ?? 'pnpm',
     template: cfg.template ?? 'starter',
     theme: { primary: cfg.theme?.primary ?? 'blue', neutral: cfg.theme?.neutral ?? 'slate' },
-    optionalModules: cfg.optionalModules ?? [],
     versionPolicy: cfg.versionPolicy ?? 'capped',
     resume: cfg.resume ?? false,
-    gitCommit: cfg.gitCommit ?? true
+    gitCommit: cfg.gitCommit ?? true,
+    skipInstall: cfg.skipInstall ?? false
   }
   if (out.packageManager !== 'pnpm') bad(`packageManager must be "pnpm" (BigIn standard), got ${JSON.stringify(out.packageManager)}`)
   if (!TEMPLATES_ENUM.includes(out.template)) bad(`template must be one of ${TEMPLATES_ENUM.join('/')}`)
   if (!PRIMARY_COLORS.includes(out.theme.primary)) bad(`theme.primary must be one of ${PRIMARY_COLORS.join('/')}`)
   if (!NEUTRAL_COLORS.includes(out.theme.neutral)) bad(`theme.neutral must be one of ${NEUTRAL_COLORS.join('/')}`)
-  if (!Array.isArray(out.optionalModules) || out.optionalModules.some(m => !OPTIONAL_MODULES.includes(m))) {
-    bad(`optionalModules must be a subset of [${OPTIONAL_MODULES.join(', ')}]`)
-  }
-  if (out.template !== 'starter' && out.optionalModules.length > 0) {
-    bad(`optionalModules must be empty when template is "${out.template}" — the cloned template already bundles what it needs`)
-  }
   if (!['capped', 'latest'].includes(out.versionPolicy)) bad('versionPolicy must be "capped" or "latest"')
   if (typeof out.resume !== 'boolean') bad('resume must be a boolean')
   if (typeof out.gitCommit !== 'boolean') bad('gitCommit must be a boolean')
+  if (typeof out.skipInstall !== 'boolean') bad('skipInstall must be a boolean')
   return out
 }
 
@@ -267,6 +261,17 @@ function preflight() {
 }
 
 const CORE_MODULES = ['@pinia/nuxt', 'nuxt-auth-utils', '@vueuse/nuxt']
+const PRESET_DEPS = ['@pinia/colada', '@pinia/colada-nuxt', 'zod']
+const PRESET_DEV_DEPS = ['vitest', '@nuxt/test-utils', 'happy-dom', 'simple-git-hooks', 'lint-staged', 'openapi-typescript']
+
+/** skipInstall-only: declare deps in package.json as the "latest" dist-tag (no registry lookup, no pnpm add) so a later `pnpm install` resolves them. */
+function declareDepsUnresolved(deps, devDeps) {
+  const fragment = {
+    dependencies: Object.fromEntries(deps.map((d) => [d, 'latest'])),
+    devDependencies: Object.fromEntries(devDeps.map((d) => [d, 'latest']))
+  }
+  mergeJsonFile(path.join(CFG.targetDir, 'package.json'), fragment)
+}
 
 function verifyCoreModulesRegistered(context) {
   const nuxtConfig = fs.readFileSync(path.join(CFG.targetDir, 'nuxt.config.ts'), 'utf8')
@@ -278,9 +283,19 @@ function verifyCoreModulesRegistered(context) {
 }
 
 function stage1Init() {
+  // --no-install only skips the base template's own dependency install (create-nuxt/nuxi
+  // still write files + package.json). --gitInit is silently skipped alongside it, so the
+  // explicit git-init fallback right below always covers both cases. --modules ALSO can't be
+  // combined with --no-install: without installed node_modules create-nuxt can't detect the
+  // Nuxt version, treats @pinia/nuxt as incompatible, and blocks on an interactive "continue
+  // anyway?" prompt that silently defaults to "No" non-interactively — so --modules is atomic
+  // install-and-register and only ever passed when an install is actually happening.
+  const noInstall = CFG.skipInstall ? ['--no-install'] : []
+  const modulesFlag = CFG.skipInstall ? [] : ['--modules', 'pinia,auth-utils,vueuse']
+  const noInstallLabel = CFG.skipInstall ? ', --no-install' : ''
   if (CFG.template === 'starter') {
-    log('stage 1: npm create nuxt@latest (non-interactive, ui template, in-place)')
-    const createArgs = ['create', 'nuxt@latest', '.', '--', '--template', 'ui', '--packageManager', CFG.packageManager, '--gitInit', '--force', '--modules', 'pinia,auth-utils,vueuse']
+    log(`stage 1: npm create nuxt@latest (non-interactive, ui template, in-place${noInstallLabel})`)
+    const createArgs = ['create', 'nuxt@latest', '.', '--', '--template', 'ui', '--packageManager', CFG.packageManager, '--gitInit', '--force', ...modulesFlag, ...noInstall]
     let res = run('npm', createArgs)
     if (res.status !== 0) {
       log('npm create failed — clearing npm cache and retrying once')
@@ -289,12 +304,12 @@ function stage1Init() {
     }
     if (res.status !== 0) {
       log('npm create failed twice — falling back to npx nuxi init')
-      must('npx', ['nuxi@latest', 'init', '.', '--template', 'ui', '--packageManager', CFG.packageManager, '--gitInit', '--force', '--modules', 'pinia,auth-utils,vueuse'], 'nuxi init fallback')
+      must('npx', ['nuxi@latest', 'init', '.', '--template', 'ui', '--packageManager', CFG.packageManager, '--gitInit', '--force', ...modulesFlag, ...noInstall], 'nuxi init fallback')
     }
   } else {
     const repo = TEMPLATE_REPOS[CFG.template]
-    log(`stage 1: npx nuxi init (non-interactive, cloning gh:${repo}, in-place)`)
-    must('npx', ['nuxi@latest', 'init', '.', '--template', `gh:${repo}`, '--packageManager', CFG.packageManager, '--gitInit', '--force'], `nuxi init --template gh:${repo}`)
+    log(`stage 1: npx nuxi init (non-interactive, cloning gh:${repo}, in-place${noInstallLabel})`)
+    must('npx', ['nuxi@latest', 'init', '.', '--template', `gh:${repo}`, '--packageManager', CFG.packageManager, '--gitInit', '--force', ...noInstall], `nuxi init --template gh:${repo}`)
   }
 
   // --gitInit only fires when the install step runs; make sure a repo exists either way.
@@ -303,18 +318,23 @@ function stage1Init() {
     must('git', ['init'], 'git init')
   }
 
-  if (CFG.template === 'starter') {
+  if (CFG.template === 'starter' && !CFG.skipInstall) {
     // Registration check: create-nuxt@latest is unpinned, so --modules silently
     // changing behavior is the risk a version pin used to cover.
     verifyCoreModulesRegistered("Stage 1's --modules flag did not register core modules")
   } else {
-    // Arbitrary giget templates don't support --modules — add and register the
-    // BFF preset's core modules ourselves so Stage 1b's refresh step (which
-    // assumes they're already installed) sees the same shape as the starter path.
-    log('stage 1: installing core BFF modules (pinia, nuxt-auth-utils, vueuse) — not supported by --modules on a cloned template')
-    pnpmAdd(CORE_MODULES)
+    // Either a cloned template (arbitrary giget templates don't support --modules) or
+    // skipInstall (which drops --modules on every template, see above) — add and register
+    // the BFF preset's core modules ourselves so Stage 1b's refresh step (which assumes
+    // they're already installed) sees the same shape as the starter+install path.
+    const registerVerb = CFG.skipInstall ? 'declaring' : 'installing'
+    const registerReason = CFG.template === 'starter' ? 'skipInstall drops --modules' : 'not supported by --modules on a cloned template'
+    const registerContext = CFG.template === 'starter' ? '(skipInstall path)' : 'after cloning the template'
+    log(`stage 1: ${registerVerb} core BFF modules (pinia, nuxt-auth-utils, vueuse) — ${registerReason}`)
+    if (CFG.skipInstall) declareDepsUnresolved(CORE_MODULES, [])
+    else pnpmAdd(CORE_MODULES)
     for (const mod of CORE_MODULES) ensureModuleRegistered(mod)
-    verifyCoreModulesRegistered('failed to register core modules after cloning the template')
+    verifyCoreModulesRegistered(`failed to register core modules ${registerContext}`)
   }
 
   const pkgPath = path.join(CFG.targetDir, 'package.json')
@@ -325,6 +345,10 @@ function stage1Init() {
 }
 
 function stage1bRefresh() {
+  if (CFG.skipInstall) {
+    log('stage 1b: skipped (skipInstall) — package.json keeps whatever versions create-nuxt@latest shipped, unrefreshed')
+    return
+  }
   log(`stage 1b: refreshing template-installed packages (policy: ${CFG.versionPolicy})`)
   const specs = TEMPLATE_PKGS.map((p) => {
     if (CFG.versionPolicy === 'latest') return `${p}@latest`
@@ -351,12 +375,19 @@ function stage1bRefresh() {
 }
 
 function stage2Preset() {
+  if (CFG.skipInstall) {
+    log('stage 2: skipped installing BFF preset packages (skipInstall) — declaring them in package.json as "latest" for a later `pnpm install`')
+    declareDepsUnresolved(PRESET_DEPS, PRESET_DEV_DEPS)
+    // Required for useQuery/useMutation to work at all — registration is a text edit, not an install.
+    ensureModuleRegistered('@pinia/colada-nuxt')
+    return
+  }
   log('stage 2: installing BFF preset packages')
-  pnpmAdd(['@pinia/colada', '@pinia/colada-nuxt', 'zod'])
+  pnpmAdd(PRESET_DEPS)
   // Required for useQuery/useMutation to work at all (SSR-safe cache, auto PiniaColadaSSRNoGc) — not optional.
   ensureModuleRegistered('@pinia/colada-nuxt')
   // simple-git-hooks trips ERR_PNPM_IGNORED_BUILDS — expected; approved right after.
-  pnpmAdd(['-D', 'vitest', '@nuxt/test-utils', 'happy-dom', 'simple-git-hooks', 'lint-staged', 'openapi-typescript'], ['simple-git-hooks'])
+  pnpmAdd(['-D', ...PRESET_DEV_DEPS], ['simple-git-hooks'])
   log('stage 2 done')
 }
 
@@ -371,24 +402,6 @@ function ensureModuleRegistered(moduleName) {
     const at = m.index + m[0].length
     content = `${content.slice(0, at)}\n    '${moduleName}',${content.slice(at)}`
     fs.writeFileSync(nuxtConfigPath, content)
-  }
-}
-
-function stage2bExtras() {
-  if (CFG.template !== 'starter') return // cloned templates already bundle what they need
-  if (CFG.optionalModules.includes('image')) {
-    log('stage 2b: adding @nuxt/image')
-    run('pnpm', ['exec', 'nuxi', 'module', 'add', 'image'], { allowFail: true })
-    // sharp installs with its build deferred; every later pnpm command fails until approved.
-    run('pnpm', ['approve-builds', 'sharp'], { capture: true, allowFail: true })
-    ensureModuleRegistered('@nuxt/image')
-  }
-  if (CFG.optionalModules.includes('content')) {
-    log('stage 2b: adding @nuxt/content')
-    // Install the SQLite driver first — otherwise `nuxi module add content` hangs forever on a stdin prompt.
-    pnpmAdd(['-D', 'better-sqlite3'], ['better-sqlite3'])
-    must('pnpm', ['exec', 'nuxi', 'module', 'add', 'content'], 'nuxi module add content')
-    ensureModuleRegistered('@nuxt/content')
   }
 }
 
@@ -530,6 +543,16 @@ function printNextSteps() {
   if (CFG.versionPolicy === 'latest') {
     lines.push('  ⚠ versionPolicy=latest — skim the changelogs for nuxt/@nuxt/ui/tailwindcss (and the other refreshed packages) for breaking changes before shipping.')
   }
+  if (CFG.skipInstall) {
+    lines.push(
+      '  ⚠ skipInstall=true — no dependency is installed and nothing was verified. Before anything else:',
+      '     a. pnpm install',
+      '     b. pnpm approve-builds simple-git-hooks   (deferred build script)',
+      '     c. pnpm simple-git-hooks                  (activates the pre-commit hook)',
+      '     d. pnpm lint && pnpm type-check && pnpm test',
+      '  Preset packages (@pinia/colada*, zod, vitest, etc.) are pinned to the "latest" dist-tag in package.json, unresolved — pin exact versions once installed if you want reproducible installs.'
+    )
+  }
   console.log(lines.join('\n'))
 }
 
@@ -542,9 +565,10 @@ if (!CFG.resume) {
   stage1bRefresh()
 }
 stage2Preset()
-stage2bExtras()
 applyArtifacts()
-activateHooks()
-verify()
+if (!CFG.skipInstall) {
+  activateHooks()
+  verify()
+}
 commitIfDirty()
 printNextSteps()

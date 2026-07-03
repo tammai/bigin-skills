@@ -36,25 +36,25 @@ Prerequisites: Node.js 22+, pnpm. Scaffolding is **in-place** into the target di
 Check the target directory:
 
 - **`nuxt.config.ts` exists + both signature files (`vitest.config.ts`, `.claude/settings.json`) exist** → complete scaffold. Say so and stop.
-- **`nuxt.config.ts` exists but a signature file is missing** → partial scaffold (prior failed run). Ask: *"Partial scaffold detected — resume (install BFF preset + apply artifacts + verify)? (yes / no)"*. If yes → set `resume: true` in the config and continue to Step 2 (theme/module answers are still needed for the artifact stage). If no → stop.
+- **`nuxt.config.ts` exists but a signature file is missing** → partial scaffold (prior failed run). Ask: *"Partial scaffold detected — resume (install BFF preset + apply artifacts + verify)? (yes / no)"*. If yes → set `resume: true` in the config and continue to Step 2 (theme answers are still needed for the artifact stage). If no → stop.
 - **No `nuxt.config.ts`** → ask: *"Scaffold a Nuxt 4 BFF app in this repo (non-interactive npm create nuxt@latest + BFF preset + config)? (yes / no)"*. If no → stop.
 
 (The script re-checks all of this and fails fast rather than overwriting — but resolving it conversationally first avoids a wasted run.)
 
 ## Step 2: Gather config
 
-`AskUserQuestion` accepts up to 4 questions in a **single** call, rendered as one widget. Use that instead of separate sequential calls — a v1.21.1 fix tried enforcing "one `AskUserQuestion` call per turn" via wording alone, and it still regressed to firing two calls (and two question lists) in the same turn. Bundling into one call removes the failure mode structurally instead of relying on turn discipline.
+`AskUserQuestion` accepts up to 4 questions in a **single** call, rendered as one widget. Prior fixes (v1.21.1, v1.21.6) tried enforcing "one call" via prose alone — a numbered 1-4 list read as "call the tool once per numbered item," and it kept regressing to 2 (or 4) separate tool invocations in the same turn, each rendering its own question list. There is no `questions.length` autosplit — the model must place all 4 objects in one `questions` array itself.
 
-**Call 1 — one `AskUserQuestion` call with all 4 questions below** (they don't depend on each other, so order within the call doesn't matter):
+**Exactly one `AskUserQuestion` tool call, with a `questions` array holding all 4 objects below.** Not one call per item, not two calls of two — one invocation, `questions: [ {...}, {...}, {...}, {...} ]`. They don't depend on each other, so array order doesn't matter. If you find yourself about to emit a second `AskUserQuestion` tool call in this same turn, stop — fold the remaining question(s) into the first call's array instead.
 
 1. **Template** — options: `Starter — bare BFF, no auth` (recommended/default), `SaaS — public site + private dashboard, demo auth`, `Dashboard — admin-style multi-column shell`, and a 4th option labeled `Other templates` whose **description spells out every remaining slug by name** — `landing` (marketing page), `docs` (documentation site), `portfolio` (portfolio/blog), `chat` (AI chatbot), `changelog` (GitHub-releases site), `editor` (WYSIWYG editor) — so the user knows exactly what to type before picking the tool's own "Other" free-text option. (Never add your own option literally labeled "Other" — `AskUserQuestion` adds that automatically; `Other templates` is the label that carries the descriptive list.) If the typed value isn't one of the 9 slugs, list them again and re-ask.
 2. **Theme — primary color** — options: `blue` (default), `green`, `orange`, and a 4th option labeled `Other colors` whose description lists all 14 remaining Nuxt UI primary colors by name — `emerald`, `teal`, `cyan`, `sky`, `indigo`, `violet`, `purple`, `fuchsia`, `pink`, `rose`, `amber`, `yellow`, `lime`, `red` — so the user knows exactly what to type into the tool's own "Other" free-text option. Re-prompt if the typed value isn't one of the 17.
 3. **Theme — neutral color** — options: `slate` (default), `zinc`, `stone`, and a 4th option labeled `Other colors` whose description lists the 6 remaining Nuxt UI neutral colors by name — `gray`, `neutral`, `taupe`, `mauve`, `mist`, `olive`. Re-prompt if invalid.
 4. **Dependency freshness** — options: `capped — latest minor/patch within the shipped major (safe, default)`, `latest — newest release including a future major`.
 
-**Then, plain conversational free text** (not `AskUserQuestion`, needs regex validation, so it can't be a 5th question in Call 1): **Project name** — kebab-case, default = current directory name, must match `^[a-z0-9]+(-[a-z0-9]+)*$` — re-prompt if it doesn't.
+**Then, plain conversational free text** (not `AskUserQuestion`, needs regex validation, so it can't be a 5th array entry): **Project name** — kebab-case, default = current directory name, must match `^[a-z0-9]+(-[a-z0-9]+)*$` — re-prompt if it doesn't.
 
-**Call 2 — only if Call 1's Template answer is `starter`**, a second `AskUserQuestion` call: **Optional modules** — multiSelect, options: `image`, `content`, `None` (default). Skip this call entirely for every other template (every other template already bundles what it needs; `fonts` / `icon` / `color-mode` always come with Nuxt UI regardless). This is the one genuinely sequential step — it depends on Call 1's Template answer being known first.
+No optional-module question — the scaffolder never installs `@nuxt/image`/`@nuxt/content`; `fonts` / `icon` / `color-mode` come with Nuxt UI regardless.
 
 Show a summary table and confirm. If no → stop.
 
@@ -69,12 +69,14 @@ Write the answers to a JSON file **outside the target repo** (temp/scratchpad di
   "packageManager": "pnpm",          // BigIn standard; the script rejects anything else
   "template": "starter",             // "starter" | "saas" | "dashboard" | "landing" | "docs" | "portfolio" | "chat" | "changelog" | "editor"
   "theme": { "primary": "blue", "neutral": "slate" },
-  "optionalModules": [],             // subset of ["image", "content"] — must be [] unless template is "starter"
   "versionPolicy": "capped",         // "capped" | "latest"
   "resume": false,                   // true only when Step 1 detected a partial scaffold
-  "gitCommit": true                  // final "chore: scaffold Nuxt 4 BFF app" commit
+  "gitCommit": true,                 // final "chore: scaffold Nuxt 4 BFF app" commit
+  "skipInstall": false               // advanced/maintainer flag — see below; never set true from Step 2's normal flow
 }
 ```
+
+`skipInstall` (default `false`, not part of Step 2's questions) writes every file and merges every `package.json` entry but never runs `npm create`'s install, `pnpm add`, `pnpm simple-git-hooks`, or the verify stage — the preset packages land in `package.json` pinned to the `latest` dist-tag, unresolved. Use it only for fast maintainer iteration on `scaffold.mjs`/templates (see "Manual validation" below); the result is not a runnable app until `pnpm install` is run manually. Never set this from the normal user-facing flow.
 
 Then run it from the target directory, streaming output (it can take several minutes — installs + lint + type-check + tests):
 
@@ -103,6 +105,8 @@ node <skill-dir>/scripts/scaffold.mjs --config ../cfg.json
 ```
 
 Expect: exit 0, all three verify gates green, initial commit created. Then re-run the same command → must fail fast with "scaffold looks complete", exit 1, no files touched.
+
+For a fast file-tree-only pass while iterating on templates (add `"skipInstall": true` to the config), expect exit 0 in a few seconds — no install, no verify, no hooks activated — then inspect the written files directly; don't treat that run as a stand-in for the full validation above.
 
 At minimum also re-verify `template: "saas"` the same way (`echo '{"projectName":"scaffold-saas-test","packageManager":"pnpm","template":"saas","theme":{"primary":"orange","neutral":"slate"}}' > ../cfg.json`) whenever `templates/saas/` or the clone path in `stage1Init()` changes — it's the one template with bespoke files and a different Stage 1 command. The other 7 cloned slugs share the same generic clone-and-layer path; spot-check one (e.g. `dashboard` or `landing`) opportunistically rather than on every change.
 
