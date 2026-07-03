@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.21.4] - 2026-07-03
+
+### Fixed
+
+- **`bigin-harness-setup` — dropped the invalid `"statusline": {"items": [...]}` settings.json key / bỏ key `"statusline"` sai schema:** that key doesn't match Claude Code's actual settings schema (the real key is `statusLine`, which requires a `command` script — there's no such script in this repo to point to), so onboarding runs generated a `settings.json` block that Claude Code would ignore or reject. Removed it from all three profile templates (`profile-nuxt.md`, `profile-go.md`, `profile-nodejs.md`) and the corresponding SKILL.md merge instructions / checklist item and README diagram, leaving just the `PreToolUse` `bash-guard.mjs` hook wiring. / Xoá key `"statusline"` sai schema khỏi cả 3 template profile và các chỗ tham chiếu trong SKILL.md/README, vì Claude Code không nhận key này.
+
+## [1.21.3] - 2026-07-03
+
+### Removed
+
+- **`nuxt-scaffold` — dropped the Drizzle + Cloudflare D1 opt-in / bỏ tuỳ chọn Drizzle + Cloudflare D1:** the scaffolder is BFF-proxy only now — no database layer question, no `drizzle` config field, no `db:*` scripts, no `templates/drizzle/` files. Applies uniformly across all templates (`starter`, `saas`, `dashboard`, and the rest) — the backend, not the Nuxt app, owns data persistence. / Bộ scaffold giờ chỉ dùng lớp BFF proxy — bỏ câu hỏi database, field config `drizzle`, các script `db:*`, và thư mục `templates/drizzle/`.
+
+## [1.21.2] - 2026-07-03
+
+### Changed
+
+- **`nuxt-scaffold` Step 2 — template/color pickers list every option by name / liệt kê đủ tên các lựa chọn còn lại:** reverted the template question back to `AskUserQuestion` (was briefly changed to plain free text since it has 9 possible values against the tool's 4-option cap). All three affected questions (template, primary color, neutral color) now use a 4th option — labeled `Other templates` / `Other colors`, never literally "Other" since the tool adds that automatically — whose description spells out every remaining value by name, so the user knows exactly what to type into the tool's own free-text "Other" instead of guessing. / Đưa câu hỏi chọn template về lại dạng `AskUserQuestion`; lựa chọn thứ 4 (không đặt tên "Other") liệt kê đầy đủ tên các giá trị còn lại để người dùng biết chính xác cần gõ gì.
+
 ## [1.21.1] - 2026-07-03
 
 ### Fixed

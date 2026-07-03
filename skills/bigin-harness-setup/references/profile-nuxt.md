@@ -230,9 +230,6 @@ Governance superset: `permissions` + `PostToolUse` lint-fix (the `nuxt-scaffold`
       "Bash(git stash:*)"
     ]
   },
-  "statusline": {
-    "items": ["tokenUsage"]
-  },
   "hooks": {
     "PreToolUse": [
       {
@@ -259,8 +256,6 @@ Governance superset: `permissions` + `PostToolUse` lint-fix (the `nuxt-scaffold`
   }
 }
 ```
-
-Note: the `"statusline"` key enables the token-usage display in the Claude Code status bar. If the exact key name differs in your Claude Code version, check the `update-config` skill or Claude Code docs.
 
 ---
 

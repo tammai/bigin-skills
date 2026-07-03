@@ -158,9 +158,6 @@ Prepend `paths: ["**/*.go"]` as YAML frontmatter when writing `architecture.md` 
       "Bash(git stash:*)"
     ]
   },
-  "statusline": {
-    "items": ["tokenUsage"]
-  },
   "hooks": {
     "PreToolUse": [
       {

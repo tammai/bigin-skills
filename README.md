@@ -57,7 +57,7 @@ your-repo/
 │   │   └── architecture.md             ← Tier 2: paths: scoped per profile
 │   ├── guards/
 │   │   └── bash-guard.mjs               ← blocks --no-verify and force-push to main
-│   ├── settings.json                   ← pre-approved commands + hook wiring + statusline
+│   ├── settings.json                   ← pre-approved commands + hook wiring
 │   └── agents/
 │       └── code-reviewer.md            ← optional, read-only (opt-in)
 ├── tools/

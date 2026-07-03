@@ -159,9 +159,6 @@ Prepend `paths: ["src/**"]` as YAML frontmatter when writing `architecture.md` (
       "Bash(git stash:*)"
     ]
   },
-  "statusline": {
-    "items": ["tokenUsage"]
-  },
   "hooks": {
     "PreToolUse": [
       {
