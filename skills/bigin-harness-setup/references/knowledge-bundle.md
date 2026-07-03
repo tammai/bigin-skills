@@ -301,8 +301,12 @@ function main() {
   const errors = [];
   const warnings = [];
 
-  let isDir = false;
-  try { isDir = statSync(root).isDirectory(); } catch {}
+  let isDir;
+  try {
+    isDir = statSync(root).isDirectory();
+  } catch {
+    isDir = false;
+  }
   if (!isDir) {
     console.log(`ERROR ${root}: bundle root does not exist`);
     return 1;

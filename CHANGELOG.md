@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.22.5] - 2026-07-03
+
+### Fixed
+
+- **`knowledge_validate.mjs` template needed a manual lint fix on every scaffold / template `knowledge_validate.mjs` cần sửa lint thủ công mỗi lần scaffold:** the Knowledge Bundle validator template in `references/knowledge-bundle.md` used an empty `catch {}` block, which ESLint's `no-empty` rule flags with no autofix available — forcing a manual rewrite during every `bigin-harness-setup` run that opts into the Knowledge Bundle on a nuxt profile. The catch block now assigns `isDir = false` instead of being empty, matching the fix pattern ESLint required, so scaffolded repos pass lint without an extra round-trip. / Template validator Knowledge Bundle trong `references/knowledge-bundle.md` dùng khối `catch {}` rỗng, bị rule `no-empty` của ESLint gắn cờ mà không có autofix — buộc phải sửa thủ công mỗi lần chạy `bigin-harness-setup` có bật Knowledge Bundle trên profile nuxt. Khối catch giờ gán `isDir = false` thay vì để rỗng, khớp với cách sửa mà ESLint yêu cầu, nên repo vừa scaffold pass lint mà không cần sửa thêm.
+
 ## [1.22.4] - 2026-07-03
 
 ### Changed
