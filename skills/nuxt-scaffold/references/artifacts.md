@@ -1,6 +1,6 @@
 # Artifacts — rationale & merge semantics
 
-**File bodies live in `../scripts/templates/` — that directory is the source of truth**, consumed by `../scripts/scaffold.mjs` (`applyArtifacts()`). This doc keeps only the *why* and the merge rules; don't duplicate content here. Placeholders substituted by the script: `{PROJECT_NAME}`, `{PRIMARY}`, `{NEUTRAL}`, `{D1_DATABASE_ID}`, `{COMPAT_DATE}`.
+**File bodies live in `../scripts/templates/` — that directory is the source of truth**, consumed by `../scripts/scaffold.mjs` (`applyArtifacts()`). This doc keeps only the *why* and the merge rules; don't duplicate content here. Placeholders substituted by the script: `{PROJECT_NAME}`, `{PRIMARY}`, `{NEUTRAL}`.
 
 > Template-content assumptions (files/keys provided, default theme colors, key order, `tsconfig.json` shape) were last verified against `create-nuxt@3.36.1`'s `ui` template. Stage 1 runs `create-nuxt@latest` (unpinned) — re-verify if a future release changes the template and something starts failing lint/typecheck.
 
@@ -14,7 +14,7 @@ The `--template ui` init already provides a working Nuxt UI app (`nuxt.config.ts
 
 **`app/app.config.ts`** — the script regex-replaces the template's `primary: 'green', neutral: 'slate'` with the chosen colors in place.
 
-**`package.json`** (`templates/merge/package.json`) — template already provides `build`/`dev`/`preview`/`postinstall`/`lint`/`typecheck`; kept (existing keys win). Adds `type-check` (BigIn convention alias), test scripts, `openapi-types`, `prepare`, plus `simple-git-hooks` + `lint-staged` blocks. Drizzle opt-in adds the `db:*` scripts (`templates/merge/drizzle-package.json`) — `db:migrate` uses `wrangler d1 execute`, not `drizzle-kit migrate`, because D1 migrations must go through Cloudflare (drizzle-kit only works against a local SQLite file); update the migration file path to the actual generated filename.
+**`package.json`** (`templates/merge/package.json`) — template already provides `build`/`dev`/`preview`/`postinstall`/`lint`/`typecheck`; kept (existing keys win). Adds `type-check` (BigIn convention alias), test scripts, `openapi-types`, `prepare`, plus `simple-git-hooks` + `lint-staged` blocks.
 
 **`.claude/settings.json`** (`templates/merge/claude-settings.json`) — pre-approved commands + a `PostToolUse` hook running `lint-fix-file.mjs` after every Write/Edit/MultiEdit. **`PostToolUse` only — no `PreToolUse`**: `bigin-harness-setup` adds the `bash-guard.mjs` `PreToolUse` hook when it overlays governance later. Until then nothing gates git commands, so `git push` is deliberately **not** pre-approved (stays a per-call prompt); local reversible git commands are.
 
@@ -52,7 +52,3 @@ The cloned `nuxt-ui-templates/saas` repo ships public marketing pages plus **non
 - **`server/api/me.get.ts`** — `requireUserSession(event)` then returns `user` directly (no backend proxy, unlike the `starter` template's sample route).
 - **`server/middleware/auth.ts`** — 401s `/api/me` and any future `/api/dashboard/*` when unauthenticated; `/api/login` and `/api/signup` stay open.
 - **`shared/types/auth.d.ts`** — augments `User` (not `SecureSessionData` — there's no backend token to seal here) with `email`/optional `name` so `pnpm type-check` passes.
-
-## Drizzle opt-in (`templates/drizzle/`, only when `drizzle.enabled`)
-
-Default is BFF proxy, **no DB**. When opted in: `wrangler.toml` (D1 binding; `{D1_DATABASE_ID}` stays a literal placeholder unless a real UUID was configured — replace before deploying), `server/db/schema.ts` (pass the D1 binding, e.g. `event.context.cloudflare.env.DB`), `drizzle.config.ts`.

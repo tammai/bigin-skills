@@ -47,14 +47,12 @@ Ask **step by step** — one `AskUserQuestion` call per enum/boolean choice belo
 
 **Sequential, not parallel: issue exactly one `AskUserQuestion` tool call per turn, and wait for that answer before making the next one.** Never emit two `AskUserQuestion` calls in the same response — general tool-batching guidance ("independent calls can run in parallel") does **not** apply here, since each question in this list depends on being seen and answered before the next one is asked; firing them together shows the user two question lists at once and the second one isn't waiting on the first.
 
-1. **Template** — `AskUserQuestion`, options: `Starter — bare BFF, no auth` (recommended/default), `SaaS — public site + private dashboard, demo auth`, `Dashboard — admin shell`, `Landing — marketing page`, plus free-text "Other" for `docs` / `portfolio` / `chat` / `changelog` / `editor`. If the user types something outside the 9-slug enum (`starter`, `saas`, `dashboard`, `landing`, `docs`, `portfolio`, `chat`, `changelog`, `editor`), list the valid slugs and re-ask.
+1. **Template** — `AskUserQuestion`, options: `Starter — bare BFF, no auth` (recommended/default), `SaaS — public site + private dashboard, demo auth`, `Dashboard — admin-style multi-column shell`, and a 4th option labeled `Other templates` whose **description spells out every remaining slug by name** — `landing` (marketing page), `docs` (documentation site), `portfolio` (portfolio/blog), `chat` (AI chatbot), `changelog` (GitHub-releases site), `editor` (WYSIWYG editor) — so the user knows exactly what to type before picking the tool's own "Other" free-text option. (Never add your own option literally labeled "Other" — `AskUserQuestion` adds that automatically; `Other templates` is the label that carries the descriptive list.) If the typed value isn't one of the 9 slugs, list them again and re-ask.
 2. **Project name** — plain conversational free text (not `AskUserQuestion`, needs regex validation): kebab-case, default = current directory name, must match `^[a-z0-9]+(-[a-z0-9]+)*$` — re-prompt if it doesn't.
-3. **Theme — primary color** — `AskUserQuestion`, options: `blue` (default), `green`, `orange`, `violet`, plus free-text "Other" for any of the remaining Nuxt UI colors (`emerald`, `teal`, `cyan`, `sky`, `indigo`, `purple`, `fuchsia`, `pink`, `rose`, `amber`, `yellow`, `lime`, `red`) — re-prompt if the typed value isn't one of the 17.
-4. **Theme — neutral color** — `AskUserQuestion`, options: `slate` (default), `zinc`, `stone`, plus free-text "Other" for `gray` / `neutral` / `taupe` / `mauve` / `mist` / `olive` — re-prompt if invalid.
+3. **Theme — primary color** — `AskUserQuestion`, options: `blue` (default), `green`, `orange`, and a 4th option labeled `Other colors` whose description lists all 14 remaining Nuxt UI primary colors by name — `emerald`, `teal`, `cyan`, `sky`, `indigo`, `violet`, `purple`, `fuchsia`, `pink`, `rose`, `amber`, `yellow`, `lime`, `red` — so the user knows exactly what to type into the tool's own "Other" free-text option. Re-prompt if the typed value isn't one of the 17.
+4. **Theme — neutral color** — `AskUserQuestion`, options: `slate` (default), `zinc`, `stone`, and a 4th option labeled `Other colors` whose description lists the 6 remaining Nuxt UI neutral colors by name — `gray`, `neutral`, `taupe`, `mauve`, `mist`, `olive`. Re-prompt if invalid.
 5. **Optional modules** — `AskUserQuestion`, multiSelect, options: `image`, `content`, `None` (default) — **skip this question entirely when the template from step 1 isn't `starter`** (every other template already bundles what it needs; `fonts` / `icon` / `color-mode` always come with Nuxt UI regardless).
 6. **Dependency freshness** — `AskUserQuestion`, options: `capped — latest minor/patch within the shipped major (safe, default)`, `latest — newest release including a future major`.
-7. **Database layer** — `AskUserQuestion`, options: `No DB — BFF proxy only (default)`, `Yes — add Drizzle + Cloudflare D1`.
-8. **If yes to 7** — plain conversational free text: Cloudflare D1 database ID (UUID from `wrangler d1 list`), default = leave as placeholder (replace before first deploy).
 
 Show a summary table and confirm. If no → stop.
 
@@ -71,7 +69,6 @@ Write the answers to a JSON file **outside the target repo** (temp/scratchpad di
   "theme": { "primary": "blue", "neutral": "slate" },
   "optionalModules": [],             // subset of ["image", "content"] — must be [] unless template is "starter"
   "versionPolicy": "capped",         // "capped" | "latest"
-  "drizzle": { "enabled": false, "d1DatabaseId": null },  // null → {D1_DATABASE_ID} placeholder
   "resume": false,                   // true only when Step 1 detected a partial scaffold
   "gitCommit": true                  // final "chore: scaffold Nuxt 4 BFF app" commit
 }
@@ -115,4 +112,4 @@ Platform-risky code paths (all flagged in the header comment of `scaffold.mjs`):
 - `scripts/templates/` — **source of truth** for every file written/merged into the project.
 - `references/bootstrap.md` — rationale for the command sequence the script executes.
 - `references/artifacts.md` — rationale + merge semantics for each template.
-- `references/modules.md` — BFF preset, optional-modules menu, Drizzle opt-in.
+- `references/modules.md` — BFF preset, optional-modules menu.

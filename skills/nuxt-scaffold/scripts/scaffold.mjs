@@ -41,7 +41,6 @@ const PRIMARY_COLORS = ['blue', 'green', 'emerald', 'teal', 'cyan', 'sky', 'indi
 const NEUTRAL_COLORS = ['slate', 'gray', 'zinc', 'neutral', 'stone', 'taupe', 'mauve', 'mist', 'olive']
 const OPTIONAL_MODULES = ['image', 'content']
 const PROJECT_NAME_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/
-const D1_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 // Packages create-nuxt's `ui` template + `--modules` install; Stage 1b re-pins them.
 const TEMPLATE_PKGS = ['nuxt', '@nuxt/ui', '@nuxt/eslint', 'eslint', 'tailwindcss', 'vue-tsc', 'typescript', '@pinia/nuxt', 'nuxt-auth-utils', '@vueuse/nuxt']
 // `starter` = today's from-scratch `--template ui` path (no repo). Everything else clones the
@@ -89,7 +88,7 @@ function loadConfig() {
 }
 
 function validateConfig(cfg) {
-  const KNOWN = ['projectName', 'targetDir', 'packageManager', 'template', 'theme', 'optionalModules', 'versionPolicy', 'drizzle', 'resume', 'gitCommit']
+  const KNOWN = ['projectName', 'targetDir', 'packageManager', 'template', 'theme', 'optionalModules', 'versionPolicy', 'resume', 'gitCommit']
   for (const k of Object.keys(cfg)) {
     if (!KNOWN.includes(k)) fail(`unknown config key "${k}" (known: ${KNOWN.join(', ')})`, 2)
   }
@@ -106,7 +105,6 @@ function validateConfig(cfg) {
     theme: { primary: cfg.theme?.primary ?? 'blue', neutral: cfg.theme?.neutral ?? 'slate' },
     optionalModules: cfg.optionalModules ?? [],
     versionPolicy: cfg.versionPolicy ?? 'capped',
-    drizzle: { enabled: cfg.drizzle?.enabled ?? false, d1DatabaseId: cfg.drizzle?.d1DatabaseId ?? null },
     resume: cfg.resume ?? false,
     gitCommit: cfg.gitCommit ?? true
   }
@@ -121,10 +119,6 @@ function validateConfig(cfg) {
     bad(`optionalModules must be empty when template is "${out.template}" — the cloned template already bundles what it needs`)
   }
   if (!['capped', 'latest'].includes(out.versionPolicy)) bad('versionPolicy must be "capped" or "latest"')
-  if (typeof out.drizzle.enabled !== 'boolean') bad('drizzle.enabled must be a boolean')
-  if (out.drizzle.d1DatabaseId !== null && !D1_ID_RE.test(out.drizzle.d1DatabaseId)) {
-    bad('drizzle.d1DatabaseId must be null (placeholder) or a UUID from `wrangler d1 list`')
-  }
   if (typeof out.resume !== 'boolean') bad('resume must be a boolean')
   if (typeof out.gitCommit !== 'boolean') bad('gitCommit must be a boolean')
   return out
@@ -398,22 +392,12 @@ function stage2bExtras() {
   }
 }
 
-function stage2cDrizzle() {
-  if (!CFG.drizzle.enabled) return
-  log('stage 2c: adding Drizzle + Cloudflare D1 toolchain')
-  pnpmAdd(['drizzle-orm'])
-  // wrangler pulls in esbuild/workerd (native builds); which one is pending is environment-dependent.
-  pnpmAdd(['-D', 'drizzle-kit', '@cloudflare/workers-types', 'wrangler'], ['esbuild', 'workerd'])
-}
-
 function applyArtifacts() {
   log('stage 3: applying artifacts')
   const subs = {
     PROJECT_NAME: CFG.projectName,
     PRIMARY: CFG.theme.primary,
-    NEUTRAL: CFG.theme.neutral,
-    D1_DATABASE_ID: CFG.drizzle.d1DatabaseId ?? '{D1_DATABASE_ID}',
-    COMPAT_DATE: new Date().toISOString().split('T')[0]
+    NEUTRAL: CFG.theme.neutral
   }
 
   // Write-fresh files (ours — safe to overwrite on resume).
@@ -434,14 +418,6 @@ function applyArtifacts() {
       writeFileEnsured(path.join(CFG.targetDir, rel), substitute(fs.readFileSync(src, 'utf8'), subs))
     }
   }
-  if (CFG.drizzle.enabled) {
-    const drizzleRoot = path.join(TEMPLATES, 'drizzle')
-    for (const src of listFilesRecursive(drizzleRoot)) {
-      const rel = path.relative(drizzleRoot, src)
-      writeFileEnsured(path.join(CFG.targetDir, rel), substitute(fs.readFileSync(src, 'utf8'), subs))
-    }
-  }
-
   // nuxt.config.ts merge: insert runtimeConfig between css and routeRules (key
   // order enforced by nuxt/nuxt-config-keys-order; comment on its own line —
   // a trailing comment trips @stylistic/no-multi-spaces).
@@ -473,9 +449,6 @@ function applyArtifacts() {
   mergeJsonFile(path.join(CFG.targetDir, 'package.json'), JSON.parse(readTemplate(path.join('merge', 'package.json'), subs)))
   mergeJsonFile(path.join(CFG.targetDir, '.claude', 'settings.json'), JSON.parse(readTemplate(path.join('merge', 'claude-settings.json'), subs)))
   mergeJsonFile(path.join(CFG.targetDir, '.vscode', 'settings.json'), JSON.parse(readTemplate(path.join('merge', 'vscode-settings.json'), subs)))
-  if (CFG.drizzle.enabled) {
-    mergeJsonFile(path.join(CFG.targetDir, 'package.json'), JSON.parse(readTemplate(path.join('merge', 'drizzle-package.json'), subs)))
-  }
   if (CFG.template === 'starter') {
     // openapi-types script only makes sense alongside the openapi.yaml stub (starter-only overlay above).
     mergeJsonFile(path.join(CFG.targetDir, 'package.json'), JSON.parse(readTemplate(path.join('starter', 'merge', 'package.json'), subs)))
@@ -554,9 +527,6 @@ function printNextSteps() {
       '  4. Start: pnpm dev'
     )
   }
-  if (CFG.drizzle.enabled && CFG.drizzle.d1DatabaseId === null) {
-    lines.push('  5. wrangler.toml still has the {D1_DATABASE_ID} placeholder — replace it (wrangler d1 list) before deploying.')
-  }
   if (CFG.versionPolicy === 'latest') {
     lines.push('  ⚠ versionPolicy=latest — skim the changelogs for nuxt/@nuxt/ui/tailwindcss (and the other refreshed packages) for breaking changes before shipping.')
   }
@@ -573,7 +543,6 @@ if (!CFG.resume) {
 }
 stage2Preset()
 stage2bExtras()
-stage2cDrizzle()
 applyArtifacts()
 activateHooks()
 verify()

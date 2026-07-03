@@ -1,8 +1,0 @@
-{
-  "scripts": {
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "wrangler d1 execute {PROJECT_NAME}-db --local --file=./server/db/migrations/0000_init.sql",
-    "db:migrate:remote": "wrangler d1 execute {PROJECT_NAME}-db --remote --file=./server/db/migrations/0000_init.sql",
-    "db:studio": "drizzle-kit studio"
-  }
-}

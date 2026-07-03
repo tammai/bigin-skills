@@ -160,23 +160,9 @@ pnpm exec nuxi module add content        # @nuxt/content
 
 ---
 
-## Stage 2c — Optional Drizzle + Cloudflare D1 / Drizzle + Cloudflare D1 (tuỳ chọn, chỉ khi `WANT_DRIZZLE = yes`)
-
-```sh
-pnpm add drizzle-orm
-pnpm add -D drizzle-kit @cloudflare/workers-types wrangler || true   # wrangler pulls in esbuild/workerd (native); expect ERR_PNPM_IGNORED_BUILDS
-pnpm approve-builds esbuild || true
-pnpm approve-builds workerd || true
-```
-Only one of `esbuild`/`workerd` may actually be pending approval (depends on what's already built) — approving each separately with `|| true` means a non-pending name doesn't block the other.
-
-`wrangler` is required to apply migrations (`wrangler d1 execute`) and to resolve the D1 database from `wrangler.toml` — `drizzle-kit migrate` alone only works against a local SQLite file. See `references/artifacts.md` → `## Drizzle opt-in` for the `wrangler.toml`, `server/db/schema.ts`, `drizzle.config.ts`, and `db:*` scripts to write. Default is **BFF proxy, no DB** — only add this when the user explicitly opts in.
-
----
-
 ## Stage 3 — Apply artifacts / Áp dụng các tệp mẫu
 
-Write/merge the files in `references/artifacts.md` (substitute `{PROJECT_NAME}`, `{PRIMARY}`, `{NEUTRAL}`, `{D1_DATABASE_ID}`, `{COMPAT_DATE}`). `nuxt.config.ts`, `package.json`, `.claude/settings.json`, and `.vscode/settings.json` are **merged**, never overwritten.
+Write/merge the files in `references/artifacts.md` (substitute `{PROJECT_NAME}`, `{PRIMARY}`, `{NEUTRAL}`). `nuxt.config.ts`, `package.json`, `.claude/settings.json`, and `.vscode/settings.json` are **merged**, never overwritten.
 
 ---
 

@@ -1,6 +1,6 @@
 # Modules — what gets installed
 
-The BFF preset is installed for every `template` (`starter` and every cloned template alike — see `references/bootstrap.md`'s "Stage 1 (cloned templates)" section for how `@pinia/nuxt`/`nuxt-auth-utils`/`@vueuse/nuxt` get added and registered on the clone path). Optional modules and the Drizzle/D1 layer are added only when the user opts in during SKILL.md Step 2, and only for `template: starter` (cloned templates already bundle what they need — `optionalModules` must be empty otherwise).
+The BFF preset is installed for every `template` (`starter` and every cloned template alike — see `references/bootstrap.md`'s "Stage 1 (cloned templates)" section for how `@pinia/nuxt`/`nuxt-auth-utils`/`@vueuse/nuxt` get added and registered on the clone path). Optional modules are added only when the user opts in during SKILL.md Step 2, and only for `template: starter` (cloned templates already bundle what they need — `optionalModules` must be empty otherwise). BFF is a proxy layer only — the Nuxt app never accesses a database directly; there is no DB opt-in.
 
 Installing `nuxt-auth-utils` doesn't mean a template ships an auth *flow* — only `saas` writes a sample login/session/dashboard implementation (a demo one, not backend-proxied; see `references/artifacts.md`'s `## saas opt-in`). For `starter` and every other cloned template, the module is present but unused until hand-wired.
 
@@ -50,17 +50,6 @@ The template also ships the eslint stylistic config — explicit override `comma
 > **Already installed as dependencies of `@nuxt/ui`** (no need to add): `@nuxt/icon`, `@nuxt/fonts`, `@nuxtjs/color-mode`. They register automatically when `@nuxt/ui` is installed.
 
 Each optional module is added via `nuxi module add <slug>` (auto-registers in `nuxt.config.ts` — except `image`, which sometimes doesn't; verify after running it).
-
----
-
-## Drizzle + Cloudflare D1 opt-in (SKILL.md Step 2; default = no)
-
-Default philosophy: **BFF proxy — the backend owns data persistence, the Nuxt app does not access a database directly.** Only add Drizzle + D1 when the app genuinely needs server-side DB access.
-
-When opted in (`WANT_DRIZZLE = yes`):
-- `pnpm add drizzle-orm` + `pnpm add -D drizzle-kit @cloudflare/workers-types wrangler`, then `pnpm approve-builds esbuild workerd` (wrangler's native deps, blocked by pnpm's build-approval gate otherwise).
-- `wrangler` is required to apply migrations to a D1 database (`wrangler d1 execute`) — `drizzle-kit migrate` alone only works against a local SQLite file.
-- Writes `wrangler.toml` (D1 binding with `{D1_DATABASE_ID}` placeholder + `{COMPAT_DATE}` generated at scaffold time), `server/db/schema.ts`, `drizzle.config.ts`, and `db:generate` / `db:migrate` / `db:studio` scripts.
 
 ---
 
