@@ -464,6 +464,18 @@ function applyArtifacts() {
   }
   fs.writeFileSync(appConfigPath, appConfig)
 
+  // app/assets/css/main.css: BigIn brand default is Google Sans, regardless of
+  // which font a given ui-templates repo ships (most ship 'Public Sans'; landing
+  // ships 'Instrument Sans') — replace whatever's quoted after --font-sans.
+  const mainCssPath = path.join(CFG.targetDir, 'app', 'assets', 'css', 'main.css')
+  let mainCss = fs.readFileSync(mainCssPath, 'utf8')
+  if (!mainCss.includes("--font-sans: 'Google Sans'")) {
+    const before = mainCss
+    mainCss = mainCss.replace(/--font-sans:\s*'[^']+'/, "--font-sans: 'Google Sans'")
+    if (mainCss === before) fail('cannot find --font-sans in app/assets/css/main.css — template shape changed; re-verify artifacts.md')
+  }
+  fs.writeFileSync(mainCssPath, mainCss)
+
   // JSON merges — merge, never overwrite.
   mergeJsonFile(path.join(CFG.targetDir, 'package.json'), JSON.parse(readTemplate(path.join('merge', 'package.json'), subs)))
   mergeJsonFile(path.join(CFG.targetDir, '.claude', 'settings.json'), JSON.parse(readTemplate(path.join('merge', 'claude-settings.json'), subs)))

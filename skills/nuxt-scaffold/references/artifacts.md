@@ -14,6 +14,8 @@ The `--template ui` init already provides a working Nuxt UI app (`nuxt.config.ts
 
 **`app/app.config.ts`** — the script regex-replaces the template's `primary: 'green', neutral: 'slate'` with the chosen colors in place.
 
+**`app/assets/css/main.css`** — the script regex-replaces whatever's quoted after `--font-sans:` with `'Google Sans'` (BigIn brand default, applies to every template regardless of upstream font — most `ui-templates` repos ship `'Public Sans'`, `landing` ships `'Instrument Sans'`). Fails loudly if `--font-sans` isn't found rather than guessing.
+
 **`package.json`** (`templates/merge/package.json`) — template already provides `build`/`dev`/`preview`/`postinstall`/`lint`/`typecheck`; kept (existing keys win). Adds `type-check` (BigIn convention alias), test scripts, `openapi-types`, `prepare`, plus `simple-git-hooks` + `lint-staged` blocks.
 
 **`.claude/settings.json`** (`templates/merge/claude-settings.json`) — pre-approved commands + a `PostToolUse` hook running `lint-fix-file.mjs` after every Write/Edit/MultiEdit. **`PostToolUse` only — no `PreToolUse`**: `bigin-harness-setup` adds the `bash-guard.mjs` `PreToolUse` hook when it overlays governance later. Until then nothing gates git commands, so `git push` is deliberately **not** pre-approved (stays a per-call prompt); local reversible git commands are.

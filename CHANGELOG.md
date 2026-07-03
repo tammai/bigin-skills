@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.22.4] - 2026-07-03
+
+### Changed
+
+- **`nuxt-scaffold` scaffolded apps kept the upstream template's default font / app scaffold ra vẫn giữ font mặc định của template gốc:** every `ui-templates` repo ships its own `--font-sans` (`'Public Sans'` in most, `'Instrument Sans'` in `landing`). `scaffold.mjs` now regex-replaces whatever's quoted after `--font-sans` in `app/assets/css/main.css` with `'Google Sans'` (BigIn brand default), applied uniformly across every template; fails loudly if `--font-sans` isn't found rather than guessing. / Mỗi repo `ui-templates` có `--font-sans` riêng (`'Public Sans'` ở hầu hết, `'Instrument Sans'` ở `landing`). `scaffold.mjs` giờ thay thế giá trị sau `--font-sans` trong `app/assets/css/main.css` thành `'Google Sans'` (font mặc định thương hiệu BigIn), áp dụng đồng nhất cho mọi template; báo lỗi rõ ràng nếu không tìm thấy `--font-sans` thay vì đoán vị trí.
+
 ## [1.22.3] - 2026-07-03
 
 ### Fixed
