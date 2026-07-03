@@ -19,7 +19,7 @@ The `--template ui` init installs whatever versions the resolved `create-nuxt@la
 
 The template also ships the eslint stylistic config — explicit override `commaDangle: 'never'` (default `'always-multiline'`) plus `braceStyle: '1tbs'` (same as `@stylistic/eslint-plugin`'s own default, restated); the rest of the effective rules (`indent: 2`, `quotes: 'single'`, `semi: false`) come from that plugin's defaults, not from anything the template writes. Also ships `app.vue`, `app.config.ts`, `pages/index.vue`, `eslint.config.mjs`, and `main.css`.
 
-### Stage 2 — BFF preset packages (plain packages only; Nuxt modules installed in Stage 1)
+### Stage 2 — BFF preset packages
 
 | Command | npm package | Why |
 | --- | --- | --- |
@@ -27,6 +27,7 @@ The template also ships the eslint stylistic config — explicit override `comma
 | *(Stage 1 `--modules`)* | `nuxt-auth-utils` | Sealed session cookie + OAuth/password helpers — the only auth path |
 | *(Stage 1 `--modules`)* | `@vueuse/nuxt` | Vue composition utilities, auto-imported |
 | `pnpm add @pinia/colada` | `@pinia/colada` | Async data (`useQuery` / `useMutation`) on top of Pinia |
+| `pnpm add @pinia/colada-nuxt` | `@pinia/colada-nuxt` | Nuxt module for `@pinia/colada` — **required**, not optional (see [official guide](https://pinia-colada.esm.dev/nuxt.html)); without it `useQuery`/`useMutation` throw. Registered in `nuxt.config.ts` by the script itself (`ensureModuleRegistered`), not `nuxi module add` |
 | `pnpm add zod` | `zod` | Runtime schema validation (validate backend responses in API routes, request bodies) |
 | `pnpm add -D vitest` | `vitest` | Unit test runner |
 | `pnpm add -D @nuxt/test-utils` | `@nuxt/test-utils` | Nuxt-aware Vitest environment (`defineVitestConfig`) |

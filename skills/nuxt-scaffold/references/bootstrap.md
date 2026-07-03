@@ -102,15 +102,15 @@ If any `pnpm add` fails, report which package and stop — do not continue with 
 
 ## Stage 2 — Install the BFF preset / Cài đặt bộ module BFF
 
-The `--template ui` init already installed `@nuxt/ui`, `@nuxt/eslint`, `vue-tsc`, and `tailwindcss`. The `--modules pinia,auth-utils,vueuse` flag in Stage 1 already installed and registered `@pinia/nuxt`, `nuxt-auth-utils`, and `@vueuse/nuxt` in `nuxt.config.ts`. Stage 2 only adds the plain packages (no Nuxt module registration needed):
+The `--template ui` init already installed `@nuxt/ui`, `@nuxt/eslint`, `vue-tsc`, and `tailwindcss`. The `--modules pinia,auth-utils,vueuse` flag in Stage 1 already installed and registered `@pinia/nuxt`, `nuxt-auth-utils`, and `@vueuse/nuxt` in `nuxt.config.ts`. Stage 2 adds the rest:
 
 ```sh
-pnpm add @pinia/colada zod
+pnpm add @pinia/colada @pinia/colada-nuxt zod
 pnpm add -D vitest @nuxt/test-utils happy-dom simple-git-hooks lint-staged openapi-typescript
 pnpm approve-builds simple-git-hooks || true
 ```
 
-`@pinia/colada`, `zod`, and the dev tooling are plain packages (not Nuxt modules), so they are added with `pnpm add` — they are consumed in code, not registered in `nuxt.config.ts`. `happy-dom` is required by `@nuxt/test-utils`'s `environment: 'nuxt'` (set in `vitest.config.ts`, Stage 3) — without it `pnpm test` fails outright with "Could not resolve happy-dom". The second `pnpm add` line above will exit 1 with `ERR_PNPM_IGNORED_BUILDS` because of `simple-git-hooks` — that's expected (see "Build-script approval" above); the `approve-builds` line immediately after handles it.
+`zod` and the dev tooling are plain packages (not Nuxt modules) — consumed in code, no `nuxt.config.ts` registration needed. `@pinia/colada-nuxt` **is** a Nuxt module and must be registered in `nuxt.config.ts`'s `modules` array — per the [official Nuxt guide](https://pinia-colada.esm.dev/nuxt.html), this isn't an optional SSR nicety, it's required for `useQuery`/`useMutation` to work at all; the module also auto-installs the `PiniaColadaSSRNoGc` plugin so SSR caching needs no extra `await`. `nuxi module add` is unreliable non-interactively (see the `image`/`content` caveats below), so the script registers it directly via `ensureModuleRegistered('@pinia/colada-nuxt')` right after `pnpm add` rather than shelling out to `nuxi`. `happy-dom` is required by `@nuxt/test-utils`'s `environment: 'nuxt'` (set in `vitest.config.ts`, Stage 3) — without it `pnpm test` fails outright with "Could not resolve happy-dom". The second `pnpm add` line above will exit 1 with `ERR_PNPM_IGNORED_BUILDS` because of `simple-git-hooks` — that's expected (see "Build-script approval" above); the `approve-builds` line immediately after handles it.
 
 If any `pnpm add` fails, report which package failed and stop — do not continue with a partial install. (`ERR_PNPM_IGNORED_BUILDS` is the one exception — see "Build-script approval" above.)
 

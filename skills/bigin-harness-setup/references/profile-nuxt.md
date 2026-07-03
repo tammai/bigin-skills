@@ -91,6 +91,39 @@ paths:
 - Async data: Pinia Colada queries (`useQuery`, `useMutation`)
 - Local UI state: composables or `ref` in the component
 
+## Server State: Pinia Colada
+- Server data → Colada query/mutation composables only. Client state (auth, UI, filters, drafts) → Pinia stores. Never wrap `useQuery`/`useMutation` inside a Pinia store — Colada's cache already lives in Pinia; wrapping it duplicates state and breaks lifecycle tracking.
+- One file per domain: `composables/queries/<domain>.ts`. Define query options via `defineQueryOptions()`, grouped in a per-domain object (`userQueries.list`, `userQueries.detail`). Keys are defined once there — never hand-written inline in pages/components. Format: `['<domain>', '<scope>', ...params]`.
+- If a domain file grows unwieldy, split into `composables/queries/<domain>/` with an `index.ts` re-export. Never split by type (`queries/` vs `mutations/`) across domains — the domain stays the unit of grouping.
+- Mutations colocate with their domain as `use<Action><Domain>()` (e.g. `useUpdateUser`). Cache invalidation happens inside the mutation composable via `useQueryCache()` — never in components.
+- Components/pages consume query composables only — no direct `api.*` calls, no inline keys. Use `defineQuery()` when the same query is shared by multiple components on one page.
+- Types come from openapi-typescript generated types — the query layer is the only place raw API types are imported.
+
+```ts
+// bad — Colada wrapped inside a Pinia store
+const useUserStore = defineStore('user', () => {
+  const { data } = useQuery({ key: ['users'], query: fetchUsers })
+  return { data }
+})
+
+// good — query composable; store reserved for client state
+const { data } = useQuery(userQueries.list())
+```
+
+```ts
+// composables/queries/users.ts
+export const userQueries = {
+  list: defineQueryOptions(() => ({
+    key: ['users', 'list'],
+    query: () => $fetch<User[]>('/api/users'),
+  })),
+  detail: defineQueryOptions((id: string) => ({
+    key: ['users', 'detail', id],
+    query: () => $fetch<User>(`/api/users/${id}`),
+  })),
+}
+```
+
 ## Components
 - No business logic in components — move to a composable or store.
 - Props typed with `defineProps<{}>()`. Events with `defineEmits<{}>()`.

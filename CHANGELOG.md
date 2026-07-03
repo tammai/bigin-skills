@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.20.0] - 2026-07-03
+
+### Added
+
+- **`profile-nuxt.md` — Server State: Pinia Colada convention / quy ước Server State: Pinia Colada:** new hard-rule section in the `conventions-frontend.md` template: server data goes through Colada query/mutation composables only (never wrapped in a Pinia store), one file per domain (`composables/queries/<domain>.ts`) with `defineQueryOptions()` factories and keys defined once, an escape hatch to split into a `<domain>/` folder with an `index.ts` re-export once a file grows unwieldy (never split by type across domains), mutations colocated as `use<Action><Domain>()` with cache invalidation inside the mutation, components consuming query composables only, and types sourced from openapi-typescript in the query layer only. / Thêm quy ước bắt buộc: dữ liệu server chỉ đi qua composable Colada (không bọc trong Pinia store), một file cho mỗi domain, tách theo domain chứ không tách theo loại (query/mutation).
+
+### Fixed
+
+- **`nuxt-scaffold` sample composables violated the new Colada convention / mẫu composable vi phạm quy ước Colada mới:** `app/composables/useUsers.ts` (`useFetch`) and `app/stores/session.ts` (`useQuery` wrapped inside a Pinia store — the exact anti-pattern the new rule bans) replaced with `app/composables/queries/users.ts` (`userQueries.list` via `defineQueryOptions()`) and `app/composables/queries/session.ts` (`sessionQueries.me` + `useMe` via `defineQuery()`). Test moved and rewritten accordingly. `artifacts.md` descriptions updated to match.
+- **`@pinia/colada-nuxt` module never installed or registered / thiếu cài đặt module `@pinia/colada-nuxt`:** `bootstrap.md`/`artifacts.md` previously described `@pinia/colada` as a plain package needing no Nuxt module registration, and referenced a non-existent package name (`@pinia/colada/nuxt`). Per the [official Nuxt guide](https://pinia-colada.esm.dev/nuxt.html), `@pinia/colada-nuxt` is required — without it `useQuery`/`useMutation` throw at runtime. `scaffold.mjs`'s `stage2Preset()` now installs it and registers it into `nuxt.config.ts`'s `modules` via the existing `ensureModuleRegistered()` helper; `bootstrap.md`/`modules.md`/`artifacts.md` updated to match. / Bổ sung cài đặt và đăng ký module `@pinia/colada-nuxt` — thiếu module này khiến `useQuery`/`useMutation` lỗi khi chạy.
+
 ## [1.19.1] - 2026-07-03
 
 ### Fixed

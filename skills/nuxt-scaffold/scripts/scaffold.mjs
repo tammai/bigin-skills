@@ -318,7 +318,9 @@ function stage1bRefresh() {
 
 function stage2Preset() {
   log('stage 2: installing BFF preset packages')
-  pnpmAdd(['@pinia/colada', 'zod'])
+  pnpmAdd(['@pinia/colada', '@pinia/colada-nuxt', 'zod'])
+  // Required for useQuery/useMutation to work at all (SSR-safe cache, auto PiniaColadaSSRNoGc) — not optional.
+  ensureModuleRegistered('@pinia/colada-nuxt')
   // simple-git-hooks trips ERR_PNPM_IGNORED_BUILDS — expected; approved right after.
   pnpmAdd(['-D', 'vitest', '@nuxt/test-utils', 'happy-dom', 'simple-git-hooks', 'lint-staged', 'openapi-typescript'], ['simple-git-hooks'])
   log('stage 2 done')
