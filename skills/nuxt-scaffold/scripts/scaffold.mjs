@@ -44,6 +44,19 @@ const PROJECT_NAME_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/
 const D1_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 // Packages create-nuxt's `ui` template + `--modules` install; Stage 1b re-pins them.
 const TEMPLATE_PKGS = ['nuxt', '@nuxt/ui', '@nuxt/eslint', 'eslint', 'tailwindcss', 'vue-tsc', 'typescript', '@pinia/nuxt', 'nuxt-auth-utils', '@vueuse/nuxt']
+// `starter` = today's from-scratch `--template ui` path (no repo). Everything else clones the
+// matching official ui.nuxt.com template (github.com/nuxt-ui-templates/<slug>) via `nuxi init`.
+const TEMPLATE_REPOS = {
+  saas: 'nuxt-ui-templates/saas',
+  dashboard: 'nuxt-ui-templates/dashboard',
+  landing: 'nuxt-ui-templates/landing',
+  docs: 'nuxt-ui-templates/docs',
+  portfolio: 'nuxt-ui-templates/portfolio',
+  chat: 'nuxt-ui-templates/chat',
+  changelog: 'nuxt-ui-templates/changelog',
+  editor: 'nuxt-ui-templates/editor'
+}
+const TEMPLATES_ENUM = ['starter', ...Object.keys(TEMPLATE_REPOS)]
 
 function log(msg) {
   console.log(`[scaffold] ${msg}`)
@@ -76,7 +89,7 @@ function loadConfig() {
 }
 
 function validateConfig(cfg) {
-  const KNOWN = ['projectName', 'targetDir', 'packageManager', 'theme', 'optionalModules', 'versionPolicy', 'drizzle', 'resume', 'gitCommit']
+  const KNOWN = ['projectName', 'targetDir', 'packageManager', 'template', 'theme', 'optionalModules', 'versionPolicy', 'drizzle', 'resume', 'gitCommit']
   for (const k of Object.keys(cfg)) {
     if (!KNOWN.includes(k)) fail(`unknown config key "${k}" (known: ${KNOWN.join(', ')})`, 2)
   }
@@ -89,6 +102,7 @@ function validateConfig(cfg) {
     projectName: cfg.projectName,
     targetDir: path.resolve(cfg.targetDir ?? '.'),
     packageManager: cfg.packageManager ?? 'pnpm',
+    template: cfg.template ?? 'starter',
     theme: { primary: cfg.theme?.primary ?? 'blue', neutral: cfg.theme?.neutral ?? 'slate' },
     optionalModules: cfg.optionalModules ?? [],
     versionPolicy: cfg.versionPolicy ?? 'capped',
@@ -97,10 +111,14 @@ function validateConfig(cfg) {
     gitCommit: cfg.gitCommit ?? true
   }
   if (out.packageManager !== 'pnpm') bad(`packageManager must be "pnpm" (BigIn standard), got ${JSON.stringify(out.packageManager)}`)
+  if (!TEMPLATES_ENUM.includes(out.template)) bad(`template must be one of ${TEMPLATES_ENUM.join('/')}`)
   if (!PRIMARY_COLORS.includes(out.theme.primary)) bad(`theme.primary must be one of ${PRIMARY_COLORS.join('/')}`)
   if (!NEUTRAL_COLORS.includes(out.theme.neutral)) bad(`theme.neutral must be one of ${NEUTRAL_COLORS.join('/')}`)
   if (!Array.isArray(out.optionalModules) || out.optionalModules.some(m => !OPTIONAL_MODULES.includes(m))) {
     bad(`optionalModules must be a subset of [${OPTIONAL_MODULES.join(', ')}]`)
+  }
+  if (out.template !== 'starter' && out.optionalModules.length > 0) {
+    bad(`optionalModules must be empty when template is "${out.template}" — the cloned template already bundles what it needs`)
   }
   if (!['capped', 'latest'].includes(out.versionPolicy)) bad('versionPolicy must be "capped" or "latest"')
   if (typeof out.drizzle.enabled !== 'boolean') bad('drizzle.enabled must be a boolean')
@@ -254,18 +272,35 @@ function preflight() {
   log(`preflight ok — Node ${process.version}, pnpm ${pnpmCheck.stdout.trim()}, target ${CFG.targetDir}`)
 }
 
-function stage1Init() {
-  log('stage 1: npm create nuxt@latest (non-interactive, ui template, in-place)')
-  const createArgs = ['create', 'nuxt@latest', '.', '--', '--template', 'ui', '--packageManager', CFG.packageManager, '--gitInit', '--force', '--modules', 'pinia,auth-utils,vueuse']
-  let res = run('npm', createArgs)
-  if (res.status !== 0) {
-    log('npm create failed — clearing npm cache and retrying once')
-    run('npm', ['cache', 'clean', '--force'], { allowFail: true })
-    res = run('npm', createArgs)
+const CORE_MODULES = ['@pinia/nuxt', 'nuxt-auth-utils', '@vueuse/nuxt']
+
+function verifyCoreModulesRegistered(context) {
+  const nuxtConfig = fs.readFileSync(path.join(CFG.targetDir, 'nuxt.config.ts'), 'utf8')
+  for (const mod of CORE_MODULES) {
+    if (!nuxtConfig.includes(mod)) {
+      fail(`${context}: ${mod} is not registered in nuxt.config.ts — re-verify bootstrap.md Stage 1`)
+    }
   }
-  if (res.status !== 0) {
-    log('npm create failed twice — falling back to npx nuxi init')
-    must('npx', ['nuxi@latest', 'init', '.', '--template', 'ui', '--packageManager', CFG.packageManager, '--gitInit', '--force', '--modules', 'pinia,auth-utils,vueuse'], 'nuxi init fallback')
+}
+
+function stage1Init() {
+  if (CFG.template === 'starter') {
+    log('stage 1: npm create nuxt@latest (non-interactive, ui template, in-place)')
+    const createArgs = ['create', 'nuxt@latest', '.', '--', '--template', 'ui', '--packageManager', CFG.packageManager, '--gitInit', '--force', '--modules', 'pinia,auth-utils,vueuse']
+    let res = run('npm', createArgs)
+    if (res.status !== 0) {
+      log('npm create failed — clearing npm cache and retrying once')
+      run('npm', ['cache', 'clean', '--force'], { allowFail: true })
+      res = run('npm', createArgs)
+    }
+    if (res.status !== 0) {
+      log('npm create failed twice — falling back to npx nuxi init')
+      must('npx', ['nuxi@latest', 'init', '.', '--template', 'ui', '--packageManager', CFG.packageManager, '--gitInit', '--force', '--modules', 'pinia,auth-utils,vueuse'], 'nuxi init fallback')
+    }
+  } else {
+    const repo = TEMPLATE_REPOS[CFG.template]
+    log(`stage 1: npx nuxi init (non-interactive, cloning gh:${repo}, in-place)`)
+    must('npx', ['nuxi@latest', 'init', '.', '--template', `gh:${repo}`, '--packageManager', CFG.packageManager, '--gitInit', '--force'], `nuxi init --template gh:${repo}`)
   }
 
   // --gitInit only fires when the install step runs; make sure a repo exists either way.
@@ -274,13 +309,18 @@ function stage1Init() {
     must('git', ['init'], 'git init')
   }
 
-  // Registration check: create-nuxt@latest is unpinned, so --modules silently
-  // changing behavior is the risk a version pin used to cover.
-  const nuxtConfig = fs.readFileSync(path.join(CFG.targetDir, 'nuxt.config.ts'), 'utf8')
-  for (const mod of ['@pinia/nuxt', 'nuxt-auth-utils', '@vueuse/nuxt']) {
-    if (!nuxtConfig.includes(mod)) {
-      fail(`Stage 1's --modules flag did not register ${mod} in nuxt.config.ts — create-nuxt@latest's --modules behavior may have changed; re-verify bootstrap.md Stage 1`)
-    }
+  if (CFG.template === 'starter') {
+    // Registration check: create-nuxt@latest is unpinned, so --modules silently
+    // changing behavior is the risk a version pin used to cover.
+    verifyCoreModulesRegistered("Stage 1's --modules flag did not register core modules")
+  } else {
+    // Arbitrary giget templates don't support --modules — add and register the
+    // BFF preset's core modules ourselves so Stage 1b's refresh step (which
+    // assumes they're already installed) sees the same shape as the starter path.
+    log('stage 1: installing core BFF modules (pinia, nuxt-auth-utils, vueuse) — not supported by --modules on a cloned template')
+    pnpmAdd(CORE_MODULES)
+    for (const mod of CORE_MODULES) ensureModuleRegistered(mod)
+    verifyCoreModulesRegistered('failed to register core modules after cloning the template')
   }
 
   const pkgPath = path.join(CFG.targetDir, 'package.json')
@@ -341,6 +381,7 @@ function ensureModuleRegistered(moduleName) {
 }
 
 function stage2bExtras() {
+  if (CFG.template !== 'starter') return // cloned templates already bundle what they need
   if (CFG.optionalModules.includes('image')) {
     log('stage 2b: adding @nuxt/image')
     run('pnpm', ['exec', 'nuxi', 'module', 'add', 'image'], { allowFail: true })
@@ -380,6 +421,18 @@ function applyArtifacts() {
   for (const src of listFilesRecursive(filesRoot)) {
     const rel = path.relative(filesRoot, src)
     writeFileEnsured(path.join(CFG.targetDir, rel), substitute(fs.readFileSync(src, 'utf8'), subs))
+  }
+  // Template-specific overlays (same write-fresh mechanism as `files/`, gated by CFG.template):
+  // `starter` gets the openapi stub (no backend contract to describe for a cloned template);
+  // `saas` gets the demo-auth + private dashboard wiring the official template doesn't ship.
+  const templateOverlay = CFG.template === 'starter' ? 'starter' : CFG.template === 'saas' ? 'saas' : null
+  if (templateOverlay) {
+    const overlayRoot = path.join(TEMPLATES, templateOverlay)
+    for (const src of listFilesRecursive(overlayRoot)) {
+      if (path.relative(overlayRoot, src).startsWith(`merge${path.sep}`)) continue // handled below, JSON-merged not overwritten
+      const rel = path.relative(overlayRoot, src)
+      writeFileEnsured(path.join(CFG.targetDir, rel), substitute(fs.readFileSync(src, 'utf8'), subs))
+    }
   }
   if (CFG.drizzle.enabled) {
     const drizzleRoot = path.join(TEMPLATES, 'drizzle')
@@ -422,6 +475,10 @@ function applyArtifacts() {
   mergeJsonFile(path.join(CFG.targetDir, '.vscode', 'settings.json'), JSON.parse(readTemplate(path.join('merge', 'vscode-settings.json'), subs)))
   if (CFG.drizzle.enabled) {
     mergeJsonFile(path.join(CFG.targetDir, 'package.json'), JSON.parse(readTemplate(path.join('merge', 'drizzle-package.json'), subs)))
+  }
+  if (CFG.template === 'starter') {
+    // openapi-types script only makes sense alongside the openapi.yaml stub (starter-only overlay above).
+    mergeJsonFile(path.join(CFG.targetDir, 'package.json'), JSON.parse(readTemplate(path.join('starter', 'merge', 'package.json'), subs)))
   }
 
   // .env must never be committed.
@@ -468,17 +525,35 @@ function commitIfDirty() {
 function printNextSteps() {
   const lines = [
     '',
-    'Nuxt 4 BFF app scaffolded.',
+    `Nuxt 4 BFF app scaffolded (template: ${CFG.template}).`,
     '',
-    'Next:',
-    '  1. Copy .env.example → .env and set:',
-    '     - NUXT_SESSION_PASSWORD (openssl rand -base64 32)',
-    '     - NUXT_BACKEND_URL     (backend REST API; server-only)',
-    '  2. Replace the stub openapi.yaml with the real backend contract, then:',
-    '     pnpm openapi-types',
-    '  3. Overlay governance: run bigin-harness-setup (CLAUDE.md, rules, bash-guard).',
-    '  4. Start: pnpm dev'
+    'Next:'
   ]
+  if (CFG.template === 'starter') {
+    lines.push(
+      '  1. Copy .env.example → .env and set:',
+      '     - NUXT_SESSION_PASSWORD (openssl rand -base64 32)',
+      '     - NUXT_BACKEND_URL     (backend REST API; server-only)',
+      '  2. Replace the stub openapi.yaml with the real backend contract, then:',
+      '     pnpm openapi-types',
+      '  3. Overlay governance: run bigin-harness-setup (CLAUDE.md, rules, bash-guard).',
+      '  4. Start: pnpm dev'
+    )
+  } else if (CFG.template === 'saas') {
+    lines.push(
+      '  1. Copy .env.example → .env and set NUXT_SESSION_PASSWORD (openssl rand -base64 32).',
+      '  2. /api/login and /api/signup are stubbed (any valid-shaped credentials succeed, no backend call) — swap in a real backend before shipping.',
+      '  3. Overlay governance: run bigin-harness-setup (CLAUDE.md, rules, bash-guard).',
+      '  4. Start: pnpm dev — public site at /, private area at /dashboard.'
+    )
+  } else {
+    lines.push(
+      '  1. Copy .env.example → .env and set NUXT_SESSION_PASSWORD (openssl rand -base64 32).',
+      `  2. This is the official nuxt-ui-templates/${CFG.template} starter layered with the BFF preset — see its own README for template-specific usage.`,
+      '  3. Overlay governance: run bigin-harness-setup (CLAUDE.md, rules, bash-guard).',
+      '  4. Start: pnpm dev'
+    )
+  }
   if (CFG.drizzle.enabled && CFG.drizzle.d1DatabaseId === null) {
     lines.push('  5. wrangler.toml still has the {D1_DATABASE_ID} placeholder — replace it (wrangler d1 list) before deploying.')
   }

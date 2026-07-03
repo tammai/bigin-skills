@@ -61,6 +61,26 @@ If `npm create` exits non-zero:
 
 ---
 
+## Stage 1 (cloned templates) — every `template` other than `starter`
+
+`create-nuxt@latest`'s `--template`/`--modules` flags only work for its own official template set (`ui`, `ui-pro`, etc.) — an arbitrary community/org repo isn't one of those, so this path skips `npm create` entirely and uses `nuxi init`'s giget passthrough instead (the same tool `stage1Init`'s starter path already falls back to, not a new dependency):
+
+```sh
+npx nuxi@latest init . --template gh:nuxt-ui-templates/<slug> --packageManager pnpm --gitInit --force
+```
+
+`TEMPLATE_REPOS` in `scaffold.mjs` maps `template` → `<slug>` (`saas`, `dashboard`, `landing`, `docs`, `portfolio`, `chat`, `changelog`, `editor` — all under the `nuxt-ui-templates` GitHub org, the same one `ui.nuxt.com/templates` links to). `--modules` is **not** passed here — arbitrary giget templates don't support it, so the BFF preset's core modules are added explicitly right after clone instead of during init:
+
+```sh
+pnpm add @pinia/nuxt nuxt-auth-utils @vueuse/nuxt
+```
+
+followed by `ensureModuleRegistered()` for each (the same helper Stage 2b already uses for `@nuxt/image`/`@nuxt/content` when `nuxi module add` silently fails to register) — this puts the cloned-template path at parity with what `--modules` gives the `starter` path *before* Stage 1b runs, so Stage 1b's refresh + safety checks work unmodified across every template.
+
+Shape verified during authoring (fetched live from GitHub): only `nuxt-ui-templates/saas`. It has `app/app.config.ts` with `css:`/`routeRules` present in `nuxt.config.ts` (Stage 1b's safety check passes), `ui: { colors: { primary, neutral } }` in `app.config.ts` (the theme regex in `applyArtifacts` matches `primary:\s*(['"])[a-z]+\1` anywhere in the file regardless of nesting, so no special-casing was needed), and already bundles `@nuxt/content` + `@nuxt/image` (which is why `optionalModules` must be empty for non-`starter` templates — see Stage 2b below). The other 7 slugs (`dashboard`, `landing`, `docs`, `portfolio`, `chat`, `changelog`, `editor`) were **not** individually fetched — they rely solely on Stage 1b's generic safety checks (`nuxt` v4, `app/app.config.ts` + `eslint.config.mjs` existing, `css:`/`routeRules` in `nuxt.config.ts`) to fail loudly rather than silently if their shape doesn't match. Re-verify a slug's shape the first time a real scaffold with that `template` value is attempted.
+
+---
+
 ## Stage 1b — Refresh template-installed packages / Làm mới gói do template cài
 
 `create-nuxt@latest`'s `--template ui` and `--modules` flags install whatever `@nuxt/ui` / `@nuxt/eslint` / `eslint` / `tailwindcss` / `vue-tsc` / `typescript` / `@pinia/nuxt` / `nuxt-auth-utils` / `@vueuse/nuxt` / `nuxt` versions were current when that `create-nuxt` release was published — not necessarily current *now* (this is how a scaffolded app can end up on a Tailwind release that predates newer palettes like `mauve`/`olive`/`mist`/`taupe`). This stage re-pins all of them to fresh releases, per `VERSION_POLICY` (set in `SKILL.md` Step 2; default `capped`):
@@ -117,6 +137,8 @@ If any `pnpm add` fails, report which package failed and stop — do not continu
 ---
 
 ## Stage 2b — Optional extras / Module tuỳ chọn (only if the user opted in)
+
+Skipped entirely when `template !== 'starter'` — every cloned template already bundles whatever `image`/`content`-equivalent it needs (the `saas` template ships both already); `optionalModules` must be `[]` for those templates (`validateConfig` fails fast otherwise).
 
 If `image` was chosen:
 ```sh

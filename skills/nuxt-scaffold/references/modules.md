@@ -1,6 +1,8 @@
 # Modules — what gets installed
 
-The BFF preset is installed by default. Optional modules and the Drizzle/D1 layer are added only when the user opts in during SKILL.md Step 2.
+The BFF preset is installed for every `template` (`starter` and every cloned template alike — see `references/bootstrap.md`'s "Stage 1 (cloned templates)" section for how `@pinia/nuxt`/`nuxt-auth-utils`/`@vueuse/nuxt` get added and registered on the clone path). Optional modules and the Drizzle/D1 layer are added only when the user opts in during SKILL.md Step 2, and only for `template: starter` (cloned templates already bundle what they need — `optionalModules` must be empty otherwise).
+
+Installing `nuxt-auth-utils` doesn't mean a template ships an auth *flow* — only `saas` writes a sample login/session/dashboard implementation (a demo one, not backend-proxied; see `references/artifacts.md`'s `## saas opt-in`). For `starter` and every other cloned template, the module is present but unused until hand-wired.
 
 ---
 

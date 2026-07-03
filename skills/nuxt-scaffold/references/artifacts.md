@@ -26,20 +26,32 @@ The `--template ui` init already provides a working Nuxt UI app (`nuxt.config.ts
 
 ---
 
-## Written-fresh files (`templates/files/`, safe to overwrite on resume)
+## Written-fresh files (`templates/files/`, safe to overwrite on resume — applied for every template)
 
-- **`server/api/me.get.ts`**, **`server/api/users.get.ts`** — sample BFF proxy routes. The backend token lives in the session's `secure` data — a field `nuxt-auth-utils` never serializes into `/api/_auth/session`, so it's actually enforced server-only (unlike a field on `user`).
-- **`shared/types/auth.d.ts`** — augments `SecureSessionData` (not `User`) so `secure.token` type-checks; without it `pnpm type-check` fails. Lives in `shared/types/` per Nuxt 4 conventions; needs zero tsconfig changes (see above).
-- **`server/api/login.post.ts`** — the unauthenticated entry point; proxies credentials to the backend (BFF never validates passwords) and seals the returned token into `secure`.
-- **`server/middleware/auth.ts`** — 401s unauthenticated `/api/*` except `/api/login`. Matches `pathname` (not raw `event.path`, which includes the query string) so `/api/login?x=y` still hits the carve-out.
-- **`app/middleware/auth.global.ts`** — client route guard. The `.global.ts` suffix makes Nuxt run it without per-page opt-in. Uses `useUserSession()` (seeded during SSR/app-init) rather than a Colada query — an async `useQuery` status here would race and false-redirect authenticated users on first navigation.
-- **`app/composables/queries/session.ts`** + **`session.test.ts`** — sample Colada query composable (`sessionQueries.me` via `defineQueryOptions`, wrapped in `useMe` via `defineQuery` since it's the kind of query multiple components share — never a Pinia store, per `conventions-frontend.md`'s Server State: Pinia Colada rule). The test validates the whole Vitest + Nuxt env + Pinia Colada chain (fresh query is `'pending'` — Colada has no `'idle'`, `useQuery` fires eagerly).
+- **`server/api/users.get.ts`** — sample **unauthenticated** BFF proxy route (no template wires auth unconditionally anymore — see the `saas` opt-in below for the one that does). Demonstrates the proxy pattern: the browser only ever calls same-origin `/api/*`.
+- **`app/composables/queries/users.ts`** — sample Colada query composable (`userQueries.list` via `defineQueryOptions`, wrapped in `useUsers` via `defineQuery` since it's the kind of query multiple components share — never a Pinia store, per `conventions-frontend.md`'s Server State: Pinia Colada rule) against the same-origin BFF API, per the `composables/queries/<domain>.ts` convention.
+- **`app/composables/queries/users.test.ts`** — validates the whole Vitest + Nuxt env + Pinia Colada chain (fresh query is `'pending'` — Colada has no `'idle'`, `useQuery` fires eagerly). This is the *only* test file the base preset ships — without it `pnpm test` fails with "no test files found", so don't drop it without adding a replacement.
 - **`vitest.config.ts`** — minimal Nuxt-aware config (`environment: 'nuxt'`; requires `happy-dom`, installed in Stage 2).
-- **`app/composables/queries/users.ts`** — sample Colada query composable (`userQueries.list` via `defineQueryOptions`) against the same-origin BFF API, per the `composables/queries/<domain>.ts` convention.
 - **`.claude/guards/lint-fix-file.mjs`** — backs the PostToolUse hook. Deliberately scoped to the single touched file, **not** repo-wide `eslint . --fix`: onboarding an existing repo with pre-existing violations, a blanket fix silently rewrote 10 unrelated files (848 lines in one) on a single edit. Node (`.mjs`) matches `bash-guard.mjs`'s convention — dependency-free harness tooling that runs on macOS, Linux, and Windows.
 - **`.prettierignore`** (`*`) — ESLint is the sole formatter.
-- **`openapi.yaml`** — stub so `pnpm openapi-types` works before the real contract lands; replace it.
-- **`.env.example`** — documents `NUXT_SESSION_PASSWORD` + `NUXT_BACKEND_URL`.
+- **`.env.example`** — documents `NUXT_SESSION_PASSWORD` + `NUXT_BACKEND_URL` (the latter only actually used by `users.get.ts` above; harmless if unused by a template that doesn't have a backend).
+
+## `starter` opt-in (`templates/starter/`, only when `template === 'starter'`)
+
+- **`openapi.yaml`** — stub so `pnpm openapi-types` works before the real contract lands; replace it. Only describes `/users` (the one endpoint the base preset actually ships) — extend it alongside whatever real backend routes get added.
+- **`merge/package.json`** — adds just the `openapi-types` script (merged, same `mergeJsonFile` mechanism as the base `merge/package.json`). Not applied to other templates — a cloned template has no backend contract to describe by default.
+
+## `saas` opt-in (`templates/saas/`, only when `template === 'saas'`)
+
+The cloned `nuxt-ui-templates/saas` repo ships public marketing pages plus **non-functional** `login.vue`/`signup.vue` mockups (their `onSubmit` just does `console.log`) and no private area at all. This overlay wires a demo auth flow and a private `/dashboard` on top — **no real backend**, per explicit request; swap the two demo endpoints for real ones before shipping:
+
+- **`app/pages/login.vue`**, **`app/pages/signup.vue`** — overwrite the template's mockups; same `UAuthForm` markup, `onSubmit` now calls `/api/login` / `/api/signup` and redirects to `/dashboard`.
+- **`app/middleware/auth.global.ts`** — scoped, unlike a typical BFF auth guard: only `/dashboard/**` requires a session (redirects to `/login`); an already-logged-in user hitting `/login` or `/signup` is redirected to `/dashboard`. Every other route (the marketing site) stays public.
+- **`app/pages/dashboard/index.vue`** — the private page itself. Deliberately built from plain `@nuxt/ui` components (`UContainer`, `UPageCard`, `UButton`) rather than the framework's `UDashboard*` components — those exist in `@nuxt/ui` v4 (confirmed via the `saas` template's own `package.json`, `@nuxt/ui@^4.9.0`) but their exact API wasn't verified during authoring; swap them in once verified if a richer shell is wanted.
+- **`server/api/login.post.ts`**, **`server/api/signup.post.ts`** — zod-validate the body, then `setUserSession(event, { user: { email } })` directly — **no backend call**. This is the one deliberate deviation from the BFF-proxy convention everywhere else in this skill; both files carry a comment marking it as a stand-in.
+- **`server/api/me.get.ts`** — `requireUserSession(event)` then returns `user` directly (no backend proxy, unlike the `starter` template's sample route).
+- **`server/middleware/auth.ts`** — 401s `/api/me` and any future `/api/dashboard/*` when unauthenticated; `/api/login` and `/api/signup` stay open.
+- **`shared/types/auth.d.ts`** — augments `User` (not `SecureSessionData` — there's no backend token to seal here) with `email`/optional `name` so `pnpm type-check` passes.
 
 ## Drizzle opt-in (`templates/drizzle/`, only when `drizzle.enabled`)
 

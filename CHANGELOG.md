@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.21.0] - 2026-07-03
+
+### Added
+
+- **`nuxt-scaffold` template picker / chọn template khi scaffold nuxt:** new `template` config field (`starter` default, `saas`, `dashboard`, `landing`, `docs`, `portfolio`, `chat`, `changelog`, `editor`) covering every Nuxt-flavored template on [ui.nuxt.com/templates](https://ui.nuxt.com/templates). `starter` keeps today's from-scratch `npm create nuxt@latest` path (no clone); every other value clones the matching `github.com/nuxt-ui-templates/<slug>` repo via `nuxi init` and layers the BFF preset (Pinia, Pinia Colada, `nuxt-auth-utils`, VueUse, Vitest, git hooks) on top. `saas` additionally gets a demo-auth-gated private `/dashboard` (`nuxt-auth-utils`, no real backend — `server/api/login.post.ts`/`signup.post.ts` stub credentials instead of proxying) since the official template ships only non-functional login/signup mockups and no private area. Verified end-to-end (lint/type-check/test/commit all green) for both `starter` and `saas`; the remaining 7 slugs rely on the same generic safety checks that already guard template-shape drift. / Thêm trường cấu hình `template` để chọn 1 trong 9 template chính thức của ui.nuxt.com; `starter` giữ nguyên hành vi cũ, các template khác clone repo gốc rồi phủ BFF preset lên trên; riêng `saas` có thêm khu vực `/dashboard` riêng tư với xác thực giả lập.
+
+### Changed
+
+- **`nuxt-scaffold` Step 2 config gathering — step-by-step instead of one bundled message / hỏi cấu hình từng bước thay vì gộp một tin nhắn:** enum/boolean choices (template, theme colors, optional modules, dependency freshness, Drizzle opt-in) now go through `AskUserQuestion` one at a time; project name and the D1 UUID stay plain conversational free text since they're regex-validated and don't fit an option list.
+- **`nuxt-scaffold` no longer wires an auth flow unconditionally / không còn tự động cài đặt xác thực:** `server/api/login.post.ts`, `server/middleware/auth.ts`, `app/middleware/auth.global.ts`, and the session query composable moved out of the base preset (previously written for every scaffold regardless of need) — the base `starter` template now ships an unauthenticated BFF proxy sample only. The auth flow lives under the new `saas` template instead, as a demo implementation. The base Vitest sanity test moved from `session.test.ts` to `users.test.ts` (the composable it exercises) so `pnpm test` still has something to run.
+
+### Fixed
+
+- **`.claude/guards/lint-fix-file.mjs` template and sample `users.ts` failed the scaffold's own lint gate / mẫu guard và `users.ts` không qua được chính lint gate của scaffold:** the guard template used double quotes + semicolons and `users.ts` had a trailing comma, both violating the `@stylistic` config the scaffold itself writes (`quotes: 'single'`, `semi: false`, `commaDangle: 'never'`) — meaning every `starter` scaffold's `pnpm lint` was failing out of the box. Found while verifying this release's `template` picker end-to-end; fixed in the template source.
+
 ## [1.20.0] - 2026-07-03
 
 ### Added
