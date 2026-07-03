@@ -36,7 +36,7 @@ Store result as `PROFILE`. Load `references/profile-{PROFILE}.md` for all templa
 
 Scaffolding is done by the `nuxt-scaffold` skill's deterministic script — **not** conversationally. Three steps, and **all questions happen up front, in one batch; zero prompts once scaffolding starts**:
 
-1. **Gather every scaffold decision now**, in a single message, alongside (not interleaved with) this skill's own questions: the question list is `skills/nuxt-scaffold/SKILL.md` → Step 2 (project name, primary/neutral theme colors, version policy). Confirm the summary once.
+1. **Gather every scaffold decision now**, in the same turn, back-to-back with this skill's own remaining decisions: ask `skills/nuxt-scaffold/SKILL.md` → Step 2 (project name, primary/neutral theme colors, version policy), then immediately ask Phase 1.5's bundle below (Knowledge Bundle + CI config — an empty repo can't hit Phase 1's conflict path, so only those two apply here). Confirm the scaffold summary once. Store `KNOWLEDGE_BUNDLE` / `CI_PROVIDER` now — Phase 1.5 is a no-op later in this branch since they're already decided. `CODE_REVIEWER` needs no question (see Phase 1.5).
 2. **Write the config JSON** (schema in `skills/nuxt-scaffold/SKILL.md` → Step 3) to a temp file outside the repo, with `"packageManager": "pnpm"`.
 3. **Run the script and stream its output** (several minutes — installs + verify gates):
    ```sh
@@ -72,7 +72,29 @@ Overwrite all? (yes) / Create missing only? (new) / Cancel? (cancel)
 - `new` → create only files that don't exist; skip existing ones silently
 - `cancel` → stop immediately
 
-Store choice as `INSTALL_MODE`.
+Store choice as `INSTALL_MODE`. If this question fires, fold it into Phase 1.5's bundle below as a third question instead of asking it standalone here — resolve it in the same `AskUserQuestion` call.
+
+---
+
+## Phase 1.5: Gather Remaining Decisions
+
+Skip this phase entirely if `KNOWLEDGE_BUNDLE` and `CI_PROVIDER` are already set (Phase 0.5 asked them alongside the nuxt-scaffold batch for the empty-repo branch).
+
+Otherwise, ask **one bundled `AskUserQuestion` call**, before writing any files, combining:
+
+1. **Knowledge Bundle** (yes/no):
+   ```
+   Add the Knowledge Bundle convention? (yes/no)
+   Structured domain knowledge under knowledge/ — concept files with frontmatter, linked from an index, validated by a script. See references/knowledge-bundle.md for the spec.
+   ```
+2. **CI config** (github/gitlab/both/no) — auto-detect a default first: run `git remote get-url origin 2>/dev/null`; if it matches `github.com` preselect `github`, if `gitlab.com` preselect `gitlab`; if undetermined (no remote, unrecognized host, or ambiguous) preselect `both`. Present the preselected option first/labeled as detected, but let the user override:
+   ```
+   Add CI config? (github/gitlab/both/no)
+   Generates a workflow that runs {LINT} && {TYPECHECK} && {TEST} on push to main and on merge/pull requests.
+   ```
+3. **Install mode** — only if Phase 1 detected an existing-harness conflict in this run: the overwrite/new/cancel question from Phase 1 above.
+
+Store `KNOWLEDGE_BUNDLE`, `CI_PROVIDER` (and `INSTALL_MODE` if included). Set `CODE_REVIEWER = true` unconditionally — no question; it's a read-only, low-risk agent file (mentioned in the Phase 7 summary so the user knows it's there).
 
 ---
 
@@ -178,26 +200,15 @@ Editor format-on-save via ESLint. Read `references/profile-nuxt.md` → `## .vsc
 
 Other profiles: skip.
 
-### 5-4. Optional: code-reviewer agent
+### 5-4. code-reviewer agent
 
-Ask:
-```
-Add a read-only code-reviewer agent? (yes/no)
-```
-
-If yes: read from `references/files-shared.md` → `## code-reviewer agent`. Write to `.claude/agents/code-reviewer.md`.
+`CODE_REVIEWER` is always `true` (decided in Phase 1.5 — no question). Read from `references/files-shared.md` → `## code-reviewer agent`. Write to `.claude/agents/code-reviewer.md`.
 
 ---
 
 ## Phase 5.5: Knowledge Bundle (optional)
 
-Ask:
-```
-Add the Knowledge Bundle convention? (yes/no)
-Structured domain knowledge under knowledge/ — concept files with frontmatter, linked from an index, validated by a script. See references/knowledge-bundle.md for the spec.
-```
-
-If yes, set `KNOWLEDGE_BUNDLE = true`. Read all templates from `references/knowledge-bundle.md`. Replace `{DATE}` with today's date in ISO 8601 (`YYYY-MM-DD`) in every template before writing.
+Decided in Phase 1.5 (`KNOWLEDGE_BUNDLE`). If true, read all templates from `references/knowledge-bundle.md`. Replace `{DATE}` with today's date in ISO 8601 (`YYYY-MM-DD`) in every template before writing.
 
 1. **Rule file** — `## knowledge.md` → write to `.claude/rules/knowledge.md`. Skip if `INSTALL_MODE=new` and it exists.
 2. **Starter bundle** — write each (skip existing under `INSTALL_MODE=new`):
@@ -213,25 +224,19 @@ If yes, set `KNOWLEDGE_BUNDLE = true`. Read all templates from `references/knowl
 
 The knowledge.md rule file uses the index-first read protocol: agents read the index summary and only open a concept file when the summary is insufficient. This keeps per-session context load low even as the bundle grows.
 
-If no, leave `KNOWLEDGE_BUNDLE` unset and skip everything above — no other phase depends on it.
+If false, skip everything above — no other phase depends on it.
 
 ---
 
 ## Phase 5.6: CI Config (optional)
 
-Ask:
-```
-Add CI config? (github/gitlab/both/no)
-Generates a workflow that runs {LINT} && {TYPECHECK} && {TEST} on push to main and on merge/pull requests.
-```
-
-Store choice as `CI_PROVIDER`. Skip everything below if `no`.
+Decided in Phase 1.5 (`CI_PROVIDER`, auto-detected default from `git remote get-url origin`). Skip everything below if `no`.
 
 Read templates from `references/ci.md`.
 
 1. **GitHub** (if `CI_PROVIDER` is `github` or `both`): if `.github/workflows/ci.yml` already exists, treat like any other idempotency check — under `INSTALL_MODE=new` skip it silently; under `yes` show it and confirm before overwriting. Otherwise write `## github: {PROFILE}` to `.github/workflows/ci.yml`.
 2. **GitLab** (if `CI_PROVIDER` is `gitlab` or `both`): same existence check for `.gitlab-ci.yml`. Otherwise write `## gitlab: {PROFILE}` to `.gitlab-ci.yml`.
-3. **If `KNOWLEDGE_BUNDLE = true`** (decided in Phase 5.5, which runs first): before writing each file above, merge in `## knowledge-validate step: github` / `## knowledge-validate step: gitlab` respectively, so the generated CI file validates the knowledge bundle in the same run — no separate manual step needed.
+3. **If `KNOWLEDGE_BUNDLE = true`** (decided in Phase 1.5): before writing each file above, merge in `## knowledge-validate step: github` / `## knowledge-validate step: gitlab` respectively, so the generated CI file validates the knowledge bundle in the same run — no separate manual step needed.
 
 This phase only ever writes CI files it generates itself. It never edits a pre-existing, hand-written CI config — see Phase 5.5 step 6 for that case.
 
@@ -300,7 +305,7 @@ Created:
   tools/context_budget.mjs
   CLAUDE.md [created]
   scripts/pre-commit.sh [skipped if a hook manager already exists]
-  [.claude/agents/code-reviewer.md] (if opted in)
+  .claude/agents/code-reviewer.md
   [Knowledge Bundle: .claude/rules/knowledge.md, knowledge/*, tools/knowledge_validate.mjs] (if opted in)
   [.github/workflows/ci.yml] (if CI_PROVIDER is github/both)
   [.gitlab-ci.yml] (if CI_PROVIDER is gitlab/both)
@@ -353,8 +358,9 @@ the always-loaded budget unless you're editing those paths.
 - `git init` — only if not already a repo (never re-init).
 - pre-commit hook — skip if a hook manager (simple-git-hooks/husky) or hook already exists; otherwise install only if absent or already ours, confirming before replacing a foreign hook.
 - Nuxt scaffold (Phase 0.5) — only if `PROFILE=nuxt` and no `nuxt.config.ts`; delegates to the `nuxt-scaffold` skill (no clone, no embedded copy into the target). When `SCAFFOLDED`, do not overwrite the scaffold's `.vscode/settings.json` or pre-commit — overlay additively.
-- Knowledge Bundle (Phase 5.5) — opt-in only (`KNOWLEDGE_BUNDLE`); skip entirely if declined. Never edit unknown CI config automatically — only note it's needed.
-- CI Config (Phase 5.6) — opt-in only (`CI_PROVIDER`); skip entirely if `no`. Only ever writes/overwrites CI files this skill generated; never edits pre-existing, hand-written CI config.
+- Knowledge Bundle (Phase 5.5) — opt-in only, decided once in Phase 1.5 (`KNOWLEDGE_BUNDLE`); skip entirely if declined. Never edit unknown CI config automatically — only note it's needed.
+- CI Config (Phase 5.6) — opt-in only, decided once in Phase 1.5 (`CI_PROVIDER`, auto-detected default); skip entirely if `no`. Only ever writes/overwrites CI files this skill generated; never edits pre-existing, hand-written CI config.
+- All user-facing questions (profile ambiguity, harness conflicts, Knowledge Bundle, CI, foreign pre-commit hook) resolve before any file is written — see Phase 1.5.
 - Never delete files not part of the harness.
 
 ---
@@ -372,6 +378,7 @@ the always-loaded budget unless you're editing those paths.
 - [ ] `AI_REVIEW_CHECKLIST.md` — profile commands filled in
 - [ ] `scripts/pre-commit.sh` — lint + typecheck + test + context budget check, executable
 - [ ] `.claude/guards/bash-guard.mjs` — blocks `--no-verify` and force-push to main
+- [ ] `.claude/agents/code-reviewer.md` — read-only reviewer agent (always added, no question)
 - [ ] **nuxt only** — `.claude/guards/lint-fix-file.mjs` — ESLint `--fix` scoped to the touched file
 - [ ] `.claude/settings.json` — guards wired + profile permissions
 - [ ] `tools/context_budget.mjs` — budget gate, executable

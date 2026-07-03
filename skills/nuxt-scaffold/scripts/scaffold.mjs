@@ -442,6 +442,12 @@ function applyArtifacts() {
     const block = `${m[1]}// server-only; set via NUXT_BACKEND_URL env\n${m[1]}runtimeConfig: { backendUrl: '' },\n`
     nuxtConfig = nuxtConfig.slice(0, m.index) + block + nuxtConfig.slice(m.index)
   }
+  // devtools: BFF preset ships with devtools off by default.
+  if (!nuxtConfig.includes('devtools: { enabled: false }')) {
+    const before = nuxtConfig
+    nuxtConfig = nuxtConfig.replace(/devtools:\s*\{\s*enabled:\s*true\s*\}/, 'devtools: { enabled: false }')
+    if (nuxtConfig === before) fail('cannot find devtools: { enabled: true } in nuxt.config.ts — template shape changed; re-verify artifacts.md')
+  }
   // The ui template ships nuxt.config.ts without a trailing newline (@stylistic/eol-last fails lint).
   if (!nuxtConfig.endsWith('\n')) nuxtConfig += '\n'
   fs.writeFileSync(nuxtConfigPath, nuxtConfig)
