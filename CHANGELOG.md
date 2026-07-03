@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.17.0] - 2026-07-03
+
+### Added
+
+- **Dogfooding — this repo now follows its own context budget:** `CLAUDE.md` slimmed 107 → 36 lines (~1,650 → ~700 always-loaded tokens); authoring conventions moved to path-scoped `.claude/rules/skill-authoring.md` (`paths: skills/**`); new unscoped `.claude/rules/context-hygiene.md` (output discipline + session practices to keep the context window clean); `tools/context_budget.py` + `scripts/git-hooks/pre-commit` enforce the budget here too (activate: `git config core.hooksPath scripts/git-hooks`).
+
+- **`task-workflow` skill (new):** AI task workflow (`scope → spec → implement → verify → review`) promoted to an on-demand `/task-workflow` skill. Agents invoke it only when needed; generated `CLAUDE.md` collapses the old 3-line Spec Gate section to a single pointer. `AI_TASK_GUIDE.md` is still generated in target repos for human reference.
+- **`tools/context_budget.py` (generated in target repos):** budget gate script checking `CLAUDE.md` ≤60 lines, unscoped `.claude/rules/*.md` ≤40 lines, and total always-loaded content ≤12 000 chars (~3 000 tokens). Wired into the generated `scripts/pre-commit.sh` for all profiles. Template lives in `references/budget-gate.md`.
+- **Three-tier loading for generated rules:** all `.claude/rules/*.md` files now carry `paths:` frontmatter so they load only when matching files are in context (Tier 2), not on every session start. Nuxt `conventions.md` is split into `conventions-frontend.md` (`paths: app/**`) and `conventions-server.md` (`paths: server/**`); go/nodejs `conventions.md` gains `paths:` scoped to their source directories. `security.md` and `architecture.md` get per-profile path scoping from a new `## paths substitutions` section in `references/files-shared.md`.
+- **`# Compact instructions` in generated `CLAUDE.md`:** all three profile templates now include a 3-line Compact instructions section (preserve code changes/decisions, drop tool output, use `/clear` between tasks).
+- **Runtime hygiene in generated `README.md`:** AI Onboarding section gains a Runtime hygiene block covering `/clear` between tasks, `head -50` for long output, and delegating scans/tests to subagents. A Context Budget table is appended for tracking token footprint over time.
+- **Phase 8 — Measurement step (bigin-harness-setup):** after setup, the skill instructs the user to run `/context` and `python3 tools/context_budget.py`, then record the result in the README Context Budget table.
+- **`statusline` key in generated `settings.json`:** adds token-usage display to the Claude Code status bar (`"statusline": {"items": ["tokenUsage"]}`).
+
+### Changed
+
+- **`bigin-harness-setup/SKILL.md`:** Phase 3 updated for split nuxt conventions and per-profile `paths:` prepending; Phase 5 adds step 5-1c (budget gate); Phase 6 README generation expanded with runtime hygiene + Context Budget table; Output Checklist updated.
+- **`sprint-distill/SKILL.md`:** added Phase 1 stale-rules scan (flags rules untouched for 2+ sprints as deletion candidates), net-neutral constraint in Phase 2 (additions must name what they replace or cite headroom), Compression check in Phase 3 proposal, and global "distillation compresses, never just appends" principle.
+- **`knowledge-bundle.md`:** `knowledge.md` rule updated to index-first read protocol (open concept files only when index summary is insufficient); `knowledge/index.md` template strengthened with explicit summary format.
+- **Vietnamese stripped from all SKILL.md bodies** (bigin-harness-setup, sprint-distill, session-handoff, nuxt-scaffold): bilingual section headers and body italic lines removed from model-facing files. VI trigger phrases in frontmatter `description:` fields are kept.
+
 ## [1.16.3] - 2026-07-02
 
 ### Fixed

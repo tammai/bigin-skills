@@ -41,7 +41,7 @@ Runtime: Node ≥22 · pnpm only
 | build     | `pnpm build`       |
 
 ## Rules
-See `.claude/rules/` — conventions, security, architecture.
+See `.claude/rules/` — path-scoped conventions, security, architecture.
 
 ## Hard Rules (non-negotiable)
 - Files are auto-formatted with Nuxt ESLint on every create/edit (PostToolUse hook). Never disable the hook.
@@ -53,28 +53,75 @@ See `.claude/rules/` — conventions, security, architecture.
 - All backend calls via the Nuxt BFF layer (`server/api/`). Backend access token lives in the `nuxt-auth-utils` sealed session — never in the browser.
 - Client-side code calls same-origin `/api/*` only. Never attach auth headers or call the backend URL from the browser.
 
-## Spec Gate
-Non-trivial features require an approved spec before implementation.
-See `AI_TASK_GUIDE.md` for the workflow.
+## Task workflow
+Non-trivial features: /task-workflow (or read AI_TASK_GUIDE.md).
+
+## Compact instructions
+Preserve: code changes, key decisions, blockers.
+Drop from context: tool output, file reads, search results.
+Run /clear between unrelated tasks. Pipe long output: `cmd | head -50`.
 ```
 
 ---
 
-## conventions.md Template
+## conventions-frontend.md Template
+
+Paths frontmatter scopes this file to app/ — only loaded when frontend files are in context.
 
 ```markdown
-# Conventions
+---
+paths:
+  - "app/**"
+  - "pages/**"
+  - "components/**"
+  - "composables/**"
+  - "stores/**"
+  - "layouts/**"
+---
+# Frontend Conventions
 
 ## Naming
 - Components: PascalCase (`UserCard.vue`)
 - Composables: camelCase with `use` prefix (`useUserList.ts`)
-- API routes: kebab-case (`/api/users/[id].ts`)
 - Pinia stores: camelCase with `Store` suffix (`useUserStore.ts`)
 - Types/interfaces: PascalCase
 
-## BFF Proxy — single backend entry point
+## State
+- Global state: Pinia stores (`stores/`)
+- Async data: Pinia Colada queries (`useQuery`, `useMutation`)
+- Local UI state: composables or `ref` in the component
 
-The Nuxt server (`server/api/`) is the **only** caller of the backend REST API. The browser calls same-origin `/api/*` — no auth headers, no backend URL exposed to the client.
+## Components
+- No business logic in components — move to a composable or store.
+- Props typed with `defineProps<{}>()`. Events with `defineEmits<{}>()`.
+
+## Auth (client)
+- Read session: `const { loggedIn, user } = useUserSession()`
+- Session secret via `NUXT_SESSION_PASSWORD` (env only — never committed).
+
+## Formatting
+ESLint via `@nuxt/eslint` only. Prettier disabled. Auto-fixed on save via PostToolUse hook.
+```
+
+---
+
+## conventions-server.md Template
+
+Paths frontmatter scopes this file to server/ — only loaded when server files are in context.
+
+```markdown
+---
+paths:
+  - "server/**"
+  - "shared/**"
+---
+# Server Conventions
+
+## Naming
+- API routes: kebab-case (`/api/users/[id].ts`)
+
+## BFF Proxy
+`server/api/` is the sole caller of the backend REST API. Client-side code calls same-origin `/api/*` — no auth headers, no backend URL in the browser.
 
 ```ts
 // server/api/users/index.get.ts
@@ -87,66 +134,25 @@ export default defineEventHandler(async (event) => {
 })
 ```
 
-Client usage — plain `useFetch`, no auth headers:
-```ts
-const { data } = await useFetch('/api/users')
-```
-
-Never import the backend URL or attach `Authorization` headers in client-side code.
-
 ## OpenAPI Types
-
-Generate types before consuming any new API surface:
+Generate before consuming any new API surface:
 ```sh
 pnpm openapi-typescript openapi.yaml -o server/types/api.d.ts
 ```
-
-Import only in server routes: `import type { paths, components } from '~/server/types/api'`
+Import only in server routes: `import type { paths } from '~/server/types/api'`
 Never define API response shapes inline — always use generated types.
 
-## Auth — nuxt-auth-utils
-
-Session management uses `nuxt-auth-utils`. Never hand-roll session or token storage.
-
-- Read session in components/pages: `const { loggedIn, user, session } = useUserSession()`
-- Set session in a server route: `await setUserSession(event, { user })`
-- Clear: `await clearUserSession(event)`
-- Protect server routes: `const { user } = await requireUserSession(event)`
-- Hash/verify passwords: `hashPassword` / `verifyPassword` from the module.
-- Session secret comes from `NUXT_SESSION_PASSWORD` (env only — never committed).
-- The backend access token is stored inside the sealed session. `server/api/` routes read it with `requireUserSession` and forward it as `Authorization: Bearer` — it never leaves the server.
-
-## State
-- Global state: Pinia stores (`stores/`)
-- Async data fetching: Pinia Colada queries (`useQuery`, `useMutation`)
-- Local UI state: composables or `ref` in the component
-
-## Component rules
-- No business logic in components. Move it to a composable or store.
-- Props typed with `defineProps<{}>()`. Events typed with `defineEmits<{}>()`.
-
-## Formatting — ESLint only (no Prettier)
-
-Formatting is ESLint via `@nuxt/eslint`. **Prettier is disabled** — never add it.
-
-- `eslint.config.mjs`: `import withNuxt from './.nuxt/eslint.config.mjs'` → `export default withNuxt()`.
-- Stylistic config in `nuxt.config.ts` (only `commaDangle` is an explicit override; the rest are `@stylistic/eslint-plugin`'s own defaults, listed here for clarity — don't add them to `nuxt.config.ts`):
-  ```ts
-  eslint: { config: { stylistic: { commaDangle: 'never', braceStyle: '1tbs' } } }
-  ```
-  Effective rules: `indent: 2`, `quotes: 'single'`, `semi: false`, `braceStyle: '1tbs'`, `commaDangle: 'never'` (default is `'always-multiline'` — the template overrides it).
-- Lint command: `eslint .` (the `lint` script). Fix: `eslint . --fix`.
-- Commit-time fix via `lint-staged` in `package.json`:
-  ```json
-  "lint-staged": { "*.{ts,vue,js,mjs}": "eslint --fix" }
-  ```
-- Editor format-on-save uses the ESLint extension (`.vscode/settings.json`), not Prettier.
-- Claude auto-formats every Write/Edit via the `lint-fix-file.py` `PostToolUse` hook in `.claude/settings.json` (ESLint `--fix`, scoped to the touched file only).
+## Auth (server)
+- Protect routes: `const { user } = await requireUserSession(event)`
+- Set session: `await setUserSession(event, { user })`
+- Backend access token stored in sealed session — never reaches the browser.
 ```
 
 ---
 
 ## architecture addendum
+
+Prepend `paths: ["server/**", "app/**"]` as YAML frontmatter when writing `architecture.md` (see `references/files-shared.md` → `## paths substitutions`).
 
 ```markdown
 ## [Nuxt] BFF Boundary
@@ -192,6 +198,9 @@ Governance superset: `permissions` + `PostToolUse` lint-fix (the `nuxt-scaffold`
       "Bash(git stash:*)"
     ]
   },
+  "statusline": {
+    "items": ["tokenUsage"]
+  },
   "hooks": {
     "PreToolUse": [
       {
@@ -218,6 +227,8 @@ Governance superset: `permissions` + `PostToolUse` lint-fix (the `nuxt-scaffold`
   }
 }
 ```
+
+Note: the `"statusline"` key enables the token-usage display in the Claude Code status bar. If the exact key name differs in your Claude Code version, check the `update-config` skill or Claude Code docs.
 
 ---
 

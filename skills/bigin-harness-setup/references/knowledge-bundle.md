@@ -14,7 +14,7 @@ Before writing, replace `{DATE}` with today's date in ISO 8601 (`YYYY-MM-DD`) in
 `knowledge/` holds domain knowledge — what the system is and why. Rules (`.claude/rules/`) hold how we work. Don't mix the two.
 
 ## Before non-trivial changes
-Read `knowledge/index.md` first. If your change touches a domain, contract, or system with a concept file, read it before writing code.
+Read `knowledge/index.md`. The one-line summaries there are usually sufficient. Open a concept file only when the index summary is insufficient for the change at hand — don't read concept files preemptively.
 
 ## Writing or updating a concept file
 - One concept per file, kebab-case name, under `knowledge/<folder>/`.
@@ -86,30 +86,32 @@ Extension keys are allowed but must not collide with the above.
 
 ## knowledge/index.md
 
+The index is the primary read target — one-line summaries must be self-sufficient for routine work. Open a concept file only when the summary is insufficient.
+
 ```markdown
 ---
 type: Index
 title: Knowledge Bundle Index
-description: Root map of all concept files in this bundle.
+description: Root map of all concept files in this bundle. Read this first — summaries are self-sufficient for most changes; open a concept file only when you need more detail.
 tags: [knowledge-bundle, index]
 timestamp: {DATE}T00:00:00Z
 ---
 
 # Knowledge Bundle
 
-Root map of everything under `knowledge/`. Read this before non-trivial changes — see `.claude/rules/knowledge.md` for how to write and link concept files.
+Root map of everything under `knowledge/`. Read this before non-trivial changes. Format: `- [Title](path) — one-line summary (sufficient for routine reads)`.
 
 ## Meta
-- [Knowledge Bundle Spec](/meta/knowledge-bundle-spec.md) — the format itself
+- [Knowledge Bundle Spec](/meta/knowledge-bundle-spec.md) — frontmatter schema, folder layout, linking, and staleness rules
 
 ## Contracts
-- [OpenAPI Contract](/contracts/openapi-contract.md) — API source of truth, FE type-gen drift gate
+- [OpenAPI Contract](/contracts/openapi-contract.md) — openapi.yaml is the source of truth; FE types generated from it, breaking changes require a version bump
 
 ## Constraints
-- [Agent Rules](/constraints/agent-rules.md) — agent boundaries for this repo
+- [Agent Rules](/constraints/agent-rules.md) — what agents must check before touching handlers, migrations, or security-sensitive code
 
 ## Log
-- [Bundle Log](/log.md) — one entry per sprint
+- [Bundle Log](/log.md) — one entry per sprint summarizing changes to the bundle
 ```
 
 ---

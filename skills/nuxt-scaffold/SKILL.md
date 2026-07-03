@@ -7,15 +7,13 @@ description: "Scaffolds a Nuxt 4 BFF app from scratch — non-interactive `npm c
 
 Scaffolds a Nuxt 4 BFF app **from scratch** — no GitHub template clone. Three stages: non-interactive `npm create nuxt@latest` → install the BFF preset (+ optional extras) → apply config and sample code.
 
-*Khởi tạo ứng dụng Nuxt 4 BFF từ đầu — không clone template. Ba giai đoạn: tạo dự án bằng `npm create nuxt@latest` → cài bộ module BFF → áp dụng config và code mẫu.*
-
 Stack: Nuxt 4, Nuxt UI v4, Nuxt ESLint, Pinia + Pinia Colada, VueUse, nuxt-auth-utils, Zod, Vitest, simple-git-hooks + lint-staged. BFF proxy layer — the backend owns data persistence.
 
 > Governance (CLAUDE.md, `.claude/rules/`, AI guides, `bash-guard.py`) is **not** this skill's job — run `bigin-harness-setup` afterward to overlay it.
 
 ---
 
-## Prerequisites / Điều kiện tiên quyết
+## Prerequisites
 
 - Node.js 22+, pnpm.
 - Run from the directory where the app should live. For a brand-new project: `mkdir my-app && cd my-app` first. Scaffolding is **in-place** into the current directory.
@@ -23,7 +21,7 @@ Stack: Nuxt 4, Nuxt UI v4, Nuxt ESLint, Pinia + Pinia Colada, VueUse, nuxt-auth-
 
 ---
 
-## Phase 1: Confirm / Xác nhận
+## Phase 1: Confirm
 
 If `nuxt.config.ts` exists:
 - Check for **signature files** — `vitest.config.ts` and `.claude/settings.json`. If either is missing, it's a **partial scaffold** (likely from a prior failed run). Offer:
@@ -46,7 +44,7 @@ Store `CONFIRM`. If `no` → stop.
 
 ---
 
-## Phase 2: Gather Customization / Thu thập tuỳ chỉnh
+## Phase 2: Gather Customization
 
 Ask everything up front (Enter = default), then confirm. Store each in a SHOUTING-CAPS var.
 
@@ -109,7 +107,7 @@ Store `CONFIRM_CUSTOM`. If `no` → stop.
 
 ---
 
-## Phase 3: Non-interactive Init / Khởi tạo không tương tác
+## Phase 3: Non-interactive Init
 
 Follow `references/bootstrap.md` → **Stage 1** (`npm create nuxt@latest . -- --template ui --packageManager pnpm --gitInit --force --modules pinia,auth-utils,vueuse`). The `--modules` flag installs and registers `@pinia/nuxt`, `nuxt-auth-utils`, and `@vueuse/nuxt` atomically during init. This installs the base dependencies (the `ui` template already brings `@nuxt/ui`, `@nuxt/eslint`, `vue-tsc`) and creates the git repo (`--gitInit` fires only when install runs — do not pair it with `--no-install`). If `npm create` does not forward flags, use the `npx nuxi@latest init` fallback in `references/bootstrap.md`.
 
@@ -121,7 +119,7 @@ Then set `package.json` `name` → `PROJECT_NAME`.
 
 ---
 
-## Phase 4: Install BFF Preset / Cài đặt bộ module BFF
+## Phase 4: Install BFF Preset
 
 Follow `references/bootstrap.md` → **Stage 2** (`pnpm add @pinia/colada zod` + `pnpm add -D vitest @nuxt/test-utils simple-git-hooks lint-staged openapi-typescript`). The Nuxt modules (`pinia`, `auth-utils`, `vueuse`) were already installed and registered by the `--modules` flag in Stage 1 — Stage 2 only adds the plain packages. See `references/modules.md` for the full preset and rationale.
 
@@ -131,7 +129,7 @@ Follow `references/bootstrap.md` → **Stage 2** (`pnpm add @pinia/colada zod` +
 
 ---
 
-## Phase 5: Apply Artifacts / Áp dụng các tệp mẫu
+## Phase 5: Apply Artifacts
 
 Follow `references/bootstrap.md` → **Stage 3** (the artifact-application stage). Read `references/artifacts.md` and write/merge each block, substituting `{PROJECT_NAME}`, `{PRIMARY}`, `{NEUTRAL}`, `{D1_DATABASE_ID}`, and `{COMPAT_DATE}` (generated from today's date: `node -e "console.log(new Date().toISOString().split('T')[0])"`).
 
@@ -144,7 +142,7 @@ Write the Drizzle opt-in blocks only when `WANT_DRIZZLE = yes`.
 
 ---
 
-## Phase 6: Activate Hooks & Verify / Kích hoạt hook & Kiểm tra
+## Phase 6: Activate Hooks & Verify
 
 Follow `references/bootstrap.md` → **Stage 4** (`pnpm approve-builds simple-git-hooks` then `pnpm simple-git-hooks`) and **Stage 5**:
 ```sh
@@ -156,7 +154,7 @@ pnpm test
 
 ---
 
-## Phase 7: Initial Commit / Commit đầu tiên
+## Phase 7: Initial Commit
 
 Only if `.git` exists and the working tree is dirty (`git status --porcelain` is non-empty — `--gitInit` only runs `git init`, it does **not** create an initial commit, so this is normally the project's first commit):
 ```sh
@@ -166,7 +164,7 @@ git commit -m "chore: scaffold Nuxt 4 BFF app"
 
 ---
 
-## Phase 8: Next Steps / Bước tiếp theo
+## Phase 8: Next Steps
 
 Print:
 ```
@@ -186,7 +184,7 @@ Next:
 
 ---
 
-## Idempotency / Tính bền vững
+## Idempotency
 
 - If `nuxt.config.ts` exists AND both signature files (`vitest.config.ts` + `.claude/settings.json`) exist → complete scaffold, stop at Phase 1.
 - If `nuxt.config.ts` exists BUT either signature file is missing → partial scaffold; offer resume from Phase 4.
@@ -195,7 +193,7 @@ Next:
 
 ---
 
-## References / Tài liệu tham khảo
+## References
 
 - `references/bootstrap.md` — the canonical command sequence (init + install + verify).
 - `references/modules.md` — BFF preset, optional-modules menu, Drizzle opt-in.

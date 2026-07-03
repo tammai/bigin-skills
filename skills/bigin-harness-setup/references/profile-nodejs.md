@@ -34,7 +34,7 @@ Node: ≥22 · pnpm only
 | build     | `pnpm build`       |
 
 ## Rules
-See `.claude/rules/` — conventions, security, architecture.
+See `.claude/rules/` — path-scoped conventions, security, architecture.
 
 ## Hard Rules (non-negotiable)
 - No `--no-verify`. No `eslint-disable` without a justifying comment. No weakening eslint config to pass checks.
@@ -44,16 +44,26 @@ See `.claude/rules/` — conventions, security, architecture.
 - `openapi.yaml` is written first; handlers implement it.
 - Backend leads with additive changes. Breaking API change = version bump (`/v2/`).
 
-## Spec Gate
-Non-trivial features require an approved spec before implementation.
-See `AI_TASK_GUIDE.md` for the workflow.
+## Task workflow
+Non-trivial features: /task-workflow (or read AI_TASK_GUIDE.md).
+
+## Compact instructions
+Preserve: code changes, key decisions, blockers.
+Drop from context: tool output, file reads, search results.
+Run /clear between unrelated tasks. Pipe long output: `cmd | head -50`.
 ```
 
 ---
 
 ## conventions.md Template
 
+Paths frontmatter scopes this file to src/ — only loaded when source files are in context.
+
 ```markdown
+---
+paths:
+  - "src/**"
+---
 # Conventions
 
 ## Naming
@@ -66,7 +76,6 @@ See `AI_TASK_GUIDE.md` for the workflow.
 ## Request Handler Pattern
 
 ```ts
-// Always validate at the boundary before any business logic
 async function createUser(req: Request, res: Response, next: NextFunction): Promise<void> {
   const result = createUserSchema.safeParse(req.body)
   if (!result.success) {
@@ -77,21 +86,19 @@ async function createUser(req: Request, res: Response, next: NextFunction): Prom
     const user = await userService.create(result.data)
     res.status(201).json(user)
   } catch (err) {
-    next(err) // pass to error middleware
+    next(err)
   }
 }
 ```
 
-Validation happens at the handler boundary only. Services receive clean, typed data.
+Validation at the handler boundary only. Services receive clean, typed data.
 
 ## OpenAPI First
-
 Write `openapi.yaml` before implementing any new route. Generate types:
 ```sh
 pnpm openapi-typescript openapi.yaml -o src/types/api.d.ts
 ```
-
-Import: `import type { paths, components } from './types/api'`
+Import: `import type { paths } from './types/api'`
 Never define API shapes inline — always use generated types.
 
 ## Error Handling
@@ -114,6 +121,8 @@ src/
 ---
 
 ## architecture addendum
+
+Prepend `paths: ["src/**"]` as YAML frontmatter when writing `architecture.md` (see `references/files-shared.md` → `## paths substitutions`).
 
 ```markdown
 ## [Node.js] Package Structure
@@ -149,6 +158,9 @@ src/
       "Bash(git pull:*)",
       "Bash(git stash:*)"
     ]
+  },
+  "statusline": {
+    "items": ["tokenUsage"]
   },
   "hooks": {
     "PreToolUse": [

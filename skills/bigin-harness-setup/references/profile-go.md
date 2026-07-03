@@ -34,7 +34,7 @@ Go: ≥1.22
 | build     | `go build -o bin/server ./cmd/...` |
 
 ## Rules
-See `.claude/rules/` — conventions, security, architecture.
+See `.claude/rules/` — path-scoped conventions, security, architecture.
 
 ## Hard Rules (non-negotiable)
 - No `//nolint` suppressions without a comment explaining the exception.
@@ -43,16 +43,29 @@ See `.claude/rules/` — conventions, security, architecture.
 - `openapi.yaml` is written first; handlers implement it.
 - Backend leads with additive changes. Breaking API change = version bump (`/v2/`).
 
-## Spec Gate
-Non-trivial features require an approved spec before implementation.
-See `AI_TASK_GUIDE.md` for the workflow.
+## Task workflow
+Non-trivial features: /task-workflow (or read AI_TASK_GUIDE.md).
+
+## Compact instructions
+Preserve: code changes, key decisions, blockers.
+Drop from context: tool output, file reads, search results.
+Run /clear between unrelated tasks. Pipe long output: `cmd | head -50`.
 ```
 
 ---
 
 ## conventions.md Template
 
+Paths frontmatter scopes this file to Go source — only loaded when Go files are in context.
+
 ```markdown
+---
+paths:
+  - "**/*.go"
+  - "internal/**"
+  - "cmd/**"
+  - "pkg/**"
+---
 # Conventions
 
 ## Naming
@@ -67,34 +80,29 @@ See `AI_TASK_GUIDE.md` for the workflow.
 ```go
 func HandleUserCreate(svc *service.UserService) gin.HandlerFunc {
     return func(c *gin.Context) {
-        // 1. Bind + validate at this boundary only
         var req CreateUserRequest
         if err := c.ShouldBindJSON(&req); err != nil {
             c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
             return
         }
-        // 2. Call service
         user, err := svc.Create(c.Request.Context(), req)
         if err != nil {
             respondError(c, err)
             return
         }
-        // 3. Respond
         c.JSON(http.StatusCreated, user)
     }
 }
 ```
 
-Validation happens at the handler boundary. Services and repos receive clean, validated data.
+Validation at the handler boundary only. Services receive clean, validated data.
 
 ## OpenAPI First
-
 Write `openapi.yaml` before implementing any new route.
-Any new route must be in `openapi.yaml` before its handler is written.
 
 ## Error Handling
 - Return errors up the call stack — never panic in handlers.
-- Use a shared `respondError(c *gin.Context, err error)` helper that maps domain errors to HTTP codes.
+- Use a shared `respondError(c, err)` helper mapping domain errors to HTTP codes.
 - Log errors at the handler boundary, not in services.
 
 ## Project Layout
@@ -102,7 +110,6 @@ Any new route must be in `openapi.yaml` before its handler is written.
 cmd/server/main.go    ← entry point
 internal/
   handler/            ← Gin handlers + route registration
-  middleware/         ← Gin middleware
   service/            ← business logic
   repository/         ← data access
   model/              ← domain models / DTOs
@@ -113,6 +120,8 @@ pkg/                  ← reusable public packages
 ---
 
 ## architecture addendum
+
+Prepend `paths: ["**/*.go"]` as YAML frontmatter when writing `architecture.md` (see `references/files-shared.md` → `## paths substitutions`).
 
 ```markdown
 ## [Go] Package Structure
@@ -148,6 +157,9 @@ pkg/                  ← reusable public packages
       "Bash(git pull:*)",
       "Bash(git stash:*)"
     ]
+  },
+  "statusline": {
+    "items": ["tokenUsage"]
   },
   "hooks": {
     "PreToolUse": [

@@ -11,9 +11,10 @@ Skills for standardized, AI-assisted development across BigIn's stacks.
 
 | Skill                  | Purpose                                                                                                  |
 | ---------------------- | -------------------------------------------------------------------------------------------------------- |
-| **bigin-harness-setup** | Scaffolds an AI workflow harness into a repo — `CLAUDE.md`, scoped rules, and enforcement gates. Profiles: `nuxt`, `go`, `nodejs`. |
+| **bigin-harness-setup** | Scaffolds an AI workflow harness into a repo — `CLAUDE.md`, path-scoped rules, and enforcement gates. Profiles: `nuxt`, `go`, `nodejs`. |
+| **task-workflow**       | On-demand task workflow skill (`/task-workflow`): scope → spec → implement → verify → review. Loaded only when invoked, not on every session start. |
 | **nuxt-scaffold**       | Scaffolds a Nuxt 4 BFF app from scratch — non-interactive `npm create nuxt@latest` + BFF preset + config/sample code. No GitHub clone. |
-| **sprint-distill**      | End-of-sprint distillation: merged PRs + touched `knowledge/` concepts → proposal-first `knowledge/` and `bigin-skills` updates. Replaces a manual NotebookLM pass. |
+| **sprint-distill**      | End-of-sprint distillation: merged PRs + touched `knowledge/` concepts → proposal-first `knowledge/` and `bigin-skills` updates. Compresses, never just appends. |
 | **session-handoff**     | Saves session state (tasks, decisions, uncommitted changes) to `SESSION.md` and restores it on resume.   |
 
 ---
@@ -28,6 +29,7 @@ Sets up a consistent "harness level" on any repo so team members of mixed skill 
 - **Single source of truth.** Reference shared rules, never duplicate them.
 - **No overhead.** Lean, scannable markdown — a rule nobody reads is worse than no rule.
 - **Additive-first cross-repo contract.** `openapi.yaml` is the contract between frontend and backend. Backend leads with backward-compatible changes; a breaking change requires a version bump. Frontend generates types from `openapi.yaml` — never hardcoded.
+- **Three-tier loading.** CLAUDE.md is always loaded (≤60 lines). Rule files in `.claude/rules/` carry `paths:` frontmatter so they load only when matching files are in context. On-demand skills (like `/task-workflow`) load only when invoked. Always-loaded target: ~600 tokens for CLAUDE.md alone; worst-case with active paths ~1,750 tokens.
 
 ### Profiles
 
@@ -43,22 +45,26 @@ Sets up a consistent "harness level" on any repo so team members of mixed skill 
 
 ```
 your-repo/
-├── CLAUDE.md                      ← thin contract: stack, commands, hard rules
-├── AI_TASK_GUIDE.md               ← per-task workflow + spec gate
-├── AI_REVIEW_CHECKLIST.md         ← definition of done (profile commands filled in)
+├── CLAUDE.md                           ← Tier 1: always loaded, ≤60 lines
+├── AI_TASK_GUIDE.md                    ← human reference; agents use /task-workflow
+├── AI_REVIEW_CHECKLIST.md              ← definition of done (profile commands filled in)
 ├── .claude/
 │   ├── rules/
-│   │   ├── conventions.md         ← naming, patterns (profile-specific)
-│   │   ├── security.md            ← shared security rules
-│   │   └── architecture.md        ← shared base + profile addendum
+│   │   ├── conventions-frontend.md     ← Tier 2: paths: app/** (nuxt only)
+│   │   ├── conventions-server.md       ← Tier 2: paths: server/** (nuxt only)
+│   │   ├── conventions.md              ← Tier 2: paths: src/** or **/*.go (go/nodejs)
+│   │   ├── security.md                 ← Tier 2: paths: scoped per profile
+│   │   └── architecture.md             ← Tier 2: paths: scoped per profile
 │   ├── guards/
-│   │   └── bash-guard.py          ← blocks --no-verify and force-push to main
-│   ├── settings.json              ← pre-approved commands + hook wiring
+│   │   └── bash-guard.py               ← blocks --no-verify and force-push to main
+│   ├── settings.json                   ← pre-approved commands + hook wiring + statusline
 │   └── agents/
-│       └── code-reviewer.md       ← optional, read-only (opt-in)
+│       └── code-reviewer.md            ← optional, read-only (opt-in)
+├── tools/
+│   └── context_budget.py               ← budget gate: CLAUDE.md ≤60, unscoped rules ≤40
 ├── scripts/
-│   └── pre-commit.sh              ← lint + typecheck + test for the profile
-└── README.md                      ← AI Onboarding section appended
+│   └── pre-commit.sh                   ← lint + typecheck + test + budget check
+└── README.md                           ← AI Onboarding + runtime hygiene + Context Budget table
 ```
 
 ### Usage
@@ -126,20 +132,25 @@ bigin-skills/
 │   └── marketplace.json           ← marketplace registry entry
 ├── skills/
 │   ├── bigin-harness-setup/       ← harness scaffolder
-│   │   ├── SKILL.md               ← 8-phase workflow
+│   │   ├── SKILL.md               ← 8-phase workflow (Phase 8: measurement step)
 │   │   └── references/
-│   │       ├── profile-nuxt.md
+│   │       ├── profile-nuxt.md    ← CLAUDE.md + conventions-frontend/server + settings
 │   │       ├── profile-go.md
 │   │       ├── profile-nodejs.md
-│   │       ├── files-shared.md    ← security, architecture, task guide, review checklist, code-reviewer
-│   │       └── hook-guard.md      ← bash-guard.py + pre-commit scripts per profile
+│   │       ├── files-shared.md    ← security, architecture, task guide, review checklist, paths substitutions
+│   │       ├── hook-guard.md      ← bash-guard.py + pre-commit scripts per profile
+│   │       ├── budget-gate.md     ← context_budget.py (budget gate script)
+│   │       ├── knowledge-bundle.md
+│   │       └── ci.md
+│   ├── task-workflow/             ← on-demand task workflow (Tier 3)
+│   │   └── SKILL.md               ← scope → spec → implement → verify → review
 │   ├── nuxt-scaffold/             ← Nuxt 4 BFF app scaffolder (npm create nuxt, no clone)
 │   │   ├── SKILL.md
 │   │   └── references/
 │   │       ├── bootstrap.md       ← non-interactive init + module install + verify
 │   │       ├── modules.md         ← BFF preset, optional modules, Drizzle opt-in
 │   │       └── artifacts.md       ← config + sample code written into the project
-│   ├── sprint-distill/            ← end-of-sprint distillation (knowledge/ + bigin-skills)
+│   ├── sprint-distill/            ← end-of-sprint distillation (compresses, never appends)
 │   │   └── SKILL.md
 │   └── session-handoff/           ← session state persistence
 │       └── SKILL.md

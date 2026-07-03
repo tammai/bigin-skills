@@ -7,8 +7,6 @@ description: "Session handoff and state persistence. Use when: user says 'save s
 
 Saves and loads session state between Claude Code sessions, useful when approaching usage limits and needing to continue work later.
 
-_Lưu trạng thái phiên giữa các phiên Claude Code, hữu ích khi sắp đạt giới hạn sử dụng._
-
 ---
 
 ## When This Triggers
@@ -100,7 +98,7 @@ When user triggers save:
 
 3. **Return summary:**
    ```
-   ✅ Session saved to SESSION.md
+   Session saved to SESSION.md
    Tasks: X total, Y in progress
    Uncommitted changes: <files modified>
    Resume: Next session will prompt to restore this session
@@ -157,7 +155,7 @@ When user triggers complete:
 
 3. **Confirm:**
    ```
-   ✅ Session completed and archived
+   Session completed and archived
    Archived to: SESSION.archive.<timestamp>.md
    Ready for new session
    ```

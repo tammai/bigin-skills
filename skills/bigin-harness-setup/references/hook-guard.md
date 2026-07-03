@@ -62,6 +62,9 @@ pnpm type-check
 echo "  tests..."
 pnpm test --run
 
+echo "  context budget..."
+if [ -f tools/context_budget.py ]; then python3 tools/context_budget.py; fi
+
 echo "All gates passed."
 ```
 
@@ -91,6 +94,9 @@ fi
 echo "  tests..."
 go test ./... -count=1
 
+echo "  context budget..."
+if [ -f tools/context_budget.py ]; then python3 tools/context_budget.py; fi
+
 echo "All gates passed."
 ```
 
@@ -115,6 +121,9 @@ pnpm type-check
 
 echo "  tests..."
 pnpm test --run
+
+echo "  context budget..."
+if [ -f tools/context_budget.py ]; then python3 tools/context_budget.py; fi
 
 echo "All gates passed."
 ```

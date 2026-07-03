@@ -4,6 +4,37 @@ Templates for files that are identical (or nearly identical) across all stack pr
 
 ---
 
+## paths substitutions
+
+When writing `.claude/rules/security.md` and `.claude/rules/architecture.md`, prepend the profile-specific `paths:` frontmatter before the template content:
+
+**nuxt:**
+```yaml
+---
+paths:
+  - "server/**"
+  - "app/**"
+---
+```
+
+**go:**
+```yaml
+---
+paths:
+  - "**/*.go"
+---
+```
+
+**nodejs:**
+```yaml
+---
+paths:
+  - "src/**"
+---
+```
+
+---
+
 ## security.md
 
 ```markdown

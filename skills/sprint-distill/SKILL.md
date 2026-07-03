@@ -7,11 +7,11 @@ description: "Distills merged PRs and touched knowledge/ concepts since the last
 
 Turns a sprint's worth of merged work into `knowledge/` updates and `bigin-skills` convention updates — proposal-first, nothing writes until you approve it. Classifies every candidate learning as WHAT/WHY (→ `knowledge/`), HOW-we-work (→ `bigin-skills`), or neither (dropped, but reported). Never both.
 
-*Chưng cất công việc đã merge trong sprint thành các cập nhật cho `knowledge/` và `bigin-skills` — đề xuất trước, không ghi gì cho đến khi được duyệt.*
+**Distillation compresses, never just appends.** Net line delta for `CLAUDE.md` and `.claude/rules/` should be ≤0 across a sprint unless there is explicit budget headroom. Every addition must name what it replaces or compresses.
 
 ---
 
-## Phase 0: Scope Confirmation / Xác nhận phạm vi
+## Phase 0: Scope Confirmation
 
 **Anti-trigger check first.** If the request is actually about one PR, one commit, or one change — not a sprint-scale range — stop and point to `/code-review` or `/review` instead. Do not proceed.
 
@@ -35,12 +35,13 @@ Turns a sprint's worth of merged work into `knowledge/` updates and `bigin-skill
 
 ---
 
-## Phase 1: Gather Inputs / Thu thập đầu vào
+## Phase 1: Gather Inputs
 
 1. `git log` merged commits/PRs on the main branch since `SPRINT_START` — titles + bodies.
 2. `git diff --stat SPRINT_START..HEAD -- knowledge/` (if `KB_MODE = full`) — concept files touched this sprint.
 3. Current `.claude/rules/*.md` — read so you don't re-propose a convention that's already documented.
-4. Ask the user:
+4. **Stale-rules scan**: for each file in `.claude/rules/` and `CLAUDE.md`, identify the most recent `git log` entry that touched it. Flag any file with no merged PR touching it in the 2 sprints since `SPRINT_START` as a deletion candidate. Output as a list: `{file} — last touched {date}, {N} sprints ago`.
+5. Ask the user:
    ```
    Any out-of-repo material for this sprint? (meeting notes, transcripts, client
    docs — paste directly, or say none)
@@ -49,7 +50,7 @@ Turns a sprint's worth of merged work into `knowledge/` updates and `bigin-skill
 
 ---
 
-## Phase 2: Classify / Phân loại
+## Phase 2: Classify
 
 If `KB_MODE = full`, read `knowledge/meta/knowledge-bundle-spec.md` before classifying — this is the authoritative spec; don't restate it here, link to it.
 
@@ -61,6 +62,12 @@ For every candidate learning gathered in Phase 1, apply the sorting rule strictl
 - **Never both.** If a candidate seems to span both, pick the side it primarily belongs to and link to the other rather than writing it twice.
 
 Bias toward DROP when uncertain — `knowledge/` concept files are terse by design; don't grow the bundle to record something obvious or already covered.
+
+**Net-neutral rule**: any proposed addition to `.claude/rules/` or `CLAUDE.md` must either:
+- (a) name the rule or text it replaces or compresses (e.g. "replaces the 3-line BFF section"), OR
+- (b) cite specific budget headroom (e.g. "CLAUDE.md is at 38/60 lines; adding 4 lines is within budget")
+
+Proposals that just append without a corresponding compression are reclassified as neither-WHAT-nor-HOW and dropped.
 
 **Stale-concept detection** (if `KB_MODE = full`, first-class output, not an afterthought):
 - Any concept file whose `resource:`/citation target appears in this sprint's diff, but the concept file itself wasn't updated — flag as possibly stale.
@@ -74,7 +81,7 @@ Bias toward DROP when uncertain — `knowledge/` concept files are terse by desi
 
 ---
 
-## Phase 3: Propose / Đề xuất — STOP HERE
+## Phase 3: Propose — STOP HERE
 
 Output a single structured proposal and **wait for explicit approval before writing anything**:
 
@@ -84,7 +91,7 @@ Output a single structured proposal and **wait for explicit approval before writ
   ...
 
 ## Skills changes
-- [new/update] <path> — <one-line reason>
+- [new/update] <path> — <one-line reason> [replaces: <what it compresses>]
   ...
 
 ## Draft log entry (knowledge/log.md, appended last on approval)
@@ -99,6 +106,13 @@ Output a single structured proposal and **wait for explicit approval before writ
 - knowledge/<path>.md — <why it looks stale>
   ...
 
+## Deletion candidates (rules untouched for 2+ sprints)
+- <file> — last touched <date>; recommend: delete / compress to N lines / keep (reason)
+  ...
+
+## Net-neutral check
+CLAUDE.md: <current lines> / 60. Rules delta this sprint: +<added> -<removed> = <net> lines.
+
 Approve all / approve some (list which) / request edits?
 ```
 
@@ -106,18 +120,18 @@ If the user asks for edits, revise and re-propose before applying — don't rein
 
 ---
 
-## Phase 4: Apply / Áp dụng
+## Phase 4: Apply
 
 Only after explicit approval, and only the items approved:
 
 1. Write approved `knowledge/` changes.
 2. Write approved `bigin-skills` changes.
-3. **Validator, best-effort:** if `KB_MODE = full` and `tools/knowledge_validate.py` exists at the repo root, run it (`uv run tools/knowledge_validate.py`). If it's missing or errors, don't block — note in the Phase 5 summary that validation didn't run and should be checked manually. `sprint-distill` never fails a sprint ritual on missing tooling in a repo that already approved the specific writes.
+3. **Validator, best-effort:** if `KB_MODE = full` and `tools/knowledge_validate.py` exists at the repo root, run it (`uv run tools/knowledge_validate.py`). If it's missing or errors, don't block — note in the Phase 5 summary that validation didn't run and should be checked manually.
 4. Append the `knowledge/log.md` entry **last**, only after the above succeed.
 
 ---
 
-## Phase 5: Summary / Tóm tắt
+## Phase 5: Summary
 
 ```
 sprint-distill complete for <SPRINT_START>..HEAD
@@ -128,6 +142,8 @@ Written:
 
 Dropped: <count> (see proposal for reasons)
 Stale-concept flags: <count, or none>
+Deletion candidates actioned: <count, or none>
+Net delta: CLAUDE.md <N> lines, .claude/rules/ <+X/-Y> lines
 Validator: [passed | not run — verify manually | not applicable (skills-only mode)]
 Log entry: knowledge/log.md updated
 ```
