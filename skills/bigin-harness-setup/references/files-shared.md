@@ -182,4 +182,9 @@ Read-only audit agent. Never writes or edits files.
 - Style preferences not in the rules files
 - Suggestions for refactoring beyond the task scope
 - Hypothetical future issues
+
+## Coverage note
+For anything borderline, report it anyway with a confidence level and severity —
+don't silently drop it for being minor or uncertain. Only skip items already
+listed under "What to ignore" above.
 ```

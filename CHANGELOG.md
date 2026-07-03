@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.22.6] - 2026-07-04
+
+### Changed
+
+- **Sonnet 5 tuning: explicit effort levels and mechanical-skill steering / tinh chỉnh Sonnet 5: mức effort tường minh và chỉ dẫn máy móc:** `nuxt-scaffold` and `session-handoff` now carry `effort: low` frontmatter plus a steering line right after the H1 telling the model not to deliberate — both are mechanical (gather config/state, write it, run or relay). `bigin-harness-setup` now carries `effort: medium`, reflecting its heavier judgment calls (profile detection, conflict handling); `task-workflow` and `sprint-distill` are left without an effort field since they require open-ended judgment throughout. Also added a "Coverage note" to the code-reviewer agent template in `references/files-shared.md` telling it to report borderline findings with a confidence/severity level instead of silently dropping them, flagged `sprint-distill`'s Phase 1 input-gathering as a candidate for `context: fork` (non-interactive, can produce large git log/diff output — untested, not yet adopted), and added a skill-authoring rule that instructions meant to apply to every item (profile/file/case) must say so explicitly rather than being stated once. / `nuxt-scaffold` và `session-handoff` giờ có frontmatter `effort: low` cùng một dòng chỉ dẫn ngay sau tiêu đề H1 yêu cầu model không suy luận — cả hai đều là việc máy móc (thu thập cấu hình/trạng thái, ghi ra, chạy hoặc chuyển tiếp kết quả). `bigin-harness-setup` giờ có `effort: medium`, phản ánh việc phải phán đoán nhiều hơn (nhận diện profile, xử lý xung đột); `task-workflow` và `sprint-distill` không có trường effort vì cần phán đoán mở xuyên suốt. Đồng thời thêm mục "Coverage note" vào template agent code-reviewer trong `references/files-shared.md`, yêu cầu báo cáo các phát hiện chưa chắc chắn kèm mức độ tin cậy/nghiêm trọng thay vì âm thầm bỏ qua; đánh dấu bước thu thập input ở Phase 1 của `sprint-distill` là ứng viên cho `context: fork` (không tương tác, có thể sinh git log/diff lớn — chưa kiểm chứng, chưa áp dụng); và thêm quy tắc skill-authoring yêu cầu chỉ dẫn áp dụng cho mọi mục (profile/file/case) phải nói rõ ràng thay vì chỉ nêu một lần.
+
 ## [1.22.5] - 2026-07-03
 
 ### Fixed

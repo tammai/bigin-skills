@@ -1,9 +1,12 @@
 ---
 name: session-handoff
 description: "Session handoff and state persistence. Use when: user says 'save session', '/save-session', 'near limit', 'running out of tokens', or needs to continue work in a new session. Saves current state (tasks, decisions, uncommitted changes) to SESSION.md and loads it on session resume."
+effort: low
 ---
 
 # session-handoff — Session State Persistence
+
+This skill is mechanical: save state to SESSION.md or load it back. Do not deliberate — no thinking needed on any step here.
 
 Saves and loads session state between Claude Code sessions, useful when approaching usage limits and needing to continue work later.
 

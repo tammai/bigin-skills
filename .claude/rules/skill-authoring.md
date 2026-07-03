@@ -10,6 +10,8 @@ paths: skills/**
 - `description:` frontmatter is the trigger — specific and "pushy" (list exact activating phrases)
 - Section headers English only; Vietnamese trigger phrases in `description:` frontmatter only
 - All `references/` paths in a SKILL.md are relative to that skill's own `references/` directory
+- Sonnet 5 doesn't generalize instructions across items — if a rule should apply
+  to every profile/file/case, say so explicitly rather than stating it once.
 
 **Generated files (templated in `references/`, written into target repos):**
 

@@ -48,6 +48,8 @@ Turns a sprint's worth of merged work into `knowledge/` updates and `bigin-skill
    ```
    Treat pasted material as additional candidate learnings, classified identically to git-derived ones in Phase 2 — no separate pipeline.
 
+**Note:** this phase is a candidate for `context: fork` as a subagent — it's non-interactive and can produce large git log/diff output. Worth testing, not yet adopted.
+
 ---
 
 ## Phase 2: Classify

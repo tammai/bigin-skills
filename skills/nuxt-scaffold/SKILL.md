@@ -1,9 +1,12 @@
 ---
 name: nuxt-scaffold
 description: "Scaffolds a Nuxt 4 BFF app — non-interactive, template-driven. Default `starter` template runs `npm create nuxt@latest` from scratch (no GitHub clone); every other template (saas, dashboard, landing, docs, portfolio, chat, changelog, editor) clones the matching official ui.nuxt.com/templates starter, then layers the BFF preset modules + config + sample code on top. MUST use when user says: 'scaffold nuxt', 'create nuxt app', 'initialize nuxt project', 'new nuxt bff', 'set up nuxt', 'nuxt saas template', 'nuxt dashboard template', 'tạo nuxt', 'khởi tạo nuxt', 'cài nuxt', or when the repo has no nuxt.config.ts. Also invoked by bigin-harness-setup Phase 0.5 for the nuxt profile on an empty repo."
+effort: low
 ---
 
 # nuxt-scaffold
+
+This skill is mechanical: gather config, write it, run the script, relay its output. Do not deliberate — no thinking needed on any step here.
 
 Scaffolds a Nuxt 4 BFF app from a chosen template. The mechanical work is done by a deterministic script — `scripts/scaffold.mjs` (Node stdlib only, cross-platform, zero prompts). This skill's only jobs: **decide the config values, write them to a JSON file, run the script, report the result.** Do not perform any scaffolding steps yourself.
 
