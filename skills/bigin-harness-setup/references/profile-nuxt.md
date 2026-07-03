@@ -193,7 +193,6 @@ Governance superset: `permissions` + `PostToolUse` lint-fix (the `nuxt-scaffold`
       "Bash(git log:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push:*)",
       "Bash(git pull:*)",
       "Bash(git stash:*)"
     ]
