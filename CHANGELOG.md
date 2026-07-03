@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.21.1] - 2026-07-03
+
+### Fixed
+
+- **`nuxt-scaffold` Step 2 questions fired in parallel / các câu hỏi bị hỏi song song:** SKILL.md said to ask "step by step" but didn't override the general tool-batching guidance ("independent calls can run in parallel"), so an executing agent could read the numbered question list and issue two `AskUserQuestion` calls in the same turn — showing the user two question widgets at once, with the second not waiting on the first. Added an explicit instruction: exactly one `AskUserQuestion` call per turn, wait for the answer before the next. / Bổ sung chỉ dẫn rõ: mỗi lượt chỉ được gọi một `AskUserQuestion`, phải chờ câu trả lời trước khi hỏi câu tiếp theo — tránh hiển thị hai danh sách câu hỏi cùng lúc.
+
 ## [1.21.0] - 2026-07-03
 
 ### Added
