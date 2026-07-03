@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.21.6] - 2026-07-03
+
+### Fixed
+
+- **`nuxt-scaffold` Step 2 questions still firing in two lists at once, despite v1.21.1 / câu hỏi Step 2 vẫn hiện hai danh sách cùng lúc dù đã sửa ở v1.21.1:** the v1.21.1 fix only added wording ("exactly one `AskUserQuestion` call per turn") — an executing agent could still, and did, batch two calls into the same turn since nothing structurally prevented it. Restructured Step 2 to bundle the 4 independent questions (template, primary color, neutral color, dependency freshness) into a **single** `AskUserQuestion` call using the tool's native up-to-4-questions-per-call support — one widget, no batching to guard against. Only "optional modules" (which depends on the template answer) remains a separate, conditional second call. / Bản sửa ở v1.21.1 chỉ thêm chỉ dẫn bằng lời ("mỗi lượt chỉ một lệnh gọi") — agent thực thi vẫn có thể gộp hai lệnh gọi vào cùng một lượt, và đã xảy ra. Tái cấu trúc Step 2: gộp 4 câu hỏi độc lập (template, màu chính, màu nền, độ mới phiên bản) vào **một** lệnh gọi `AskUserQuestion` duy nhất (công cụ hỗ trợ tối đa 4 câu hỏi/lệnh gọi) — một widget, không còn nguy cơ gộp lệnh. Chỉ "optional modules" (phụ thuộc câu trả lời template) vẫn là lệnh gọi thứ hai, có điều kiện.
+
 ## [1.21.5] - 2026-07-03
 
 ### Fixed
