@@ -41,7 +41,7 @@ Sets up a consistent "harness level" on any repo so team members of mixed skill 
 
 ### What gets generated
 
-**nuxt on an empty repo:** the full app is first scaffolded **by the `nuxt-scaffold` skill's deterministic script** — all decisions gathered upfront into a config JSON, then `node scripts/scaffold.mjs --config <path>` runs `npm create nuxt@latest` + the BFF preset modules + config and sample code (`nuxt.config.ts`, `eslint.config.mjs`, `app/`, `server/`, `simple-git-hooks`) with zero prompts. The Nuxt app is a BFF proxy layer (no DB by default — the backend owns data persistence; Drizzle + D1 is an opt-in). The harness governance layer is then overlaid additively.
+**nuxt on an empty repo:** the full app is first scaffolded **by the `nuxt-scaffold` skill's deterministic script** — all decisions gathered upfront into a config JSON, then `node scripts/scaffold.mjs --config <path>` runs `npm create nuxt@latest` + the BFF preset modules + config and sample code (`nuxt.config.ts`, `eslint.config.mjs`, `app/`, `server/`, `simple-git-hooks`) with zero prompts. The Nuxt app is a BFF proxy layer — no DB, the backend owns data persistence. The harness governance layer is then overlaid additively.
 
 ```
 your-repo/
@@ -151,7 +151,7 @@ bigin-skills/
 │   │   │   └── templates/         ← source of truth for files written into the project
 │   │   └── references/
 │   │       ├── bootstrap.md       ← rationale for the script's command sequence
-│   │       ├── modules.md         ← BFF preset, optional modules, Drizzle opt-in
+│   │       ├── modules.md         ← BFF preset, optional modules
 │   │       └── artifacts.md       ← rationale + merge semantics for the templates
 │   ├── sprint-distill/            ← end-of-sprint distillation (compresses, never appends)
 │   │   └── SKILL.md

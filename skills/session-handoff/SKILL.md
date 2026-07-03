@@ -201,7 +201,7 @@ SESSION.md includes harness-specific state:
 Phase: 3 (Stack Verification)
 Project Type: Fullstack MVP
 Selected Agents: architect, frontend-dev, qa
-Optional Services: D1 enabled, auth disabled
+Optional Modules: auth disabled
 
 ## Progress
 

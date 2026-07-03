@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.21.5] - 2026-07-03
+
+### Fixed
+
+- **Stale Drizzle/D1 references left over from the v1.21.3 removal / sót tham chiếu Drizzle/D1 sau khi đã bỏ ở v1.21.3:** `README.md` still called Drizzle + D1 "an opt-in" in the "What gets generated" section and the repo-tree comment for `modules.md`; `bigin-harness-setup/SKILL.md` still listed "Drizzle + D1 id" as a scaffold decision to gather in Phase 0.5 Step 1; `session-handoff/SKILL.md`'s example mid-harness `SESSION.md` still showed `Optional Services: D1 enabled, auth disabled`. All four corrected to match the BFF-proxy-only, no-DB reality. / Sửa 4 chỗ còn nhắc Drizzle/D1 như một tính năng đang tồn tại, khớp lại với thực tế chỉ còn lớp BFF proxy, không có DB.
+
 ## [1.21.4] - 2026-07-03
 
 ### Fixed
