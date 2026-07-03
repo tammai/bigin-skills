@@ -1,0 +1,16 @@
+{
+  "scripts": {
+    "lint:fix": "eslint . --fix",
+    "type-check": "nuxt typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "openapi-types": "mkdir -p server/types && openapi-typescript openapi.yaml -o server/types/api.d.ts",
+    "prepare": "simple-git-hooks"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "pnpm exec lint-staged"
+  },
+  "lint-staged": {
+    "*.{ts,vue,js,mjs}": "eslint --fix"
+  }
+}

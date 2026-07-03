@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.18.0] - 2026-07-03
+
+### Added
+
+- **`nuxt-scaffold` — deterministic scaffold script / script scaffold tất định:** the mechanical scaffolding moved from conversational SKILL.md steps into `skills/nuxt-scaffold/scripts/scaffold.mjs` — a single-file, cross-platform (macOS/Windows) Node.js script, stdlib only (`node:fs`/`node:path`/`node:child_process`), no npm dependencies, no prompts. All decisions arrive pre-resolved via `--config <json>` (project name, `packageManager: pnpm`, theme, optional modules, version policy, Drizzle + D1 id, resume, gitCommit); the script validates strictly (exit 2 on bad config), fails fast on an already-scaffolded directory (exit 1), and streams plain-stdout progress. / Toàn bộ bước scaffold cơ học chuyển từ SKILL.md hội thoại sang script Node.js đa nền tảng, một file, chỉ dùng stdlib, không prompt — mọi quyết định truyền qua file config JSON.
+- **`skills/nuxt-scaffold/scripts/templates/`:** source of truth for every file written/merged into scaffolded projects (previously inline code blocks in `references/artifacts.md`). / Nguồn chuẩn cho mọi file được ghi/merge vào project scaffold.
+
+### Changed
+
+- **`nuxt-scaffold/SKILL.md`:** now only detects state, gathers config in one batch, writes the config JSON, runs the script, and reports — no step-by-step scaffolding instructions. Includes a maintainer section for manual cross-platform validation. / SKILL.md giờ chỉ thu thập config, chạy script và báo kết quả.
+- **`bigin-harness-setup/SKILL.md` Phase 0.5:** gathers all scaffold decisions upfront in one batch, writes the config file, and calls `scaffold.mjs` directly — zero prompts once scaffolding starts; `lint-fix-file.py` reference now points at the template file. / Phase 0.5 hỏi hết một lượt rồi gọi script trực tiếp — không còn prompt xen kẽ khi scaffold chạy.
+- **`references/artifacts.md`** slimmed to rationale + merge semantics (bodies live in `scripts/templates/`); **`references/bootstrap.md`** marked as the maintenance reference for the script's command sequence.
+
+### Notes
+
+- Windows: `npm`/`npx`/`pnpm` resolve to `.cmd` shims and are spawned with `shell: true` (argument arrays only, per-arg cmd.exe quoting — never concatenated command strings) to avoid the post-CVE-2024-27980 `EINVAL`; semver carets (`pkg@^4`) are quote-protected; subprocess output decoded as utf8; all writes use LF.
+
 ## [1.17.0] - 2026-07-03
 
 ### Added

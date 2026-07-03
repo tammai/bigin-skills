@@ -13,7 +13,7 @@ Skills for standardized, AI-assisted development across BigIn's stacks.
 | ---------------------- | -------------------------------------------------------------------------------------------------------- |
 | **bigin-harness-setup** | Scaffolds an AI workflow harness into a repo — `CLAUDE.md`, path-scoped rules, and enforcement gates. Profiles: `nuxt`, `go`, `nodejs`. |
 | **task-workflow**       | On-demand task workflow skill (`/task-workflow`): scope → spec → implement → verify → review. Loaded only when invoked, not on every session start. |
-| **nuxt-scaffold**       | Scaffolds a Nuxt 4 BFF app from scratch — non-interactive `npm create nuxt@latest` + BFF preset + config/sample code. No GitHub clone. |
+| **nuxt-scaffold**       | Scaffolds a Nuxt 4 BFF app from scratch via a deterministic Node.js script (`scripts/scaffold.mjs`, config-driven, zero prompts, macOS/Windows) — `npm create nuxt@latest` + BFF preset + config/sample code. No GitHub clone. / Scaffold app Nuxt 4 BFF bằng script Node.js tất định — không prompt khi chạy. |
 | **sprint-distill**      | End-of-sprint distillation: merged PRs + touched `knowledge/` concepts → proposal-first `knowledge/` and `bigin-skills` updates. Compresses, never just appends. |
 | **session-handoff**     | Saves session state (tasks, decisions, uncommitted changes) to `SESSION.md` and restores it on resume.   |
 
@@ -41,7 +41,7 @@ Sets up a consistent "harness level" on any repo so team members of mixed skill 
 
 ### What gets generated
 
-**nuxt on an empty repo:** the full app is first scaffolded **by the `nuxt-scaffold` skill** — non-interactive `npm create nuxt@latest` + the BFF preset modules + config and sample code (`nuxt.config.ts`, `eslint.config.mjs`, `app/`, `server/`, `simple-git-hooks`). The Nuxt app is a BFF proxy layer (no DB by default — the backend owns data persistence; Drizzle + D1 is an opt-in). The harness governance layer is then overlaid additively.
+**nuxt on an empty repo:** the full app is first scaffolded **by the `nuxt-scaffold` skill's deterministic script** — all decisions gathered upfront into a config JSON, then `node scripts/scaffold.mjs --config <path>` runs `npm create nuxt@latest` + the BFF preset modules + config and sample code (`nuxt.config.ts`, `eslint.config.mjs`, `app/`, `server/`, `simple-git-hooks`) with zero prompts. The Nuxt app is a BFF proxy layer (no DB by default — the backend owns data persistence; Drizzle + D1 is an opt-in). The harness governance layer is then overlaid additively.
 
 ```
 your-repo/
@@ -145,11 +145,14 @@ bigin-skills/
 │   ├── task-workflow/             ← on-demand task workflow (Tier 3)
 │   │   └── SKILL.md               ← scope → spec → implement → verify → review
 │   ├── nuxt-scaffold/             ← Nuxt 4 BFF app scaffolder (npm create nuxt, no clone)
-│   │   ├── SKILL.md
+│   │   ├── SKILL.md               ← decides config values; the script does the rest
+│   │   ├── scripts/
+│   │   │   ├── scaffold.mjs       ← deterministic scaffold (Node stdlib, --config JSON)
+│   │   │   └── templates/         ← source of truth for files written into the project
 │   │   └── references/
-│   │       ├── bootstrap.md       ← non-interactive init + module install + verify
+│   │       ├── bootstrap.md       ← rationale for the script's command sequence
 │   │       ├── modules.md         ← BFF preset, optional modules, Drizzle opt-in
-│   │       └── artifacts.md       ← config + sample code written into the project
+│   │       └── artifacts.md       ← rationale + merge semantics for the templates
 │   ├── sprint-distill/            ← end-of-sprint distillation (compresses, never appends)
 │   │   └── SKILL.md
 │   └── session-handoff/           ← session state persistence

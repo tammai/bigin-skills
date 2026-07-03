@@ -1,6 +1,6 @@
 # Modules — what gets installed
 
-The BFF preset is installed by default. Optional modules and the Drizzle/D1 layer are added only when the user opts in during Phase 2.
+The BFF preset is installed by default. Optional modules and the Drizzle/D1 layer are added only when the user opts in during SKILL.md Step 2.
 
 ---
 
@@ -37,7 +37,7 @@ The template also ships the eslint stylistic config — explicit override `comma
 
 ---
 
-## Optional Modules Menu (Phase 2 multi-select; empty allowed)
+## Optional Modules Menu (SKILL.md Step 2 multi-select; empty allowed)
 
 | Choice | Adds | Use when |
 | --- | --- | --- |
@@ -50,7 +50,7 @@ Each optional module is added via `nuxi module add <slug>` (auto-registers in `n
 
 ---
 
-## Drizzle + Cloudflare D1 opt-in (Phase 2; default = no)
+## Drizzle + Cloudflare D1 opt-in (SKILL.md Step 2; default = no)
 
 Default philosophy: **BFF proxy — the backend owns data persistence, the Nuxt app does not access a database directly.** Only add Drizzle + D1 when the app genuinely needs server-side DB access.
 

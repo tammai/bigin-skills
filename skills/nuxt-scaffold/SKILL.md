@@ -5,59 +5,36 @@ description: "Scaffolds a Nuxt 4 BFF app from scratch — non-interactive `npm c
 
 # nuxt-scaffold
 
-Scaffolds a Nuxt 4 BFF app **from scratch** — no GitHub template clone. Three stages: non-interactive `npm create nuxt@latest` → install the BFF preset (+ optional extras) → apply config and sample code.
+Scaffolds a Nuxt 4 BFF app **from scratch**. The mechanical work is done by a deterministic script — `scripts/scaffold.mjs` (Node stdlib only, cross-platform, zero prompts). This skill's only jobs: **decide the config values, write them to a JSON file, run the script, report the result.** Do not perform any scaffolding steps yourself.
 
 Stack: Nuxt 4, Nuxt UI v4, Nuxt ESLint, Pinia + Pinia Colada, VueUse, nuxt-auth-utils, Zod, Vitest, simple-git-hooks + lint-staged. BFF proxy layer — the backend owns data persistence.
 
 > Governance (CLAUDE.md, `.claude/rules/`, AI guides, `bash-guard.py`) is **not** this skill's job — run `bigin-harness-setup` afterward to overlay it.
 
----
-
-## Prerequisites
-
-- Node.js 22+, pnpm.
-- Run from the directory where the app should live. For a brand-new project: `mkdir my-app && cd my-app` first. Scaffolding is **in-place** into the current directory.
-- **Idempotent:** if `nuxt.config.ts` exists, check for signature files (`vitest.config.ts` + `.claude/settings.json`). If both exist → complete scaffold, stop. If either is missing → partial scaffold, offer resume from Phase 4.
+Prerequisites: Node.js 22+, pnpm. Scaffolding is **in-place** into the target directory (for a brand-new project: `mkdir my-app` first).
 
 ---
 
-## Phase 1: Confirm
+## Step 1: Detect state & confirm
 
-If `nuxt.config.ts` exists:
-- Check for **signature files** — `vitest.config.ts` and `.claude/settings.json`. If either is missing, it's a **partial scaffold** (likely from a prior failed run). Offer:
-  ```
-  nuxt.config.ts found but vitest.config.ts or .claude/settings.json is missing
-  — partial scaffold detected.
-  Resume from Phase 4 (install BFF modules + apply artifacts + verify)?
-  (yes / no)
-  ```
-  If yes → skip to Phase 4. If no → stop.
-- If **both** signature files exist → stop; the project is already fully scaffolded.
+Check the target directory:
 
-If no `nuxt.config.ts` at all:
-```
-No nuxt.config.ts found. Scaffold a Nuxt 4 BFF app in this repo
-(non-interactive npm create nuxt@latest + BFF preset + config)?
-(yes / no)
-```
-Store `CONFIRM`. If `no` → stop.
+- **`nuxt.config.ts` exists + both signature files (`vitest.config.ts`, `.claude/settings.json`) exist** → complete scaffold. Say so and stop.
+- **`nuxt.config.ts` exists but a signature file is missing** → partial scaffold (prior failed run). Ask: *"Partial scaffold detected — resume (install BFF preset + apply artifacts + verify)? (yes / no)"*. If yes → set `resume: true` in the config and continue to Step 2 (theme/module answers are still needed for the artifact stage). If no → stop.
+- **No `nuxt.config.ts`** → ask: *"Scaffold a Nuxt 4 BFF app in this repo (non-interactive npm create nuxt@latest + BFF preset + config)? (yes / no)"*. If no → stop.
 
----
+(The script re-checks all of this and fails fast rather than overwriting — but resolving it conversationally first avoids a wasted run.)
 
-## Phase 2: Gather Customization
+## Step 2: Gather config
 
-Ask everything up front (Enter = default), then confirm. Store each in a SHOUTING-CAPS var.
-
-**Ask this as one plain conversational message, not via the AskUserQuestion tool.** There are 6-7 items and one (theme color) offers 17 options — both exceed AskUserQuestion's limits (max 4 questions, max 4 options each) and will fail with "Invalid tool parameters." Two items are also free text with regex/format constraints (project name, D1 database ID), which that tool can't express either.
+Ask everything **up front in one plain conversational message** — not via the AskUserQuestion tool (too many items/options for its limits, and two answers are regex-constrained free text). Enter = default:
 
 ```
 Customize the scaffold (press Enter to keep the default):
 
 1. Project name (kebab-case, used in package.json)
    > Default: <current directory name>
-   > Must match ^[a-z0-9]+(-[a-z0-9]+)*$ — re-prompt if it doesn't (this value is
-   > substituted into shell/JS one-liners in Phase 3; reject anything else, e.g.
-   > quotes, backticks, spaces, path separators).
+   > Must match ^[a-z0-9]+(-[a-z0-9]+)*$ — re-prompt if it doesn't.
 
 2. Theme — primary color (Nuxt UI)
    > Default: blue
@@ -71,130 +48,72 @@ Customize the scaffold (press Enter to keep the default):
 4. Optional modules (comma-separated, or Enter for none)
    > Options: image / content   (fonts / icon / color-mode already come with Nuxt UI)
 
-5. Dependency freshness for framework packages (nuxt, @nuxt/ui, tailwindcss, eslint,
-   vue-tsc, typescript, @pinia/nuxt, nuxt-auth-utils, @vueuse/nuxt)
+5. Dependency freshness for framework packages
    > Default: capped — latest minor/patch within the major this scaffold ships (safe)
-   > Options: capped / latest (latest = always newest release, including a future major —
-              may need manual fixes until this skill is re-validated against it)
+   > Options: capped / latest (latest may need manual fixes until re-validated)
 
 6. Database layer — add Drizzle + Cloudflare D1? (BFF default = no DB)
    > Default: no   (yes / no)
 
-[If WANT_DRIZZLE = yes:]
-7. Cloudflare D1 database ID (from `wrangler d1 list` — the UUID `wrangler d1 create` returns)
+[If yes:]
+7. Cloudflare D1 database ID (UUID from `wrangler d1 list`)
    > Default: leave as placeholder (replace before first deploy)
 ```
 
-Store `VERSION_POLICY` (`capped` or `latest`).
+Show a summary table and confirm. If no → stop.
 
-If `WANT_DRIZZLE = yes`, store `D1_DATABASE_ID` (or the literal `{D1_DATABASE_ID}` if the user accepted the default). Otherwise store the empty string.
+## Step 3: Write config & run the script
 
-Show a summary table and confirm:
+Write the answers to a JSON file **outside the target repo** (temp/scratchpad dir):
+
+```jsonc
+{
+  "projectName": "my-app",           // required, kebab-case
+  "targetDir": ".",                  // default "."
+  "packageManager": "pnpm",          // BigIn standard; the script rejects anything else
+  "theme": { "primary": "blue", "neutral": "slate" },
+  "optionalModules": [],             // subset of ["image", "content"]
+  "versionPolicy": "capped",         // "capped" | "latest"
+  "drizzle": { "enabled": false, "d1DatabaseId": null },  // null → {D1_DATABASE_ID} placeholder
+  "resume": false,                   // true only when Step 1 detected a partial scaffold
+  "gitCommit": true                  // final "chore: scaffold Nuxt 4 BFF app" commit
+}
 ```
-Summary:
-  project:  <PROJECT_NAME>
-  theme:    primary=<PRIMARY>, neutral=<NEUTRAL>
-  modules:  <OPT_MODULES or none>
-  deps:     <VERSION_POLICY — capped to current major | latest, including future majors>
-  database: <WANT_DRIZZLE — no | Drizzle + D1>
-  d1-id:    <D1_DATABASE_ID or "(placeholder — replace before deploy)">
 
-Proceed? (yes / no)
-```
-Store `CONFIRM_CUSTOM`. If `no` → stop.
+Then run it from the target directory, streaming output (it can take several minutes — installs + lint + type-check + tests):
 
-`PACKAGE_MANAGER` is always `pnpm`.
-
----
-
-## Phase 3: Non-interactive Init
-
-Follow `references/bootstrap.md` → **Stage 1** (`npm create nuxt@latest . -- --template ui --packageManager pnpm --gitInit --force --modules pinia,auth-utils,vueuse`). The `--modules` flag installs and registers `@pinia/nuxt`, `nuxt-auth-utils`, and `@vueuse/nuxt` atomically during init. This installs the base dependencies (the `ui` template already brings `@nuxt/ui`, `@nuxt/eslint`, `vue-tsc`) and creates the git repo (`--gitInit` fires only when install runs — do not pair it with `--no-install`). If `npm create` does not forward flags, use the `npx nuxi@latest init` fallback in `references/bootstrap.md`.
-
-Then follow **Stage 1b** to refresh the template-installed packages (`nuxt`, `@nuxt/ui`, `tailwindcss`, `@nuxt/eslint`, `eslint`, `vue-tsc`, `typescript`, `@pinia/nuxt`, `nuxt-auth-utils`, `@vueuse/nuxt`) per the `VERSION_POLICY` chosen in Phase 2 — this is what keeps the scaffold off a stale `create-nuxt` template snapshot.
-
-Run the pre-flight checks in bootstrap.md (Node 22+ and pnpm) before executing Stage 1.
-
-Then set `package.json` `name` → `PROJECT_NAME`.
-
----
-
-## Phase 4: Install BFF Preset
-
-Follow `references/bootstrap.md` → **Stage 2** (`pnpm add @pinia/colada zod` + `pnpm add -D vitest @nuxt/test-utils simple-git-hooks lint-staged openapi-typescript`). The Nuxt modules (`pinia`, `auth-utils`, `vueuse`) were already installed and registered by the `--modules` flag in Stage 1 — Stage 2 only adds the plain packages. See `references/modules.md` for the full preset and rationale.
-
-- If `OPT_MODULES` is non-empty → run **Stage 2b** for each chosen module.
-- If `WANT_DRIZZLE = yes` → run **Stage 2c**.
-- If any `pnpm add` fails, report which package and stop — do not continue with a partial install.
-
----
-
-## Phase 5: Apply Artifacts
-
-Follow `references/bootstrap.md` → **Stage 3** (the artifact-application stage). Read `references/artifacts.md` and write/merge each block, substituting `{PROJECT_NAME}`, `{PRIMARY}`, `{NEUTRAL}`, `{D1_DATABASE_ID}`, and `{COMPAT_DATE}` (generated from today's date: `node -e "console.log(new Date().toISOString().split('T')[0])"`).
-
-- **Merge** (never overwrite): `nuxt.config.ts` (add `runtimeConfig` only, between `css` and `routeRules`), `app/app.config.ts` (set theme colors), `package.json`, `.claude/settings.json`, `.vscode/settings.json`. Do **not** edit `tsconfig.json` — see `artifacts.md` for why.
-- **Write fresh**: `server/api/me.get.ts`, `server/api/login.post.ts`, `server/api/users.get.ts`, `shared/types/auth.d.ts`, `app/stores/session.ts`, `app/stores/session.test.ts`, `vitest.config.ts`, `.prettierignore`, `app/composables/useUsers.ts`, `app/middleware/auth.global.ts`, `server/middleware/auth.ts`, `openapi.yaml`, `.env.example` (and the Drizzle files if opted in).
-- **Do not touch** the template's own `app/app.vue`, `app/pages/index.vue`, `eslint.config.mjs`, or `app/assets/css/main.css`.
-- After writing `.env.example`, verify `.env` is listed in `.gitignore` — append it if missing (before Phase 7's commit).
-
-Write the Drizzle opt-in blocks only when `WANT_DRIZZLE = yes`.
-
----
-
-## Phase 6: Activate Hooks & Verify
-
-Follow `references/bootstrap.md` → **Stage 4** (`pnpm approve-builds simple-git-hooks` then `pnpm simple-git-hooks`) and **Stage 5**:
 ```sh
-pnpm lint
-pnpm type-check
-pnpm test
+node <this-skill-dir>/scripts/scaffold.mjs --config <path-to-config.json>
 ```
-`lint`, `type-check`, and `test` must pass before continuing. (Stage 1b's safety check already confirmed `nuxt` stayed on v4 before Stage 2 ran, so no v3/v4 fallback is needed here. `session.test.ts` was written in Phase 5 — `pnpm test` validates the Vitest + Nuxt + Pinia Colada chain.)
+
+Zero prompts occur once the script starts. Every step it performs (init, version refresh, BFF preset, artifacts, hooks, verify, commit) is internal — do not duplicate any of it.
+
+## Step 4: Report
+
+- **Exit 0** → relay the script's "Next steps" output verbatim.
+- **Exit 2** → config problem; fix the JSON per the error message and re-run.
+- **Exit 1** → runtime failure; the last `[scaffold] ERROR:` line names the failing stage/command. Common causes: Node < 22, pnpm missing, network failure during `npm create`, or a `create-nuxt@latest` behavior change (the error will say to re-verify `references/bootstrap.md`). A failed run partway through leaves a partial scaffold — after fixing the cause, re-run with `"resume": true`.
 
 ---
 
-## Phase 7: Initial Commit
+## Manual validation (maintainers)
 
-Only if `.git` exists and the working tree is dirty (`git status --porcelain` is non-empty — `--gitInit` only runs `git init`, it does **not** create an initial commit, so this is normally the project's first commit):
+After changing `scaffold.mjs` or templates, verify in an empty temp dir on **both macOS and Windows**:
+
 ```sh
-git add -A
-git commit -m "chore: scaffold Nuxt 4 BFF app"
+mkdir scaffold-test && cd scaffold-test
+echo '{"projectName":"scaffold-test","packageManager":"pnpm","theme":{"primary":"orange","neutral":"slate"}}' > ../cfg.json
+node <skill-dir>/scripts/scaffold.mjs --config ../cfg.json
 ```
 
----
+Expect: exit 0, all three verify gates green, initial commit created. Then re-run the same command → must fail fast with "scaffold looks complete", exit 1, no files touched.
 
-## Phase 8: Next Steps
-
-Print:
-```
-Nuxt 4 BFF app scaffolded.
-
-Next:
-  1. Copy .env.example → .env and set:
-     - NUXT_SESSION_PASSWORD (openssl rand -base64 32)
-     - NUXT_BACKEND_URL     (backend REST API; server-only)
-  2. Replace the stub openapi.yaml with the real backend contract, then:
-     pnpm openapi-types
-  3. Overlay governance: run bigin-harness-setup (CLAUDE.md, rules, bash-guard).
-  4. Start: pnpm dev
-  [5. VERSION_POLICY=latest was chosen — skim the changelogs for nuxt/@nuxt/ui/tailwindcss
-     (and the other Stage 1b packages) for breaking changes before shipping.] (if VERSION_POLICY=latest)
-```
-
----
-
-## Idempotency
-
-- If `nuxt.config.ts` exists AND both signature files (`vitest.config.ts` + `.claude/settings.json`) exist → complete scaffold, stop at Phase 1.
-- If `nuxt.config.ts` exists BUT either signature file is missing → partial scaffold; offer resume from Phase 4.
-- `nuxt.config.ts` / `app/app.config.ts` / `package.json` / `.claude/settings.json` / `.vscode/settings.json` — always merge, never overwrite.
-- Never delete files not created by this skill.
-
----
+Platform-risky code paths (all flagged in the header comment of `scaffold.mjs`): Windows `.cmd` shim resolution + the `shell: true`-on-win32 EINVAL workaround (`resolveBin`/`run`/`winQuote`), `^` in semver specs under cmd.exe, CRLF checkouts vs `@stylistic` lint rules, and utf8 decoding of subprocess output.
 
 ## References
 
-- `references/bootstrap.md` — the canonical command sequence (init + install + verify).
+- `scripts/scaffold.mjs` — the scaffold implementation (single file, Node stdlib only).
+- `scripts/templates/` — **source of truth** for every file written/merged into the project.
+- `references/bootstrap.md` — rationale for the command sequence the script executes.
+- `references/artifacts.md` — rationale + merge semantics for each template.
 - `references/modules.md` — BFF preset, optional-modules menu, Drizzle opt-in.
-- `references/artifacts.md` — every file written/merged into the project.

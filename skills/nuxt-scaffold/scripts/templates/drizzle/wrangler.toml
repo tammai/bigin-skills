@@ -1,0 +1,8 @@
+name = "{PROJECT_NAME}"
+compatibility_date = "{COMPAT_DATE}"   # today's date (generated at scaffold time); update before deploying
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "{PROJECT_NAME}-db"
+database_id = "{D1_DATABASE_ID}"

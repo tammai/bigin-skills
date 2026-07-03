@@ -34,9 +34,19 @@ Store result as `PROFILE`. Load `references/profile-{PROFILE}.md` for all templa
 
 **nuxt profile only.** If `PROFILE = nuxt` **and** the repo has no `nuxt.config.ts`:
 
-**Delegate to the `nuxt-scaffold` skill.** Load and follow `skills/nuxt-scaffold/SKILL.md` (installed as part of this same plugin) from its Phase 1 through Phase 8. It scaffolds the Nuxt 4 BFF app **from scratch** — non-interactive `npm create nuxt@latest` + the BFF preset + config + sample code. **No GitHub template clone, no embedded skill copy.** Do not write any project files yourself while it runs.
+Scaffolding is done by the `nuxt-scaffold` skill's deterministic script — **not** conversationally. Three steps, and **all questions happen up front, in one batch; zero prompts once scaffolding starts**:
 
-Set `SCAFFOLDED = true` when `nuxt-scaffold` returns (the governance overlay reconciles with what the scaffold provides — see Phases 1 and 5).
+1. **Gather every scaffold decision now**, in a single message, alongside (not interleaved with) this skill's own questions: the question list is `skills/nuxt-scaffold/SKILL.md` → Step 2 (project name, primary/neutral theme colors, optional modules, version policy, Drizzle + D1 id). Confirm the summary once.
+2. **Write the config JSON** (schema in `skills/nuxt-scaffold/SKILL.md` → Step 3) to a temp file outside the repo, with `"packageManager": "pnpm"`.
+3. **Run the script and stream its output** (several minutes — installs + verify gates):
+   ```sh
+   node skills/nuxt-scaffold/scripts/scaffold.mjs --config <path>
+   ```
+   Exit 0 = scaffolded, verified (lint/type-check/test), committed. Non-zero → report the script's last `[scaffold] ERROR:` line and stop; do not improvise the remaining steps by hand.
+
+**No GitHub template clone, no embedded skill copy.** Do not write any project files yourself while it runs.
+
+Set `SCAFFOLDED = true` when the script exits 0 (the governance overlay reconciles with what the scaffold provides — see Phases 1 and 5).
 
 Skip this phase entirely if `nuxt.config.ts` already exists (onboarding an existing repo) or for the `go` / `nodejs` profiles.
 
@@ -149,7 +159,7 @@ If `scripts/pre-commit.sh` was created in 5-1, the budget check step is already 
 
 Read from `references/hook-guard.md` → `## bash-guard.py`. Write to `.claude/guards/bash-guard.py`.
 
-> nuxt auto-format also needs a guard script — `.claude/guards/lint-fix-file.py`, ESLint `--fix` scoped to the single touched file (a blanket `pnpm lint --fix` would rewrite every pre-existing lint violation in the repo on the first edit). If `SCAFFOLDED = true`, `nuxt-scaffold` already wrote it. Otherwise (onboarding an existing nuxt repo), write it now from `skills/nuxt-scaffold/references/artifacts.md` → `## .claude/guards/lint-fix-file.py (write)` — single source of truth, don't duplicate the script body here.
+> nuxt auto-format also needs a guard script — `.claude/guards/lint-fix-file.py`, ESLint `--fix` scoped to the single touched file (a blanket `pnpm lint --fix` would rewrite every pre-existing lint violation in the repo on the first edit). If `SCAFFOLDED = true`, `nuxt-scaffold` already wrote it. Otherwise (onboarding an existing nuxt repo), copy it now from `skills/nuxt-scaffold/scripts/templates/files/.claude/guards/lint-fix-file.py` — single source of truth, don't duplicate the script body here.
 
 ### 5-3. .claude/settings.json
 

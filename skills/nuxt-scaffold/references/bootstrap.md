@@ -1,5 +1,7 @@
 # Bootstrap — non-interactive Nuxt 4 init + module install
 
+> **Executed by `../scripts/scaffold.mjs`** — this doc is the rationale/maintenance reference for that script's command sequence, not instructions to run by hand. If you change a stage here, change the matching function in `scaffold.mjs` (and vice versa).
+
 The canonical command sequence. Scaffolds **in-place** into the current directory (`.`), installs the BFF preset, then leaves the project ready for artifact application.
 
 Uses `npm create nuxt@latest` (unpinned) — non-interactive flag behavior (`--template` required, `--modules` atomic install, `--gitInit` quirks) was last verified against `create-nuxt` v3.36.1 (https://nuxt.com/docs/4.x/api/commands/init); a future `create-nuxt` release could change that behavior without notice, so re-verify Stage 1 if it starts failing. Stage 1b separately refreshes the packages the CLI installs to current releases per `VERSION_POLICY`, so scaffolded apps don't inherit a stale `@nuxt/ui`/`tailwindcss`/etc. snapshot regardless of which CLI version ran.
@@ -34,7 +36,7 @@ Flag rationale (behavior last verified against `create-nuxt` v3.36.1 — re-vali
 - `--template ui` — **required** in a non-interactive terminal (create-nuxt aborts with "Missing required argument: --template" without it). `ui` = the official Nuxt UI starter, which already installs and registers `@nuxt/ui` + `@nuxt/eslint`, sets the eslint stylistic config, and ships `app.vue` / `app.config.ts` / `pages/index.vue` / `eslint.config.mjs`.
 - `--packageManager pnpm` — non-interactive package-manager choice (no prompt).
 - `--gitInit` — initialize the git repo as part of init. It **only fires when the install step runs**, so do **not** pair it with `--no-install` (create-nuxt silently skips gitInit under `--no-install`). Do not omit `--gitInit`.
-- `--force` — proceed when the dir is non-empty (e.g. one that already has `.git`). **Warning:** `--force` replaces any conflicting files with template files — not just Nuxt artifacts. Non-trivial existing files (hand-authored README, config) may be destroyed. The Phase 1 guard checks for `nuxt.config.ts` only; warn the user if the directory contains other valuable files.
+- `--force` — proceed when the dir is non-empty (e.g. one that already has `.git`). **Warning:** `--force` replaces any conflicting files with template files — not just Nuxt artifacts. Non-trivial existing files (hand-authored README, config) may be destroyed. The preflight guard checks for `nuxt.config.ts` only; warn the user if the directory contains other valuable files.
 - `--modules pinia,auth-utils,vueuse` — installs and registers all three Nuxt modules atomically during init, eliminating the separate `nuxi module add` calls (and the partial-state risk they carry). Stage 2 only needs the plain packages.
 
 > Base dependencies install as part of init, and `--gitInit` creates a clean repo (the giget template carries no git history — no manual reset needed). If `--gitInit` ever does not fire, run `git init` explicitly.
@@ -44,7 +46,7 @@ Flag rationale (behavior last verified against `create-nuxt` v3.36.1 — re-vali
 grep -q "@pinia/nuxt" nuxt.config.ts && grep -q "nuxt-auth-utils" nuxt.config.ts && grep -q "@vueuse/nuxt" nuxt.config.ts || { echo "Stage 1's --modules flag did not register pinia/auth-utils/vueuse in nuxt.config.ts — create-nuxt@latest's --modules behavior may have changed; stop and re-verify Stage 1"; exit 1; }
 ```
 
-Set `package.json` `name` → `{PROJECT_NAME}` (kebab-case — SKILL.md Phase 2 validates this against `^[a-z0-9]+(-[a-z0-9]+)*$` before it reaches here; never substitute an unvalidated value into the command below):
+Set `package.json` `name` → `{PROJECT_NAME}` (kebab-case — SKILL.md Step 2 validates this against `^[a-z0-9]+(-[a-z0-9]+)*$` before it reaches here; never substitute an unvalidated value into the command below):
 ```sh
 PROJECT_NAME='{PROJECT_NAME}' node -e "const p=require('./package.json');p.name=process.env.PROJECT_NAME;require('fs').writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
 ```
@@ -61,7 +63,7 @@ If `npm create` exits non-zero:
 
 ## Stage 1b — Refresh template-installed packages / Làm mới gói do template cài
 
-`create-nuxt@latest`'s `--template ui` and `--modules` flags install whatever `@nuxt/ui` / `@nuxt/eslint` / `eslint` / `tailwindcss` / `vue-tsc` / `typescript` / `@pinia/nuxt` / `nuxt-auth-utils` / `@vueuse/nuxt` / `nuxt` versions were current when that `create-nuxt` release was published — not necessarily current *now* (this is how a scaffolded app can end up on a Tailwind release that predates newer palettes like `mauve`/`olive`/`mist`/`taupe`). This stage re-pins all of them to fresh releases, per `VERSION_POLICY` (set in `SKILL.md` Phase 2; default `capped`):
+`create-nuxt@latest`'s `--template ui` and `--modules` flags install whatever `@nuxt/ui` / `@nuxt/eslint` / `eslint` / `tailwindcss` / `vue-tsc` / `typescript` / `@pinia/nuxt` / `nuxt-auth-utils` / `@vueuse/nuxt` / `nuxt` versions were current when that `create-nuxt` release was published — not necessarily current *now* (this is how a scaffolded app can end up on a Tailwind release that predates newer palettes like `mauve`/`olive`/`mist`/`taupe`). This stage re-pins all of them to fresh releases, per `VERSION_POLICY` (set in `SKILL.md` Step 2; default `capped`):
 
 Do this in a single `node -e` script, not a shell loop — a shell `for` loop over an unquoted variable relies on word-splitting that **zsh does not do by default** (unlike bash/sh), which silently collapses the whole package list into one bogus argument and corrupts `pnpm add`. Reading each package's version via plain `require('<pkg>/package.json')` also breaks for any package with a restrictive `exports` map (`@nuxt/ui`, `@nuxt/eslint`, `@pinia/nuxt`, `nuxt-auth-utils` all throw `ERR_PACKAGE_PATH_NOT_EXPORTED`) — read the file directly instead. Calling `pnpm` via `execFileSync` with an argument array sidesteps shell parsing entirely, so neither problem can recur:
 
@@ -83,7 +85,7 @@ execFileSync('pnpm', ['add'].concat(specs), { stdio: 'inherit' });
 ```
 
 - `capped` (default) resolves the latest release within each package's *currently installed* major — fixes staleness without risking a silent major bump.
-- `latest` always takes the newest release, including a future major, if the user opted in during Phase 2.
+- `latest` always takes the newest release, including a future major, if the user opted in during SKILL.md Step 2.
 - pnpm preserves each package's existing `dependencies`/`devDependencies` placement on a bare `pnpm add <pkg>@<version>` — this step only refreshes versions, not sections.
 - Pre-1.0 packages (`@pinia/nuxt`, `nuxt-auth-utils` at the time of writing) only get patch-level bumps under `capped` — npm's caret range is stricter for `0.x` versions. This is a known, minor gap in "latest minor/patch" framing for that case, not a bug.
 
@@ -121,7 +123,7 @@ If `image` was chosen:
 pnpm exec nuxi module add image          # @nuxt/image
 pnpm approve-builds sharp || true
 ```
-`nuxi module add image`'s internal install of `sharp` (native image processing) can hit the build-approval gate — when it does, `nuxi` silently defaults "No" to a hidden "continue anyway?" prompt instead of failing loudly, leaving `@nuxt/image` unregistered in `nuxt.config.ts`. Pre-installing `sharp` yourself first does **not** reliably prevent this — `nuxi` can resolve a different `sharp` version internally and hit the gate again regardless. The `approve-builds sharp` call above is still required even though `nuxi` already failed once: `sharp` was installed with its build deferred, and **every subsequent `pnpm` command** (`pnpm exec eslint`, `pnpm lint`, etc.) fails outright with `ERR_PNPM_IGNORED_BUILDS` during pnpm's own deps-status check until it's approved — this is not just a registration problem, it blocks Phase 6's verify gate entirely if skipped.
+`nuxi module add image`'s internal install of `sharp` (native image processing) can hit the build-approval gate — when it does, `nuxi` silently defaults "No" to a hidden "continue anyway?" prompt instead of failing loudly, leaving `@nuxt/image` unregistered in `nuxt.config.ts`. Pre-installing `sharp` yourself first does **not** reliably prevent this — `nuxi` can resolve a different `sharp` version internally and hit the gate again regardless. The `approve-builds sharp` call above is still required even though `nuxi` already failed once: `sharp` was installed with its build deferred, and **every subsequent `pnpm` command** (`pnpm exec eslint`, `pnpm lint`, etc.) fails outright with `ERR_PNPM_IGNORED_BUILDS` during pnpm's own deps-status check until it's approved — this is not just a registration problem, it blocks the Stage 5 verify gate entirely if skipped.
 
 **Always** read `nuxt.config.ts` after this command and confirm `'@nuxt/image'` is actually in the `modules` array — this is not a rare edge case, treat it as expected. If it's missing, add it with your normal edit tool (not a shell regex/sed one-liner — a naive text substitution can silently strip the file's trailing newline and trip `@stylistic/eol-last` in `pnpm lint`). Note: the template's `nuxt.config.ts` is already missing its trailing newline before this edit even happens (see `artifacts.md`'s Stage 3 note) — check for `\n` at EOF regardless of whether this edit was needed.
 
@@ -174,4 +176,4 @@ pnpm type-check
 pnpm test
 ```
 
-`lint`, `type-check`, and `test` must pass before the scaffold is considered complete. (`session.test.ts` is written in Phase 5, so `pnpm test` validates the Vitest + Nuxt + Pinia Colada chain.) Verify the Nuxt major version (`node -e "console.log(require('nuxt/package.json').version)"` — must start with `4`). Stop and fix any errors before the initial commit.
+`lint`, `type-check`, and `test` must pass before the scaffold is considered complete. (`session.test.ts` is written in Stage 3, so `pnpm test` validates the Vitest + Nuxt + Pinia Colada chain.) Verify the Nuxt major version (`node -e "console.log(require('nuxt/package.json').version)"` — must start with `4`). Stop and fix any errors before the initial commit.

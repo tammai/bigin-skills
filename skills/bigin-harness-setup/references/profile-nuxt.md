@@ -171,7 +171,7 @@ Prepend `paths: ["server/**", "app/**"]` as YAML frontmatter when writing `archi
 
 ## settings.json Template
 
-Governance superset: `permissions` + `PostToolUse` lint-fix (the `nuxt-scaffold` baseline) **plus** the `PreToolUse` `bash-guard.py` hook (governance). Used when onboarding an existing nuxt repo (Phase 5-3) — also write `.claude/guards/lint-fix-file.py` if it's missing (script body: `skills/nuxt-scaffold/references/artifacts.md` → `## .claude/guards/lint-fix-file.py (write)`, single source of truth). Keep the `permissions` / `PostToolUse` keys in sync with `skills/nuxt-scaffold/references/artifacts.md`.
+Governance superset: `permissions` + `PostToolUse` lint-fix (the `nuxt-scaffold` baseline) **plus** the `PreToolUse` `bash-guard.py` hook (governance). Used when onboarding an existing nuxt repo (Phase 5-3) — also write `.claude/guards/lint-fix-file.py` if it's missing (script body: `skills/nuxt-scaffold/scripts/templates/files/.claude/guards/lint-fix-file.py`, single source of truth). Keep the `permissions` / `PostToolUse` keys in sync with `skills/nuxt-scaffold/scripts/templates/merge/claude-settings.json`.
 
 ```json
 {
@@ -234,7 +234,7 @@ Note: the `"statusline"` key enables the token-usage display in the Claude Code 
 
 ## .vscode/settings.json Template
 
-Editor format-on-save through the ESLint extension (matches the `nuxt-scaffold` skill's baseline). Merge into an existing `.vscode/settings.json` rather than overwriting. Keep in sync with `skills/nuxt-scaffold/references/artifacts.md`.
+Editor format-on-save through the ESLint extension (matches the `nuxt-scaffold` skill's baseline). Merge into an existing `.vscode/settings.json` rather than overwriting. Keep in sync with `skills/nuxt-scaffold/scripts/templates/merge/vscode-settings.json`.
 
 ```json
 {
