@@ -15,4 +15,4 @@ Keep the context window clean; every token in chat history is paid on every turn
 - Read `references/*.md` with offset/limit when only a section is needed.
 - Don't re-read files already in context — the harness tracks file state.
 - Run `/session-handoff` when nearing the context limit; state goes in SESSION.md, not chat.
-- New durable facts → memory files, not CLAUDE.md. CLAUDE.md changes must pass `tools/context_budget.py`.
+- New durable facts → memory files, not CLAUDE.md. CLAUDE.md changes must pass `tools/context_budget.mjs`.

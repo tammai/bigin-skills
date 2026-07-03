@@ -79,7 +79,7 @@ Extension keys are allowed but must not collide with the above.
 - Concept files not linked from `knowledge/index.md` are stale by definition — the validator warns on these.
 
 ## Validation
-`tools/knowledge_validate.py` enforces: valid frontmatter + `type` on every file, `type` in the allowed list, all bundle-relative links resolve, `timestamp` is valid ISO 8601 when present. Missing `description`/`tags` and index-unreachable files are warnings, not failures.
+`tools/knowledge_validate.mjs` enforces: valid frontmatter + `type` on every file, `type` in the allowed list, all bundle-relative links resolve, `timestamp` is valid ISO 8601 when present. Missing `description`/`tags` and index-unreachable files are warnings, not failures.
 ```
 
 ---
@@ -193,151 +193,191 @@ timestamp: {DATE}T00:00:00Z
 # Knowledge Bundle Log
 
 ## {DATE}
-Bundle created: `index.md`, `contracts/openapi-contract.md`, `constraints/agent-rules.md`, `meta/knowledge-bundle-spec.md`. Validator added at `tools/knowledge_validate.py`.
+Bundle created: `index.md`, `contracts/openapi-contract.md`, `constraints/agent-rules.md`, `meta/knowledge-bundle-spec.md`. Validator added at `tools/knowledge_validate.mjs`.
 ```
 
 ---
 
-## tools/knowledge_validate.py
+## tools/knowledge_validate.mjs
 
-```python
-#!/usr/bin/env -S uv run --script
-# /// script
-# requires-python = ">=3.11"
-# dependencies = [
-#     "python-frontmatter",
-#     "pyyaml",
-# ]
-# ///
-"""Validate the knowledge/ bundle: frontmatter, allowed types, link resolution, timestamps."""
+```javascript
+#!/usr/bin/env node
+// Validate the knowledge/ bundle: frontmatter, allowed types, link resolution, timestamps.
+// Zero dependencies — runs on any Node >= 18 (macOS, Linux, Windows).
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join, relative } from "node:path";
 
-import argparse
-import re
-import sys
-from datetime import datetime
-from pathlib import Path
+const BUNDLE_ROOT = "knowledge";
 
-import frontmatter
-import yaml
+const ALLOWED_TYPES = new Set([
+  "Index", "Contract", "System", "Domain", "Table",
+  "Metric", "Playbook", "Constraint", "Log",
+]);
 
-BUNDLE_ROOT = "knowledge"
+const LINK_RE = /\[[^\]]*\]\(([^)]+)\)/g;
 
-ALLOWED_TYPES = {
-    "Index", "Contract", "System", "Domain", "Table",
-    "Metric", "Playbook", "Constraint", "Log",
+// Minimal YAML-subset parser for concept-file frontmatter: top-level
+// `key: value` pairs, inline arrays ([a, b]), and `- item` block lists.
+function parseFrontmatter(raw) {
+  const text = raw.replace(/^\uFEFF/, "");
+  if (!text.startsWith("---")) return { meta: null, body: text, error: "missing frontmatter block" };
+  const end = text.indexOf("\n---", 3);
+  if (end === -1) return { meta: null, body: text, error: "unterminated frontmatter block" };
+  const header = text.slice(text.indexOf("\n") + 1, end);
+  const bodyStart = text.indexOf("\n", end + 1);
+  const body = bodyStart === -1 ? "" : text.slice(bodyStart + 1);
+
+  const meta = {};
+  let listKey = null;
+  for (const line of header.split("\n")) {
+    if (!line.trim() || line.trim().startsWith("#")) continue;
+    const item = line.match(/^\s+-\s*(.*)$/);
+    if (item && listKey) {
+      meta[listKey].push(stripQuotes(item[1].trim()));
+      continue;
+    }
+    const kv = line.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
+    if (!kv) return { meta: null, body, error: `unparseable frontmatter line: '${line.trim()}'` };
+    const value = kv[2].trim();
+    if (value === "") {
+      meta[kv[1]] = [];
+      listKey = kv[1];
+    } else if (value.startsWith("[") && value.endsWith("]")) {
+      meta[kv[1]] = value.slice(1, -1).split(",").map((s) => stripQuotes(s.trim())).filter(Boolean);
+      listKey = null;
+    } else {
+      meta[kv[1]] = stripQuotes(value);
+      listKey = null;
+    }
+  }
+  return { meta, body, error: null };
 }
 
-LINK_RE = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
+function stripQuotes(s) {
+  if (s.length >= 2 && ((s[0] === '"' && s.at(-1) === '"') || (s[0] === "'" && s.at(-1) === "'"))) {
+    return s.slice(1, -1);
+  }
+  return s;
+}
 
+function iso8601(value) {
+  if (typeof value !== "string") return false;
+  if (!/^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2})?/.test(value)) return false;
+  return !Number.isNaN(Date.parse(value));
+}
 
-def iso8601(value):
-    if not isinstance(value, str):
-        return False
-    try:
-        datetime.fromisoformat(value.replace("Z", "+00:00"))
-        return True
-    except ValueError:
-        return False
+function bundleRelativeLinks(content) {
+  const links = [];
+  for (const match of content.matchAll(LINK_RE)) {
+    const target = match[1].trim();
+    if (target.startsWith("/")) links.push(target.split("#")[0]);
+  }
+  return links;
+}
 
+function loadBundle(root) {
+  const files = new Map();
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.name.endsWith(".md")) {
+        files.set("/" + relative(root, full).split("\\").join("/"), full);
+      }
+    }
+  };
+  walk(root);
+  return new Map([...files.entries()].sort(([a], [b]) => (a < b ? -1 : 1)));
+}
 
-def bundle_relative_links(content):
-    links = []
-    for match in LINK_RE.finditer(content):
-        target = match.group(1).strip()
-        if target.startswith("/"):
-            links.append(target.split("#", 1)[0])
-    return links
+function main() {
+  const argv = process.argv.slice(2);
+  let root = BUNDLE_ROOT;
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === "--root") root = argv[++i];
+    else if (argv[i].startsWith("--root=")) root = argv[i].slice("--root=".length);
+  }
 
+  const errors = [];
+  const warnings = [];
 
-def load_bundle(root):
-    files = {}
-    for path in sorted(root.rglob("*.md")):
-        rel = "/" + path.relative_to(root).as_posix()
-        files[rel] = path
-    return files
+  let isDir = false;
+  try { isDir = statSync(root).isDirectory(); } catch {}
+  if (!isDir) {
+    console.log(`ERROR ${root}: bundle root does not exist`);
+    return 1;
+  }
 
+  const files = loadBundle(root);
+  if (files.size === 0) {
+    console.log(`ERROR ${root}: no .md files found in bundle`);
+    return 1;
+  }
 
-def main():
-    parser = argparse.ArgumentParser(description="Validate a knowledge bundle.")
-    parser.add_argument("--root", default=BUNDLE_ROOT, help=f"bundle root (default: {BUNDLE_ROOT})")
-    args = parser.parse_args()
+  const parsed = new Map();
+  const indexRels = [];
 
-    root = Path(args.root)
-    errors = []
-    warnings = []
+  for (const [rel, path] of files) {
+    const { meta, body, error } = parseFrontmatter(readFileSync(path, "utf-8"));
+    if (error) {
+      errors.push(`${path}: invalid frontmatter (${error})`);
+      continue;
+    }
 
-    if not root.is_dir():
-        print(f"ERROR {root}: bundle root does not exist")
-        return 1
+    parsed.set(rel, { meta, body });
 
-    files = load_bundle(root)
-    if not files:
-        print(f"ERROR {root}: no .md files found in bundle")
-        return 1
+    if (!("type" in meta)) {
+      errors.push(`${path}: missing required frontmatter key 'type'`);
+    } else if (!ALLOWED_TYPES.has(meta.type)) {
+      errors.push(`${path}: type '${meta.type}' not in allowed list (${[...ALLOWED_TYPES].sort().join(", ")})`);
+    } else if (meta.type === "Index") {
+      indexRels.push(rel);
+    }
 
-    parsed = {}
-    index_rels = []
+    if ("timestamp" in meta && !iso8601(String(meta.timestamp))) {
+      errors.push(`${path}: timestamp '${meta.timestamp}' is not valid ISO 8601`);
+    }
 
-    for rel, path in files.items():
-        try:
-            post = frontmatter.load(str(path))
-        except yaml.YAMLError as exc:
-            errors.append(f"{path}: invalid frontmatter YAML ({exc})")
-            continue
+    for (const link of bundleRelativeLinks(body)) {
+      if (!files.has(link)) {
+        errors.push(`${path}: broken link '${link}' (no file at ${root}${link})`);
+      }
+    }
 
-        parsed[rel] = post
-        meta = post.metadata
+    if (!meta.description) warnings.push(`${path}: missing recommended key 'description'`);
+    if (!meta.tags || meta.tags.length === 0) warnings.push(`${path}: missing recommended key 'tags'`);
+  }
 
-        if "type" not in meta:
-            errors.append(f"{path}: missing required frontmatter key 'type'")
-        elif meta["type"] not in ALLOWED_TYPES:
-            errors.append(f"{path}: type '{meta['type']}' not in allowed list ({', '.join(sorted(ALLOWED_TYPES))})")
-        elif meta["type"] == "Index":
-            index_rels.append(rel)
+  if (indexRels.length === 0) {
+    warnings.push(`${root}: no file with type 'Index' found — cannot check reachability`);
+  } else {
+    const reachable = new Set(indexRels);
+    const stack = [...indexRels];
+    while (stack.length) {
+      const doc = parsed.get(stack.pop());
+      if (!doc) continue;
+      for (const link of bundleRelativeLinks(doc.body)) {
+        if (files.has(link) && !reachable.has(link)) {
+          reachable.add(link);
+          stack.push(link);
+        }
+      }
+    }
+    for (const [rel, path] of files) {
+      if (!reachable.has(rel)) warnings.push(`${path}: not reachable from an Index file`);
+    }
+  }
 
-        if "timestamp" in meta and not iso8601(str(meta["timestamp"])):
-            errors.append(f"{path}: timestamp '{meta['timestamp']}' is not valid ISO 8601")
+  for (const msg of errors) console.log(`ERROR ${msg}`);
+  for (const msg of warnings) console.log(`WARN ${msg}`);
 
-        for link in bundle_relative_links(post.content):
-            if link not in files:
-                errors.append(f"{path}: broken link '{link}' (no file at {args.root}{link})")
+  if (errors.length) {
+    console.log(`\n${errors.length} error(s), ${warnings.length} warning(s)`);
+    return 1;
+  }
+  console.log(`\n0 errors, ${warnings.length} warning(s)`);
+  return 0;
+}
 
-        if not meta.get("description"):
-            warnings.append(f"{path}: missing recommended key 'description'")
-        if not meta.get("tags"):
-            warnings.append(f"{path}: missing recommended key 'tags'")
-
-    if not index_rels:
-        warnings.append(f"{root}: no file with type 'Index' found — cannot check reachability")
-    else:
-        reachable = set(index_rels)
-        stack = list(index_rels)
-        while stack:
-            rel = stack.pop()
-            post = parsed.get(rel)
-            if not post:
-                continue
-            for link in bundle_relative_links(post.content):
-                if link in files and link not in reachable:
-                    reachable.add(link)
-                    stack.append(link)
-        for rel in files:
-            if rel not in reachable:
-                warnings.append(f"{files[rel]}: not reachable from an Index file")
-
-    for msg in errors:
-        print(f"ERROR {msg}")
-    for msg in warnings:
-        print(f"WARN {msg}")
-
-    if errors:
-        print(f"\n{len(errors)} error(s), {len(warnings)} warning(s)")
-        return 1
-
-    print(f"\n0 errors, {len(warnings)} warning(s)")
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
+process.exit(main());
 ```

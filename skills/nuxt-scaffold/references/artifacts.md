@@ -16,7 +16,7 @@ The `--template ui` init already provides a working Nuxt UI app (`nuxt.config.ts
 
 **`package.json`** (`templates/merge/package.json`) — template already provides `build`/`dev`/`preview`/`postinstall`/`lint`/`typecheck`; kept (existing keys win). Adds `type-check` (BigIn convention alias), test scripts, `openapi-types`, `prepare`, plus `simple-git-hooks` + `lint-staged` blocks. Drizzle opt-in adds the `db:*` scripts (`templates/merge/drizzle-package.json`) — `db:migrate` uses `wrangler d1 execute`, not `drizzle-kit migrate`, because D1 migrations must go through Cloudflare (drizzle-kit only works against a local SQLite file); update the migration file path to the actual generated filename.
 
-**`.claude/settings.json`** (`templates/merge/claude-settings.json`) — pre-approved commands + a `PostToolUse` hook running `lint-fix-file.py` after every Write/Edit/MultiEdit. **`PostToolUse` only — no `PreToolUse`**: `bigin-harness-setup` adds the `bash-guard.py` `PreToolUse` hook when it overlays governance later. Until then nothing gates git commands, so `git push` is deliberately **not** pre-approved (stays a per-call prompt); local reversible git commands are.
+**`.claude/settings.json`** (`templates/merge/claude-settings.json`) — pre-approved commands + a `PostToolUse` hook running `lint-fix-file.mjs` after every Write/Edit/MultiEdit. **`PostToolUse` only — no `PreToolUse`**: `bigin-harness-setup` adds the `bash-guard.mjs` `PreToolUse` hook when it overlays governance later. Until then nothing gates git commands, so `git push` is deliberately **not** pre-approved (stays a per-call prompt); local reversible git commands are.
 
 **`.vscode/settings.json`** (`templates/merge/vscode-settings.json`) — ESLint is the only formatter; Prettier disabled.
 
@@ -36,7 +36,7 @@ The `--template ui` init already provides a working Nuxt UI app (`nuxt.config.ts
 - **`app/stores/session.ts`** + **`session.test.ts`** — sample Pinia Colada store; the test validates the whole Vitest + Nuxt env + Pinia Colada chain (fresh store is `'pending'` — Colada has no `'idle'`, `useQuery` fires eagerly).
 - **`vitest.config.ts`** — minimal Nuxt-aware config (`environment: 'nuxt'`; requires `happy-dom`, installed in Stage 2).
 - **`app/composables/useUsers.ts`** — `useFetch` against the same-origin BFF API.
-- **`.claude/guards/lint-fix-file.py`** — backs the PostToolUse hook. Deliberately scoped to the single touched file, **not** repo-wide `eslint . --fix`: onboarding an existing repo with pre-existing violations, a blanket fix silently rewrote 10 unrelated files (848 lines in one) on a single edit. Python matches `bash-guard.py`'s convention — harness tooling, not an app dependency.
+- **`.claude/guards/lint-fix-file.mjs`** — backs the PostToolUse hook. Deliberately scoped to the single touched file, **not** repo-wide `eslint . --fix`: onboarding an existing repo with pre-existing violations, a blanket fix silently rewrote 10 unrelated files (848 lines in one) on a single edit. Node (`.mjs`) matches `bash-guard.mjs`'s convention — dependency-free harness tooling that runs on macOS, Linux, and Windows.
 - **`.prettierignore`** (`*`) — ESLint is the sole formatter.
 - **`openapi.yaml`** — stub so `pnpm openapi-types` works before the real contract lands; replace it.
 - **`.env.example`** — documents `NUXT_SESSION_PASSWORD` + `NUXT_BACKEND_URL`.

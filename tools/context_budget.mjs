@@ -1,21 +1,3 @@
-# Context Budget Gate
-
-Script written into the target repo at `tools/context_budget.mjs`. Run by the pre-commit hook and on demand. Node (`.mjs`) so it runs on macOS, Linux, and Windows.
-
-**Fails (exit 1) when:**
-- `CLAUDE.md` exceeds 60 lines
-- Any `.claude/rules/*.md` file with **no** `paths:` frontmatter exceeds 40 lines
-- Total always-loaded content (CLAUDE.md + unscoped rule files) exceeds 12 000 chars (~3 000 tokens at 4 chars/token)
-
-Path-scoped rule files (those with `paths:` frontmatter) are not counted against the always-loaded budget — they only load when matching files are in context.
-
----
-
-## tools/context_budget.mjs
-
-Write to `tools/context_budget.mjs`, then `chmod +x tools/context_budget.mjs`.
-
-```javascript
 #!/usr/bin/env node
 // Context budget gate — keeps the always-loaded harness within token budget.
 //
@@ -90,4 +72,3 @@ if (errors.length > 0) {
 
 const est = Math.floor(alwaysLoadedChars / 4);
 console.log(`OK always-loaded: ${alwaysLoadedChars} chars (~${est} tokens) — within budget`);
-```

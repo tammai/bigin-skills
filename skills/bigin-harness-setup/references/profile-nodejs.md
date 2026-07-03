@@ -169,7 +169,7 @@ Prepend `paths: ["src/**"]` as YAML frontmatter when writing `architecture.md` (
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .claude/guards/bash-guard.py"
+            "command": "node .claude/guards/bash-guard.mjs"
           }
         ]
       }

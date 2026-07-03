@@ -11,7 +11,7 @@ A **Claude Code plugin** (`bigin-skills`) — a collection of skills installed i
 .claude/rules/            ← this repo's own path-scoped authoring rules
 skills/<name>/SKILL.md    ← one skill per directory
 skills/<name>/references/ ← supporting templates, relative to that skill
-tools/context_budget.py   ← budget gate (also templated for target repos)
+tools/context_budget.mjs   ← budget gate (also templated for target repos)
 scripts/git-hooks/        ← pre-commit running the budget gate
 ```
 

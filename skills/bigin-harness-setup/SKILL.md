@@ -54,7 +54,7 @@ Skip this phase entirely if `nuxt.config.ts` already exists (onboarding an exist
 
 ## Phase 1: Detect Existing Harness
 
-If `SCAFFOLDED = true`, the `nuxt-scaffold` skill already brought `nuxt.config.ts`, `app/`, `server/`, `eslint.config.mjs`, `.claude/settings.json` (permissions + a `PostToolUse` lint-fix hook), `.vscode/settings.json`, and a `simple-git-hooks` pre-commit gate. Treat those as pre-existing (do not clobber) and skip straight to adding the BigIn guardrails the scaffold lacks: `bash-guard.py` (+ its `PreToolUse` hook), governance rules, and AI files.
+If `SCAFFOLDED = true`, the `nuxt-scaffold` skill already brought `nuxt.config.ts`, `app/`, `server/`, `eslint.config.mjs`, `.claude/settings.json` (permissions + a `PostToolUse` lint-fix hook), `.vscode/settings.json`, and a `simple-git-hooks` pre-commit gate. Treat those as pre-existing (do not clobber) and skip straight to adding the BigIn guardrails the scaffold lacks: `bash-guard.mjs` (+ its `PreToolUse` hook), governance rules, and AI files.
 
 Check for existing harness files:
 ```
@@ -149,23 +149,23 @@ Only when 5-1 created `scripts/pre-commit.sh`. The hook lives in `.git/hooks/`, 
 
 ### 5-1c. Context budget gate
 
-Read `references/budget-gate.md` → `## tools/context_budget.py`. Write to `tools/context_budget.py`, then `chmod +x tools/context_budget.py`.
+Read `references/budget-gate.md` → `## tools/context_budget.mjs`. Write to `tools/context_budget.mjs`, then `chmod +x tools/context_budget.mjs`.
 
-Skip if `INSTALL_MODE=new` and `tools/context_budget.py` already exists.
+Skip if `INSTALL_MODE=new` and `tools/context_budget.mjs` already exists.
 
-If `scripts/pre-commit.sh` was created in 5-1, the budget check step is already included in the template (it's guarded with `if [ -f tools/context_budget.py ]`). No further action needed.
+If `scripts/pre-commit.sh` was created in 5-1, the budget check step is already included in the template (it's guarded with `if [ -f tools/context_budget.mjs ]`). No further action needed.
 
 ### 5-2. Bash guard (blocks gate bypass)
 
-Read from `references/hook-guard.md` → `## bash-guard.py`. Write to `.claude/guards/bash-guard.py`.
+Read from `references/hook-guard.md` → `## bash-guard.mjs`. Write to `.claude/guards/bash-guard.mjs`.
 
-> nuxt auto-format also needs a guard script — `.claude/guards/lint-fix-file.py`, ESLint `--fix` scoped to the single touched file (a blanket `pnpm lint --fix` would rewrite every pre-existing lint violation in the repo on the first edit). If `SCAFFOLDED = true`, `nuxt-scaffold` already wrote it. Otherwise (onboarding an existing nuxt repo), copy it now from `skills/nuxt-scaffold/scripts/templates/files/.claude/guards/lint-fix-file.py` — single source of truth, don't duplicate the script body here.
+> nuxt auto-format also needs a guard script — `.claude/guards/lint-fix-file.mjs`, ESLint `--fix` scoped to the single touched file (a blanket `pnpm lint --fix` would rewrite every pre-existing lint violation in the repo on the first edit). If `SCAFFOLDED = true`, `nuxt-scaffold` already wrote it. Otherwise (onboarding an existing nuxt repo), copy it now from `skills/nuxt-scaffold/scripts/templates/files/.claude/guards/lint-fix-file.mjs` — single source of truth, don't duplicate the script body here.
 
 ### 5-3. .claude/settings.json
 
 For **nuxt**:
-- **If `SCAFFOLDED = true`**: the `nuxt-scaffold` skill already wrote `.claude/settings.json` with `permissions.allow` + a `PostToolUse` `lint-fix-file.py` hook (and the script itself). Merge **only** the `PreToolUse` `bash-guard.py` hook, the `statusline` key, and any missing `permissions.allow` entries. Do **not** re-add `PostToolUse` — it is already present. Merge per-event; show additions before writing.
-- **Otherwise** (onboarding an existing nuxt repo): write `.claude/guards/lint-fix-file.py` per 5-2's note above if missing, then read the full settings.json template from `references/profile-nuxt.md` → `## settings.json Template`. If `.claude/settings.json` exists, merge the `hooks` block + `statusline` key + missing `permissions.allow` entries (per-event, never drop the user's); if not, write fresh.
+- **If `SCAFFOLDED = true`**: the `nuxt-scaffold` skill already wrote `.claude/settings.json` with `permissions.allow` + a `PostToolUse` `lint-fix-file.mjs` hook (and the script itself). Merge **only** the `PreToolUse` `bash-guard.mjs` hook, the `statusline` key, and any missing `permissions.allow` entries. Do **not** re-add `PostToolUse` — it is already present. Merge per-event; show additions before writing.
+- **Otherwise** (onboarding an existing nuxt repo): write `.claude/guards/lint-fix-file.mjs` per 5-2's note above if missing, then read the full settings.json template from `references/profile-nuxt.md` → `## settings.json Template`. If `.claude/settings.json` exists, merge the `hooks` block + `statusline` key + missing `permissions.allow` entries (per-event, never drop the user's); if not, write fresh.
 
 For **go** / **nodejs**: read the template from `references/profile-{PROFILE}.md` → `## settings.json Template`. If the file exists, merge the `hooks` block + `statusline` key + missing `permissions.allow` entries (per-event); otherwise write fresh.
 
@@ -206,10 +206,10 @@ If yes, set `KNOWLEDGE_BUNDLE = true`. Read all templates from `references/knowl
    - `## knowledge/contracts/openapi-contract.md` → `knowledge/contracts/openapi-contract.md`
    - `## knowledge/constraints/agent-rules.md` → `knowledge/constraints/agent-rules.md`
    - `## knowledge/log.md` → `knowledge/log.md`
-3. **Validator** — `## tools/knowledge_validate.py` → `tools/knowledge_validate.py`, then `chmod +x tools/knowledge_validate.py`.
-4. **Wire into the enforcement gate.** If `scripts/pre-commit.sh` exists (created in Phase 5-1), append a step running `uv run tools/knowledge_validate.py`. If the repo instead uses `simple-git-hooks`/`husky` (Phase 5-1 skipped creating our script), add the same command to that existing hook config rather than creating a second script.
+3. **Validator** — `## tools/knowledge_validate.mjs` → `tools/knowledge_validate.mjs`. Zero-dependency Node script — no chmod, no package install.
+4. **Wire into the enforcement gate.** If `scripts/pre-commit.sh` exists (created in Phase 5-1), append a step running `node tools/knowledge_validate.mjs`. If the repo instead uses `simple-git-hooks`/`husky` (Phase 5-1 skipped creating our script), add the same command to that existing hook config rather than creating a second script.
 5. **Wire into AI_REVIEW_CHECKLIST.md.** Append one line to the `## Scope` section (written in Phase 4): `- [ ] Behavior-changing PR → related knowledge/ concept updated?`
-6. If Phase 5.6 generates new CI config in this same run, it includes the validator step automatically (see Phase 5.6). If the repo already has **foreign** CI config (not generated by this skill), do **not** edit it automatically — note in the Phase 7 summary that `uv run tools/knowledge_validate.py` should also be added as a CI job/step there.
+6. If Phase 5.6 generates new CI config in this same run, it includes the validator step automatically (see Phase 5.6). If the repo already has **foreign** CI config (not generated by this skill), do **not** edit it automatically — note in the Phase 7 summary that `node tools/knowledge_validate.mjs` should also be added as a CI job/step there.
 
 The knowledge.md rule file uses the index-first read protocol: agents read the index summary and only open a concept file when the summary is insufficient. This keeps per-session context load low even as the bundle grows.
 
@@ -267,7 +267,7 @@ Also append the Context Budget table if not already present:
 ```markdown
 ## Context Budget
 
-Run `/context` after setup and record the harness token footprint. Run `python3 tools/context_budget.py` for the automated budget check.
+Run `/context` after setup and record the harness token footprint. Run `node tools/context_budget.mjs` for the automated budget check.
 
 | Date | Always-loaded tokens (est.) | Budget status |
 |------|-----------------------------|---------------|
@@ -294,21 +294,21 @@ Created:
   .claude/rules/conventions-frontend.md  [nuxt only] (paths: app/**)
   .claude/rules/conventions-server.md    [nuxt only] (paths: server/**)
   .claude/rules/conventions.md    [go/nodejs only] (paths: scoped to source dir)
-  .claude/guards/bash-guard.py
-  [.claude/guards/lint-fix-file.py] (nuxt only; skipped if `nuxt-scaffold` already wrote it)
+  .claude/guards/bash-guard.mjs
+  [.claude/guards/lint-fix-file.mjs] (nuxt only; skipped if `nuxt-scaffold` already wrote it)
   .claude/settings.json [created/merged]
-  tools/context_budget.py
+  tools/context_budget.mjs
   CLAUDE.md [created]
   scripts/pre-commit.sh [skipped if a hook manager already exists]
   [.claude/agents/code-reviewer.md] (if opted in)
-  [Knowledge Bundle: .claude/rules/knowledge.md, knowledge/*, tools/knowledge_validate.py] (if opted in)
+  [Knowledge Bundle: .claude/rules/knowledge.md, knowledge/*, tools/knowledge_validate.mjs] (if opted in)
   [.github/workflows/ci.yml] (if CI_PROVIDER is github/both)
   [.gitlab-ci.yml] (if CI_PROVIDER is gitlab/both)
 
 Enabled:
   git repo [initialized/already present]
   pre-commit gate [scripts/pre-commit.sh hook | existing simple-git-hooks/husky]
-  context budget gate (tools/context_budget.py — wired into pre-commit)
+  context budget gate (tools/context_budget.mjs — wired into pre-commit)
   [knowledge bundle validation wired into the pre-commit gate] (if opted in)
   [knowledge bundle validation wired into generated CI] (if opted in and CI_PROVIDER != no)
   [sprint-distill available — run it at sprint end to fold merged work into knowledge/ and bigin-skills] (if opted in)
@@ -318,7 +318,7 @@ Next steps:
   2. {LINT} && {TYPECHECK} && {TEST}
   3. Read CLAUDE.md + use /task-workflow for the per-task workflow
   4. One scoped task through all gates — confirm the harness works.
-  [5. Add `uv run tools/knowledge_validate.py` to your existing CI — this skill only wires it into CI it generated itself.] (if opted in and CI_PROVIDER=no but foreign CI config detected)
+  [5. Add `node tools/knowledge_validate.mjs` to your existing CI — this skill only wires it into CI it generated itself.] (if opted in and CI_PROVIDER=no but foreign CI config detected)
 ```
 
 ---
@@ -333,7 +333,7 @@ Harness installed. Now measure its token footprint:
 1. Run `/context` in Claude Code — look for CLAUDE.md and .claude/rules/ in the breakdown.
    Record the result in README.md → Context Budget table: today's date, estimated harness tokens, Pass/Fail.
 
-2. Run `python3 tools/context_budget.py` for the automated verdict.
+2. Run `node tools/context_budget.mjs` for the automated verdict.
    Pass = within the ~3 000-token always-loaded budget.
    Fail = one or more files need trimming (see output for which).
 
@@ -371,14 +371,14 @@ the always-loaded budget unless you're editing those paths.
 - [ ] `AI_TASK_GUIDE.md` — spec gate + task workflow (human reference; agents use /task-workflow)
 - [ ] `AI_REVIEW_CHECKLIST.md` — profile commands filled in
 - [ ] `scripts/pre-commit.sh` — lint + typecheck + test + context budget check, executable
-- [ ] `.claude/guards/bash-guard.py` — blocks `--no-verify` and force-push to main
-- [ ] **nuxt only** — `.claude/guards/lint-fix-file.py` — ESLint `--fix` scoped to the touched file
+- [ ] `.claude/guards/bash-guard.mjs` — blocks `--no-verify` and force-push to main
+- [ ] **nuxt only** — `.claude/guards/lint-fix-file.mjs` — ESLint `--fix` scoped to the touched file
 - [ ] `.claude/settings.json` — guards wired + `statusline` key + profile permissions
-- [ ] `tools/context_budget.py` — budget gate, executable
+- [ ] `tools/context_budget.mjs` — budget gate, executable
 - [ ] **nuxt only** — `.vscode/settings.json` with ESLint format-on-save (Prettier disabled), merged if it existed
 - [ ] git repo initialized (if it wasn't one) and `.git/hooks/pre-commit` installed (or foreign hook left untouched with confirmation)
 - [ ] `README.md` — AI Onboarding + runtime hygiene + Context Budget table appended (if README existed)
-- [ ] **if opted in** — Knowledge Bundle: `.claude/rules/knowledge.md`, `knowledge/{meta,contracts,constraints}/*.md`, `knowledge/index.md`, `knowledge/log.md`, `tools/knowledge_validate.py` (executable), wired into the pre-commit gate, `AI_REVIEW_CHECKLIST.md` gets one added line
+- [ ] **if opted in** — Knowledge Bundle: `.claude/rules/knowledge.md`, `knowledge/{meta,contracts,constraints}/*.md`, `knowledge/index.md`, `knowledge/log.md`, `tools/knowledge_validate.mjs`, wired into the pre-commit gate, `AI_REVIEW_CHECKLIST.md` gets one added line
 - [ ] **if CI_PROVIDER = github/both** — `.github/workflows/ci.yml` runs lint + typecheck + test (+ knowledge validator if opted in)
 - [ ] **if CI_PROVIDER = gitlab/both** — `.gitlab-ci.yml` runs lint + typecheck + test (+ knowledge validator if opted in)
 
@@ -390,7 +390,7 @@ the always-loaded budget unless you're editing those paths.
 - `references/profile-go.md` — templates for go profile
 - `references/profile-nodejs.md` — templates for nodejs profile
 - `references/files-shared.md` — shared files: security, architecture, AI task guide, review checklist, code-reviewer agent, paths substitutions per profile
-- `references/hook-guard.md` — bash-guard.py script + pre-commit scripts per profile
-- `references/budget-gate.md` — context_budget.py script (context budget gate)
+- `references/hook-guard.md` — bash-guard.mjs script + pre-commit scripts per profile
+- `references/budget-gate.md` — context_budget.mjs script (context budget gate)
 - `references/knowledge-bundle.md` — optional Knowledge Bundle: rule file, spec, starter concept files, validator script
 - `references/ci.md` — optional CI config: GitHub Actions + GitLab CI templates per profile, plus the knowledge-validate step

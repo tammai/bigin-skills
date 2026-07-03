@@ -171,27 +171,26 @@ quality:
 
 ## knowledge-validate step: github
 
-Only when `KNOWLEDGE_BUNDLE = true`. Insert as the last two steps of the `quality` job, after the profile's test step.
+Only when `KNOWLEDGE_BUNDLE = true`. Insert as the last step of the `quality` job, after the profile's test step. No setup step needed — GitHub's ubuntu runners ship Node.
 
 ```yaml
-      - uses: astral-sh/setup-uv@v3
       - name: knowledge validate
-        run: uv run tools/knowledge_validate.py
+        run: node tools/knowledge_validate.mjs
 ```
 
 ---
 
 ## knowledge-validate step: gitlab
 
-Only when `KNOWLEDGE_BUNDLE = true`. Add the install to `before_script` and the run to `script`, after the profile's test command.
-
-`before_script` addition:
-```yaml
-    - curl -LsSf https://astral.sh/uv/install.sh | sh
-    - export PATH="$HOME/.local/bin:$PATH"
-```
+Only when `KNOWLEDGE_BUNDLE = true`. Add the run to `script`, after the profile's test command.
 
 `script` addition:
 ```yaml
-    - uv run tools/knowledge_validate.py
+    - node tools/knowledge_validate.mjs
 ```
+
+For the **go profile only** (the `golang` image has no Node), also add to `before_script`:
+```yaml
+    - apt-get update -qq && apt-get install -y -qq nodejs
+```
+The nuxt/nodejs profiles run on a `node` image — no addition needed.

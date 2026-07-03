@@ -71,7 +71,7 @@ Proposals that just append without a corresponding compression are reclassified 
 
 **Stale-concept detection** (if `KB_MODE = full`, first-class output, not an afterthought):
 - Any concept file whose `resource:`/citation target appears in this sprint's diff, but the concept file itself wasn't updated — flag as possibly stale.
-- Any concept file unreachable from `knowledge/index.md` — flag (mirrors what `tools/knowledge_validate.py` warns on).
+- Any concept file unreachable from `knowledge/index.md` — flag (mirrors what `tools/knowledge_validate.mjs` warns on).
 
 **Hard constraints while drafting** (non-negotiable, apply regardless of what a candidate learning suggests):
 - Concept files ≤ ~60 lines. Terse beats complete.
@@ -126,7 +126,7 @@ Only after explicit approval, and only the items approved:
 
 1. Write approved `knowledge/` changes.
 2. Write approved `bigin-skills` changes.
-3. **Validator, best-effort:** if `KB_MODE = full` and `tools/knowledge_validate.py` exists at the repo root, run it (`uv run tools/knowledge_validate.py`). If it's missing or errors, don't block — note in the Phase 5 summary that validation didn't run and should be checked manually.
+3. **Validator, best-effort:** if `KB_MODE = full` and `tools/knowledge_validate.mjs` exists at the repo root, run it (`node tools/knowledge_validate.mjs`). Repos scaffolded before v1.19.0 have the legacy `tools/knowledge_validate.py` instead — run that via `uv run tools/knowledge_validate.py`. If neither exists or the run errors, don't block — note in the Phase 5 summary that validation didn't run and should be checked manually.
 4. Append the `knowledge/log.md` entry **last**, only after the above succeed.
 
 ---
@@ -154,4 +154,4 @@ Log entry: knowledge/log.md updated
 
 - `knowledge/meta/knowledge-bundle-spec.md` (consumer repo) — authoritative frontmatter/structure/staleness spec; read, never copied
 - `knowledge/log.md` (consumer repo) — sprint cursor and log target
-- `tools/knowledge_validate.py` (consumer repo, if Knowledge Bundle opted in) — best-effort validation in Phase 4
+- `tools/knowledge_validate.mjs` (consumer repo, if Knowledge Bundle opted in; `.py` in pre-v1.19.0 repos) — best-effort validation in Phase 4

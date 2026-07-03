@@ -56,12 +56,12 @@ your-repo/
 │   │   ├── security.md                 ← Tier 2: paths: scoped per profile
 │   │   └── architecture.md             ← Tier 2: paths: scoped per profile
 │   ├── guards/
-│   │   └── bash-guard.py               ← blocks --no-verify and force-push to main
+│   │   └── bash-guard.mjs               ← blocks --no-verify and force-push to main
 │   ├── settings.json                   ← pre-approved commands + hook wiring + statusline
 │   └── agents/
 │       └── code-reviewer.md            ← optional, read-only (opt-in)
 ├── tools/
-│   └── context_budget.py               ← budget gate: CLAUDE.md ≤60, unscoped rules ≤40
+│   └── context_budget.mjs               ← budget gate: CLAUDE.md ≤60, unscoped rules ≤40
 ├── scripts/
 │   └── pre-commit.sh                   ← lint + typecheck + test + budget check
 └── README.md                           ← AI Onboarding + runtime hygiene + Context Budget table
@@ -82,8 +82,8 @@ The skill detects the stack profile (or asks), confirms before overwriting anyth
 ### Enforcement (the load-bearing part)
 
 - **`scripts/pre-commit.sh`** — runs lint + typecheck + tests; fails closed. The skill installs it as a git hook (and `git init`s the repo if needed).
-- **`.claude/guards/bash-guard.py`** — a `PreToolUse` hook that blocks the agent from weakening its own gates (`--no-verify`, `git commit -n`, force-push to main). `--force-with-lease` on a feature branch is allowed.
-- **Auto-format** (nuxt) — set up by the `nuxt-scaffold` skill. ESLint via `@nuxt/eslint` is the only formatter (Prettier disabled). A `PostToolUse` hook runs `.claude/guards/lint-fix-file.py` after every agent Write/Edit, scoped to just the touched file; humans get the same via `.vscode/settings.json` format-on-save.
+- **`.claude/guards/bash-guard.mjs`** — a `PreToolUse` hook that blocks the agent from weakening its own gates (`--no-verify`, `git commit -n`, force-push to main). `--force-with-lease` on a feature branch is allowed.
+- **Auto-format** (nuxt) — set up by the `nuxt-scaffold` skill. ESLint via `@nuxt/eslint` is the only formatter (Prettier disabled). A `PostToolUse` hook runs `.claude/guards/lint-fix-file.mjs` after every agent Write/Edit, scoped to just the touched file; humans get the same via `.vscode/settings.json` format-on-save.
 - **`.claude/settings.json`** — pre-approves safe profile commands to reduce prompt friction.
 
 ---
@@ -138,8 +138,8 @@ bigin-skills/
 │   │       ├── profile-go.md
 │   │       ├── profile-nodejs.md
 │   │       ├── files-shared.md    ← security, architecture, task guide, review checklist, paths substitutions
-│   │       ├── hook-guard.md      ← bash-guard.py + pre-commit scripts per profile
-│   │       ├── budget-gate.md     ← context_budget.py (budget gate script)
+│   │       ├── hook-guard.md      ← bash-guard.mjs + pre-commit scripts per profile
+│   │       ├── budget-gate.md     ← context_budget.mjs (budget gate script)
 │   │       ├── knowledge-bundle.md
 │   │       └── ci.md
 │   ├── task-workflow/             ← on-demand task workflow (Tier 3)

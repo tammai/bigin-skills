@@ -1,2 +1,2 @@
 #!/bin/sh
-cd "$(git rev-parse --show-toplevel)" && python3 tools/context_budget.py
+cd "$(git rev-parse --show-toplevel)" && node tools/context_budget.mjs

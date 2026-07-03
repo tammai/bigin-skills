@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.0] - 2026-07-03
+
+### Changed
+
+- **Guard & gate scripts: Python → Node.js / script guard & gate: Python → Node.js:** `bash-guard.py`, `lint-fix-file.py`, and `context_budget.py` are now `bash-guard.mjs`, `lint-fix-file.mjs`, and `context_budget.mjs` — dependency-free Node scripts. Reason: teammates on Windows, where `python3` doesn't exist by default (and `python` is often the Microsoft Store stub); Node is already guaranteed by the nuxt/nodejs profiles and Git Bash runs it fine. All hook commands (`node .claude/guards/…`), pre-commit templates, CI references, profile docs, and this repo's own `tools/` + git hook updated. Regex behavior of `bash-guard.mjs` verified against the skill-authoring test matrix (block `--no-verify` / `git commit -n` / `git push --force`; allow `--force-with-lease`, normal commits, messages containing `-n`). / Chuyển toàn bộ script guard/gate từ Python sang Node.js vì team có người dùng Windows (không có sẵn `python3`); Node đã được đảm bảo bởi các profile nuxt/nodejs.
+- **`knowledge_validate.py` → `knowledge_validate.mjs`:** the Knowledge Bundle validator template is now a zero-dependency Node script too — no `uv`/Python needed in target repos at all. Same checks and output format (frontmatter + allowed `type`, bundle-relative link resolution, ISO 8601 timestamps, description/tags/reachability warnings), verified against a synthetic bundle. Gate command is now `node tools/knowledge_validate.mjs`; GitHub CI drops the `setup-uv` step (runners ship Node), GitLab go-profile CI installs `nodejs` via apt instead of `uv`. `sprint-distill` falls back to the legacy `.py` validator in repos scaffolded before this version. / Validator của Knowledge Bundle cũng chuyển sang Node không phụ thuộc — repo đích không cần `uv`/Python nữa; `sprint-distill` vẫn nhận diện bản `.py` cũ.
+
+**Migration for repos already set up / nâng cấp repo đã cài harness:** re-run `bigin-harness-setup` (idempotent), or manually: delete `.claude/guards/*.py`, `tools/context_budget.py`, and `tools/knowledge_validate.py`, re-copy the `.mjs` versions from the templates, and update the `hooks` commands in `.claude/settings.json`, the budget line in `scripts/pre-commit.sh`, and any `uv run tools/knowledge_validate.py` step in pre-commit/CI to `node tools/knowledge_validate.mjs`.
+
 ## [1.18.0] - 2026-07-03
 
 ### Added

@@ -9,7 +9,7 @@ Scaffolds a Nuxt 4 BFF app **from scratch**. The mechanical work is done by a de
 
 Stack: Nuxt 4, Nuxt UI v4, Nuxt ESLint, Pinia + Pinia Colada, VueUse, nuxt-auth-utils, Zod, Vitest, simple-git-hooks + lint-staged. BFF proxy layer — the backend owns data persistence.
 
-> Governance (CLAUDE.md, `.claude/rules/`, AI guides, `bash-guard.py`) is **not** this skill's job — run `bigin-harness-setup` afterward to overlay it.
+> Governance (CLAUDE.md, `.claude/rules/`, AI guides, `bash-guard.mjs`) is **not** this skill's job — run `bigin-harness-setup` afterward to overlay it.
 
 Prerequisites: Node.js 22+, pnpm. Scaffolding is **in-place** into the target directory (for a brand-new project: `mkdir my-app` first).
 
