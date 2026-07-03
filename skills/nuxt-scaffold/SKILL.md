@@ -56,7 +56,7 @@ Check the target directory:
 
 No optional-module question — the scaffolder never installs `@nuxt/image`/`@nuxt/content`; `fonts` / `icon` / `color-mode` come with Nuxt UI regardless.
 
-Show a summary table and confirm. If no → stop.
+Show a summary as a bullet list (`AskUserQuestion`'s question text doesn't render markdown tables — pipes/dashes show up literally, only `**bold**` renders), e.g. `- **Project name:** my-app`, one bullet per field, and confirm. If no → stop.
 
 ## Step 3: Write config & run the script
 

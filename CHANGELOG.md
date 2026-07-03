@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.22.2] - 2026-07-03
+
+### Fixed
+
+- **`nuxt-scaffold` Step 2 confirm shown as a broken markdown table / bảng xác nhận hiển thị lỗi:** the confirm step told the model to "show a summary table," but `AskUserQuestion`'s question text only renders `**bold**`, not table syntax — pipes and dashes showed up literally in the widget. Reworded to use a bullet list instead. / Bước xác nhận yêu cầu "hiển thị bảng tóm tắt", nhưng vùng câu hỏi của `AskUserQuestion` chỉ render `**in đậm**`, không render cú pháp bảng — dấu `|` và `-` hiển thị nguyên văn trong widget. Đã đổi sang danh sách gạch đầu dòng.
+
 ## [1.22.1] - 2026-07-03
 
 ### Fixed

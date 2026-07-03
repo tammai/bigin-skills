@@ -151,7 +151,7 @@ bigin-skills/
 │   │   │   └── templates/         ← source of truth for files written into the project
 │   │   └── references/
 │   │       ├── bootstrap.md       ← rationale for the script's command sequence
-│   │       ├── modules.md         ← BFF preset, optional modules
+│   │       ├── modules.md         ← BFF preset (always installed, no opt-in menu)
 │   │       └── artifacts.md       ← rationale + merge semantics for the templates
 │   ├── sprint-distill/            ← end-of-sprint distillation (compresses, never appends)
 │   │   └── SKILL.md
