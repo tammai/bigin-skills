@@ -18,6 +18,7 @@ paths: skills/**
 - Keep each generated file SHORT — terse, scannable. A rule nobody reads is worse than no rule.
 - All `.claude/rules/*.md` templates must carry `paths:` frontmatter. Unscoped rule files count against the always-loaded budget and must be ≤40 lines.
 - Never duplicate rule content across generated files; reference the single source.
+- A CHANGELOG.md entry that changes content copied verbatim into target repos (`files-shared.md`, `knowledge-bundle.md`, `profile-*.md`) may include a fenced ` ```patch ` block so `bigin-harness-setup`'s patch mode (Phase 1a) can apply it to already-scaffolded repos automatically: `target` (path as generated in a repo), `anchor` (exact existing substring), `insert: after|before|replace`, then `---`, then the content. Omit the block entirely if the change doesn't reduce to one clean anchor match — patch mode skips-and-flags anything it can't match exactly, so no block just means "no auto-patch," not an error.
 - `bash-guard.mjs` is the load-bearing gate — if you change its regexes, test: block `--no-verify`, `git commit -n`, `git push --force`; allow `--force-with-lease`, normal commits, messages merely containing `-n`.
 - `architect`-style agents get `model: opus`; others `model: sonnet`. QA/reviewer agents use `agentType: general-purpose` (not `Explore`).
 

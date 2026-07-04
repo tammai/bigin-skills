@@ -11,6 +11,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Security considerations were only checked at post-implementation review, not required at spec time / rủi ro bảo mật chỉ được kiểm ở bước review sau khi code xong, chưa bắt buộc nêu lúc viết spec:** the spec gate in `skills/task-workflow/SKILL.md` and its mirrored copy in `skills/bigin-harness-setup/references/files-shared.md` (`AI_TASK_GUIDE.md` template) let a feature touching auth, sessions, secrets, PII, or untrusted input reach implementation without ever naming the concrete risk, so threats were only caught (expensively, as a rewrite) at `AI_REVIEW_CHECKLIST.md` time instead of (cheaply, as a sentence) at spec time. Added a `Security considerations` line to both spec-format templates, a spec-gate rule requiring it be filled for security-sensitive features, a first bullet in `AI_REVIEW_CHECKLIST.md`'s Security section verifying every named risk was actually addressed, a first bullet in `security.md` stating the plan-not-just-check principle, and matching language in `knowledge-bundle.md`'s `agent-rules.md` template (Security-sensitive code + Spec-before-code sections). Profile-specific files (`profile-go.md`, `profile-nodejs.md`, `profile-nuxt.md`) only link to `AI_TASK_GUIDE.md` and needed no change. / Spec gate trong `skills/task-workflow/SKILL.md` và bản sao ở `skills/bigin-harness-setup/references/files-shared.md` (template `AI_TASK_GUIDE.md`) từng cho phép một tính năng đụng đến auth, session, secrets, PII, hoặc input không tin cậy đi vào implementation mà chưa từng nêu rủi ro cụ thể, nên các nguy cơ chỉ bị phát hiện (tốn kém, phải viết lại) ở bước `AI_REVIEW_CHECKLIST.md` thay vì (rẻ, chỉ một câu) ngay lúc viết spec. Đã thêm dòng `Security considerations` vào cả hai template định dạng spec, một quy tắc ở spec gate yêu cầu điền dòng này cho các tính năng nhạy cảm về bảo mật, một mục đầu tiên trong phần Security của `AI_REVIEW_CHECKLIST.md` để xác nhận mọi rủi ro đã nêu đều được xử lý, một mục đầu tiên trong `security.md` nêu nguyên tắc lên kế hoạch chứ không chỉ kiểm tra, và nội dung tương ứng trong template `agent-rules.md` của `knowledge-bundle.md` (mục Security-sensitive code và Spec-before-code). Các file theo profile (`profile-go.md`, `profile-nodejs.md`, `profile-nuxt.md`) chỉ link tới `AI_TASK_GUIDE.md` nên không cần sửa.
 
+  ```patch
+  target: AI_TASK_GUIDE.md
+  anchor: "Skip this for: bug fixes, copy changes, config tweaks, changes ≤20 lines of logic."
+  insert: after
+  ---
+  If the feature touches auth, sessions, secrets, PII, or untrusted input (user-controlled data, URLs, redirects, file paths), the spec's Security considerations must name the concrete risks — see `.claude/rules/security.md`. Don't defer security to the post-implementation review; a threat found at spec time is a sentence, the same one found after code review is a rewrite.
+  ```
+  ```patch
+  target: AI_TASK_GUIDE.md
+  anchor: "Edge cases: {anything that could go wrong}"
+  insert: after
+  ---
+  Security considerations: {who/what is trusted, what input is attacker-controlled, what could go wrong if it's abused — or "N/A, no auth/secrets/PII/untrusted-input surface" if genuinely none}
+  ```
+  ```patch
+  target: AI_REVIEW_CHECKLIST.md
+  anchor: "## Security"
+  insert: after
+  ---
+  - [ ] Every risk named in the spec's Security considerations section was actually addressed
+  ```
+  ```patch
+  target: .claude/rules/security.md
+  anchor: "# Security Rules"
+  insert: after
+  ---
+  - **Plan for it, don't just check for it.** Specs for features touching auth, sessions, secrets, PII, or untrusted input must include a Security considerations section (see `AI_TASK_GUIDE.md`) naming concrete risks before implementation starts — not just at review time.
+  ```
+  ```patch
+  target: knowledge/constraints/agent-rules.md
+  anchor: "Anything touching auth, secrets, or PII goes through `.claude/rules/security.md` before merging."
+  insert: replace
+  ---
+  Anything touching auth, secrets, or PII must have its security considerations named in the spec (see `AI_TASK_GUIDE.md`) before implementation starts, and goes through `.claude/rules/security.md` before merging.
+  ```
+  ```patch
+  target: knowledge/constraints/agent-rules.md
+  anchor: "Non-trivial features need an approved spec first — see `AI_TASK_GUIDE.md`. Don't start implementation on an unapproved spec."
+  insert: replace
+  ---
+  Non-trivial features need an approved spec first — see `AI_TASK_GUIDE.md`. The spec must include a Security considerations section for features touching auth, secrets, PII, or untrusted input. Don't start implementation on an unapproved spec.
+  ```
+
+## [1.22.11] - 2026-07-04
+
+### Added
+
+- **No way to propagate a template change into already-scaffolded repos except full overwrite or hand-editing / không có cách áp dụng thay đổi template vào các repo đã scaffold sẵn ngoài ghi đè toàn bộ hoặc sửa tay:** `bigin-harness-setup`'s Phase 1 only offered `yes` (overwrite every governance file, discarding repo-specific edits) or `new` (skip anything existing, so template fixes never land). Propagating v1.22.10's security-considerations change into an existing repo required manually porting four diffs by hand. Added `INSTALL_MODE=patch` (Phase 1a): reads a new `.claude/harness-version` stamp (written on every fresh/overwrite setup, Phase 5-3c) to find the repo's starting version, walks `CHANGELOG.md` entries up to the current version, and applies only the fenced ` ```patch ` blocks those entries carry — each a `target`/`anchor`/`insert (after|before|replace)`/content operation applied via exact string match, never fuzzy. An anchor that doesn't match (likely hand-edited) is skipped and flagged for manual review rather than guessed at. `.claude/rules/skill-authoring.md` documents the `patch`-block convention for future changelog entries; this entry and v1.22.10's are retrofitted with them as the first working examples. / Phase 1 của `bigin-harness-setup` trước đây chỉ có `yes` (ghi đè toàn bộ file governance, mất hết sửa tay riêng của repo) hoặc `new` (bỏ qua mọi thứ đã tồn tại, nên các fix template không bao giờ được áp dụng). Để áp dụng thay đổi security-considerations của v1.22.10 vào một repo đã có sẵn, phải tự tay port bốn diff. Đã thêm `INSTALL_MODE=patch` (Phase 1a): đọc dấu phiên bản mới `.claude/harness-version` (được ghi ở mỗi lần setup mới/ghi đè, Phase 5-3c) để biết phiên bản khởi điểm của repo, duyệt qua các mục trong `CHANGELOG.md` đến phiên bản hiện tại, và chỉ áp dụng các khối ` ```patch ` mà các mục đó mang theo — mỗi khối là một thao tác `target`/`anchor`/`insert (after|before|replace)`/nội dung, áp dụng bằng khớp chuỗi chính xác, không khớp mờ. Một anchor không khớp (khả năng đã bị sửa tay) sẽ bị bỏ qua và đánh dấu để xem lại thủ công thay vì đoán mò. `.claude/rules/skill-authoring.md` ghi lại quy ước khối `patch` cho các mục changelog sau này; mục này và mục v1.22.10 được bổ sung khối patch làm ví dụ hoạt động đầu tiên.
+
 ## [1.22.9] - 2026-07-04
 
 ### Changed

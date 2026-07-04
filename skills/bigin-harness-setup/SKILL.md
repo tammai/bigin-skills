@@ -66,14 +66,53 @@ If any exist, show what was found and ask:
 ```
 Found existing harness files: [list them]
 
-Overwrite all? (yes) / Create missing only? (new) / Cancel? (cancel)
+Overwrite all? (yes) / Create missing only? (new) / Patch to latest? (patch) / Cancel? (cancel)
 ```
 
 - `yes` → overwrite all (show what will be replaced before writing)
 - `new` → create only files that don't exist; skip existing ones silently
+- `patch` → apply only the specific changes introduced since this repo's harness was last updated (see Phase 1a) — leaves everything else, including hand edits, untouched
 - `cancel` → stop immediately
 
-Store choice as `INSTALL_MODE`. If this question fires, fold it into Phase 1.5's bundle below as a third question instead of asking it standalone here — resolve it in the same `AskUserQuestion` call.
+Store choice as `INSTALL_MODE`. If `INSTALL_MODE=patch`, skip directly to Phase 1a — do not fold this question into Phase 1.5's bundle, patch mode needs no further decisions. Otherwise, if this question fires, fold it into Phase 1.5's bundle below as a third question instead of asking it standalone here — resolve it in the same `AskUserQuestion` call.
+
+---
+
+## Phase 1a: Patch Mode (`INSTALL_MODE=patch` only)
+
+Self-contained — skip Phases 1.5 through 8 entirely when this runs; it ends with its own summary below.
+
+1. **Read the installed version.** Look for `.claude/harness-version` in the target repo.
+   - Found → that's `FROM_VERSION`.
+   - Missing → ask: `No .claude/harness-version found — which bigin-skills version was this harness last set up or patched with? (check git log for a "bigin-harness-setup" commit, or CHANGELOG.md history)`. If the user doesn't know, tell them patch mode can't determine a safe starting point and suggest `yes` (full overwrite, diffed first) or `new` instead, then stop.
+
+2. **Read the current version.** From this plugin's own `.claude-plugin/plugin.json` → `version`. Call it `TO_VERSION`. If `FROM_VERSION == TO_VERSION`, tell the user the harness is already current and stop.
+
+3. **Collect eligible changes.** Read this plugin's own `CHANGELOG.md`. For every version strictly between `FROM_VERSION` (exclusive) and `TO_VERSION` (inclusive), in ascending order, extract every fenced ` ```patch ` block in that entry (format in `.claude/rules/skill-authoring.md`). Entries with no `patch` block are informational-only for target repos — skip them.
+
+4. **Apply each patch block, in order:**
+   - If `target` doesn't exist in this repo (e.g. `knowledge/constraints/agent-rules.md` when Knowledge Bundle was declined) → skip, note "target not present (feature not installed)".
+   - Search `target` for the `anchor` string, matched on content (ignore each line's leading/trailing whitespace — indentation varies by context, e.g. a numbered-list continuation line).
+     - Found → apply the operation: `insert: after` / `insert: before` (add `content` as a new line adjacent to `anchor`, reusing the anchor line's own indentation, and keep `anchor`) or `insert: replace` (replace the matched `anchor` text with `content`, preserving the anchor's indentation).
+     - Not found (likely hand-edited) → skip, note "anchor not found — apply manually, see CHANGELOG.md vX.Y.Z".
+   - Never fuzzy-match on *meaning* — the anchor's words must match exactly (whitespace aside). An exact-match miss is a skip, not a best-effort insert.
+
+5. **Write `.claude/harness-version`** with `TO_VERSION`, even if some patches were skipped — re-running patch mode later shouldn't replay changes that already landed or were already flagged from this version range.
+
+6. **Print a patch summary:**
+   ```
+   Patched harness: {FROM_VERSION} → {TO_VERSION}
+
+   Applied:
+     AI_TASK_GUIDE.md            (v1.22.10: security considerations line)
+     AI_REVIEW_CHECKLIST.md      (v1.22.10: security checklist bullet)
+     .claude/rules/security.md   (v1.22.10: plan-for-it bullet)
+
+   Skipped (needs manual review):
+     knowledge/constraints/agent-rules.md — anchor not found (v1.22.10) — likely hand-edited; see CHANGELOG.md
+
+   .claude/harness-version updated to {TO_VERSION}.
+   ```
 
 ---
 
@@ -201,6 +240,13 @@ Editor format-on-save via ESLint. Read `references/profile-nuxt.md` → `## .vsc
 
 Other profiles: skip.
 
+### 5-3c. Harness version marker
+
+Write `.claude/harness-version` containing the current version from this plugin's own `.claude-plugin/plugin.json` (plain text, just the version string, e.g. `1.22.11`) — the baseline Phase 1a's patch mode diffs against later.
+
+- `INSTALL_MODE=yes` (or a fresh install) → always write/overwrite; every generated file now matches current templates.
+- `INSTALL_MODE=new` → only write if the marker doesn't already exist. Files skipped as pre-existing may still be older than the recorded version — a later patch run reports those as "anchor not found" rather than corrupting them, so this is a safe degradation, not a correctness bug.
+
 ### 5-4. code-reviewer agent
 
 `CODE_REVIEWER` is always `true` (decided in Phase 1.5 — no question). Read from `references/files-shared.md` → `## code-reviewer agent`. Write to `.claude/agents/code-reviewer.md`.
@@ -304,6 +350,7 @@ Created:
   [.claude/guards/lint-fix-file.mjs] (nuxt only; skipped if `nuxt-scaffold` already wrote it)
   .claude/settings.json [created/merged]
   tools/context_budget.mjs
+  .claude/harness-version [current version stamp]
   CLAUDE.md [created]
   scripts/pre-commit.sh [skipped if a hook manager already exists]
   .claude/agents/code-reviewer.md
@@ -363,6 +410,8 @@ the always-loaded budget unless you're editing those paths.
 - CI Config (Phase 5.6) — opt-in only, decided once in Phase 1.5 (`CI_PROVIDER`, auto-detected default); skip entirely if `no`. Only ever writes/overwrites CI files this skill generated; never edits pre-existing, hand-written CI config.
 - All user-facing questions (profile ambiguity, harness conflicts, Knowledge Bundle, CI, foreign pre-commit hook) resolve before any file is written — see Phase 1.5.
 - Never delete files not part of the harness.
+- `.claude/harness-version` — written on every fresh/overwrite setup (Phase 5-3c) as a baseline for future patch runs; `new` mode only writes it if absent, since skipped pre-existing files may be older than the recorded version.
+- Patch mode (Phase 1a) — only touches files/lines named in a changelog entry's `patch` block; never guesses at an anchor match; always advances `.claude/harness-version` even on partial application, logging what still needs manual review.
 
 ---
 
@@ -383,6 +432,8 @@ the always-loaded budget unless you're editing those paths.
 - [ ] **nuxt only** — `.claude/guards/lint-fix-file.mjs` — ESLint `--fix` scoped to the touched file
 - [ ] `.claude/settings.json` — guards wired + profile permissions
 - [ ] `tools/context_budget.mjs` — budget gate, executable
+- [ ] `.claude/harness-version` — current version stamp (written fresh/overwrite; baseline for patch mode)
+- [ ] **patch mode only** — only changelog `patch`-tagged changes since `FROM_VERSION` applied; `.claude/harness-version` advanced to `TO_VERSION`; summary lists applied vs skipped
 - [ ] **nuxt only** — `.vscode/settings.json` with ESLint format-on-save (Prettier disabled), merged if it existed
 - [ ] git repo initialized (if it wasn't one) and `.git/hooks/pre-commit` installed (or foreign hook left untouched with confirmation)
 - [ ] `README.md` — AI Onboarding + runtime hygiene + Context Budget table appended (if README existed)
