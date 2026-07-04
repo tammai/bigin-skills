@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.22.9] - 2026-07-04
+
+### Changed
+
+- **`task-workflow`'s spec format had no explicit testing guidance / định dạng spec của `task-workflow` chưa có hướng dẫn kiểm thử tường minh:** the spec template in `skills/task-workflow/SKILL.md` covered what/inputs-outputs/edge-cases/not-in-scope but never asked the author to state how the change would be tested, so test coverage was decided ad hoc at Verify time instead of planned up front. Added a `Testing strategy` line to the spec format, requiring the spec to name what gets tested (unit/integration/manual) and which edge cases get coverage before implementation starts. / Template spec trong `skills/task-workflow/SKILL.md` đã có what/inputs-outputs/edge-cases/not-in-scope nhưng chưa yêu cầu nêu rõ cách kiểm thử, nên phạm vi test bị quyết định tuỳ hứng ở bước Verify thay vì lên kế hoạch từ đầu. Đã thêm dòng `Testing strategy` vào định dạng spec, yêu cầu nêu rõ những gì sẽ được test (unit/integration/manual) và edge case nào được bao phủ trước khi bắt đầu implement.
+
 ## [1.22.8] - 2026-07-04
 
 ### Fixed

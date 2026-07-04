@@ -29,6 +29,7 @@ Paste this in the chat and wait for approval before writing any code:
 What: {one paragraph — what changes and why}
 Inputs/outputs: {what data flows in and out}
 Edge cases: {anything that could go wrong}
+Testing strategy: {what will be tested and how — unit/integration/manual, which edge cases get coverage}
 Not in scope: {explicit exclusions}
 ```
 
