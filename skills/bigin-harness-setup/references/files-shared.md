@@ -40,6 +40,7 @@ paths:
 ```markdown
 # Security Rules
 
+- **Plan for it, don't just check for it.** Specs for features touching auth, sessions, secrets, PII, or untrusted input must include a Security considerations section (see `AI_TASK_GUIDE.md`) naming concrete risks before implementation starts — not just at review time.
 - **No unauthenticated endpoints.** Every route verifies a token unless explicitly marked public and reviewed.
 - **Validate at boundaries.** Never trust request input — parse and validate with schema before any processing.
 - **No path traversal.** Never construct file paths from user input without sanitization.
@@ -88,6 +89,7 @@ Follow this workflow for every task.
 
 2. **Spec gate** (non-trivial features only) — write and get approval for a spec before implementing.
    Skip this for: bug fixes, copy changes, config tweaks, changes ≤20 lines of logic.
+   If the feature touches auth, sessions, secrets, PII, or untrusted input (user-controlled data, URLs, redirects, file paths), the spec's Security considerations must name the concrete risks — see `.claude/rules/security.md`. Don't defer security to the post-implementation review; a threat found at spec time is a sentence, the same one found after code review is a rewrite.
 
 3. **Implement** — follow `.claude/rules/conventions.md`. Stay in scope.
 
@@ -104,6 +106,7 @@ Paste this in the chat and wait for approval before writing any code:
 What: {one paragraph — what changes and why}
 Inputs/outputs: {what data flows in and out}
 Edge cases: {anything that could go wrong}
+Security considerations: {who/what is trusted, what input is attacker-controlled, what could go wrong if it's abused — or "N/A, no auth/secrets/PII/untrusted-input surface" if genuinely none}
 Not in scope: {explicit exclusions}
 ```
 
@@ -130,6 +133,7 @@ Before marking any task complete, every item must be checked.
 - [ ] No hardcoded secrets, credentials, or API keys
 
 ## Security
+- [ ] Every risk named in the spec's Security considerations section was actually addressed
 - [ ] No unauthenticated endpoints added
 - [ ] All new inputs validated at the handler boundary
 - [ ] No PII logged
