@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.22.7] - 2026-07-04
+
+### Fixed
+
+- **Generated `.mjs` guard/tool scripts needed a manual lint fix on every scaffold / script `.mjs` sinh ra cần sửa lint thủ công mỗi lần scaffold:** `tools/context_budget.mjs`, `tools/knowledge_validate.mjs` (both in `references/knowledge-bundle.md` and `references/budget-gate.md`), and `.claude/guards/bash-guard.mjs` (`references/hook-guard.md`) were written with double-quoted strings and semicolons, but `@nuxt/eslint`'s default (antfu-style) config requires single quotes, no semicolons, and `arrow-parens: as-needed`. Every `bigin-harness-setup` run on a nuxt profile therefore failed `pnpm lint` on these three files immediately after scaffold, forcing a manual `eslint --fix` round-trip. All three templates now match the antfu style exactly, verified with `npx eslint` (exit 0) against a live scaffolded project. / `tools/context_budget.mjs`, `tools/knowledge_validate.mjs` (trong `references/knowledge-bundle.md` và `references/budget-gate.md`), và `.claude/guards/bash-guard.mjs` (`references/hook-guard.md`) được viết với chuỗi nháy kép và dấu chấm phẩy, nhưng cấu hình mặc định của `@nuxt/eslint` (kiểu antfu) yêu cầu nháy đơn, không chấm phẩy, và `arrow-parens: as-needed`. Vì vậy mỗi lần chạy `bigin-harness-setup` trên profile nuxt đều khiến `pnpm lint` fail ngay trên ba file này sau khi scaffold, buộc phải chạy `eslint --fix` thủ công. Cả ba template giờ khớp chính xác kiểu antfu, đã xác minh bằng `npx eslint` (exit 0) trên một project đã scaffold thật.
+
 ## [1.22.6] - 2026-07-04
 
 ### Changed
