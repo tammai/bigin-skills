@@ -153,10 +153,11 @@ Skip if `INSTALL_MODE=new` and `CLAUDE.md` already exists.
 
 Create `.claude/rules/` if it doesn't exist.
 
-**For nuxt** — generate four files (each: skip if `INSTALL_MODE=new` and already exists):
+**For nuxt** — generate five files (each: skip if `INSTALL_MODE=new` and already exists):
 
 - **conventions-frontend.md** — from `references/profile-nuxt.md` → `## conventions-frontend.md Template`. Includes `paths:` frontmatter scoping it to `app/**` etc.
 - **conventions-server.md** — from `references/profile-nuxt.md` → `## conventions-server.md Template`. Includes `paths:` frontmatter scoping it to `server/**`.
+- **testing.md** — from `references/profile-nuxt.md` → `## testing.md Template`. Includes `paths:` frontmatter scoping it to `tests/**` + `vitest.config.ts`. Centralized-tests convention: `tests/` mirrors `app/`/`server/`, cross-tree imports use the `~~/` root alias, Nitro auto-imports stubbed via `tests/support/`.
 - **security.md** — from `references/files-shared.md` → `## security.md`. **Prepend** the nuxt paths frontmatter from `## paths substitutions` in `references/files-shared.md` before the content.
 - **architecture.md** — from `references/files-shared.md` → `## architecture.md`, then append the profile block from `references/profile-nuxt.md` → `## architecture addendum`. **Prepend** the nuxt paths frontmatter from `## paths substitutions` before the content.
 
@@ -345,6 +346,7 @@ Created:
   .claude/rules/architecture.md   (paths: same as security)
   .claude/rules/conventions-frontend.md  [nuxt only] (paths: app/**)
   .claude/rules/conventions-server.md    [nuxt only] (paths: server/**)
+  .claude/rules/testing.md        [nuxt only] (paths: tests/**, vitest.config.ts)
   .claude/rules/conventions.md    [go/nodejs only] (paths: scoped to source dir)
   .claude/guards/bash-guard.mjs
   [.claude/guards/lint-fix-file.mjs] (nuxt only; skipped if `nuxt-scaffold` already wrote it)
@@ -421,6 +423,7 @@ the always-loaded budget unless you're editing those paths.
 - [ ] `CLAUDE.md` — profile-specific, ≤60 lines
 - [ ] **nuxt only** — `.claude/rules/conventions-frontend.md` — paths: app/** (≤40 lines)
 - [ ] **nuxt only** — `.claude/rules/conventions-server.md` — paths: server/** (≤40 lines)
+- [ ] **nuxt only** — `.claude/rules/testing.md` — paths: tests/**, vitest.config.ts (≤40 lines)
 - [ ] **go/nodejs** — `.claude/rules/conventions.md` — paths: scoped to source dir
 - [ ] `.claude/rules/security.md` — shared security rules, paths: scoped per profile
 - [ ] `.claude/rules/architecture.md` — shared base + profile addendum, paths: scoped per profile
@@ -445,7 +448,7 @@ the always-loaded budget unless you're editing those paths.
 
 ## References
 
-- `references/profile-nuxt.md` — templates for nuxt profile (CLAUDE.md, conventions-frontend, conventions-server, architecture addendum, settings.json, .vscode/settings.json)
+- `references/profile-nuxt.md` — templates for nuxt profile (CLAUDE.md, conventions-frontend, conventions-server, testing, architecture addendum, settings.json, .vscode/settings.json)
 - `references/profile-go.md` — templates for go profile
 - `references/profile-nodejs.md` — templates for nodejs profile
 - `references/files-shared.md` — shared files: security, architecture, AI task guide, review checklist, code-reviewer agent, paths substitutions per profile

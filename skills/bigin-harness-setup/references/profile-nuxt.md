@@ -183,6 +183,41 @@ Never define API response shapes inline — always use generated types.
 
 ---
 
+## testing.md Template
+
+Paths frontmatter scopes this file to tests/ + vitest.config.ts — only loaded when test files are in context.
+
+```markdown
+---
+paths:
+  - "tests/**"
+  - "vitest.config.ts"
+---
+# Testing Conventions
+
+## Location
+Tests live under `tests/`, mirroring the source tree — never co-located with source.
+- `app/utils/foo.ts` → `tests/app/utils/foo.test.ts`
+- `server/api/bar.get.ts` → `tests/server/api/bar.get.test.ts`
+
+`vitest.config.ts`'s `test.include` is scoped to `tests/**/*.test.ts` — a stray `*.test.ts` next to source silently won't run.
+
+## Imports
+Cross-tree imports (test → source) use the `~~/` root alias, never relative paths — a test's directory depth mirrors source depth, so `../../../app/...` is fragile and breaks on any tree reshuffle.
+
+```ts
+// tests/app/utils/foo.test.ts
+import { foo } from '~~/app/utils/foo'
+```
+
+## Nitro auto-imports
+Server tests run outside Nitro's auto-import context — `defineEventHandler`, `useRuntimeConfig`, etc. aren't globally available. Stub them via a shared `tests/support/` helper, not per-test.
+
+Mock only the true I/O boundary — `$fetch`, session read/write (`getUserSession`/`setUserSession`). Wire real implementations of internal collaborators (your own composables, utils, server helpers) as globals instead of mocking them — mocking internals couples tests to implementation and hides real breakage.
+```
+
+---
+
 ## architecture addendum
 
 Prepend `paths: ["server/**", "app/**"]` as YAML frontmatter when writing `architecture.md` (see `references/files-shared.md` → `## paths substitutions`).

@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.22.12] - 2026-07-04
+
+### Added
+
+- **Tests were co-located with source (`app/utils/foo.test.ts`) with no shared convention for cross-tree imports or stubbing Nitro auto-imports, so a real project ended up hand-rolling relative-path imports and ad-hoc mocks / Test từng được đặt cạnh source (`app/utils/foo.test.ts`) mà không có quy ước chung cho import xuyên cây thư mục hay stub Nitro auto-imports, khiến một dự án thực tế phải tự chế import bằng đường dẫn tương đối và mock tuỳ tiện:** Adopted the centralized-tests convention from that project: tests move under `tests/`, mirroring `app/`/`server/`, cross-tree imports use the `~~/` root alias instead of relative paths, and `vitest.config.ts`'s `test.include` is scoped to `tests/**/*.test.ts`. Added a new `.claude/rules/testing.md` template (nuxt profile only, `references/profile-nuxt.md`) covering location/mirroring, the `~~/` import rule, and a note on stubbing Nitro auto-imports via a shared `tests/support/` helper — mock only the true I/O boundary (`$fetch`, session read/write), wire real implementations of internal collaborators as globals instead of mocking them. Wired into `SKILL.md` Phase 3 (generation), the repo tree summary, and the review checklist. `nuxt-scaffold`'s own `vitest.config.ts` template now scopes `test.include` to `tests/**/*.test.ts`, and its one sample test file moved from `app/composables/queries/users.test.ts` to `tests/app/composables/queries/users.test.ts` with its import switched to `~~/` — the scaffold's own sample code now follows the rule it ships instead of contradicting it. `testing.md` is a wholly new file with no existing anchor in already-scaffolded repos, so per Phase 1a it's new-scaffold-only (no `patch` block) — already-scaffolded repos get it via a fresh/`new`-mode harness run, not automatic patching. / Đã áp dụng quy ước centralized-tests từ dự án đó: test chuyển vào `tests/`, phản chiếu cấu trúc `app/`/`server/`, import xuyên cây dùng alias gốc `~~/` thay vì đường dẫn tương đối, và `test.include` trong `vitest.config.ts` được giới hạn ở `tests/**/*.test.ts`. Đã thêm template `.claude/rules/testing.md` mới (chỉ profile nuxt, trong `references/profile-nuxt.md`) bao gồm quy tắc vị trí/phản chiếu, quy ước import `~~/`, và một ghi chú về việc stub Nitro auto-imports qua helper dùng chung `tests/support/` — chỉ mock ranh giới I/O thực sự (`$fetch`, đọc/ghi session), còn các collaborator nội bộ thì dùng implementation thật dưới dạng global thay vì mock. Đã nối vào Phase 3 của `SKILL.md` (sinh file), phần tóm tắt cây thư mục, và checklist review. Template `vitest.config.ts` của `nuxt-scaffold` giờ giới hạn `test.include` ở `tests/**/*.test.ts`, và file test mẫu duy nhất của nó chuyển từ `app/composables/queries/users.test.ts` sang `tests/app/composables/queries/users.test.ts` với import đổi sang `~~/` — code mẫu của scaffold giờ tuân theo đúng quy tắc mà nó ban hành thay vì mâu thuẫn với nó. `testing.md` là file hoàn toàn mới, không có anchor sẵn có trong các repo đã scaffold trước đó, nên theo Phase 1a nó chỉ áp dụng cho lần scaffold mới (không có khối `patch`) — các repo đã scaffold sẽ có file này khi chạy lại harness ở chế độ fresh/`new`, không tự động patch.
+
+  ```patch
+  target: vitest.config.ts
+  anchor: "test: { environment: 'nuxt' }"
+  insert: replace
+  ---
+  test: { environment: 'nuxt', include: ['tests/**/*.test.ts'] }
+  ```
+
 ## [1.22.10] - 2026-07-04
 
 ### Changed

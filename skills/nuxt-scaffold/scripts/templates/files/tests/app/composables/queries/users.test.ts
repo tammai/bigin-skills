@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { useUsers } from './users'
+import { useUsers } from '~~/app/composables/queries/users'
 
 describe('useUsers', () => {
   it('starts fetching immediately', () => {
