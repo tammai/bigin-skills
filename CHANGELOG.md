@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.22.8] - 2026-07-04
+
+### Fixed
+
+- **`ci.md`'s GitHub Actions were pinned by mutable major-version tag, not a commit SHA / Các GitHub Actions trong `ci.md` được pin theo tag phiên bản chính không cố định, không phải SHA commit:** `skills/bigin-harness-setup/references/ci.md` used `actions/checkout@v4`, `pnpm/action-setup@v4`, `actions/setup-node@v4`, and `actions/setup-go@v5` — floating tags that can be repointed by the action owner, a supply-chain risk flagged by a `semgrep` scan of a scaffolded project. Phase 5.6 copies this file verbatim into every new project's `.github/workflows/ci.yml`, so the finding reproduced on every harness-setup run. All four are now pinned to the commit SHA of their latest release within the same major line, with a trailing `# vX.Y.Z` comment for readability — no behavior change, same major versions. / `skills/bigin-harness-setup/references/ci.md` dùng `actions/checkout@v4`, `pnpm/action-setup@v4`, `actions/setup-node@v4`, và `actions/setup-go@v5` — các tag không cố định mà chủ action có thể trỏ lại, một rủi ro chuỗi cung ứng được phát hiện qua scan `semgrep` trên một project đã scaffold. Phase 5.6 copy file này y nguyên vào `.github/workflows/ci.yml` của mọi project mới, nên lỗi này lặp lại ở mỗi lần chạy harness-setup. Cả bốn action giờ được pin theo SHA commit của bản release mới nhất trong cùng nhánh phiên bản chính, kèm comment `# vX.Y.Z` để dễ đọc — không thay đổi hành vi, vẫn cùng major version.
+
 ## [1.22.7] - 2026-07-04
 
 ### Fixed
