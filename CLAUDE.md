@@ -20,7 +20,7 @@ scripts/git-hooks/        ← pre-commit running the budget gate
 | Skill | Purpose |
 |---|---|
 | `bigin-harness-setup` | Scaffolds AI workflow harness into target repos (nuxt/go/nodejs); three-tier loading; idempotent |
-| `task-workflow` | On-demand task workflow: scope → spec → implement → verify → review (Tier 3) |
+| `task-workflow` | On-demand task workflow: scope → spec → plan file → implement → verify → review → cleanup (Tier 3) |
 | `nuxt-scaffold` | Scaffolds Nuxt 4 BFF app from scratch via `npm create nuxt@latest` |
 | `sprint-distill` | End-of-sprint distillation into `knowledge/` + bigin-skills; compresses, never appends |
 | `session-handoff` | Session state persistence to `.claude/memory/SESSION.md` |

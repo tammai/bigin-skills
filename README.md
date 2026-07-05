@@ -12,7 +12,7 @@ Skills for standardized, AI-assisted development across BigIn's stacks.
 | Skill                  | Purpose                                                                                                  |
 | ---------------------- | -------------------------------------------------------------------------------------------------------- |
 | **bigin-harness-setup** | Scaffolds an AI workflow harness into a repo — `CLAUDE.md`, path-scoped rules, and enforcement gates. Profiles: `nuxt`, `go`, `nodejs`. |
-| **task-workflow**       | On-demand task workflow skill (`/task-workflow`): scope → spec → implement → verify → review. Loaded only when invoked, not on every session start. |
+| **task-workflow**       | On-demand task workflow skill (`/task-workflow`): scope → spec → plan file → implement → verify → review → cleanup. Loaded only when invoked, not on every session start. |
 | **nuxt-scaffold**       | Scaffolds a Nuxt 4 BFF app from scratch via a deterministic Node.js script (`scripts/scaffold.mjs`, config-driven, zero prompts, macOS/Windows) — `npm create nuxt@latest` + BFF preset + config/sample code. No GitHub clone. / Scaffold app Nuxt 4 BFF bằng script Node.js tất định — không prompt khi chạy. |
 | **sprint-distill**      | End-of-sprint distillation: merged PRs + touched `knowledge/` concepts → proposal-first `knowledge/` and `bigin-skills` updates. Compresses, never just appends. |
 | **session-handoff**     | Saves session state (tasks, decisions, uncommitted changes) to `SESSION.md` and restores it on resume.   |
@@ -143,7 +143,7 @@ bigin-skills/
 │   │       ├── knowledge-bundle.md
 │   │       └── ci.md
 │   ├── task-workflow/             ← on-demand task workflow (Tier 3)
-│   │   └── SKILL.md               ← scope → spec → implement → verify → review
+│   │   └── SKILL.md               ← scope → spec → plan file → implement → verify → review → cleanup
 │   ├── nuxt-scaffold/             ← Nuxt 4 BFF app scaffolder (npm create nuxt, no clone)
 │   │   ├── SKILL.md               ← decides config values; the script does the rest
 │   │   ├── scripts/

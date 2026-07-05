@@ -5,9 +5,57 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.22.12] - 2026-07-04
+## [1.22.13] - 2026-07-05
 
 ### Added
+
+- **The task workflow had no durable checkpoint for an approved spec — it lived only in chat, so it was lost across context compaction or a session break, and there was no live record of which tasks were done / Quy trình task chưa có điểm lưu bền cho spec đã duyệt — spec chỉ tồn tại trong chat nên mất khi nén ngữ cảnh hoặc ngắt phiên, và không có bản ghi tiến độ theo thời gian thực:** discovered while testing a downstream Nuxt app scaffolded by this plugin. `skills/task-workflow/SKILL.md` now writes the approved spec to a `PLAN.md` file (new step 3) with a tasks-tracking table (`# | Task | Status | Notes`, statuses `Not started`/`In progress`/`Done`/`Blocked`), updates that table live during Implement (step 4) instead of batching updates, and deletes `PLAN.md` once every task is `Done` and review is clean (new step 7, Cleanup) — it's a working file, not project documentation. The workflow is now scope → spec → **plan file** → implement → verify → review → **cleanup**. Mirrored the same steps and a `## PLAN.md format` section into the `AI_TASK_GUIDE.md` template (`skills/bigin-harness-setup/references/files-shared.md`) so scaffolded target repos get the identical convention; while there, also added the `Testing strategy` spec-format line that v1.22.9 added to `task-workflow/SKILL.md` but never mirrored into `AI_TASK_GUIDE.md` — a separate, pre-existing drift fixed in the same pass. Updated the three stale "scope → spec → implement → verify → review" mentions in this repo's own `CLAUDE.md` and `README.md` to the new 7-step phrasing. The `## PLAN.md format` section itself (with its nested example code block) doesn't reduce to a single clean anchor patch, so it's new-scaffold-only for target repos — patch mode picks up the renumbered steps and the `Testing strategy` line automatically, but a repo already scaffolded needs a fresh/`new`-mode run (or manual copy) to pick up the `PLAN.md format` reference section. / Phát hiện khi thử nghiệm một app Nuxt downstream được scaffold bởi plugin này. `skills/task-workflow/SKILL.md` giờ ghi spec đã duyệt vào file `PLAN.md` (bước 3 mới) kèm bảng theo dõi task (`# | Task | Status | Notes`, trạng thái `Not started`/`In progress`/`Done`/`Blocked`), cập nhật bảng này theo thời gian thực trong lúc Implement (bước 4) thay vì dồn lại cập nhật một lần, và xoá `PLAN.md` khi mọi task đã `Done` và review sạch (bước 7 mới, Cleanup) — đây là file làm việc, không phải tài liệu dự án. Quy trình giờ là scope → spec → **plan file** → implement → verify → review → **cleanup**. Đã nối các bước tương tự và một mục `## PLAN.md format` vào template `AI_TASK_GUIDE.md` (`skills/bigin-harness-setup/references/files-shared.md`) để các repo scaffold ra có cùng quy ước; nhân tiện cũng thêm dòng `Testing strategy` vào định dạng spec mà v1.22.9 đã thêm vào `task-workflow/SKILL.md` nhưng chưa từng nối vào `AI_TASK_GUIDE.md` — một lỗi lệch pha có sẵn từ trước, được sửa trong cùng lượt này. Đã cập nhật ba chỗ còn ghi "scope → spec → implement → verify → review" cũ trong `CLAUDE.md` và `README.md` của chính repo này sang cách diễn đạt 7 bước mới. Mục `## PLAN.md format` (kèm khối code ví dụ lồng bên trong) không rút gọn được thành một patch với anchor đơn giản, nên chỉ áp dụng cho lần scaffold mới đối với các repo target — patch mode sẽ tự áp dụng các bước đánh số lại và dòng `Testing strategy`, nhưng một repo đã scaffold sẵn cần chạy lại ở chế độ fresh/`new` (hoặc copy tay) để có mục `PLAN.md format`.
+
+  ```patch
+  target: AI_TASK_GUIDE.md
+  anchor: "the same one found after code review is a rewrite."
+  insert: after
+  ---
+
+  3. **Plan file** — once the spec/plan is approved, write it to `PLAN.md`: the approved spec followed by a tasks tracking table (see format below).
+     If `PLAN.md` already exists with tasks not marked `Done`, stop and ask the user how to proceed (resume, discard, or replace) before writing — never overwrite silently. If it doesn't exist, or every task in it is `Done`, write the new plan over it.
+  ```
+  ```patch
+  target: AI_TASK_GUIDE.md
+  anchor: "3. **Implement** — follow `.claude/rules/conventions.md`. Stay in scope."
+  insert: replace
+  ---
+  4. **Implement** — follow `.claude/rules/conventions.md`. Stay in scope. Update `PLAN.md`'s tracking table as each task starts, finishes, or blocks — don't batch updates to the end.
+  ```
+  ```patch
+  target: AI_TASK_GUIDE.md
+  anchor: "4. **Verify** — run lint + typecheck + tests. All must pass before marking done."
+  insert: replace
+  ---
+  5. **Verify** — run lint + typecheck + tests. All must pass before marking done.
+  ```
+  ```patch
+  target: AI_TASK_GUIDE.md
+  anchor: "5. **Review** — check `AI_REVIEW_CHECKLIST.md`. Mark done only when the checklist is clean."
+  insert: replace
+  ---
+  6. **Review** — check `AI_REVIEW_CHECKLIST.md`. Mark done only when the checklist is clean.
+  ```
+  ```patch
+  target: AI_TASK_GUIDE.md
+  anchor: "6. **Review** — check `AI_REVIEW_CHECKLIST.md`. Mark done only when the checklist is clean."
+  insert: after
+  ---
+
+  7. **Cleanup** — once every task in `PLAN.md` is `Done` and the review checklist is clean, delete `PLAN.md`. It's a working file for the task, not project documentation — nothing to preserve once the task ships.
+  ```
+  ```patch
+  target: AI_TASK_GUIDE.md
+  anchor: Security considerations: {who/what is trusted, what input is attacker-controlled, what could go wrong if it's abused
+  insert: after
+  ---
+  Testing strategy: {what will be tested and how — unit/integration/manual, which edge cases get coverage}
+  ```
 
 - **Tests were co-located with source (`app/utils/foo.test.ts`) with no shared convention for cross-tree imports or stubbing Nitro auto-imports, so a real project ended up hand-rolling relative-path imports and ad-hoc mocks / Test từng được đặt cạnh source (`app/utils/foo.test.ts`) mà không có quy ước chung cho import xuyên cây thư mục hay stub Nitro auto-imports, khiến một dự án thực tế phải tự chế import bằng đường dẫn tương đối và mock tuỳ tiện:** Adopted the centralized-tests convention from that project: tests move under `tests/`, mirroring `app/`/`server/`, cross-tree imports use the `~~/` root alias instead of relative paths, and `vitest.config.ts`'s `test.include` is scoped to `tests/**/*.test.ts`. Added a new `.claude/rules/testing.md` template (nuxt profile only, `references/profile-nuxt.md`) covering location/mirroring, the `~~/` import rule, and a note on stubbing Nitro auto-imports via a shared `tests/support/` helper — mock only the true I/O boundary (`$fetch`, session read/write), wire real implementations of internal collaborators as globals instead of mocking them. Wired into `SKILL.md` Phase 3 (generation), the repo tree summary, and the review checklist. `nuxt-scaffold`'s own `vitest.config.ts` template now scopes `test.include` to `tests/**/*.test.ts`, and its one sample test file moved from `app/composables/queries/users.test.ts` to `tests/app/composables/queries/users.test.ts` with its import switched to `~~/` — the scaffold's own sample code now follows the rule it ships instead of contradicting it. `testing.md` is a wholly new file with no existing anchor in already-scaffolded repos, so per Phase 1a it's new-scaffold-only (no `patch` block) — already-scaffolded repos get it via a fresh/`new`-mode harness run, not automatic patching. / Đã áp dụng quy ước centralized-tests từ dự án đó: test chuyển vào `tests/`, phản chiếu cấu trúc `app/`/`server/`, import xuyên cây dùng alias gốc `~~/` thay vì đường dẫn tương đối, và `test.include` trong `vitest.config.ts` được giới hạn ở `tests/**/*.test.ts`. Đã thêm template `.claude/rules/testing.md` mới (chỉ profile nuxt, trong `references/profile-nuxt.md`) bao gồm quy tắc vị trí/phản chiếu, quy ước import `~~/`, và một ghi chú về việc stub Nitro auto-imports qua helper dùng chung `tests/support/` — chỉ mock ranh giới I/O thực sự (`$fetch`, đọc/ghi session), còn các collaborator nội bộ thì dùng implementation thật dưới dạng global thay vì mock. Đã nối vào Phase 3 của `SKILL.md` (sinh file), phần tóm tắt cây thư mục, và checklist review. Template `vitest.config.ts` của `nuxt-scaffold` giờ giới hạn `test.include` ở `tests/**/*.test.ts`, và file test mẫu duy nhất của nó chuyển từ `app/composables/queries/users.test.ts` sang `tests/app/composables/queries/users.test.ts` với import đổi sang `~~/` — code mẫu của scaffold giờ tuân theo đúng quy tắc mà nó ban hành thay vì mâu thuẫn với nó. `testing.md` là file hoàn toàn mới, không có anchor sẵn có trong các repo đã scaffold trước đó, nên theo Phase 1a nó chỉ áp dụng cho lần scaffold mới (không có khối `patch`) — các repo đã scaffold sẽ có file này khi chạy lại harness ở chế độ fresh/`new`, không tự động patch.
 
