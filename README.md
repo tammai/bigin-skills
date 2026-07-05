@@ -165,6 +165,20 @@ bigin-skills/
 
 ---
 
+## Maintaining this repo
+
+**`harness-audit`** — a project-local skill (`.claude/skills/harness-audit/SKILL.md`, not shipped as part of the plugin) that audits this repo's own harness against current official Claude Code docs (skills, hooks, sub-agents, plugins, memory). Findings report only — it never auto-fixes, and it won't trigger from natural language (`disable-model-invocation: true`), so it has to be run explicitly.
+
+Run it with:
+
+```
+/harness-audit
+```
+
+It fetches the live docs, checks skill frontmatter / hooks / sub-agents / context budget / plugin structure / eval coverage / permissions against them, then **stops** with a findings table and asks whether to act on anything or just log the report. Closed findings are tracked in `.claude/audit-log.md` (created on first run) so re-runs don't re-litigate what's already been fixed.
+
+---
+
 ## License
 
 MIT
