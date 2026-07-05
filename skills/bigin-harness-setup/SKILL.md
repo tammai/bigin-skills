@@ -55,7 +55,7 @@ Skip this phase entirely if `nuxt.config.ts` already exists (onboarding an exist
 
 ## Phase 1: Detect Existing Harness
 
-If `SCAFFOLDED = true`, the `nuxt-scaffold` skill already brought `nuxt.config.ts`, `app/`, `server/`, `eslint.config.mjs`, `.claude/settings.json` (permissions + a `PostToolUse` lint-fix hook), `.vscode/settings.json`, and a `simple-git-hooks` pre-commit gate. Treat those as pre-existing (do not clobber) and skip straight to adding the BigIn guardrails the scaffold lacks: `bash-guard.mjs` (+ its `PreToolUse` hook), governance rules, and AI files.
+If `SCAFFOLDED = true`, the `nuxt-scaffold` skill already brought `nuxt.config.ts`, `app/`, `server/`, `eslint.config.mjs`, `.claude/settings.json` (permissions + a `PostToolUse` lint-fix hook), `.vscode/settings.json`, and a `simple-git-hooks` pre-commit gate. Treat those as pre-existing (do not clobber) and skip straight to adding the BigIn guardrails the scaffold lacks: `bash-guard.mjs` and `spec-gate-guard.mjs` (+ their `PreToolUse` hooks), governance rules, and AI files.
 
 Check for existing harness files:
 ```
@@ -224,10 +224,14 @@ Read from `references/hook-guard.md` → `## bash-guard.mjs`. Write to `.claude/
 
 > nuxt auto-format also needs a guard script — `.claude/guards/lint-fix-file.mjs`, ESLint `--fix` scoped to the single touched file (a blanket `pnpm lint --fix` would rewrite every pre-existing lint violation in the repo on the first edit). If `SCAFFOLDED = true`, `nuxt-scaffold` already wrote it. Otherwise (onboarding an existing nuxt repo), copy it now from `skills/nuxt-scaffold/scripts/templates/files/.claude/guards/lint-fix-file.mjs` — single source of truth, don't duplicate the script body here.
 
+### 5-2b. Spec gate guard (blocks non-trivial edits before plan approval)
+
+Read from `references/hook-guard.md` → `## spec-gate-guard.mjs`. Write to `.claude/guards/spec-gate-guard.mjs`. Applies to all profiles.
+
 ### 5-3. .claude/settings.json
 
 For **nuxt**:
-- **If `SCAFFOLDED = true`**: the `nuxt-scaffold` skill already wrote `.claude/settings.json` with `permissions.allow` + a `PostToolUse` `lint-fix-file.mjs` hook (and the script itself). Merge **only** the `PreToolUse` `bash-guard.mjs` hook and any missing `permissions.allow` entries. Do **not** re-add `PostToolUse` — it is already present. Merge per-event; show additions before writing.
+- **If `SCAFFOLDED = true`**: the `nuxt-scaffold` skill already wrote `.claude/settings.json` with `permissions.allow` + a `PostToolUse` `lint-fix-file.mjs` hook (and the script itself). Merge **only** the `PreToolUse` `bash-guard.mjs` + `spec-gate-guard.mjs` hooks and any missing `permissions.allow` entries. Do **not** re-add `PostToolUse` — it is already present. Merge per-event; show additions before writing.
 - **Otherwise** (onboarding an existing nuxt repo): write `.claude/guards/lint-fix-file.mjs` per 5-2's note above if missing, then read the full settings.json template from `references/profile-nuxt.md` → `## settings.json Template`. If `.claude/settings.json` exists, merge the `hooks` block + missing `permissions.allow` entries (per-event, never drop the user's); if not, write fresh.
 
 For **go** / **nodejs**: read the template from `references/profile-{PROFILE}.md` → `## settings.json Template`. If the file exists, merge the `hooks` block + missing `permissions.allow` entries (per-event); otherwise write fresh.
@@ -349,6 +353,7 @@ Created:
   .claude/rules/testing.md        [nuxt only] (paths: tests/**, vitest.config.ts)
   .claude/rules/conventions.md    [go/nodejs only] (paths: scoped to source dir)
   .claude/guards/bash-guard.mjs
+  .claude/guards/spec-gate-guard.mjs
   [.claude/guards/lint-fix-file.mjs] (nuxt only; skipped if `nuxt-scaffold` already wrote it)
   .claude/settings.json [created/merged]
   tools/context_budget.mjs
@@ -431,6 +436,7 @@ the always-loaded budget unless you're editing those paths.
 - [ ] `AI_REVIEW_CHECKLIST.md` — profile commands filled in
 - [ ] `scripts/pre-commit.sh` — lint + typecheck + test + context budget check, executable
 - [ ] `.claude/guards/bash-guard.mjs` — blocks `--no-verify` and force-push to main
+- [ ] `.claude/guards/spec-gate-guard.mjs` — blocks non-trivial edits until `PLAN.md` is approved
 - [ ] `.claude/agents/code-reviewer.md` — read-only reviewer agent (always added, no question)
 - [ ] **nuxt only** — `.claude/guards/lint-fix-file.mjs` — ESLint `--fix` scoped to the touched file
 - [ ] `.claude/settings.json` — guards wired + profile permissions
@@ -452,7 +458,7 @@ the always-loaded budget unless you're editing those paths.
 - `references/profile-go.md` — templates for go profile
 - `references/profile-nodejs.md` — templates for nodejs profile
 - `references/files-shared.md` — shared files: security, architecture, AI task guide, review checklist, code-reviewer agent, paths substitutions per profile
-- `references/hook-guard.md` — bash-guard.mjs script + pre-commit scripts per profile
+- `references/hook-guard.md` — bash-guard.mjs, spec-gate-guard.mjs scripts + pre-commit scripts per profile
 - `references/budget-gate.md` — context_budget.mjs script (context budget gate)
 - `references/knowledge-bundle.md` — optional Knowledge Bundle: rule file, spec, starter concept files, validator script
 - `references/ci.md` — optional CI config: GitHub Actions + GitLab CI templates per profile, plus the knowledge-validate step

@@ -17,7 +17,7 @@
       "homepage": "https://github.com/tammai/bigin-skills",
       "repository": "https://github.com/tammai/bigin-skills",
       "license": "MIT",
-      "keywords": ["harness", "harness-setup", "ai-governance", "enforcement-hooks", "nuxt", "go-backend", "nodejs-backend", "session-handoff", "sprint-distill"]
+      "keywords": ["harness", "harness-setup", "ai-governance", "enforcement-hooks", "code-conventions", "claude-md", "nuxt", "nuxt-scaffold", "nuxt-ui-templates", "saas-template", "go-backend", "nodejs-backend", "session-handoff", "sprint-distill", "knowledge-distillation", "knowledge-bundle", "ci", "github-actions", "gitlab-ci", "web-development", "task-workflow", "context-budget", "claude-code-plugin"]
     }
   ]
 }

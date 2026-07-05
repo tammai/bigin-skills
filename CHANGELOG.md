@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.23.0] - 2026-07-05
+
+### Added
+
+- **`task-workflow`'s trigger description listed phrases about asking about the workflow ("what is the task workflow") instead of phrases a developer naturally says when starting work — which is the moment the skill actually needs to fire / Mô tả kích hoạt của `task-workflow` liệt kê các cụm hỏi về quy trình ("what is the task workflow") thay vì cụm từ mà lập trình viên thực sự nói khi bắt đầu làm việc — đúng thời điểm skill cần kích hoạt:** Rewrote `skills/task-workflow/SKILL.md`'s `description:` to match the sibling skills' "MUST use when user says: '...'" pattern (per `.claude/rules/skill-authoring.md`'s "specific and pushy" rule), leading with natural work-starting phrases in EN + VI ('implement X', 'add a feature', 'build Y', 'fix bug in Z', 'thêm chức năng', 'sửa lỗi', 'làm feature mới') while keeping the existing meta-question phrases ('what is the task workflow', 'spec gate', etc.) as a secondary clause. Measured trigger accuracy with `skill-creator`'s `run_eval.py` trigger-benchmark tool against a new 13-query eval set (`skills/task-workflow/evals/evals.json`, 7 should-trigger + 6 should-not-trigger) comparing the old and new description text head-to-head: both scored 6/13 with zero detected triggers on every should-trigger query under either wording. This is a floor effect in the test harness itself, not a real result — `run_eval.py` registers the skill as a synthetic slash-command file under `.claude/commands/` rather than a genuine plugin skill in the `available_skills` list, so single-shot headless `claude -p` runs never see it as an invokable skill the way a real session (with bigin-skills actually installed) does. The eval set is kept as a fixture for a future, more faithful harness rather than discarded, but no quantitative trigger-accuracy delta is claimed here — the rewrite is justified qualitatively (matches every sibling skill's proven pattern) rather than by this benchmark. / Đã viết lại `description:` của `skills/task-workflow/SKILL.md` theo đúng khuôn mẫu "MUST use when user says: '...'" của các skill anh em (theo quy tắc "cụ thể và pushy" trong `.claude/rules/skill-authoring.md`), dẫn đầu bằng các cụm từ bắt đầu công việc tự nhiên bằng tiếng Anh + tiếng Việt ('implement X', 'add a feature', 'build Y', 'fix bug in Z', 'thêm chức năng', 'sửa lỗi', 'làm feature mới'), đồng thời giữ lại các cụm hỏi về quy trình cũ ('what is the task workflow', 'spec gate', v.v.) như một vế phụ. Đã đo độ chính xác kích hoạt bằng công cụ benchmark `run_eval.py` của `skill-creator` với bộ 13 câu truy vấn mới (`skills/task-workflow/evals/evals.json`, 7 câu nên kích hoạt + 6 câu không nên) so sánh trực tiếp mô tả cũ và mới: cả hai đều đạt 6/13, không câu nào trong nhóm nên-kích-hoạt thực sự kích hoạt được ở cả hai cách viết. Đây là hiệu ứng sàn (floor effect) của chính công cụ kiểm thử, không phải kết quả thật — `run_eval.py` đăng ký skill dưới dạng file slash-command giả trong `.claude/commands/` thay vì một skill plugin thật trong danh sách `available_skills`, nên các lượt chạy `claude -p` một lượt, không có ngữ cảnh, không bao giờ thấy nó như một skill có thể gọi được theo cách một phiên thật (có cài bigin-skills) sẽ thấy. Bộ eval được giữ lại làm fixture cho một công cụ kiểm thử trung thực hơn sau này thay vì bỏ đi, nhưng không có con số chênh lệch độ chính xác kích hoạt nào được khẳng định ở đây — việc viết lại được biện minh về mặt định tính (khớp với khuôn mẫu đã được chứng minh của mọi skill anh em) chứ không phải bằng benchmark này.
+
+- **The spec gate (`.claude/rules/security.md` / `task-workflow`'s step 2) only ever lived as a convention agents could choose to follow — nothing stopped an edit from landing before a spec was approved / Spec gate (`.claude/rules/security.md` / bước 2 của `task-workflow`) trước giờ chỉ là một quy ước mà agent có thể tuỳ ý tuân theo — không có gì ngăn một chỉnh sửa được thực hiện trước khi spec được duyệt:** Added `spec-gate-guard.mjs`, a new `PreToolUse` guard (matcher `Edit|Write|MultiEdit`) that blocks non-trivial edits until `PLAN.md` exists with `Status: approved`. It allows through: edits to `PLAN.md` itself, any `*.md` file, `tests/**`, `.env.example`, common config files (`.eslintrc*`, `eslint.config.*`, `tsconfig*.json`, `vite(st).config.*`, `nuxt.config.*`, `.editorconfig`, `.gitignore`, `.npmrc`), and any edit whose size (line-count delta for `Write`, changed-region size for `Edit`/`MultiEdit`) is ≤20 lines — a heuristic proxy for the skill's own "≤20 lines of logic" spec-gate exemption. New `## spec-gate-guard.mjs` template section in `skills/bigin-harness-setup/references/hook-guard.md` (same stdlib-only, stdin-JSON, exit-2-to-block shape as `bash-guard.mjs`), wired into the `PreToolUse` array next to `bash-guard.mjs` in `profile-nuxt.md`, `profile-go.md`, `profile-nodejs.md`'s `## settings.json Template` sections, and into `bigin-harness-setup/SKILL.md`'s Phase 5-2b (new), Phase 5-3 merge instructions, Created-files list, Output Checklist, and References section. Also added a load-bearing-gate test-case convention note for it in `.claude/rules/skill-authoring.md`, mirroring the existing `bash-guard.mjs` note. / Đã thêm `spec-gate-guard.mjs`, một guard `PreToolUse` mới (matcher `Edit|Write|MultiEdit`) chặn các chỉnh sửa không nhỏ cho đến khi `PLAN.md` tồn tại với `Status: approved`. Guard cho qua: chỉnh sửa chính `PLAN.md`, mọi file `*.md`, `tests/**`, `.env.example`, các file config phổ biến (`.eslintrc*`, `eslint.config.*`, `tsconfig*.json`, `vite(st).config.*`, `nuxt.config.*`, `.editorconfig`, `.gitignore`, `.npmrc`), và bất kỳ chỉnh sửa nào có kích thước (chênh lệch số dòng với `Write`, kích thước vùng thay đổi với `Edit`/`MultiEdit`) ≤20 dòng — một heuristic thay thế cho ngoại lệ "≤20 dòng logic" của chính spec gate trong skill. Đã thêm mục template `## spec-gate-guard.mjs` mới trong `skills/bigin-harness-setup/references/hook-guard.md` (cùng cấu trúc chỉ dùng Node stdlib, đọc JSON từ stdin, exit 2 để chặn như `bash-guard.mjs`), nối vào mảng `PreToolUse` cạnh `bash-guard.mjs` trong các mục `## settings.json Template` của `profile-nuxt.md`, `profile-go.md`, `profile-nodejs.md`, và vào Phase 5-2b (mới), hướng dẫn merge ở Phase 5-3, danh sách file tạo ra, Output Checklist, và mục References của `bigin-harness-setup/SKILL.md`. Cũng đã thêm ghi chú quy ước test-case cho gate trọng yếu này vào `.claude/rules/skill-authoring.md`, tương tự ghi chú sẵn có của `bash-guard.mjs`.
+
+  ```patch
+  target: .claude/settings.json
+  anchor:
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/guards/bash-guard.mjs"
+          }
+        ]
+      }
+  insert: after
+  ---
+
+  ,
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/guards/spec-gate-guard.mjs"
+          }
+        ]
+      }
+  ```
+
 ## [1.22.13] - 2026-07-05
 
 ### Added

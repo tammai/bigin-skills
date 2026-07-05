@@ -239,7 +239,7 @@ Prepend `paths: ["server/**", "app/**"]` as YAML frontmatter when writing `archi
 
 ## settings.json Template
 
-Governance superset: `permissions` + `PostToolUse` lint-fix (the `nuxt-scaffold` baseline) **plus** the `PreToolUse` `bash-guard.mjs` hook (governance). Used when onboarding an existing nuxt repo (Phase 5-3) — also write `.claude/guards/lint-fix-file.mjs` if it's missing (script body: `skills/nuxt-scaffold/scripts/templates/files/.claude/guards/lint-fix-file.mjs`, single source of truth). Keep the `permissions` / `PostToolUse` keys in sync with `skills/nuxt-scaffold/scripts/templates/merge/claude-settings.json`.
+Governance superset: `permissions` + `PostToolUse` lint-fix (the `nuxt-scaffold` baseline) **plus** the `PreToolUse` `bash-guard.mjs` and `spec-gate-guard.mjs` hooks (governance). Used when onboarding an existing nuxt repo (Phase 5-3) — also write `.claude/guards/lint-fix-file.mjs` if it's missing (script body: `skills/nuxt-scaffold/scripts/templates/files/.claude/guards/lint-fix-file.mjs`, single source of truth). Keep the `permissions` / `PostToolUse` keys in sync with `skills/nuxt-scaffold/scripts/templates/merge/claude-settings.json`.
 
 ```json
 {
@@ -273,6 +273,15 @@ Governance superset: `permissions` + `PostToolUse` lint-fix (the `nuxt-scaffold`
           {
             "type": "command",
             "command": "node .claude/guards/bash-guard.mjs"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/guards/spec-gate-guard.mjs"
           }
         ]
       }

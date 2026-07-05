@@ -1,6 +1,6 @@
 ---
 name: task-workflow
-description: "AI task workflow — scope → spec → plan file → implement → verify → review → cleanup. Use when starting a new feature, bug fix, or non-trivial change, especially when a spec is required before coding. Trigger: /task-workflow, 'show task workflow', 'spec gate', 'task guide', 'what is the task workflow', 'quy trình task', 'spec trước khi code'."
+description: "AI task workflow — scope → spec → plan file → implement → verify → review → cleanup. MUST use when user says: 'implement X', 'add a feature', 'build Y', 'fix bug in Z', 'start working on', 'create a new endpoint', 'thêm chức năng', 'sửa lỗi', 'làm feature mới', or is about to start any non-trivial feature/bug-fix work requiring a spec before coding. Also fires on meta-questions about the workflow itself: /task-workflow, 'show task workflow', 'spec gate', 'task guide', 'what is the task workflow', 'quy trình task', 'spec trước khi code'."
 ---
 
 # task-workflow

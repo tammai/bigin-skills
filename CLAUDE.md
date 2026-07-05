@@ -29,7 +29,7 @@ Details live in each skill's own `SKILL.md` — read it when working on that ski
 
 ## Versioning
 
-Version lives in `.claude-plugin/plugin.json`. Bump it when publishing changes and add a `CHANGELOG.md` entry. Pre-commit budget gate: activate once with `git config core.hooksPath scripts/git-hooks`.
+Version lives in `.claude-plugin/plugin.json`. Bump it when publishing changes and add a `CHANGELOG.md` entry. Before a **major or minor** bump, find and fix all stale docs first (file lists, counts, cross-references in `README.md`, `CLAUDE.md`, `SKILL.md`s, `marketplace.json`) — patch bumps don't require this sweep. Pre-commit budget gate: activate once with `git config core.hooksPath scripts/git-hooks`.
 
 ## Session Handoff
 

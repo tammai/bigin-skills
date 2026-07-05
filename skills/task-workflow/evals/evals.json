@@ -1,0 +1,15 @@
+[
+  {"query": "implement user login with email and password", "should_trigger": true},
+  {"query": "add a dark mode toggle to the settings page", "should_trigger": true},
+  {"query": "fix bug in the checkout flow where the discount code isn't applying", "should_trigger": true},
+  {"query": "build a notifications feature for the dashboard", "should_trigger": true},
+  {"query": "thêm chức năng đăng nhập bằng Google", "should_trigger": true},
+  {"query": "sửa lỗi ở trang thanh toán khi áp mã giảm giá không đúng", "should_trigger": true},
+  {"query": "what is the task workflow for this repo?", "should_trigger": true},
+  {"query": "fix this typo in the README, it should say 'repository' not 'repositry'", "should_trigger": false},
+  {"query": "bump the lodash version in package.json to the latest patch", "should_trigger": false},
+  {"query": "what does this function do, can you explain the auth middleware", "should_trigger": false},
+  {"query": "run the tests and tell me if anything fails", "should_trigger": false},
+  {"query": "review this PR and check for security issues", "should_trigger": false},
+  {"query": "can you rename this variable from data to userData", "should_trigger": false}
+]

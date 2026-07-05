@@ -169,6 +169,15 @@ Prepend `paths: ["src/**"]` as YAML frontmatter when writing `architecture.md` (
             "command": "node .claude/guards/bash-guard.mjs"
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/guards/spec-gate-guard.mjs"
+          }
+        ]
       }
     ]
   }
