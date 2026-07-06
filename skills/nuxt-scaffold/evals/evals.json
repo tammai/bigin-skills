@@ -1,0 +1,14 @@
+[
+  {"query": "scaffold a new nuxt 4 app with the saas template", "should_trigger": true},
+  {"query": "create a nuxt app for our BFF layer", "should_trigger": true},
+  {"query": "initialize a new nuxt project called my-app", "should_trigger": true},
+  {"query": "set up nuxt with the dashboard template", "should_trigger": true},
+  {"query": "tạo một dự án nuxt mới", "should_trigger": true},
+  {"query": "khởi tạo nuxt cho dự án này", "should_trigger": true},
+  {"query": "set up the AI harness for this nuxt repo", "should_trigger": false},
+  {"query": "add a new page to this existing nuxt app", "should_trigger": false},
+  {"query": "fix the eslint config in this nuxt project", "should_trigger": false},
+  {"query": "explain how nuxt-auth-utils works", "should_trigger": false},
+  {"query": "distill this sprint's learnings", "should_trigger": false},
+  {"query": "run the nuxt dev server and check the homepage", "should_trigger": false}
+]

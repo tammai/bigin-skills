@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.23.1] - 2026-07-06
+
+### Fixed
+
+- **The generated `code-reviewer` agent's frontmatter set `agentType: general-purpose`, which is not a field the subagent schema recognizes (valid fields are `name, description, tools, disallowedTools, model, permissionMode, maxTurns, skills, mcpServers, hooks, memory, background, effort, isolation, color, initialPrompt`) — the field is silently ignored, so nothing enforced the agent's own claim of being "Read-only... Never writes or edits files":** Replaced `agentType: general-purpose` with `tools: Read, Grep, Glob, Bash` in the `code-reviewer` agent template (`skills/bigin-harness-setup/references/files-shared.md`), matching `sub-agents.md`'s own read-only reviewer example. Updated the corresponding convention note in `.claude/rules/skill-authoring.md` to describe the `tools:` restriction instead of the non-existent `agentType` field, and to clarify that `agentType` only exists as a call-site option when *invoking* an agent (`Agent` tool, `Workflow`'s `agent()`), never inside a subagent definition's own frontmatter.
+
+  ```patch
+  target: .claude/agents/code-reviewer.md
+  anchor: agentType: general-purpose
+  insert: replace
+  ---
+
+  tools: Read, Grep, Glob, Bash
+  ```
+
+### Added
+
+- **`sprint-distill`, `task-workflow` had no pinned `effort:` while the other three skills did, and `sprint-distill`'s own Phase 1 self-flagged as an unadopted `context: fork` candidate:** Added `effort: high` to `sprint-distill` (git-log/diff-heavy, sprint-scale) and `effort: low` to `task-workflow` (lightweight phase guidance). Delegated `sprint-distill` Phase 1 steps 1-4 (git log, diff, stale-rules scan) to an Agent-tool subagent returning a summary, keeping step 5's interactive `AskUserQuestion` in the main conversation afterward — implemented via explicit Agent-tool delegation rather than the skill-level `context: fork` frontmatter, since that field would fork the entire skill (including step 5, where `AskUserQuestion` isn't available to subagents).
+- **`allowed-tools`** added to `bigin-harness-setup` (`git init`, `git rev-parse`, `chmod +x`, `ln -sf`), `nuxt-scaffold` (`node ${CLAUDE_SKILL_DIR}/scripts/scaffold.mjs`), and `sprint-distill` (`git log`, `git diff`, `node tools/knowledge_validate.mjs`) to pre-approve safe, repeated commands each skill already runs.
+- **`evals/evals.json`** added for `bigin-harness-setup`, `nuxt-scaffold`, and `sprint-distill` (12 should-trigger/should-not-trigger cases each, EN + VI), matching `task-workflow`'s existing coverage.
+- Moved `bigin-harness-setup`'s Phase 1a (patch-mode procedure) out of `SKILL.md` into `references/patch-mode.md`, trimming the skill body from 464 to 434 lines.
+
 ## [1.23.0] - 2026-07-05
 
 ### Added

@@ -1,0 +1,14 @@
+[
+  {"query": "run sprint distill for this sprint", "should_trigger": true},
+  {"query": "let's do our end-of-sprint review and update the knowledge base", "should_trigger": true},
+  {"query": "distill what we learned this sprint into knowledge/ and bigin-skills", "should_trigger": true},
+  {"query": "compile sprint knowledge from the last two weeks of merged PRs", "should_trigger": true},
+  {"query": "chưng cất sprint này giúp tôi", "should_trigger": true},
+  {"query": "tổng kết sprint và cập nhật knowledge base", "should_trigger": true},
+  {"query": "review this PR and check for security issues", "should_trigger": false},
+  {"query": "review this one commit before I merge it", "should_trigger": false},
+  {"query": "can you review my latest change for bugs", "should_trigger": false},
+  {"query": "what changed in the last commit", "should_trigger": false},
+  {"query": "set up the AI harness for this repo", "should_trigger": false},
+  {"query": "scaffold a new nuxt app from scratch", "should_trigger": false}
+]

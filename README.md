@@ -135,19 +135,23 @@ bigin-skills/
 ├── skills/
 │   ├── bigin-harness-setup/       ← harness scaffolder
 │   │   ├── SKILL.md               ← 8-phase workflow (Phase 8: measurement step)
+│   │   ├── evals/evals.json       ← should-trigger/should-not-trigger cases
 │   │   └── references/
 │   │       ├── profile-nuxt.md    ← CLAUDE.md + conventions-frontend/server + settings
 │   │       ├── profile-go.md
 │   │       ├── profile-nodejs.md
 │   │       ├── files-shared.md    ← security, architecture, task guide, review checklist, paths substitutions
+│   │       ├── patch-mode.md      ← Phase 1a: version diffing + CHANGELOG patch-block application
 │   │       ├── hook-guard.md      ← bash-guard.mjs, spec-gate-guard.mjs + pre-commit scripts per profile
 │   │       ├── budget-gate.md     ← context_budget.mjs (budget gate script)
 │   │       ├── knowledge-bundle.md
 │   │       └── ci.md
 │   ├── task-workflow/             ← on-demand task workflow (Tier 3)
-│   │   └── SKILL.md               ← scope → spec → plan file → implement → verify → review → cleanup
+│   │   ├── SKILL.md               ← scope → spec → plan file → implement → verify → review → cleanup
+│   │   └── evals/evals.json
 │   ├── nuxt-scaffold/             ← Nuxt 4 BFF app scaffolder (npm create nuxt, no clone)
 │   │   ├── SKILL.md               ← decides config values; the script does the rest
+│   │   ├── evals/evals.json
 │   │   ├── scripts/
 │   │   │   ├── scaffold.mjs       ← deterministic scaffold (Node stdlib, --config JSON)
 │   │   │   └── templates/         ← source of truth for files written into the project
@@ -156,7 +160,8 @@ bigin-skills/
 │   │       ├── modules.md         ← BFF preset (always installed, no opt-in menu)
 │   │       └── artifacts.md       ← rationale + merge semantics for the templates
 │   ├── sprint-distill/            ← end-of-sprint distillation (compresses, never appends)
-│   │   └── SKILL.md
+│   │   ├── SKILL.md
+│   │   └── evals/evals.json
 │   └── session-handoff/           ← session state persistence
 │       └── SKILL.md
 ├── CHANGELOG.md

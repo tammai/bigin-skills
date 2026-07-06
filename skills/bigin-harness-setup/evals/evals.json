@@ -1,0 +1,14 @@
+[
+  {"query": "set up the AI workflow harness for this repo", "should_trigger": true},
+  {"query": "add CLAUDE.md and governance rules to this project", "should_trigger": true},
+  {"query": "scaffold the harness for our go backend", "should_trigger": true},
+  {"query": "onboard this existing repo with structured AI-assisted development conventions", "should_trigger": true},
+  {"query": "thiết lập harness cho dự án này", "should_trigger": true},
+  {"query": "cài harness AI cho repo backend", "should_trigger": true},
+  {"query": "add a login button to the homepage", "should_trigger": false},
+  {"query": "run the tests and tell me if anything fails", "should_trigger": false},
+  {"query": "review this PR and check for security issues", "should_trigger": false},
+  {"query": "distill this sprint's learnings into knowledge/", "should_trigger": false},
+  {"query": "scaffold a new nuxt 4 app with the saas template", "should_trigger": false},
+  {"query": "explain what CLAUDE.md is used for", "should_trigger": false}
+]

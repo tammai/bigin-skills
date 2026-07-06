@@ -1,6 +1,8 @@
 ---
 name: sprint-distill
 description: "Distills merged PRs and touched knowledge/ concepts since the last sprint-log entry into knowledge/ updates and bigin-skills convention updates, proposal-first — replaces a manual NotebookLM end-of-sprint pass. MUST use when user says: 'sprint distill', 'distill this sprint', 'distill the sprint', 'run sprint distill', 'end of sprint', 'end-of-sprint review', 'chưng cất sprint', 'tổng kết sprint', 'compile sprint knowledge'. Do NOT use for a single PR, single change, or one-off code review — use /code-review or /review instead; this skill only operates on a sprint-scale date range."
+effort: high
+allowed-tools: Bash(git log *) Bash(git diff *) Bash(node tools/knowledge_validate.mjs)
 ---
 
 # sprint-distill
@@ -37,18 +39,21 @@ Turns a sprint's worth of merged work into `knowledge/` updates and `bigin-skill
 
 ## Phase 1: Gather Inputs
 
+**Steps 1-4 run in a subagent** — non-interactive and can produce large git log/diff output that shouldn't sit in the main conversation. Use the Agent tool (`general-purpose`, it needs Bash for git commands) with a prompt covering:
+
 1. `git log` merged commits/PRs on the main branch since `SPRINT_START` — titles + bodies.
 2. `git diff --stat SPRINT_START..HEAD -- knowledge/` (if `KB_MODE = full`) — concept files touched this sprint.
 3. Current `.claude/rules/*.md` — read so you don't re-propose a convention that's already documented.
 4. **Stale-rules scan**: for each file in `.claude/rules/` and `CLAUDE.md`, identify the most recent `git log` entry that touched it. Flag any file with no merged PR touching it in the 2 sprints since `SPRINT_START` as a deletion candidate. Output as a list: `{file} — last touched {date}, {N} sprints ago`.
-5. Ask the user:
+
+Have the subagent return: the commit titles/bodies, the `knowledge/` diff stat, and the stale-rules list — not raw `git log`/`git diff` output. This is a plain subagent delegation (Agent tool), not the skill-level `context: fork` frontmatter — only steps 1-4 need isolating, and `context: fork` would run the entire skill (including step 5's interactive question) as a subagent, where `AskUserQuestion` isn't available.
+
+5. **After the subagent returns**, ask the user directly (main conversation):
    ```
    Any out-of-repo material for this sprint? (meeting notes, transcripts, client
    docs — paste directly, or say none)
    ```
    Treat pasted material as additional candidate learnings, classified identically to git-derived ones in Phase 2 — no separate pipeline.
-
-**Note:** this phase is a candidate for `context: fork` as a subagent — it's non-interactive and can produce large git log/diff output. Worth testing, not yet adopted.
 
 ---
 

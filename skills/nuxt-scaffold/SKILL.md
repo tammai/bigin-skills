@@ -2,6 +2,7 @@
 name: nuxt-scaffold
 description: "Scaffolds a Nuxt 4 BFF app — non-interactive, template-driven. Default `starter` template runs `npm create nuxt@latest` from scratch (no GitHub clone); every other template (saas, dashboard, landing, docs, portfolio, chat, changelog, editor) clones the matching official ui.nuxt.com/templates starter, then layers the BFF preset modules + config + sample code on top. MUST use when user says: 'scaffold nuxt', 'create nuxt app', 'initialize nuxt project', 'new nuxt bff', 'set up nuxt', 'nuxt saas template', 'nuxt dashboard template', 'tạo nuxt', 'khởi tạo nuxt', 'cài nuxt', or when the repo has no nuxt.config.ts. Also invoked by bigin-harness-setup Phase 0.5 for the nuxt profile on an empty repo."
 effort: low
+allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/scaffold.mjs *)
 ---
 
 # nuxt-scaffold

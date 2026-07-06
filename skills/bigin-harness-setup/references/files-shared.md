@@ -185,7 +185,7 @@ Before marking any task complete, every item must be checked.
 name: code-reviewer
 description: Reviews code changes for correctness, security, and convention compliance. Use when asked to review a PR, audit changes, check a diff, or verify code before merging.
 model: sonnet
-agentType: general-purpose
+tools: Read, Grep, Glob, Bash
 ---
 
 # Code Reviewer
