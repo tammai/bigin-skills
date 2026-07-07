@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.24.0] - 2026-07-07
+
+### Added
+
+- **New `write-tests` skill** (`skills/write-tests/SKILL.md`, `effort: medium`) — on-demand test authoring, triggered by "write tests for X", "add tests for Y", "test this function" (EN + VI). Encodes: match the nearest existing test file's style before writing anything new; scope to the named unit only; list edge cases and wait for confirmation past 5 items; mock only true I/O boundaries; TDD order (failing test → confirm it fails for the right reason → implement → green) for business logic; one assertion concern per test case; stop conditions (no framework-internals tests, no snapshots unless asked, no tests for generated code, no unflagged skipped/TODO tests). Added `skills/write-tests/evals/evals.json` (12 should-trigger/should-not-trigger cases, EN + VI) matching `task-workflow`'s existing coverage.
+- **`task-workflow`'s Implement step now points to `write-tests`** for the actual test-authoring discipline, instead of leaving test quality unstated — avoids restating the same rules in two skills.
+- **`AI_REVIEW_CHECKLIST.md` template gained a `## Testing` section** (business-logic changes have tests for their stated edge cases; no mocking of non-I/O units; no unflagged skipped/TODO tests) — profile-agnostic, so it applies to nuxt/go/nodejs alike. Previously only the `nuxt` profile had any testing convention (`profile-nuxt.md`'s Vitest-specific `testing.md`); `go`/`nodejs` had none, and nothing enforced test presence/mocking discipline as a review gate on any profile.
+
+  ```patch
+  target: AI_REVIEW_CHECKLIST.md
+  anchor: ## Code quality
+- [ ] No new `@ts-ignore`, `as any`, or `eslint-disable` without a justifying comment
+- [ ] No `//nolint` without a justifying comment (Go)
+- [ ] No hardcoded secrets, credentials, or API keys
+  insert: after
+  ---
+
+  ## Testing
+- [ ] Business-logic changes have tests covering the edge cases named in the spec
+- [ ] No mocking of non-I/O units (pure functions, in-process logic)
+- [ ] No skipped/TODO tests left without being flagged
+  ```
+
 ## [1.23.1] - 2026-07-06
 
 ### Fixed

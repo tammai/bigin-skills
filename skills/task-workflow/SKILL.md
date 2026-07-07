@@ -19,7 +19,7 @@ Follow this workflow for every non-trivial task.
 3. **Plan file** — once the spec/plan is approved, write it to `PLAN.md`: the approved spec followed by a tasks tracking table (see format below).
    If `PLAN.md` already exists with tasks not marked `Done`, stop and ask the user how to proceed (resume, discard, or replace) before writing — never overwrite silently. If it doesn't exist, or every task in it is `Done`, write the new plan over it.
 
-4. **Implement** — follow `.claude/rules/` conventions. Stay in scope. Update `PLAN.md`'s tracking table as each task starts, finishes, or blocks — don't batch updates to the end.
+4. **Implement** — follow `.claude/rules/` conventions. Stay in scope. Update `PLAN.md`'s tracking table as each task starts, finishes, or blocks — don't batch updates to the end. For any new test files, follow the `write-tests` skill's discipline (style-matching, no unnecessary mocking, TDD ordering for business logic).
 
 5. **Verify** — run lint + typecheck + tests. All must pass before marking done.
 

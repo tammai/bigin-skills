@@ -1,0 +1,14 @@
+[
+  {"query": "write tests for the discount calculator", "should_trigger": true},
+  {"query": "add tests for this function", "should_trigger": true},
+  {"query": "can you generate unit tests for the validateEmail helper", "should_trigger": true},
+  {"query": "test this function, cover the nil-input case", "should_trigger": true},
+  {"query": "viết test cho hàm validate", "should_trigger": true},
+  {"query": "thêm test cho function này", "should_trigger": true},
+  {"query": "write a test case for the retry logic in the api client", "should_trigger": true},
+  {"query": "run the tests and tell me if anything fails", "should_trigger": false},
+  {"query": "why is this test flaky, can you debug it", "should_trigger": false},
+  {"query": "what testing strategy should we use for this project", "should_trigger": false},
+  {"query": "review this PR and check for security issues", "should_trigger": false},
+  {"query": "bump the lodash version in package.json to the latest patch", "should_trigger": false}
+]

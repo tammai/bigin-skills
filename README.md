@@ -16,6 +16,7 @@ Skills for standardized, AI-assisted development across BigIn's stacks.
 | **nuxt-scaffold**       | Scaffolds a Nuxt 4 BFF app from scratch via a deterministic Node.js script (`scripts/scaffold.mjs`, config-driven, zero prompts, macOS/Windows) — `npm create nuxt@latest` + BFF preset + config/sample code. No GitHub clone. / Scaffold app Nuxt 4 BFF bằng script Node.js tất định — không prompt khi chạy. |
 | **sprint-distill**      | End-of-sprint distillation: merged PRs + touched `knowledge/` concepts → proposal-first `knowledge/` and `bigin-skills` updates. Compresses, never just appends. |
 | **session-handoff**     | Saves session state (tasks, decisions, uncommitted changes) to `SESSION.md` and restores it on resume.   |
+| **write-tests**         | On-demand test authoring (`/write-tests`): style-matches the nearest existing test file, lists edge cases before coding, TDD-orders business logic, mocks only true I/O boundaries. |
 
 ---
 
@@ -162,8 +163,11 @@ bigin-skills/
 │   ├── sprint-distill/            ← end-of-sprint distillation (compresses, never appends)
 │   │   ├── SKILL.md
 │   │   └── evals/evals.json
-│   └── session-handoff/           ← session state persistence
-│       └── SKILL.md
+│   ├── session-handoff/           ← session state persistence
+│   │   └── SKILL.md
+│   └── write-tests/               ← on-demand test authoring
+│       ├── SKILL.md               ← style-match, scope, edge cases, TDD ordering, no over-mocking
+│       └── evals/evals.json
 ├── CHANGELOG.md
 └── README.md
 ```

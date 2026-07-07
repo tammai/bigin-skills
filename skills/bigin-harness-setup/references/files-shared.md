@@ -160,6 +160,11 @@ Before marking any task complete, every item must be checked.
 - [ ] No `//nolint` without a justifying comment (Go)
 - [ ] No hardcoded secrets, credentials, or API keys
 
+## Testing
+- [ ] Business-logic changes have tests covering the edge cases named in the spec
+- [ ] No mocking of non-I/O units (pure functions, in-process logic)
+- [ ] No skipped/TODO tests left without being flagged
+
 ## Security
 - [ ] Every risk named in the spec's Security considerations section was actually addressed
 - [ ] No unauthenticated endpoints added
