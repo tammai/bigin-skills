@@ -14,6 +14,7 @@ Follow this workflow for every non-trivial task.
 
 2. **Spec gate** (non-trivial features only) — write and get approval for a spec before implementing.
    Skip for: bug fixes, copy changes, config tweaks, changes ≤20 lines of logic.
+   Use the default format below unless the user explicitly asks for a "full spec" / "AI-friendly spec" / "spec-driven" spec — then use the full spec format instead. Never switch formats based on perceived complexity; the trigger is the explicit request only.
    If the feature touches auth, sessions, secrets, PII, or untrusted input (user-controlled data, URLs, redirects, file paths), the spec's Security considerations must name the concrete risks — see `.claude/rules/security.md`. Don't defer security to the post-implementation review; a threat found at spec time is a sentence, the same one found after code review is a rewrite.
 
 3. **Plan file** — once the spec/plan is approved, write it to `PLAN.md`: the approved spec followed by a tasks tracking table (see format below).
@@ -41,6 +42,24 @@ Testing strategy: {what will be tested and how — unit/integration/manual, whic
 Not in scope: {explicit exclusions}
 ```
 
+### Full spec (opt-in)
+
+Only when the user explicitly asks for a "full spec" / "AI-friendly spec" / "spec-driven" spec. Omit any section below that doesn't apply — don't pad. Typical omissions: no Component Tree for a backend-only change, no API Contract for a UI-only change, no Data Model if nothing new is persisted.
+
+```
+## Spec: {feature name} [full-spec]
+User Stories & Scenarios: {Given/When/Then per story, only if there's more than one flow}
+Requirements: {Functional (FR-1, FR-2, ...) as plain bullets — skip the table unless there are 5+; Non-Functional only if there's a real perf/scale/availability constraint}
+API Contract: {typed request/response — only if this introduces or changes an API}
+Data Model: {interfaces/types — only if this introduces or changes persisted/shared data}
+Component Tree (frontend projects only): {file paths + nesting — only for multi-component frontend work}
+Security considerations: {same as default format — always required}
+Verification Checklist: {Automated: tests/lint/typecheck. Manual: happy path, error path, edge cases}
+Not in scope: {explicit exclusions}
+```
+
+See `references/full-spec-example.md` for a filled-in example.
+
 ## PLAN.md format
 
 Single file — the approved spec followed by a tracking table, kept in one place and updated in place (no separate progress file):
@@ -62,6 +81,8 @@ Status: approved
 ```
 
 Valid statuses: `Not started`, `In progress`, `Done`, `Blocked`.
+
+**Full-spec tier only:** add a `Covers` column (e.g. `FR-3`) linking each task to the requirement it implements, and add one tracked row per Verification Checklist manual item (e.g. `Verify: error path for FR-2`, status `Not started`). Cleanup (step 7) can't happen while any of those rows is still open. Don't add the `Covers` column or verification rows for default-tier specs — there are no FR-IDs to reference.
 
 ## Scope discipline
 

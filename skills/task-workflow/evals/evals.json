@@ -6,6 +6,8 @@
   {"query": "thêm chức năng đăng nhập bằng Google", "should_trigger": true},
   {"query": "sửa lỗi ở trang thanh toán khi áp mã giảm giá không đúng", "should_trigger": true},
   {"query": "what is the task workflow for this repo?", "should_trigger": true},
+  {"query": "write a full spec for the user profile page", "should_trigger": true},
+  {"query": "create an AI-friendly specification for the search feature", "should_trigger": true},
   {"query": "fix this typo in the README, it should say 'repository' not 'repositry'", "should_trigger": false},
   {"query": "bump the lodash version in package.json to the latest patch", "should_trigger": false},
   {"query": "what does this function do, can you explain the auth middleware", "should_trigger": false},

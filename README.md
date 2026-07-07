@@ -149,6 +149,8 @@ bigin-skills/
 │   │       └── ci.md
 │   ├── task-workflow/             ← on-demand task workflow (Tier 3)
 │   │   ├── SKILL.md               ← scope → spec → plan file → implement → verify → review → cleanup
+│   │   ├── references/
+│   │   │   └── full-spec-example.md ← filled example of the opt-in full-spec tier
 │   │   └── evals/evals.json
 │   ├── nuxt-scaffold/             ← Nuxt 4 BFF app scaffolder (npm create nuxt, no clone)
 │   │   ├── SKILL.md               ← decides config values; the script does the rest

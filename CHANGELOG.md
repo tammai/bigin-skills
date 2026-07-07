@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.25.0] - 2026-07-07
+
+### Added
+
+- **`task-workflow` gained an opt-in "full spec" tier** (`skills/task-workflow/SKILL.md`) — triggered only by an explicit request ("write a full spec" / "AI-friendly spec" / "spec-driven"), never by perceived complexity. Adds User Stories & Scenarios, Functional/Non-Functional Requirements, API Contract, Data Model, and a frontend-only Component Tree — each section optional and omitted when it doesn't apply. The default 6-field spec is unchanged and remains what fires for ordinary non-trivial work; this does not raise the token cost of the common case.
+- **`PLAN.md`'s Tasks table gained an optional `Covers` column and manual-verification rows**, full-spec-tier only — links tasks to the requirement they implement and tracks each manual Verification Checklist item as its own row, so cleanup can't happen while a manual check is still outstanding. Default-tier `PLAN.md`s are unaffected (no `Covers` column, no verification rows).
+- **New reference** `skills/task-workflow/references/full-spec-example.md` — a filled-in, backend/API-oriented example of the full-spec tier (deliberately not a frontend example, since task-workflow spans nuxt/go/nodejs profiles equally).
+- Two new eval cases in `skills/task-workflow/evals/evals.json` for explicit full-spec requests.
+
 ## [1.24.0] - 2026-07-07
 
 ### Added
