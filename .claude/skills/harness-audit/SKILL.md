@@ -39,7 +39,7 @@ For each dimension: state what the docs say, what this repo currently does, cite
 
 ### Hooks
 
-- `bash-guard.mjs` and `spec-gate-guard.mjs` regexes/exit-code contract still match the current hooks.md schema (event names, stdin format, exit codes).
+- `bash-guard.mjs`, `spec-gate-guard.mjs`, `injection-scan-guard.mjs`, and `injection-gate-guard.mjs` regexes/exit-code/decision-output contract still match the current hooks.md schema (event names, stdin format, exit codes, `hookSpecificOutput` fields like `additionalContext` and `permissionDecision`).
 - Any hook event from the current docs (`SessionStart`, `PreCompact`, `Stop`, etc.) that's missing here but would close a real gap — not "adopt everything," only what fixes something concrete.
 - `bigin-harness-setup`'s settings.json merge logic (Phase 5-3) still matches how Claude Code actually merges hooks across scopes per current docs.
 

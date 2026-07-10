@@ -58,7 +58,9 @@ your-repo/
 │   │   └── architecture.md             ← Tier 2: paths: scoped per profile
 │   ├── guards/
 │   │   ├── bash-guard.mjs               ← blocks --no-verify and force-push to main
-│   │   └── spec-gate-guard.mjs          ← blocks non-trivial edits before PLAN.md is approved
+│   │   ├── spec-gate-guard.mjs          ← blocks non-trivial edits before PLAN.md is approved
+│   │   ├── injection-scan-guard.mjs     ← flags likely prompt-injection markers in fetched content
+│   │   └── injection-gate-guard.mjs     ← asks for confirmation before the next risky tool call after a flag
 │   ├── settings.json                   ← pre-approved commands + hook wiring
 │   └── agents/
 │       └── code-reviewer.md            ← optional, read-only (opt-in)
@@ -86,6 +88,7 @@ The skill detects the stack profile (or asks), confirms before overwriting anyth
 - **`scripts/pre-commit.sh`** — runs lint + typecheck + tests; fails closed. The skill installs it as a git hook (and `git init`s the repo if needed).
 - **`.claude/guards/bash-guard.mjs`** — a `PreToolUse` hook that blocks the agent from weakening its own gates (`--no-verify`, `git commit -n`, force-push to main). `--force-with-lease` on a feature branch is allowed.
 - **`.claude/guards/spec-gate-guard.mjs`** — a `PreToolUse` hook that blocks non-trivial `Edit`/`Write`/`MultiEdit` calls until `PLAN.md` exists with `Status: approved`. Trivial paths (`tests/**`, `*.md`, `.env.example`, common config files) and edits ≤20 lines are exempt.
+- **`.claude/guards/injection-scan-guard.mjs` + `.claude/guards/injection-gate-guard.mjs`** — a two-stage prompt-injection defense (inspired by Lasso Security's PostToolUse Defender). The scan guard (`PostToolUse`) heuristically checks `WebFetch`/`mcp__*` responses and `curl`/`wget` Bash output for injected instructions and flags a session-scoped marker; the gate guard (`PreToolUse`) asks for confirmation on the next risky `Bash`/`Write`/`Edit`/`mcp__*` call if that flag is still fresh (5-minute window), then clears it.
 - **Auto-format** (nuxt) — set up by the `nuxt-scaffold` skill. ESLint via `@nuxt/eslint` is the only formatter (Prettier disabled). A `PostToolUse` hook runs `.claude/guards/lint-fix-file.mjs` after every agent Write/Edit, scoped to just the touched file; humans get the same via `.vscode/settings.json` format-on-save.
 - **`.claude/settings.json`** — pre-approves safe profile commands to reduce prompt friction.
 
@@ -143,7 +146,7 @@ bigin-skills/
 │   │       ├── profile-nodejs.md
 │   │       ├── files-shared.md    ← security, architecture, task guide, review checklist, paths substitutions
 │   │       ├── patch-mode.md      ← Phase 1a: version diffing + CHANGELOG patch-block application
-│   │       ├── hook-guard.md      ← bash-guard.mjs, spec-gate-guard.mjs + pre-commit scripts per profile
+│   │       ├── hook-guard.md      ← bash-guard.mjs, spec-gate-guard.mjs, injection-scan/gate-guard.mjs + pre-commit scripts per profile
 │   │       ├── budget-gate.md     ← context_budget.mjs (budget gate script)
 │   │       ├── knowledge-bundle.md
 │   │       └── ci.md

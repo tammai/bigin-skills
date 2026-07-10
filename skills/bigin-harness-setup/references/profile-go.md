@@ -177,6 +177,26 @@ Prepend `paths: ["**/*.go"]` as YAML frontmatter when writing `architecture.md` 
             "command": "node .claude/guards/spec-gate-guard.mjs"
           }
         ]
+      },
+      {
+        "matcher": "Bash|Write|Edit|mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/guards/injection-gate-guard.mjs"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "WebFetch|mcp__.*|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/guards/injection-scan-guard.mjs"
+          }
+        ]
       }
     ]
   }
