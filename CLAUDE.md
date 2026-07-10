@@ -25,6 +25,7 @@ scripts/git-hooks/        ← pre-commit running the budget gate
 | `sprint-distill` | End-of-sprint distillation into `knowledge/` + bigin-skills; compresses, never appends |
 | `session-handoff` | Session state persistence to `.claude/memory/SESSION.md` |
 | `write-tests` | On-demand test authoring: style-match, scope, edge-case list, TDD ordering, no unnecessary mocking |
+| `debug-workflow` | On-demand systematic debugging: root cause → pattern analysis → hypothesis → fix+validation (Tier 3) |
 
 Details live in each skill's own `SKILL.md` — read it when working on that skill. Authoring conventions are in `.claude/rules/skill-authoring.md` (loads when editing `skills/`).
 

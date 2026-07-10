@@ -1,0 +1,14 @@
+[
+  {"query": "why is this test flaky, can you debug it", "should_trigger": true},
+  {"query": "this works in staging but not in prod, can you figure out why", "should_trigger": true},
+  {"query": "getting a stack trace in production, need to find the root cause", "should_trigger": true},
+  {"query": "why is this API endpoint returning 500 randomly", "should_trigger": true},
+  {"query": "there's a performance regression after the last deploy, investigate", "should_trigger": true},
+  {"query": "gỡ lỗi giúp tôi, không biết tại sao hàm này bị lỗi", "should_trigger": true},
+  {"query": "implement user login with email and password", "should_trigger": false},
+  {"query": "add a dark mode toggle to the settings page", "should_trigger": false},
+  {"query": "fix bug in the checkout flow where the discount code isn't applying", "should_trigger": false},
+  {"query": "sửa lỗi ở trang thanh toán khi áp mã giảm giá không đúng", "should_trigger": false},
+  {"query": "write tests for the discount calculator", "should_trigger": false},
+  {"query": "run the tests and tell me if anything fails", "should_trigger": false}
+]

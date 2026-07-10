@@ -5,6 +5,156 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.27.0] - 2026-07-10
+
+### Added
+
+- **No phase-gated debugging discipline existed anywhere in the harness — `task-workflow` skips its spec gate for bug fixes by design, so a bug fix went straight from a one-sentence Scope statement to unstructured trial-and-error, with no root-cause-first discipline, no evidence requirement, and no escalation path when a fix attempt failed repeatedly:** Added a new on-demand `debug-workflow` skill (`skills/debug-workflow/SKILL.md`) with four gated phases — Root Cause Investigation (trace the failure backward per layer: Nuxt composable → Pinia/Pinia Colada store → API client → Go handler → DB, logging what enters/exits each boundary, no fix proposals allowed), Pattern Analysis (diff against a known-working analogous path), Hypothesis Testing (exactly one hypothesis at a time, tested with a smallest-possible disposable probe — explicitly scoped as distinct from a shippable fix so it doesn't conflict with the phase-gate's "no fix before phase 4" rule — discard the probe and return to phase 1 if wrong rather than stacking a second hypothesis), and Fix + Validation (implement only once root cause is confirmed, show the actual validation output). An escalation safeguard stops after 3 failed fix attempts on the same issue and flags it for human review instead of continuing to patch, reusing `task-workflow`'s existing "stop and ask" phrasing for consistency. Two new reference docs: `references/race-conditions.md` (condition-based waiting via `vi.waitFor`/Playwright assertions instead of arbitrary `setTimeout` delays) and `references/defense-in-depth.md` (once a bug is fixed, add validation at the layer that should have caught it originally — e.g. tighten the Zod schema at the BFF boundary, not just fix the component that crashed). Triggers on standalone debugging language not yet tied to a ticket (flaky tests, stack traces, "works in staging not prod," production incidents, performance regressions) — deliberately does NOT re-claim `task-workflow`'s existing tracked-bug-fix eval phrases ("fix bug in the checkout flow...", "sửa lỗi ở trang thanh toán..."), which stay owned by `task-workflow`'s scope → spec → PLAN.md path; those exact phrases are added to `debug-workflow`'s own `evals/evals.json` as explicit `should_trigger: false` anti-collision cases, following `sprint-distill`'s precedent of explicit anti-trigger evals.
+- **`task-workflow` step 5 (Verify) required lint/typecheck/tests to pass before marking a task done, but didn't require showing that output — a `PLAN.md` row could be flipped to `Done` mid-session on an unverified claim, before the pre-commit hook (the real mechanical backstop) ever ran:** Added one sentence to step 5 in both `skills/task-workflow/SKILL.md` and the `AI_TASK_GUIDE.md` template (`files-shared.md`) requiring the actual command output to be shown before any `PLAN.md` row is marked `Done`, matching the convention `write-tests` already uses.
+- **`task-workflow` step 2 (Spec gate) said to "write and get approval for a spec" but had no instruction for when the incoming request lacks enough information to fill the spec's required sections — nothing stopped a plausible-looking spec built on silent assumptions from being presented for rubber-stamp approval:** Added an instruction to both `skills/task-workflow/SKILL.md` and the `AI_TASK_GUIDE.md` template to ask up to 3 targeted clarifying questions before drafting the spec when confidence is low, rather than filling gaps silently.
+- **`code-reviewer.md`'s `Process` section ran one blended pass across scope compliance, conventions, security, and architecture, then gave a single pass/fail verdict — well-written code that quietly did more or less than the approved spec (scope creep) could pass review as long as it was clean by convention/security standards:** Split the `code-reviewer agent` template (`files-shared.md`) into two explicitly labeled, separately-reported passes: **Stage 1 — spec/scope compliance** (re-reads `PLAN.md`'s approved spec, confirms the diff matches it exactly) and **Stage 2 — convention/architecture/security compliance** (the existing checks against `conventions.md`/`security.md`/`architecture.md`/`AI_REVIEW_CHECKLIST.md`). Both stages report their own verdict; the final verdict requires both to pass — a clean Stage 2 no longer papers over a Stage 1 failure. The `## What counts as a violation` list is split the same way. Stage 1 auto-passes when no `PLAN.md` exists (nothing to check scope against), and the `## Coverage note`'s confidence/severity reporting is scoped to Stage 2 findings only, since Stage 1's verdict is a plain binary match/no-match. The agent's `tools: Read, Grep, Glob, Bash` read-only restriction is unchanged.
+- **A code review of this same change surfaced pre-existing drift between `task-workflow/SKILL.md` and its templated twin, the `AI_TASK_GUIDE.md` block in `files-shared.md` — the template was missing the `write-tests` cross-reference added in v1.24.0 and the entire opt-in "full spec" tier added in v1.25.0, plus two cosmetic wording differences ("Skip this for" vs "Skip for", "every task" vs "every non-trivial task") that had never been caught:** Synced the template to match `task-workflow/SKILL.md` exactly — added the missing `write-tests` cross-reference to step 4, added the "Full spec (opt-in)" format block and its PLAN.md `Covers`-column/verification-row addendum, and standardized both wording differences. Repos scaffolded via `bigin-harness-setup` now get the same guide content as the on-demand `task-workflow` skill.
+
+  ```patch
+  target: AI_TASK_GUIDE.md
+  anchor: Follow this workflow for every task.
+  insert: replace
+  ---
+  Follow this workflow for every non-trivial task.
+  ```
+  ```patch
+  target: AI_TASK_GUIDE.md
+  anchor:
+  2. **Spec gate** (non-trivial features only) — write and get approval for a spec before implementing.
+     Skip this for: bug fixes, copy changes, config tweaks, changes ≤20 lines of logic.
+     If the feature touches auth, sessions, secrets, PII, or untrusted input (user-controlled data, URLs, redirects, file paths), the spec's Security considerations must name the concrete risks — see `.claude/rules/security.md`. Don't defer security to the post-implementation review; a threat found at spec time is a sentence, the same one found after code review is a rewrite.
+  insert: replace
+  ---
+  2. **Spec gate** (non-trivial features only) — write and get approval for a spec before implementing.
+     Skip for: bug fixes, copy changes, config tweaks, changes ≤20 lines of logic.
+     If the request doesn't contain enough information to fill the spec's required sections (What / Inputs-outputs / Edge cases / Security considerations / Testing strategy) with confidence, ask up to 3 targeted clarifying questions before drafting the spec — never fill the gaps with silent assumptions and present an approved-looking spec built on them.
+     Use the default format below unless the user explicitly asks for a "full spec" / "AI-friendly spec" / "spec-driven" spec — then use the full spec format instead. Never switch formats based on perceived complexity; the trigger is the explicit request only.
+     If the feature touches auth, sessions, secrets, PII, or untrusted input (user-controlled data, URLs, redirects, file paths), the spec's Security considerations must name the concrete risks — see `.claude/rules/security.md`. Don't defer security to the post-implementation review; a threat found at spec time is a sentence, the same one found after code review is a rewrite.
+  ```
+  ```patch
+  target: AI_TASK_GUIDE.md
+  anchor: 4. **Implement** — follow `.claude/rules/conventions.md`. Stay in scope. Update `PLAN.md`'s tracking table as each task starts, finishes, or blocks — don't batch updates to the end.
+  insert: replace
+  ---
+  4. **Implement** — follow `.claude/rules/conventions.md`. Stay in scope. Update `PLAN.md`'s tracking table as each task starts, finishes, or blocks — don't batch updates to the end. For any new test files, follow the `write-tests` skill's discipline (style-matching, no unnecessary mocking, TDD ordering for business logic). For bug fixes specifically, use the `debug-workflow` skill's four-phase process instead of ad-hoc trial and error.
+  ```
+  ```patch
+  target: AI_TASK_GUIDE.md
+  anchor: 5. **Verify** — run lint + typecheck + tests. All must pass before marking done.
+  insert: replace
+  ---
+  5. **Verify** — run lint + typecheck + tests. All must pass before marking done. Show the actual command output in your response before flipping any `PLAN.md` task row to `Done` — a claim that tests pass without the output showing it doesn't count.
+  ```
+  ````patch
+  target: AI_TASK_GUIDE.md
+  anchor: ## PLAN.md format
+  insert: before
+  ---
+  ### Full spec (opt-in)
+
+  Only when the user explicitly asks for a "full spec" / "AI-friendly spec" / "spec-driven" spec. Omit any section below that doesn't apply — don't pad. Typical omissions: no Component Tree for a backend-only change, no API Contract for a UI-only change, no Data Model if nothing new is persisted.
+
+  ```
+  ## Spec: {feature name} [full-spec]
+  User Stories & Scenarios: {Given/When/Then per story, only if there's more than one flow}
+  Requirements: {Functional (FR-1, FR-2, ...) as plain bullets — skip the table unless there are 5+; Non-Functional only if there's a real perf/scale/availability constraint}
+  API Contract: {typed request/response — only if this introduces or changes an API}
+  Data Model: {interfaces/types — only if this introduces or changes persisted/shared data}
+  Component Tree (frontend projects only): {file paths + nesting — only for multi-component frontend work}
+  Security considerations: {same as default format — always required}
+  Verification Checklist: {Automated: tests/lint/typecheck. Manual: happy path, error path, edge cases}
+  Not in scope: {explicit exclusions}
+  ```
+
+  ````
+  ```patch
+  target: AI_TASK_GUIDE.md
+  anchor: Valid statuses: `Not started`, `In progress`, `Done`, `Blocked`.
+  insert: after
+  ---
+
+  **Full-spec tier only:** add a `Covers` column (e.g. `FR-3`) linking each task to the requirement it implements, and add one tracked row per Verification Checklist manual item (e.g. `Verify: error path for FR-2`, status `Not started`). Cleanup (step 7) can't happen while any of those rows is still open. Don't add the `Covers` column or verification rows for default-tier specs — there are no FR-IDs to reference.
+  ```
+  ```patch
+  target: .claude/agents/code-reviewer.md
+  anchor:
+  ## Process
+  1. Read the changed files (use `git diff` to identify them).
+  2. Check each change against:
+     - `.claude/rules/conventions.md` — naming, patterns, API client usage
+     - `.claude/rules/security.md` — auth, input validation, secrets, PII
+     - `.claude/rules/architecture.md` — layer boundaries, dependency direction
+     - `AI_REVIEW_CHECKLIST.md` — the full definition of done
+  3. Report violations with `file:line` references.
+  4. Final verdict: **pass** / **fail** with specific issues listed.
+  insert: replace
+  ---
+  ## Process
+
+  **Stage 1 — spec/scope compliance.**
+  1. Read `PLAN.md`'s approved spec (if present). If no `PLAN.md` exists, Stage 1 automatically passes — there's no spec to check scope against.
+  2. Read the changed files (`git diff` to identify them).
+  3. Confirm the diff does what the spec says — nothing more (no scope creep) and nothing less (no silently dropped edge case named in the spec).
+  4. Report a **Stage 1 verdict**: pass / fail, with specifics on failure.
+
+  **Stage 2 — convention/architecture/security compliance.**
+  1. Check each change against:
+     - `.claude/rules/conventions.md` — naming, patterns, API client usage
+     - `.claude/rules/security.md` — auth, input validation, secrets, PII
+     - `.claude/rules/architecture.md` — layer boundaries, dependency direction
+     - `AI_REVIEW_CHECKLIST.md` — the full definition of done
+  2. Report violations with `file:line` references.
+  3. Report a **Stage 2 verdict**: pass / fail with specific issues listed.
+
+  **Final verdict:** both stages must pass. A clean Stage 2 does not override a Stage 1 fail — well-written code that does more or less than the approved spec is still a Stage 1 fail.
+  ```
+  ```patch
+  target: .claude/agents/code-reviewer.md
+  anchor:
+  ## What counts as a violation
+  - Lint or type errors (if visible from static reading)
+  - Auth bypass or missing input validation
+  - Suppressed rules without justifying comments
+  - `openapi.yaml` not updated when routes changed
+  - Cross-layer dependency violations
+  - Hardcoded credentials
+  insert: replace
+  ---
+  ## What counts as a violation
+
+  **Stage 1:**
+  - Changes outside what the approved spec described (scope creep)
+  - An edge case or requirement named in the spec with no corresponding code
+
+  **Stage 2:**
+  - Lint or type errors (if visible from static reading)
+  - Auth bypass or missing input validation
+  - Suppressed rules without justifying comments
+  - `openapi.yaml` not updated when routes changed
+  - Cross-layer dependency violations
+  - Hardcoded credentials
+  ```
+  ```patch
+  target: .claude/agents/code-reviewer.md
+  anchor:
+  ## Coverage note
+  For anything borderline, report it anyway with a confidence level and severity —
+  don't silently drop it for being minor or uncertain. Only skip items already
+  listed under "What to ignore" above.
+  insert: replace
+  ---
+  ## Coverage note
+  For anything borderline in Stage 2, report it anyway with a confidence level and
+  severity — don't silently drop it for being minor or uncertain. Only skip items
+  already listed under "What to ignore" above. Stage 1's verdict stays binary
+  (matches the spec or doesn't) — no confidence/severity tiers needed there.
+  ```
+
 ## [1.26.0] - 2026-07-10
 
 ### Added

@@ -17,6 +17,7 @@ Skills for standardized, AI-assisted development across BigIn's stacks.
 | **sprint-distill**      | End-of-sprint distillation: merged PRs + touched `knowledge/` concepts → proposal-first `knowledge/` and `bigin-skills` updates. Compresses, never just appends. |
 | **session-handoff**     | Saves session state (tasks, decisions, uncommitted changes) to `SESSION.md` and restores it on resume.   |
 | **write-tests**         | On-demand test authoring (`/write-tests`): style-matches the nearest existing test file, lists edge cases before coding, TDD-orders business logic, mocks only true I/O boundaries. |
+| **debug-workflow**      | On-demand systematic debugging (`/debug-workflow`): four gated phases — root cause investigation → pattern analysis → hypothesis testing → fix + validation. For untracked debugging (flaky tests, stack traces, incidents), not tracked bug fixes (see task-workflow) or test authoring (see write-tests). |
 
 ---
 
@@ -170,8 +171,14 @@ bigin-skills/
 │   │   └── evals/evals.json
 │   ├── session-handoff/           ← session state persistence
 │   │   └── SKILL.md
-│   └── write-tests/               ← on-demand test authoring
-│       ├── SKILL.md               ← style-match, scope, edge cases, TDD ordering, no over-mocking
+│   ├── write-tests/               ← on-demand test authoring
+│   │   ├── SKILL.md               ← style-match, scope, edge cases, TDD ordering, no over-mocking
+│   │   └── evals/evals.json
+│   └── debug-workflow/            ← on-demand systematic debugging (Tier 3)
+│       ├── SKILL.md               ← four gated phases: root cause → pattern → hypothesis → fix+validation
+│       ├── references/
+│       │   ├── race-conditions.md   ← condition-based waiting vs arbitrary timeouts
+│       │   └── defense-in-depth.md  ← add validation at the layer that should've caught it
 │       └── evals/evals.json
 ├── CHANGELOG.md
 └── README.md
