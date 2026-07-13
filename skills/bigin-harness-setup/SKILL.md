@@ -38,7 +38,7 @@ Store result as `PROFILE`. Load `references/profile-{PROFILE}.md` for all templa
 
 Scaffolding is done by the `nuxt-scaffold` skill's deterministic script — **not** conversationally. Three steps, and **all questions happen up front, in one batch; zero prompts once scaffolding starts**:
 
-1. **Gather every scaffold decision now**, in the same turn, back-to-back with this skill's own remaining decisions: ask `skills/nuxt-scaffold/SKILL.md` → Step 2 (project name, primary/neutral theme colors, version policy), then immediately ask Phase 1.5's bundle below (Knowledge Bundle + CI config — an empty repo can't hit Phase 1's conflict path, so only those two apply here). Confirm the scaffold summary once. Store `KNOWLEDGE_BUNDLE` / `CI_PROVIDER` now — Phase 1.5 is a no-op later in this branch since they're already decided. `CODE_REVIEWER` needs no question (see Phase 1.5).
+1. **Gather every scaffold decision now**, in the same turn, back-to-back with this skill's own remaining decisions: ask `skills/nuxt-scaffold/SKILL.md` → Step 2 (project name, primary/neutral theme colors, version policy), then immediately ask Phase 1.5's bundle below (Knowledge Bundle + CI config + Security reviewer — an empty repo can't hit Phase 1's conflict path, so only those three apply here). Confirm the scaffold summary once. Store `KNOWLEDGE_BUNDLE` / `CI_PROVIDER` / `SECURITY_REVIEWER` now — Phase 1.5 is a no-op later in this branch since they're already decided. `CODE_REVIEWER` needs no question (see Phase 1.5).
 2. **Write the config JSON** (schema in `skills/nuxt-scaffold/SKILL.md` → Step 3) to a temp file outside the repo, with `"packageManager": "pnpm"`.
 3. **Run the script and stream its output** (several minutes — installs + verify gates):
    ```sh
@@ -101,9 +101,14 @@ Otherwise, ask **one bundled `AskUserQuestion` call**, before writing any files,
    Add CI config? (github/gitlab/both/no)
    Generates a workflow that runs {LINT} && {TYPECHECK} && {TEST} on push to main and on merge/pull requests.
    ```
-3. **Install mode** — only if Phase 1 detected an existing-harness conflict in this run: the overwrite/new/cancel question from Phase 1 above.
+3. **Security reviewer** (yes/no):
+   ```
+   Add an opt-in security-reviewer agent? (yes/no)
+   A read-only subagent (Read/Grep/Glob/Bash, opus) focused on auth, session, secrets, and PII handling — for an extra adversarial review pass on top of code-reviewer when a repo or feature touches those surfaces. See references/files-shared.md for the template.
+   ```
+4. **Install mode** — only if Phase 1 detected an existing-harness conflict in this run: the overwrite/new/cancel question from Phase 1 above.
 
-Store `KNOWLEDGE_BUNDLE`, `CI_PROVIDER` (and `INSTALL_MODE` if included). Set `CODE_REVIEWER = true` unconditionally — no question; it's a read-only, low-risk agent file (mentioned in the Phase 7 summary so the user knows it's there).
+Store `KNOWLEDGE_BUNDLE`, `CI_PROVIDER`, `SECURITY_REVIEWER` (and `INSTALL_MODE` if included). Set `CODE_REVIEWER = true` unconditionally — no question; it's a read-only, low-risk agent file (mentioned in the Phase 7 summary so the user knows it's there).
 
 ---
 
@@ -201,10 +206,18 @@ Read from `references/hook-guard.md` → `## spec-gate-guard.mjs`. Write to `.cl
 
 Read from `references/hook-guard.md` → `## injection-scan-guard.mjs` and `## injection-gate-guard.mjs`. Write to `.claude/guards/injection-scan-guard.mjs` and `.claude/guards/injection-gate-guard.mjs` respectively. Applies to all profiles.
 
+### 5-2d. Session resume check (deterministic resume prompt)
+
+Read from `references/hook-guard.md` → `## session-resume-check.mjs`. Write to `.claude/guards/session-resume-check.mjs`. Applies to all profiles — replaces the previous CLAUDE.md-prose-only "check for SESSION.md on session start" instruction with a `SessionStart` hook.
+
+### 5-2e. Verify gate (deterministic Stop hook for lint+typecheck+test)
+
+Read from `references/hook-guard.md` → `## verify-gate.mjs: nuxt / nodejs` (nuxt and nodejs profiles) or `## verify-gate.mjs: go` (go profile). Write to `.claude/guards/verify-gate.mjs`. Replaces task-workflow Step 5's prose-only "show the actual output" enforcement with a hard `Stop` gate — skips entirely on a clean working tree, otherwise blocks turn-end until lint+typecheck+test pass.
+
 ### 5-3. .claude/settings.json
 
 For **nuxt**:
-- **If `SCAFFOLDED = true`**: the `nuxt-scaffold` skill already wrote `.claude/settings.json` with `permissions.allow` + a `PostToolUse` `lint-fix-file.mjs` hook (and the script itself). Merge the `PreToolUse` `bash-guard.mjs` + `spec-gate-guard.mjs` + `injection-gate-guard.mjs` hooks, any missing `permissions.allow` entries, **and** a second `PostToolUse` entry for `injection-scan-guard.mjs` alongside the existing `lint-fix-file.mjs` one — do not replace or duplicate the existing `lint-fix-file.mjs` entry. Merge per-event; show additions before writing.
+- **If `SCAFFOLDED = true`**: the `nuxt-scaffold` skill already wrote `.claude/settings.json` with `permissions.allow` + a `PostToolUse` `lint-fix-file.mjs` hook (and the script itself). Merge the `PreToolUse` `bash-guard.mjs` + `spec-gate-guard.mjs` + `injection-gate-guard.mjs` hooks, a `SessionStart` `session-resume-check.mjs` hook, a `Stop` `verify-gate.mjs` hook, any missing `permissions.allow` entries, **and** a second `PostToolUse` entry for `injection-scan-guard.mjs` alongside the existing `lint-fix-file.mjs` one — do not replace or duplicate the existing `lint-fix-file.mjs` entry. Merge per-event; show additions before writing.
 - **Otherwise** (onboarding an existing nuxt repo): write `.claude/guards/lint-fix-file.mjs` per 5-2's note above if missing, then read the full settings.json template from `references/profile-nuxt.md` → `## settings.json Template`. If `.claude/settings.json` exists, merge the `hooks` block + missing `permissions.allow` entries (per-event, never drop the user's); if not, write fresh.
 
 For **go** / **nodejs**: read the template from `references/profile-{PROFILE}.md` → `## settings.json Template`. If the file exists, merge the `hooks` block + missing `permissions.allow` entries (per-event); otherwise write fresh.
@@ -228,6 +241,10 @@ Write `.claude/harness-version` containing the current version from this plugin'
 ### 5-4. code-reviewer agent
 
 `CODE_REVIEWER` is always `true` (decided in Phase 1.5 — no question). Read from `references/files-shared.md` → `## code-reviewer agent`. Write to `.claude/agents/code-reviewer.md`.
+
+### 5-4b. security-reviewer agent (optional)
+
+Decided in Phase 1.5 (`SECURITY_REVIEWER`). If true, read from `references/files-shared.md` → `## security-reviewer agent`. Write to `.claude/agents/security-reviewer.md`. If false, skip — no other phase depends on it.
 
 ---
 
@@ -309,52 +326,7 @@ If no `README.md` exists: skip this phase (do not create one).
 
 ## Phase 7: Summary
 
-Print a short summary of what was created and what's next:
-
-```
-BigIn harness setup complete for profile: {PROFILE}
-
-[if SCAFFOLDED] Scaffolded the Nuxt 4 BFF app via the `nuxt-scaffold` skill.
-
-Created:
-  AI_TASK_GUIDE.md
-  AI_REVIEW_CHECKLIST.md
-  .claude/rules/security.md       (paths: server/**,app/** — nuxt | **/*.go — go | src/** — nodejs)
-  .claude/rules/architecture.md   (paths: same as security)
-  .claude/rules/conventions-frontend.md  [nuxt only] (paths: app/**)
-  .claude/rules/conventions-server.md    [nuxt only] (paths: server/**)
-  .claude/rules/testing.md        [nuxt only] (paths: tests/**, vitest.config.ts)
-  .claude/rules/conventions.md    [go/nodejs only] (paths: scoped to source dir)
-  .claude/guards/bash-guard.mjs
-  .claude/guards/spec-gate-guard.mjs
-  .claude/guards/injection-scan-guard.mjs
-  .claude/guards/injection-gate-guard.mjs
-  [.claude/guards/lint-fix-file.mjs] (nuxt only; skipped if `nuxt-scaffold` already wrote it)
-  .claude/settings.json [created/merged]
-  tools/context_budget.mjs
-  .claude/harness-version [current version stamp]
-  CLAUDE.md [created]
-  scripts/pre-commit.sh [skipped if a hook manager already exists]
-  .claude/agents/code-reviewer.md
-  [Knowledge Bundle: .claude/rules/knowledge.md, knowledge/*, tools/knowledge_validate.mjs] (if opted in)
-  [.github/workflows/ci.yml] (if CI_PROVIDER is github/both)
-  [.gitlab-ci.yml] (if CI_PROVIDER is gitlab/both)
-
-Enabled:
-  git repo [initialized/already present]
-  pre-commit gate [scripts/pre-commit.sh hook | existing simple-git-hooks/husky]
-  context budget gate (tools/context_budget.mjs — wired into pre-commit)
-  [knowledge bundle validation wired into the pre-commit gate] (if opted in)
-  [knowledge bundle validation wired into generated CI] (if opted in and CI_PROVIDER != no)
-  [sprint-distill available — run it at sprint end to fold merged work into knowledge/ and bigin-skills] (if opted in)
-
-Next steps:
-  1. First `claude` run here: accept the workspace trust dialog, or the permissions.allow entries in .claude/settings.json are ignored.
-  2. {LINT} && {TYPECHECK} && {TEST}
-  3. Read CLAUDE.md + use /task-workflow for the per-task workflow
-  4. One scoped task through all gates — confirm the harness works.
-  [5. Add `node tools/knowledge_validate.mjs` to your existing CI — this skill only wires it into CI it generated itself.] (if opted in and CI_PROVIDER=no but foreign CI config detected)
-```
+Read `references/summary-checklist.md` → `## Phase 7 Summary Template`. Substitute `{PROFILE}`/`{LINT}`/`{TYPECHECK}`/`{TEST}` and the bracketed conditional lines, then print verbatim.
 
 ---
 
@@ -389,6 +361,7 @@ the always-loaded budget unless you're editing those paths.
 - pre-commit hook — skip if a hook manager (simple-git-hooks/husky) or hook already exists; otherwise install only if absent or already ours, confirming before replacing a foreign hook.
 - Nuxt scaffold (Phase 0.5) — only if `PROFILE=nuxt` and no `nuxt.config.ts`; delegates to the `nuxt-scaffold` skill (no clone, no embedded copy into the target). When `SCAFFOLDED`, do not overwrite the scaffold's `.vscode/settings.json` or pre-commit — overlay additively.
 - Knowledge Bundle (Phase 5.5) — opt-in only, decided once in Phase 1.5 (`KNOWLEDGE_BUNDLE`); skip entirely if declined. Never edit unknown CI config automatically — only note it's needed.
+- security-reviewer agent (Phase 5-4b) — opt-in only, decided once in Phase 1.5 (`SECURITY_REVIEWER`); skip entirely if declined.
 - CI Config (Phase 5.6) — opt-in only, decided once in Phase 1.5 (`CI_PROVIDER`, auto-detected default); skip entirely if `no`. Only ever writes/overwrites CI files this skill generated; never edits pre-existing, hand-written CI config.
 - All user-facing questions (profile ambiguity, harness conflicts, Knowledge Bundle, CI, foreign pre-commit hook) resolve before any file is written — see Phase 1.5.
 - Never delete files not part of the harness.
@@ -399,33 +372,7 @@ the always-loaded budget unless you're editing those paths.
 
 ## Output Checklist
 
-- [ ] **nuxt + empty repo** — `nuxt-scaffold` skill executed (Phase 0.5); `nuxt.config.ts` now present
-- [ ] `CLAUDE.md` — profile-specific, ≤60 lines
-- [ ] **nuxt only** — `.claude/rules/conventions-frontend.md` — paths: app/** (≤40 lines)
-- [ ] **nuxt only** — `.claude/rules/conventions-server.md` — paths: server/** (≤40 lines)
-- [ ] **nuxt only** — `.claude/rules/testing.md` — paths: tests/**, vitest.config.ts (≤40 lines)
-- [ ] **go/nodejs** — `.claude/rules/conventions.md` — paths: scoped to source dir
-- [ ] `.claude/rules/security.md` — shared security rules, paths: scoped per profile
-- [ ] `.claude/rules/architecture.md` — shared base + profile addendum, paths: scoped per profile
-- [ ] `AI_TASK_GUIDE.md` — spec gate + task workflow (human reference; agents use /task-workflow)
-- [ ] `AI_REVIEW_CHECKLIST.md` — profile commands filled in
-- [ ] `scripts/pre-commit.sh` — lint + typecheck + test + context budget check, executable
-- [ ] `.claude/guards/bash-guard.mjs` — blocks `--no-verify` and force-push to main
-- [ ] `.claude/guards/spec-gate-guard.mjs` — blocks non-trivial edits until `PLAN.md` is approved
-- [ ] `.claude/guards/injection-scan-guard.mjs` — flags likely prompt-injection markers in WebFetch/mcp__/curl-wget Bash output
-- [ ] `.claude/guards/injection-gate-guard.mjs` — asks for confirmation before the next risky tool call after a fresh flag
-- [ ] `.claude/agents/code-reviewer.md` — read-only reviewer agent (always added, no question)
-- [ ] **nuxt only** — `.claude/guards/lint-fix-file.mjs` — ESLint `--fix` scoped to the touched file
-- [ ] `.claude/settings.json` — guards wired + profile permissions
-- [ ] `tools/context_budget.mjs` — budget gate, executable
-- [ ] `.claude/harness-version` — current version stamp (written fresh/overwrite; baseline for patch mode)
-- [ ] **patch mode only** — only changelog `patch`-tagged changes since `FROM_VERSION` applied; `.claude/harness-version` advanced to `TO_VERSION`; summary lists applied vs skipped
-- [ ] **nuxt only** — `.vscode/settings.json` with ESLint format-on-save (Prettier disabled), merged if it existed
-- [ ] git repo initialized (if it wasn't one) and `.git/hooks/pre-commit` installed (or foreign hook left untouched with confirmation)
-- [ ] `README.md` — AI Onboarding + runtime hygiene + Context Budget table appended (if README existed)
-- [ ] **if opted in** — Knowledge Bundle: `.claude/rules/knowledge.md`, `knowledge/{meta,contracts,constraints}/*.md`, `knowledge/index.md`, `knowledge/log.md`, `tools/knowledge_validate.mjs`, wired into the pre-commit gate, `AI_REVIEW_CHECKLIST.md` gets one added line
-- [ ] **if CI_PROVIDER = github/both** — `.github/workflows/ci.yml` runs lint + typecheck + test (+ knowledge validator if opted in)
-- [ ] **if CI_PROVIDER = gitlab/both** — `.gitlab-ci.yml` runs lint + typecheck + test (+ knowledge validator if opted in)
+Read `references/summary-checklist.md` → `## Output Checklist` and verify every item against what was actually written this run.
 
 ---
 
@@ -436,7 +383,8 @@ the always-loaded budget unless you're editing those paths.
 - `references/profile-nodejs.md` — templates for nodejs profile
 - `references/files-shared.md` — shared files: security, architecture, AI task guide, review checklist, code-reviewer agent, paths substitutions per profile
 - `references/patch-mode.md` — Phase 1a: version diffing + CHANGELOG patch-block application for `INSTALL_MODE=patch`
-- `references/hook-guard.md` — bash-guard.mjs, spec-gate-guard.mjs, injection-scan-guard.mjs, injection-gate-guard.mjs scripts + pre-commit scripts per profile
+- `references/hook-guard.md` — bash-guard.mjs, spec-gate-guard.mjs, injection-scan-guard.mjs, injection-gate-guard.mjs, session-resume-check.mjs, verify-gate.mjs scripts + pre-commit scripts per profile
 - `references/budget-gate.md` — context_budget.mjs script (context budget gate)
 - `references/knowledge-bundle.md` — optional Knowledge Bundle: rule file, spec, starter concept files, validator script
 - `references/ci.md` — optional CI config: GitHub Actions + GitLab CI templates per profile, plus the knowledge-validate step
+- `references/summary-checklist.md` — Phase 7 summary print template + Output Checklist

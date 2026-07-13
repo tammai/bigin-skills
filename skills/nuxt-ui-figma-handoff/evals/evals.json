@@ -1,0 +1,15 @@
+[
+  {"query": "our designer cloned the Nuxt UI Figma kit and tweaked the colors, here's the link — can you get this into app.config.ts?", "should_trigger": true},
+  {"query": "implement this Figma redesign in our Nuxt UI app: https://www.figma.com/design/abc123/Bigin-App?node-id=42-100", "should_trigger": true},
+  {"query": "sync our theme with the new Figma handoff, the designer changed the primary color and radius", "should_trigger": true},
+  {"query": "chuyển giao thiết kế Figma này vào code giúp tôi, designer đã đổi màu primary", "should_trigger": true},
+  {"query": "cập nhật app.config.ts theo design Figma mới nhất", "should_trigger": true},
+  {"query": "match this Figma design in the codebase — it's the Nuxt UI kit our designer customized", "should_trigger": true},
+  {"query": "wire this Figma redesign into main.css and app.config.ts, project uses @nuxt/ui", "should_trigger": true},
+  {"query": "set up the AI harness for this nuxt repo", "should_trigger": false},
+  {"query": "scaffold a new nuxt 4 app with the saas template", "should_trigger": false},
+  {"query": "implement this Figma design as a React component from scratch, no design system", "should_trigger": false},
+  {"query": "distill this sprint's learnings", "should_trigger": false},
+  {"query": "why is this test flaky", "should_trigger": false},
+  {"query": "build this landing page from a Figma file using plain Tailwind, we don't use Nuxt UI", "should_trigger": false}
+]

@@ -11,6 +11,7 @@ A **Claude Code plugin** (`bigin-skills`) — a collection of skills installed i
 .claude/rules/            ← this repo's own path-scoped authoring rules
 skills/<name>/SKILL.md    ← one skill per directory
 skills/<name>/references/ ← supporting templates, relative to that skill
+agents/<name>.md          ← plugin-level subagent definitions (spawned via Agent tool, not invoked as skills)
 tools/context_budget.mjs   ← budget gate (also templated for target repos)
 scripts/git-hooks/        ← pre-commit running the budget gate
 ```
@@ -26,6 +27,7 @@ scripts/git-hooks/        ← pre-commit running the budget gate
 | `session-handoff` | Session state persistence to `.claude/memory/SESSION.md` |
 | `write-tests` | On-demand test authoring: style-match, scope, edge-case list, TDD ordering, no unnecessary mocking |
 | `debug-workflow` | On-demand systematic debugging: root cause → pattern analysis → hypothesis → fix+validation (Tier 3) |
+| `model-router` | Scores task complexity via a deterministic rubric and routes execution to one of three subagents (`quick-executor`/`standard-worker`/`deep-architect`) spawned via the Agent tool |
 
 Details live in each skill's own `SKILL.md` — read it when working on that skill. Authoring conventions are in `.claude/rules/skill-authoring.md` (loads when editing `skills/`).
 

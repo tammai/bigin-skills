@@ -1,0 +1,15 @@
+[
+  {"query": "route this task to the right model tier", "should_trigger": true},
+  {"query": "which model should handle fixing this typo in the README", "should_trigger": true},
+  {"query": "assess complexity and pick an agent for this refactor", "should_trigger": true},
+  {"query": "should this be a quick fix or a deep architecture pass", "should_trigger": true},
+  {"query": "spawn the right agent for this change", "should_trigger": true},
+  {"query": "chọn model phù hợp để sửa lỗi này", "should_trigger": true},
+  {"query": "giao việc định tuyến task này cho agent nào phù hợp", "should_trigger": true},
+  {"query": "implement user login with email and password", "should_trigger": false},
+  {"query": "use opus for this one, I already decided", "should_trigger": false},
+  {"query": "write a full spec for the user profile page", "should_trigger": false},
+  {"query": "why is this test flaky, can you debug it", "should_trigger": false},
+  {"query": "distill this sprint's learnings", "should_trigger": false},
+  {"query": "scaffold a new nuxt 4 app with the saas template", "should_trigger": false}
+]

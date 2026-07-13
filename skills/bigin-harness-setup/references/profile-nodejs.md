@@ -145,6 +145,7 @@ Prepend `paths: ["src/**"]` as YAML frontmatter when writing `architecture.md` (
       "Bash(pnpm lint:*)",
       "Bash(pnpm test:*)",
       "Bash(pnpm type-check:*)",
+      "Bash(pnpm typecheck:*)",
       "Bash(pnpm add:*)",
       "Bash(pnpm remove:*)",
       "Bash(pnpm install:*)",
@@ -196,6 +197,26 @@ Prepend `paths: ["src/**"]` as YAML frontmatter when writing `architecture.md` (
           {
             "type": "command",
             "command": "node .claude/guards/injection-scan-guard.mjs"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/guards/session-resume-check.mjs"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/guards/verify-gate.mjs"
           }
         ]
       }

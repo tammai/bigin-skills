@@ -261,6 +261,7 @@ Governance superset: `permissions` + `PostToolUse` lint-fix (the `nuxt-scaffold`
       "Bash(git log:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
+      "Bash(git push:*)",
       "Bash(git pull:*)",
       "Bash(git stash:*)"
     ]
@@ -311,6 +312,26 @@ Governance superset: `permissions` + `PostToolUse` lint-fix (the `nuxt-scaffold`
           {
             "type": "command",
             "command": "node .claude/guards/injection-scan-guard.mjs"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/guards/session-resume-check.mjs"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/guards/verify-gate.mjs"
           }
         ]
       }

@@ -98,7 +98,7 @@ Follow this workflow for every non-trivial task.
 
 4. **Implement** — follow `.claude/rules/conventions.md`. Stay in scope. Update `PLAN.md`'s tracking table as each task starts, finishes, or blocks — don't batch updates to the end. For any new test files, follow the `write-tests` skill's discipline (style-matching, no unnecessary mocking, TDD ordering for business logic). For bug fixes specifically, use the `debug-workflow` skill's four-phase process instead of ad-hoc trial and error.
 
-5. **Verify** — run lint + typecheck + tests. All must pass before marking done. Show the actual command output in your response before flipping any `PLAN.md` task row to `Done` — a claim that tests pass without the output showing it doesn't count.
+5. **Verify** — run lint + typecheck + tests. All must pass before marking done. Show the actual command output in your response before flipping any `PLAN.md` task row to `Done` — a claim that tests pass without the output showing it doesn't count. A `verify-gate.mjs` `Stop` hook enforces this deterministically (blocks turn-end on a dirty tree until the gates pass) — showing the output here is still what makes the result reviewable by a human, not just machine-checked.
 
 6. **Review** — check `AI_REVIEW_CHECKLIST.md`. Mark done only when the checklist is clean.
 
@@ -211,11 +211,14 @@ name: code-reviewer
 description: Reviews code changes for correctness, security, and convention compliance. Use when asked to review a PR, audit changes, check a diff, or verify code before merging.
 model: sonnet
 tools: Read, Grep, Glob, Bash
+memory: project
 ---
 
 # Code Reviewer
 
 Read-only audit agent. Never writes or edits files.
+
+If you notice the same Stage 2 violation (a convention, naming, or layering issue) recurring across multiple reviews in this project, note it in memory — future reviews should catch it on the first pass instead of rediscovering it each time.
 
 ## Process
 
@@ -260,4 +263,40 @@ For anything borderline in Stage 2, report it anyway with a confidence level and
 severity — don't silently drop it for being minor or uncertain. Only skip items
 already listed under "What to ignore" above. Stage 1's verdict stays binary
 (matches the spec or doesn't) — no confidence/severity tiers needed there.
+```
+
+---
+
+## security-reviewer agent
+
+```markdown
+---
+name: security-reviewer
+description: Reviews code changes for security vulnerabilities in auth, session handling, secrets, and PII. Use when a change touches auth, sessions, secrets, or untrusted/PII input, or when asked for a security pass on a diff before merging.
+model: opus
+tools: Read, Grep, Glob, Bash
+memory: project
+---
+
+# Security Reviewer
+
+Read-only audit agent, focused specifically on security surfaces. Never writes or edits files. This is a narrower, deeper pass than `code-reviewer`'s Stage 2 security check — use it for the higher-risk subset of changes, not every PR.
+
+If a specific security pattern (a recurring missing-validation spot, a repeatedly-misused auth helper) shows up across more than one review in this project, note it in memory so future passes check that spot first instead of rediscovering it.
+
+## Process
+
+1. Read the changed files (`git diff` to identify them) and `.claude/rules/security.md`.
+2. Check for, with `file:line` references for anything found:
+   - Injection vulnerabilities (SQL, command, template, prompt injection via untrusted tool output)
+   - Authentication and authorization flaws (missing checks, privilege escalation, session fixation)
+   - Secrets or credentials committed or logged in plaintext
+   - Insecure handling of PII (logged, stored unencrypted, sent to a third party without need)
+   - Untrusted input (user-controlled data, URLs, redirects, file paths) reaching a sensitive sink without validation
+3. Report each finding with a severity (blocking / notable / minor) and a concrete fix suggestion.
+4. If nothing is found, say so plainly — don't invent low-severity findings to justify the pass.
+
+## What to ignore
+- Style preferences and refactoring suggestions unrelated to security
+- Hypothetical attacks with no realistic trigger in this codebase's actual input surface
 ```

@@ -1,0 +1,94 @@
+# Summary & Checklist Templates
+
+Literal output templates for Phase 7 and the Output Checklist — pure print/verify material, no branching logic, same shape as the other externalized templates in this directory.
+
+---
+
+## Phase 7 Summary Template
+
+Print a short summary of what was created and what's next:
+
+```
+BigIn harness setup complete for profile: {PROFILE}
+
+[if SCAFFOLDED] Scaffolded the Nuxt 4 BFF app via the `nuxt-scaffold` skill.
+
+Created:
+  AI_TASK_GUIDE.md
+  AI_REVIEW_CHECKLIST.md
+  .claude/rules/security.md       (paths: server/**,app/** — nuxt | **/*.go — go | src/** — nodejs)
+  .claude/rules/architecture.md   (paths: same as security)
+  .claude/rules/conventions-frontend.md  [nuxt only] (paths: app/**)
+  .claude/rules/conventions-server.md    [nuxt only] (paths: server/**)
+  .claude/rules/testing.md        [nuxt only] (paths: tests/**, vitest.config.ts)
+  .claude/rules/conventions.md    [go/nodejs only] (paths: scoped to source dir)
+  .claude/guards/bash-guard.mjs
+  .claude/guards/spec-gate-guard.mjs
+  .claude/guards/injection-scan-guard.mjs
+  .claude/guards/injection-gate-guard.mjs
+  .claude/guards/session-resume-check.mjs
+  .claude/guards/verify-gate.mjs
+  [.claude/guards/lint-fix-file.mjs] (nuxt only; skipped if `nuxt-scaffold` already wrote it)
+  .claude/settings.json [created/merged]
+  tools/context_budget.mjs
+  .claude/harness-version [current version stamp]
+  CLAUDE.md [created]
+  scripts/pre-commit.sh [skipped if a hook manager already exists]
+  .claude/agents/code-reviewer.md
+  [.claude/agents/security-reviewer.md] (if opted in)
+  [Knowledge Bundle: .claude/rules/knowledge.md, knowledge/*, tools/knowledge_validate.mjs] (if opted in)
+  [.github/workflows/ci.yml] (if CI_PROVIDER is github/both)
+  [.gitlab-ci.yml] (if CI_PROVIDER is gitlab/both)
+
+Enabled:
+  git repo [initialized/already present]
+  pre-commit gate [scripts/pre-commit.sh hook | existing simple-git-hooks/husky]
+  context budget gate (tools/context_budget.mjs — wired into pre-commit)
+  session resume prompt (SessionStart hook — deterministic, replaces CLAUDE.md prose)
+  verify gate (Stop hook — blocks turn-end until lint+typecheck+test pass on a dirty tree)
+  [knowledge bundle validation wired into the pre-commit gate] (if opted in)
+  [knowledge bundle validation wired into generated CI] (if opted in and CI_PROVIDER != no)
+  [sprint-distill available — run it at sprint end to fold merged work into knowledge/ and bigin-skills] (if opted in)
+
+Next steps:
+  1. First `claude` run here: accept the workspace trust dialog, or the permissions.allow entries in .claude/settings.json are ignored.
+  2. {LINT} && {TYPECHECK} && {TEST}
+  3. Read CLAUDE.md + use /task-workflow for the per-task workflow
+  4. One scoped task through all gates — confirm the harness works.
+  [5. Add `node tools/knowledge_validate.mjs` to your existing CI — this skill only wires it into CI it generated itself.] (if opted in and CI_PROVIDER=no but foreign CI config detected)
+```
+
+---
+
+## Output Checklist
+
+- [ ] **nuxt + empty repo** — `nuxt-scaffold` skill executed (Phase 0.5); `nuxt.config.ts` now present
+- [ ] `CLAUDE.md` — profile-specific, ≤60 lines
+- [ ] **nuxt only** — `.claude/rules/conventions-frontend.md` — paths: app/** (≤40 lines)
+- [ ] **nuxt only** — `.claude/rules/conventions-server.md` — paths: server/** (≤40 lines)
+- [ ] **nuxt only** — `.claude/rules/testing.md` — paths: tests/**, vitest.config.ts (≤40 lines)
+- [ ] **go/nodejs** — `.claude/rules/conventions.md` — paths: scoped to source dir
+- [ ] `.claude/rules/security.md` — shared security rules, paths: scoped per profile
+- [ ] `.claude/rules/architecture.md` — shared base + profile addendum, paths: scoped per profile
+- [ ] `AI_TASK_GUIDE.md` — spec gate + task workflow (human reference; agents use /task-workflow)
+- [ ] `AI_REVIEW_CHECKLIST.md` — profile commands filled in
+- [ ] `scripts/pre-commit.sh` — lint + typecheck + test + context budget check, executable
+- [ ] `.claude/guards/bash-guard.mjs` — blocks `--no-verify` and force-push to main
+- [ ] `.claude/guards/spec-gate-guard.mjs` — blocks non-trivial edits until `PLAN.md` is approved
+- [ ] `.claude/guards/injection-scan-guard.mjs` — flags likely prompt-injection markers in WebFetch/mcp__/curl-wget Bash output
+- [ ] `.claude/guards/injection-gate-guard.mjs` — asks for confirmation before the next risky tool call after a fresh flag
+- [ ] `.claude/guards/session-resume-check.mjs` — SessionStart hook, injects a resume prompt when SESSION.md has status: in-progress
+- [ ] `.claude/guards/verify-gate.mjs` — Stop hook, blocks turn-end until lint+typecheck+test pass (skips on a clean tree)
+- [ ] `.claude/agents/code-reviewer.md` — read-only reviewer agent (always added, no question)
+- [ ] **if opted in** — `.claude/agents/security-reviewer.md` — read-only, security-focused reviewer agent (auth/session/secrets/PII)
+- [ ] **nuxt only** — `.claude/guards/lint-fix-file.mjs` — ESLint `--fix` scoped to the touched file
+- [ ] `.claude/settings.json` — guards wired + profile permissions
+- [ ] `tools/context_budget.mjs` — budget gate, executable
+- [ ] `.claude/harness-version` — current version stamp (written fresh/overwrite; baseline for patch mode)
+- [ ] **patch mode only** — only changelog `patch`-tagged changes since `FROM_VERSION` applied; `.claude/harness-version` advanced to `TO_VERSION`; summary lists applied vs skipped
+- [ ] **nuxt only** — `.vscode/settings.json` with ESLint format-on-save (Prettier disabled), merged if it existed
+- [ ] git repo initialized (if it wasn't one) and `.git/hooks/pre-commit` installed (or foreign hook left untouched with confirmation)
+- [ ] `README.md` — AI Onboarding + runtime hygiene + Context Budget table appended (if README existed)
+- [ ] **if opted in** — Knowledge Bundle: `.claude/rules/knowledge.md`, `knowledge/{meta,contracts,constraints}/*.md`, `knowledge/index.md`, `knowledge/log.md`, `tools/knowledge_validate.mjs`, wired into the pre-commit gate, `AI_REVIEW_CHECKLIST.md` gets one added line
+- [ ] **if CI_PROVIDER = github/both** — `.github/workflows/ci.yml` runs lint + typecheck + test (+ knowledge validator if opted in)
+- [ ] **if CI_PROVIDER = gitlab/both** — `.gitlab-ci.yml` runs lint + typecheck + test (+ knowledge validator if opted in)

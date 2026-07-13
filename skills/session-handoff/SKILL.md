@@ -2,6 +2,7 @@
 name: session-handoff
 description: "Session handoff and state persistence. Use when: user says 'save session', '/save-session', 'near limit', 'running out of tokens', or needs to continue work in a new session. Saves current state (tasks, decisions, uncommitted changes) to SESSION.md and loads it on session resume."
 effort: low
+allowed-tools: Bash(git status) Bash(git diff --stat) Bash(mv SESSION.md *)
 ---
 
 # session-handoff — Session State Persistence

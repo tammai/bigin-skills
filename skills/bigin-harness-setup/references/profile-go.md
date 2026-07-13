@@ -198,6 +198,26 @@ Prepend `paths: ["**/*.go"]` as YAML frontmatter when writing `architecture.md` 
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/guards/session-resume-check.mjs"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/guards/verify-gate.mjs"
+          }
+        ]
+      }
     ]
   }
 }

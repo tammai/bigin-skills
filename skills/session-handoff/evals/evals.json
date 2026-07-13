@@ -1,0 +1,14 @@
+[
+  {"query": "save session, I'm running low on context", "should_trigger": true},
+  {"query": "/save-session", "should_trigger": true},
+  {"query": "I'm nearing my usage limit, can you save state before we lose it", "should_trigger": true},
+  {"query": "pause here, save my work", "should_trigger": true},
+  {"query": "resume session", "should_trigger": true},
+  {"query": "continue where we left off from last time", "should_trigger": true},
+  {"query": "session done, mark it complete", "should_trigger": true},
+  {"query": "can you save this file for me", "should_trigger": false},
+  {"query": "why is this test flaky, can you debug it", "should_trigger": false},
+  {"query": "implement a new endpoint for password reset", "should_trigger": false},
+  {"query": "write tests for the discount calculator", "should_trigger": false},
+  {"query": "commit and push these changes", "should_trigger": false}
+]

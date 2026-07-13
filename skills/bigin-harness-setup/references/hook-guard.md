@@ -244,6 +244,139 @@ process.exit(0)
 
 ---
 
+## session-resume-check.mjs
+
+Write to `.claude/guards/session-resume-check.mjs`.
+
+```javascript
+#!/usr/bin/env node
+// Deterministic version of "on session start, check for an in-progress
+// session and prompt to resume" — previously CLAUDE.md prose only.
+// Claude Code SessionStart hook — reads hook input from stdin, injects
+// additionalContext when .claude/memory/SESSION.md exists with
+// status: in-progress. See the session-handoff skill for the file format.
+import { existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
+
+const sessionPath = join(process.cwd(), '.claude', 'memory', 'SESSION.md')
+
+if (!existsSync(sessionPath)) process.exit(0)
+
+let content
+try {
+  content = readFileSync(sessionPath, 'utf-8')
+} catch {
+  process.exit(0)
+}
+
+const match = content.match(/^status:\s*(\S+)/m)
+
+if (match && match[1].toLowerCase() === 'in-progress') {
+  console.log(JSON.stringify({
+    hookSpecificOutput: {
+      hookEventName: 'SessionStart',
+      additionalContext: 'Found .claude/memory/SESSION.md with status: in-progress. Before doing anything else, ask the user: resume this session (restore tasks and context) or start fresh (archive it)? See the session-handoff skill.'
+    }
+  }))
+}
+
+process.exit(0)
+```
+
+---
+
+## verify-gate.mjs: nuxt / nodejs
+
+Write to `.claude/guards/verify-gate.mjs`.
+
+```javascript
+#!/usr/bin/env node
+// Stop hook — deterministic replacement for task-workflow Step 5 (Verify)'s
+// prose-only enforcement. Blocks turn-end (exit 2) until lint+typecheck+test
+// pass. Skips entirely on a clean working tree — nothing to verify. Claude
+// Code overrides after 8 consecutive blocks, so this can't loop forever.
+import { execSync } from 'node:child_process'
+
+function treeIsClean() {
+  try {
+    return execSync('git status --porcelain', { encoding: 'utf-8' }).trim() === ''
+  } catch {
+    return true // not a git repo / git unavailable — nothing to verify
+  }
+}
+
+if (treeIsClean()) process.exit(0)
+
+const STEPS = [
+  ['lint', 'pnpm lint'],
+  ['typecheck', 'pnpm type-check'],
+  ['test', 'pnpm test --run']
+]
+
+for (const [label, command] of STEPS) {
+  try {
+    execSync(command, { stdio: 'pipe' })
+  } catch (err) {
+    const output = `${err.stdout ?? ''}${err.stderr ?? ''}`.slice(-2000)
+    console.error(`Verify gate failed at "${label}" (${command}). Fix it before ending the turn:\n\n${output}`)
+    process.exit(2)
+  }
+}
+
+process.exit(0)
+```
+
+---
+
+## verify-gate.mjs: go
+
+Write to `.claude/guards/verify-gate.mjs`.
+
+```javascript
+#!/usr/bin/env node
+// Stop hook — go profile. See the nuxt/nodejs variant above for rationale.
+import { execSync } from 'node:child_process'
+
+function treeIsClean() {
+  try {
+    return execSync('git status --porcelain', { encoding: 'utf-8' }).trim() === ''
+  } catch {
+    return true
+  }
+}
+
+if (treeIsClean()) process.exit(0)
+
+function hasStaticcheck() {
+  try {
+    execSync('command -v staticcheck', { stdio: 'ignore' })
+    return true
+  } catch {
+    return false
+  }
+}
+
+const STEPS = [
+  ['build/typecheck', 'go build ./...'],
+  ...(hasStaticcheck() ? [['lint', 'staticcheck ./...']] : []),
+  ['test', 'go test ./... -count=1']
+]
+
+for (const [label, command] of STEPS) {
+  try {
+    execSync(command, { stdio: 'pipe' })
+  } catch (err) {
+    const output = `${err.stdout ?? ''}${err.stderr ?? ''}`.slice(-2000)
+    console.error(`Verify gate failed at "${label}" (${command}). Fix it before ending the turn:\n\n${output}`)
+    process.exit(2)
+  }
+}
+
+process.exit(0)
+```
+
+---
+
 ## pre-commit: nuxt
 
 Write to `scripts/pre-commit.sh`.
