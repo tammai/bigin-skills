@@ -1,0 +1,14 @@
+[
+  {"query": "scaffold a go rest api for orders-api", "should_trigger": true},
+  {"query": "create a new go backend with the module path github.com/acme/api", "should_trigger": true},
+  {"query": "initialize a go rest api in this empty repo", "should_trigger": true},
+  {"query": "set up a go api with postgres and codegen", "should_trigger": true},
+  {"query": "tạo một go api mới", "should_trigger": true},
+  {"query": "khởi tạo go api cho dự án này", "should_trigger": true},
+  {"query": "set up the AI harness for this go repo", "should_trigger": false},
+  {"query": "add a new endpoint to this existing go api", "should_trigger": false},
+  {"query": "fix the staticcheck warnings in this go project", "should_trigger": false},
+  {"query": "explain how oapi-codegen's strict server works", "should_trigger": false},
+  {"query": "distill this sprint's learnings", "should_trigger": false},
+  {"query": "run the go server and check the healthz endpoint", "should_trigger": false}
+]

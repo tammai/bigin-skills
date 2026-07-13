@@ -1,7 +1,7 @@
 {
   "name": "bigin-skills",
-  "version": "1.30.0",
-  "description": "BigIn's collection of Claude Code skills for standardized AI-assisted development — harness setup (governance files + enforcement gates for nuxt/go/nodejs repos), end-of-sprint knowledge distillation, and session handoff. / Bộ skill Claude Code của BigIn cho phát triển với AI chuẩn hoá — thiết lập harness, chưng cất tri thức cuối sprint, và chuyển tiếp phiên.",
+  "version": "1.31.0",
+  "description": "BigIn's collection of Claude Code skills for standardized AI-assisted development — harness setup (governance files + enforcement gates for nuxt/go/nodejs repos), Nuxt and Go app scaffolding, end-of-sprint knowledge distillation, and session handoff. / Bộ skill Claude Code của BigIn cho phát triển với AI chuẩn hoá — thiết lập harness, scaffold app Nuxt và Go, chưng cất tri thức cuối sprint, và chuyển tiếp phiên.",
   "author": {
     "name": "Tam Mai",
     "email": "tam.mai@bigin.vn"
@@ -18,6 +18,10 @@
     "nuxt-ui-templates",
     "saas-template",
     "go-backend",
+    "go-scaffold",
+    "oapi-codegen",
+    "sqlc",
+    "contract-first",
     "nodejs-backend",
     "session-handoff",
     "sprint-distill",

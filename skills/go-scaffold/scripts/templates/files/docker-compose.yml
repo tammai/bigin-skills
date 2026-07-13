@@ -1,0 +1,33 @@
+services:
+  api:
+    build: .
+    env_file: .env
+    environment:
+      # .env's DATABASE_URL points at localhost:5432 for `make run` on the
+      # host; inside this container "localhost" is itself, not the db
+      # service, so override it to the compose network's service name.
+      DATABASE_URL: postgres://{{DB_SLUG}}:{{DB_SLUG}}@db:5432/{{DB_SLUG}}?sslmode=disable
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: {{DB_SLUG}}
+      POSTGRES_PASSWORD: {{DB_SLUG}}
+      POSTGRES_DB: {{DB_SLUG}}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U {{DB_SLUG}}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+volumes:
+  pgdata:
