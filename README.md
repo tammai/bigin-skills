@@ -249,7 +249,8 @@ bigin-skills/
 ├── agents/                        ← plugin-level subagents, spawned via Agent tool (not invoked as skills)
 │   ├── quick-executor.md          ← haiku/low — mechanical, single-file, low-risk tasks
 │   ├── standard-worker.md         ← sonnet/medium — default tier, most feature/bug-fix work
-│   └── deep-architect.md          ← opus/high — architectural decisions, contract/schema changes, full-spec tier
+│   ├── deep-architect.md          ← opus/high — architectural decisions, contract/schema changes, full-spec tier
+│   └── security-reviewer.md       ← opus/high, read-only — auth/session/secrets/PII review, opt-in (not routed by model-router)
 ├── CHANGELOG.md
 └── README.md
 ```

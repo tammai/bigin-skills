@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.34.0] - 2026-07-14
+
+### Added
+
+- **New `security-reviewer` agent (`agents/security-reviewer.md`)** — a read-only subagent focused on auth, session handling, secrets, and PII, for use when a change touches that surface and a dedicated pass is worth the cost. Unlike `quick-executor`/`standard-worker`/`deep-architect`, it's opt-in: spawned explicitly via the Agent tool (`bigin-skills:security-reviewer`), not routed automatically by `model-router`'s complexity rubric — a missed auth/secrets finding is expensive enough that routing it should be a deliberate call, not a scored heuristic. `model: opus`/`effort: high` (per `.claude/rules/skill-authoring.md`'s existing convention for this agent) and `tools: Read, Grep, Glob, Bash` — no `Write`/`Edit`, enforced structurally rather than by prose, since a reviewer that can also patch the code it's reviewing isn't read-only in any way that matters.
+
+### Changed
+
+- Added a new "Agents" section and table to `CLAUDE.md` (previously agents were only mentioned generically in the Structure block) listing all four agents with their model/effort/tools and routing status. Added the `security-reviewer.md` row to `README.md`'s repo tree. Added `security-reviewer`/`security-review`/`auth-review`/`secrets-scan`/`pii` keywords to `plugin.json` and `marketplace.json`.
+
 ## [1.33.1] - 2026-07-14
 
 ### Fixed
