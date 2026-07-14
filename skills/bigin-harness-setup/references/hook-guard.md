@@ -152,9 +152,16 @@ const INJECTION_PATTERNS = [
   [/\bnew\s+system\s+prompt\b/i, 'attempts to inject a new system prompt'],
   [/\byou are now\b.{0,40}\b(instead|no longer)\b/i, 'attempts a role/identity override'],
   [/\bsend\s+(this|the following|these)\s+(contents?|files?|secrets?|keys?)\s+to\s+https?:\/\//i, 'instructs exfiltration to an external URL'],
-  [/[\u200B-\u200F\u202A-\u202E\uFEFF]/, 'contains zero-width or bidi-control characters (hidden text)'],
   [/[A-Za-z0-9+/]{300,}={0,2}/, 'contains a long base64-like block (possible encoded payload)']
 ]
+
+// Built from code points, not literal \u escapes in a regex literal. An LLM
+// transcribing this file into a target repo can silently render a \uXXXX
+// escape as the actual invisible character, which then trips the target
+// repo's own no-irregular-whitespace lint rule on this very file.
+const ZERO_WIDTH_CODEPOINTS = [0x200b, 0x200c, 0x200d, 0x200e, 0x200f, 0x202a, 0x202b, 0x202c, 0x202d, 0x202e, 0xfeff]
+const ZERO_WIDTH_RE = new RegExp(`[${ZERO_WIDTH_CODEPOINTS.map(c => String.fromCodePoint(c)).join('')}]`)
+INJECTION_PATTERNS.push([ZERO_WIDTH_RE, 'contains zero-width or bidi-control characters (hidden text)'])
 
 function toText(response) {
   if (typeof response === 'string') return response

@@ -219,7 +219,10 @@ const LINK_RE = /\[[^\]]*\]\(([^)]+)\)/g
 // Minimal YAML-subset parser for concept-file frontmatter: top-level
 // `key: value` pairs, inline arrays ([a, b]), and `- item` block lists.
 function parseFrontmatter(raw) {
-  const text = raw.replace(/^\uFEFF/, '')
+  // charCodeAt check, not a \uFEFF regex literal in source: an LLM
+  // transcribing this file into a target repo can render that escape as
+  // the actual BOM character, tripping the target's own lint rule.
+  const text = raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw
   if (!text.startsWith('---')) return { meta: null, body: text, error: 'missing frontmatter block' }
   const end = text.indexOf('\n---', 3)
   if (end === -1) return { meta: null, body: text, error: 'unterminated frontmatter block' }

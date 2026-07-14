@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.34.1] - 2026-07-14
+
+### Fixed
+
+- **`hook-guard.md`'s `injection-scan-guard.mjs` template and `knowledge-bundle.md`'s `knowledge_validate.mjs` template embedded literal `\uXXXX` regex escapes (zero-width/bidi chars, BOM) in their fenced source.** An agent transcribing these templates into a target repo's actual `.mjs` file could silently render a `\uXXXX` escape as the real invisible character instead of preserving the escape text — which then tripped the target repo's own `no-irregular-whitespace` ESLint rule on that file at commit time. Confirmed happening for real in scaffolded repos (`go-backend`, `next-frontend`: a literal BOM byte in `tools/knowledge_validate.mjs`). Both templates now build the character class/BOM check at runtime from numeric code points (`String.fromCodePoint`, `charCodeAt`) instead of embedding `\uXXXX` escapes in source, so there's nothing left for a transcription pass to misrender. Verified both rewrites behave identically at runtime. No `patch` block included — already-scaffolded repos hit this inconsistently depending on how the escape got transcribed, so there's no single anchor to match reliably; fix hand-transcribed guard/tool files in already-scaffolded repos manually if `no-irregular-whitespace` flags them.
+
 ## [1.34.0] - 2026-07-14
 
 ### Added
