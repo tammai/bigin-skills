@@ -1,0 +1,14 @@
+[
+  {"query": "scaffold a node api for orders-api", "should_trigger": true},
+  {"query": "create a fastify backend with the project name orders-api", "should_trigger": true},
+  {"query": "initialize a node.js rest api in this empty repo", "should_trigger": true},
+  {"query": "set up a node api with drizzle and postgres", "should_trigger": true},
+  {"query": "tạo node api mới", "should_trigger": true},
+  {"query": "khởi tạo node.js api cho dự án này", "should_trigger": true},
+  {"query": "set up the AI harness for this node repo", "should_trigger": false},
+  {"query": "add a new endpoint to this existing node api", "should_trigger": false},
+  {"query": "fix the eslint warnings in this node project", "should_trigger": false},
+  {"query": "explain how drizzle migrations work", "should_trigger": false},
+  {"query": "distill this sprint's learnings", "should_trigger": false},
+  {"query": "run the node server and check the healthz endpoint", "should_trigger": false}
+]

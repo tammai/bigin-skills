@@ -1,6 +1,8 @@
 # Node.js Profile Templates
 
-Stack: Node.js TypeScript REST API backend
+Stack: Node.js TypeScript REST API backend — contract-first (`openapi-typescript` + Drizzle/`drizzle-kit`), Fastify, Postgres
+
+Empty repo → scaffolded by the **`nodejs-scaffold`** skill (writes files, runs codegen, verifies lint/typecheck/build/test, commits; no GitHub clone). See `skills/nodejs-scaffold/`.
 
 ---
 
@@ -12,6 +14,8 @@ typecheck:  pnpm type-check
 test:       pnpm test --run
 dev:        pnpm dev
 build:      pnpm build
+generate:   pnpm openapi-types && pnpm db:generate   # openapi-typescript (openapi.yaml) + drizzle-kit (src/db/schema.ts)
+migrate:    pnpm db:migrate
 ```
 
 ---
@@ -21,7 +25,7 @@ build:      pnpm build
 ```markdown
 # CLAUDE.md
 
-Stack: Node.js TypeScript REST API
+Stack: Node.js TypeScript REST API · contract-first (openapi-typescript + Drizzle) · Fastify · Postgres
 Node: ≥22 · pnpm only
 
 ## Commands
@@ -32,16 +36,21 @@ Node: ≥22 · pnpm only
 | lint      | `pnpm lint`        |
 | typecheck | `pnpm type-check`  |
 | build     | `pnpm build`       |
+| generate  | `pnpm openapi-types && pnpm db:generate` |
+| migrate   | `pnpm db:migrate`  |
 
 ## Rules
 See `.claude/rules/` — path-scoped conventions, security, architecture.
 
 ## Hard Rules (non-negotiable)
+- `openapi.yaml` is the API contract, written first. `src/types/api.d.ts` is generated from it via `openapi-typescript` — never hand-edited.
+- `src/db/schema.ts` is the source of truth for the DB schema. After changing it: `pnpm db:generate` (produces a migration under `drizzle/`), then `pnpm db:migrate` to apply. Never hand-edit a migration already applied to a shared environment — add a new one instead.
+- Business logic lives only in `src/services/`. Only `src/repositories/` uses the Drizzle query builder. Route handlers (`src/routes/`) do Zod validation + wiring only.
 - No `--no-verify`. No `eslint-disable` without a justifying comment. No weakening eslint config to pass checks.
 - No `@ts-ignore` or `as any` without a justifying comment.
-- No unauthenticated endpoints.
+- No unauthenticated endpoints past a stubbed auth check — replace it before production traffic.
 - Validate all inputs at handler boundaries using Zod.
-- `openapi.yaml` is written first; handlers implement it.
+- Never echo raw driver/internal error text into a response body — log it server-side, respond with a generic `{code, message}`. (Zod's flattened validation errors are the intentional exception — that's client-actionable feedback, not an internals leak.)
 - Backend leads with additive changes. Breaking API change = version bump (`/v2/`).
 
 ## Task workflow
@@ -66,28 +75,33 @@ paths:
 ---
 # Conventions
 
+## Editable surface
+Only these are hand-written:
+- `openapi.yaml` — the contract
+- `src/db/schema.ts` — the DB schema
+- `src/routes/`, `src/services/`, `src/repositories/`, `src/middleware/` — routing, business logic, data access
+
+`src/types/api.d.ts` (from `openapi.yaml` via `openapi-typescript`) and `drizzle/*.sql` (from `src/db/schema.ts` via `drizzle-kit generate`) are generated. Regenerate with `pnpm openapi-types` / `pnpm db:generate` — never hand-edit `src/types/api.d.ts`. A migration under `drizzle/` may be tweaked before it's ever applied anywhere, but never after — add a new one instead.
+
 ## Naming
 - Files: kebab-case (`user-controller.ts`, `user-service.ts`)
 - Classes, types, interfaces: PascalCase
 - Functions, variables: camelCase
 - Routes: kebab-case (`/users/:id/profile`)
 - Zod schemas: camelCase with `Schema` suffix (`createUserSchema`)
+- Drizzle columns: snake_case DB column strings, camelCase TS property names (`createdAt: timestamp('created_at')`)
 
-## Request Handler Pattern
+## Handler Pattern
 
 ```ts
-async function createUser(req: Request, res: Response, next: NextFunction): Promise<void> {
-  const result = createUserSchema.safeParse(req.body)
+async function createUser(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const result = createUserSchema.safeParse(request.body)
   if (!result.success) {
-    res.status(400).json({ error: result.error.flatten() })
+    reply.code(400).send({ code: 'invalid_request', message: 'validation failed', details: result.error.flatten() })
     return
   }
-  try {
-    const user = await userService.create(result.data)
-    res.status(201).json(user)
-  } catch (err) {
-    next(err)
-  }
+  const user = await userService.create(result.data)
+  reply.code(201).send(user)
 }
 ```
 
@@ -96,26 +110,35 @@ Validation at the handler boundary only. Services receive clean, typed data.
 ## OpenAPI First
 Write `openapi.yaml` before implementing any new route. Generate types:
 ```sh
-pnpm openapi-typescript openapi.yaml -o src/types/api.d.ts
+pnpm openapi-types
 ```
-Import: `import type { paths } from './types/api'`
+Import: `import type { paths } from '../types/api.js'`
 Never define API shapes inline — always use generated types.
 
 ## Error Handling
-- Never throw from route handlers without a try/catch that passes to `next()`.
-- Centralized error middleware at the app level maps domain errors to HTTP codes.
-- No `console.log` in production paths — use the configured logger.
+- Route handlers never write an error response directly — either `safeParse` + an explicit 400, or let a thrown error reach the centralized `setErrorHandler` (`src/middleware/error-handler.ts`).
+- `setErrorHandler` covers both Fastify's own body-parse errors (malformed JSON) and handler-thrown errors through the same path — a new route must not open a second, unwired error path that leaks raw parser/driver text.
+- Zod validation errors return flattened field detail (client-actionable, intentional); anything else returns a generic `{code, message}`.
+- No `console.log` in production paths — use the request/app logger (`request.log` / `app.log`).
 
 ## Project Layout
 ```
 src/
+  config/         ← env parsing (Zod)
   routes/         ← route registration + handler functions
   services/       ← business logic
-  repositories/   ← data access
-  middleware/     ← auth, error handling, validation helpers
-  types/          ← generated API types + domain types
+  repositories/   ← data access (Drizzle query builder against db/schema.ts)
+  middleware/      ← auth, error handling
+  db/             ← schema.ts (hand-written), client.ts, migrate.ts
+  types/          ← GENERATED from openapi.yaml (openapi-typescript) — do not edit
   lib/            ← shared utilities
+drizzle/          ← GENERATED from src/db/schema.ts (drizzle-kit) — do not edit
 ```
+
+## Testing
+- Co-located `*.test.ts` files next to the module under test — no mirrored `tests/` tree.
+- Unit-test routes/services against a mocked repository module (`vi.mock('../repositories/user-repository.js')`) — the repository is the seam; no live Postgres needed.
+- Keep `/readyz`-against-unreachable-DB tests — they catch the class of bug that only shows up when a dependency is legitimately absent, not just the happy path with everything wired.
 ```
 
 ---
@@ -125,11 +148,16 @@ src/
 Prepend `paths: ["src/**"]` as YAML frontmatter when writing `architecture.md` (see `references/files-shared.md` → `## paths substitutions`).
 
 ```markdown
-## [Node.js] Package Structure
-- All domain logic in `src/`. Handler files: routing + input validation only.
-- Business logic in `services/`. Data access in `repositories/`. Never reverse layers.
-- Shared cross-cutting concerns (auth middleware, error handler) in `src/middleware/`.
-- `src/lib/` for utilities with no domain knowledge.
+## [Node.js] Contract-First API Boundary
+- `openapi.yaml` is the only source of truth for the API surface. `src/types/api.d.ts` is generated from it — a PR touching request/response shapes without a corresponding `openapi.yaml` change is a sign the contract was bypassed.
+- Route handlers (`src/routes/`) validate input and wire the call only. Business logic lives in `src/services/`; DB access lives in `src/repositories/`. Nothing outside `src/repositories/` imports `src/db/client.ts` directly.
+- `src/middleware/error-handler.ts` (registered via `app.setErrorHandler`) owns the only place an HTTP error response is written — both Fastify's own body-parse errors and handler-thrown errors go through it. A new route must not open a second, unwired error path.
+
+## [Node.js] Schema-First DB Boundary (Drizzle)
+- `src/db/schema.ts` is hand-written and is the source of truth for the DB schema — the reverse of a SQL-first generator like sqlc (which generates code from hand-written SQL; Drizzle generates SQL migrations from hand-written TypeScript).
+- After editing `src/db/schema.ts`: run `pnpm db:generate` (produces a migration under `drizzle/`) then `pnpm db:migrate` before writing repository code against the new shape.
+- Never hand-edit a migration under `drizzle/` already applied to a shared environment — add a new one.
+- `src/repositories/` uses Drizzle's query builder directly against `schema.ts` — unlike sqlc, there is no separate generated "typed queries" layer to keep in sync; the repository function *is* the query.
 ```
 
 ---
@@ -149,7 +177,13 @@ Prepend `paths: ["src/**"]` as YAML frontmatter when writing `architecture.md` (
       "Bash(pnpm add:*)",
       "Bash(pnpm remove:*)",
       "Bash(pnpm install:*)",
+      "Bash(pnpm openapi-types:*)",
       "Bash(pnpm openapi-typescript:*)",
+      "Bash(pnpm db:generate:*)",
+      "Bash(pnpm db:migrate:*)",
+      "Bash(pnpm drizzle-kit:*)",
+      "Bash(docker build:*)",
+      "Bash(docker compose:*)",
       "Bash(git status:*)",
       "Bash(git diff:*)",
       "Bash(git log:*)",

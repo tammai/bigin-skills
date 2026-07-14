@@ -5,6 +5,137 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.32.0] - 2026-07-13
+
+### Added
+
+- **The `nodejs` profile had templates in `profile-nodejs.md` (Express handler pattern, hand-rolled `routes`/`services`/`repositories` layers) but no scaffolding skill and no DB-layer codegen story — unlike the `go` profile (v1.31.0's `go-scaffold`, contract-first via `oapi-codegen` + `sqlc`), a fresh Node.js repo either got hand-scaffolded inconsistently or skipped straight to a harness overlay with no app underneath it, and its conventions.md had no "Editable surface," no migrations convention, no Testing section, and an unnamed lint tool:** Added a new `nodejs-scaffold` skill (`skills/nodejs-scaffold/SKILL.md`) that scaffolds a production-ready, contract-first Node.js REST API — `openapi.yaml` generates API types via `openapi-typescript`; `src/db/schema.ts` generates migration SQL via `drizzle-kit generate` — the *reverse* direction of sqlc: schema.ts is hand-written TypeScript, migrations are generated from it, and there's no separate generated "typed queries" layer to keep in sync (the repository function *is* the query, via Drizzle's query builder directly against the schema). Fastify router, Postgres via `postgres` (postgres.js, chosen over `pg` for its promise-first API and lazy-connect behavior matching `pgxpool.New` — `{ prepare: false }` set for PgBouncer transaction-pooling compatibility), Zod validation at handler boundaries, `@fastify/cors` + `@fastify/rate-limit`, Fastify's built-in `pino` logger, ESLint (flat config), Vitest. Migrations are applied manually (`pnpm db:migrate`), mirroring go-scaffold's manual `make migrate-up` — not auto-run at startup, to avoid a race between concurrently-starting instances and keep schema changes an explicit, reviewable step. Unlike go-scaffold's pinned `SQLC_VERSION`/`OAPI_CODEGEN_VERSION` constants (which exist only to avoid vendoring dev tools into `go.mod`), no dependency version is hardcoded here — every tool is a normal `dependency`/`devDependency` resolved into `pnpm-lock.yaml`, with one deliberate exception: `typescript@^5` (a major-version compatibility constraint, not a stale pin) — caught live during manual validation, where a bare `typescript` dependency resolved a 7.x prerelease and crashed `openapi-typescript`'s codegen with `Cannot read properties of undefined (reading 'createKeywordTypeNode')` (a breaking `ts.factory` API change). The deterministic script (`scripts/scaffold.mjs`, Node stdlib, CLI-flag driven, zero prompts, reusing `nuxt-scaffold`'s Windows `.cmd`-shim-safe `run()`/`winQuote()` helpers since — unlike go-scaffold — it shells out to `pnpm` repeatedly) writes static files, runs `pnpm add`, runs both generators, writes the hand-written glue that imports fastify/the generated API types, then `pnpm lint` + `pnpm type-check` + `pnpm build` + `pnpm test --run` + `git commit`. Verified end-to-end against a real scaffold run: all four verify stages pass, the built server starts and correctly serves `/healthz` (200) / `/readyz` (503 against an unreachable DB, no live Postgres needed) / `/openapi.yaml` / `/docs` / the example `users` resource, and a malformed JSON request body returns `{"code":"bad_request","message":"invalid request"}`, never the raw Fastify parser error text — caught two more real bugs this way (see Changed) beyond the `typescript@^5` one. Wired into `bigin-harness-setup` as a new Phase 0.5c, mirroring Phase 0.5b's delegation to `go-scaffold`.
+
+### Changed
+
+- **A first scaffold run surfaced two real bugs no amount of reading the templates would have caught:** (1) Vitest was picking up and re-running the *compiled* `dist/**/*.test.js` output alongside the `src/**/*.test.ts` source on any run after `pnpm build`, failing 4 suites that should have been 2 — added `vitest.config.ts` excluding `dist/**` from test discovery. (2) `src/config/env.ts` validates `DATABASE_URL` as required at module-load time, which `buildApp()`'s import chain triggers eagerly — route tests failed before a single assertion ran because no `.env` exists yet in a freshly-scaffolded, untested checkout. The same `vitest.config.ts` injects a placeholder `DATABASE_URL` via `test.env` (no test ever executes a real query against it — `/readyz`'s check is the only thing that would, and it's mocked in `health.test.ts`).
+- **`profile-nodejs.md`'s go-profile-equivalent gaps, closed to match `profile-go.md`'s depth:** Hard Rules now name the contract (`openapi.yaml` → generated `src/types/api.d.ts`, never hand-edited) and the DB source of truth (`src/db/schema.ts` → `pnpm db:generate` then `pnpm db:migrate`, never hand-edit an applied migration) explicitly, the way go's already did for `internal/api`/`internal/store`. `conventions.md` gained an `## Editable surface` section (mirroring go's), a `## Testing` section (co-located `*.test.ts`, mock the repository module as the seam, keep `/readyz`-against-unreachable-DB tests — go's equivalent section already called out the same pattern via `store.Querier`), and its `## Handler Pattern` example was **rewritten from Express to Fastify** — this is a breaking content change for any already-scaffolded Express-based nodejs repo's documentation, same as v1.31.0's Gin→contract-first rewrite for go; the old Express example is gone from this file. The architecture addendum gained `[Node.js] Contract-First API Boundary` and `[Node.js] Schema-First DB Boundary (Drizzle)` sections, directly paralleling go's `[Go] Contract-First Boundary`/`[Go] Regeneration Discipline`. `settings.json` gained `pnpm db:generate`/`pnpm db:migrate`/`pnpm drizzle-kit`/`docker build`/`docker compose` permissions (already-onboarded repos pick these up automatically next time `bigin-harness-setup` runs, via its existing non-destructive settings.json merge — no patch block needed for JSON). Patch blocks below cover the prose files.
+- Added `bigin-harness-setup/SKILL.md` Phase 0.5c (Node.js Project Scaffold, mirroring Phase 0.5b), a Phase 1 paragraph for the nodejs `SCAFFOLDED` branch, an Idempotency Rules bullet, and a References line — 417→444 lines, still under the 500-line skill-authoring cap.
+- Added `nodejs-scaffold`/`fastify`/`drizzle`/`drizzle-orm`/`drizzle-kit`/`postgres-js` keywords to `plugin.json` and `marketplace.json`, and updated both plugins' top-level descriptions to mention Node.js/Fastify/Drizzle scaffolding alongside Nuxt and Go. Added the missing `nodejs-scaffold` row to `README.md`'s Core Skills table, a "Node.js on an empty repo" paragraph to "What gets generated" (mirroring the existing nuxt/go paragraphs), and the nodejs-scaffold reference to `CLAUDE.md`'s skills table.
+
+  ```patch
+  target: .claude/rules/conventions.md
+  anchor: # Conventions
+
+## Naming
+  insert: replace
+  ---
+  # Conventions
+
+  ## Editable surface
+  Only these are hand-written:
+  - `openapi.yaml` — the contract
+  - `src/db/schema.ts` — the DB schema
+  - `src/routes/`, `src/services/`, `src/repositories/`, `src/middleware/` — routing, business logic, data access
+
+  `src/types/api.d.ts` (from `openapi.yaml` via `openapi-typescript`) and `drizzle/*.sql` (from `src/db/schema.ts` via `drizzle-kit generate`) are generated. Regenerate with `pnpm openapi-types` / `pnpm db:generate` — never hand-edit `src/types/api.d.ts`. A migration under `drizzle/` may be tweaked before it's ever applied anywhere, but never after — add a new one instead.
+
+  ## Naming
+  ```
+  ````patch
+  target: .claude/rules/conventions.md
+  anchor:
+  ```ts
+  async function createUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+    const result = createUserSchema.safeParse(req.body)
+    if (!result.success) {
+      res.status(400).json({ error: result.error.flatten() })
+      return
+    }
+    try {
+      const user = await userService.create(result.data)
+      res.status(201).json(user)
+    } catch (err) {
+      next(err)
+    }
+  }
+  ```
+  insert: replace
+  ---
+  ```ts
+  async function createUser(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+    const result = createUserSchema.safeParse(request.body)
+    if (!result.success) {
+      reply.code(400).send({ code: 'invalid_request', message: 'validation failed', details: result.error.flatten() })
+      return
+    }
+    const user = await userService.create(result.data)
+    reply.code(201).send(user)
+  }
+  ```
+  ````
+  ````patch
+  target: .claude/rules/conventions.md
+  anchor:
+  ## Project Layout
+  ```
+  src/
+    routes/         ← route registration + handler functions
+    services/       ← business logic
+    repositories/   ← data access
+    middleware/     ← auth, error handling, validation helpers
+    types/          ← generated API types + domain types
+    lib/            ← shared utilities
+  ```
+  insert: after
+  ---
+
+  ## Testing
+  - Co-located `*.test.ts` files next to the module under test — no mirrored `tests/` tree.
+  - Unit-test routes/services against a mocked repository module (`vi.mock('../repositories/user-repository.js')`) — the repository is the seam; no live Postgres needed.
+  - Keep `/readyz`-against-unreachable-DB tests — they catch the class of bug that only shows up when a dependency is legitimately absent, not just the happy path with everything wired.
+  ````
+  ```patch
+  target: .claude/rules/architecture.md
+  anchor:
+  ## [Node.js] Package Structure
+  - All domain logic in `src/`. Handler files: routing + input validation only.
+  - Business logic in `services/`. Data access in `repositories/`. Never reverse layers.
+  - Shared cross-cutting concerns (auth middleware, error handler) in `src/middleware/`.
+  - `src/lib/` for utilities with no domain knowledge.
+  insert: after
+  ---
+
+  ## [Node.js] Contract-First API Boundary
+  - `openapi.yaml` is the only source of truth for the API surface. `src/types/api.d.ts` is generated from it — a PR touching request/response shapes without a corresponding `openapi.yaml` change is a sign the contract was bypassed.
+  - Route handlers (`src/routes/`) validate input and wire the call only. Business logic lives in `src/services/`; DB access lives in `src/repositories/`. Nothing outside `src/repositories/` imports `src/db/client.ts` directly.
+  - `src/middleware/error-handler.ts` (registered via `app.setErrorHandler`) owns the only place an HTTP error response is written — both Fastify's own body-parse errors and handler-thrown errors go through it. A new route must not open a second, unwired error path.
+
+  ## [Node.js] Schema-First DB Boundary (Drizzle)
+  - `src/db/schema.ts` is hand-written and is the source of truth for the DB schema — the reverse of a SQL-first generator like sqlc (which generates code from hand-written SQL; Drizzle generates SQL migrations from hand-written TypeScript).
+  - After editing `src/db/schema.ts`: run `pnpm db:generate` (produces a migration under `drizzle/`) then `pnpm db:migrate` before writing repository code against the new shape.
+  - Never hand-edit a migration under `drizzle/` already applied to a shared environment — add a new one.
+  - `src/repositories/` uses Drizzle's query builder directly against `schema.ts` — unlike sqlc, there is no separate generated "typed queries" layer to keep in sync; the repository function *is* the query.
+  ```
+  ```patch
+  target: CLAUDE.md
+  anchor:
+  ## Hard Rules (non-negotiable)
+  - No `--no-verify`. No `eslint-disable` without a justifying comment. No weakening eslint config to pass checks.
+  - No `@ts-ignore` or `as any` without a justifying comment.
+  - No unauthenticated endpoints.
+  - Validate all inputs at handler boundaries using Zod.
+  - `openapi.yaml` is written first; handlers implement it.
+  - Backend leads with additive changes. Breaking API change = version bump (`/v2/`).
+  insert: replace
+  ---
+  ## Hard Rules (non-negotiable)
+  - `openapi.yaml` is the API contract, written first. `src/types/api.d.ts` is generated from it via `openapi-typescript` — never hand-edited.
+  - `src/db/schema.ts` is the source of truth for the DB schema. After changing it: `pnpm db:generate` (produces a migration under `drizzle/`), then `pnpm db:migrate` to apply. Never hand-edit a migration already applied to a shared environment — add a new one instead.
+  - Business logic lives only in `src/services/`. Only `src/repositories/` uses the Drizzle query builder. Route handlers (`src/routes/`) do Zod validation + wiring only.
+  - No `--no-verify`. No `eslint-disable` without a justifying comment. No weakening eslint config to pass checks.
+  - No `@ts-ignore` or `as any` without a justifying comment.
+  - No unauthenticated endpoints past a stubbed auth check — replace it before production traffic.
+  - Validate all inputs at handler boundaries using Zod.
+  - Never echo raw driver/internal error text into a response body — log it server-side, respond with a generic `{code, message}`. (Zod's flattened validation errors are the intentional exception — that's client-actionable feedback, not an internals leak.)
+  - Backend leads with additive changes. Breaking API change = version bump (`/v2/`).
+  ```
+
 ## [1.31.0] - 2026-07-13
 
 ### Added

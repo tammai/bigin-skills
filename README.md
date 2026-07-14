@@ -19,6 +19,7 @@ The harness itself — setup, workflow, and maintenance for a repo under standar
 | **task-workflow**       | On-demand task workflow skill (`/task-workflow`): scope → spec → plan file → implement → verify → review → cleanup. Loaded only when invoked, not on every session start. |
 | **nuxt-scaffold**       | Scaffolds a Nuxt 4 BFF app from scratch via a deterministic Node.js script (`scripts/scaffold.mjs`, config-driven, zero prompts, macOS/Windows) — `npm create nuxt@latest` + BFF preset + config/sample code. No GitHub clone. / Scaffold app Nuxt 4 BFF bằng script Node.js tất định — không prompt khi chạy. |
 | **go-scaffold**         | Scaffolds a production-ready Go REST API via a deterministic Node.js script (`scripts/scaffold.mjs`, CLI-flag driven, zero prompts) — contract-first: `openapi.yaml` → server interface + models (`oapi-codegen`), SQL → typed queries (`sqlc`); chi router, Postgres, structured logging, rate limiting, CORS, Prometheus metrics. The script runs codegen + `go build`/`vet`/`test` itself before committing. |
+| **nodejs-scaffold**     | Scaffolds a production-ready Node.js REST API via a deterministic Node.js script (`scripts/scaffold.mjs`, CLI-flag driven, zero prompts) — contract-first: `openapi.yaml` → API types (`openapi-typescript`), `src/db/schema.ts` → migration SQL (`drizzle-kit`, the reverse direction of sqlc); Fastify, Postgres (`postgres`/postgres.js), Zod validation, rate limiting, CORS. The script runs codegen + `pnpm lint`/`type-check`/`build`/`test` itself before committing. |
 | **sprint-distill**      | End-of-sprint distillation: merged PRs + touched `knowledge/` concepts → proposal-first `knowledge/` and `bigin-skills` updates. Compresses, never just appends. |
 | **write-tests**         | On-demand test authoring (`/write-tests`): style-matches the nearest existing test file, lists edge cases before coding, TDD-orders business logic, mocks only true I/O boundaries. |
 | **debug-workflow**      | On-demand systematic debugging (`/debug-workflow`): four gated phases — root cause investigation → pattern analysis → hypothesis testing → fix + validation. For untracked debugging (flaky tests, stack traces, incidents), not tracked bug fixes (see task-workflow) or test authoring (see write-tests). |
@@ -53,13 +54,15 @@ Sets up a consistent "harness level" on any repo so team members of mixed skill 
 | -------- | ------------------------------------------------------------------------------ |
 | `nuxt`   | Nuxt 4 fullstack (Cloudflare Pages), Nuxt ESLint, Pinia + Pinia Colada, VueUse, Nuxt UI, nuxt-auth-utils, Zod, Vitest — BFF proxy layer (no D1/KV/R2; backend owns data). Empty repo → scaffolded by the `nuxt-scaffold` skill (`npm create nuxt@latest`, no clone) |
 | `go`     | Go REST API — contract-first (`oapi-codegen` + `sqlc`), chi router, Postgres. Empty repo → scaffolded by the `go-scaffold` skill |
-| `nodejs` | Node.js TypeScript REST API                                                    |
+| `nodejs` | Node.js TypeScript REST API — contract-first (`openapi-typescript` + Drizzle/`drizzle-kit`), Fastify, Postgres. Empty repo → scaffolded by the `nodejs-scaffold` skill |
 
 ### What gets generated
 
 **nuxt on an empty repo:** the full app is first scaffolded **by the `nuxt-scaffold` skill's deterministic script** — all decisions gathered upfront into a config JSON, then `node scripts/scaffold.mjs --config <path>` runs `npm create nuxt@latest` + the BFF preset modules + config and sample code (`nuxt.config.ts`, `eslint.config.mjs`, `app/`, `server/`, `simple-git-hooks`) with zero prompts. The Nuxt app is a BFF proxy layer — no DB, the backend owns data persistence. The harness governance layer is then overlaid additively.
 
 **go on an empty repo:** scaffolded **by the `go-scaffold` skill's deterministic script** — module path + project name gathered upfront as CLI flags, then `node scripts/scaffold.mjs --module <path>` writes the project, runs `oapi-codegen` (from `openapi.yaml`) and `sqlc` (from `internal/store/queries/*.sql`) via `go run pkg@version` (no global install, no `go.mod` pollution), writes the hand-written glue (`cmd/server`, `internal/config`, `internal/server`), then `go mod tidy` + `gofmt` + `go vet` + `go build` + `go test` + `git commit` — all before reporting success. `go-scaffold` writes no `.claude/` anything; the harness governance layer is overlaid additively afterward, same as nuxt.
+
+**nodejs on an empty repo:** scaffolded **by the `nodejs-scaffold` skill's deterministic script** — project name gathered upfront as a CLI flag, then `node scripts/scaffold.mjs --project <name>` writes the project, `pnpm add`s dependencies, runs `openapi-typescript` (from `openapi.yaml`) and `drizzle-kit generate` (from `src/db/schema.ts` — migrations are generated from the schema, the reverse direction of sqlc), writes the hand-written glue (`src/app.ts`, `src/routes`, `src/services`, `src/repositories`), then `pnpm lint` + `pnpm type-check` + `pnpm build` + `pnpm test --run` + `git commit` — all before reporting success. `nodejs-scaffold` writes no `.claude/` anything; the harness governance layer is overlaid additively afterward, same as go.
 
 ```
 your-repo/
@@ -192,6 +195,12 @@ bigin-skills/
 │   │   └── scripts/
 │   │       ├── scaffold.mjs       ← deterministic scaffold (Node stdlib, --module/--dir/--project flags)
 │   │       └── templates/files/   ← source of truth; STATIC_FILES before codegen, GLUE_FILES after
+│   ├── nodejs-scaffold/           ← Node.js REST API scaffolder (contract-first: openapi-typescript + Drizzle)
+│   │   ├── SKILL.md               ← CLI flags in, design notes for maintainers, no AskUserQuestion menu
+│   │   ├── evals/evals.json
+│   │   └── scripts/
+│   │       ├── scaffold.mjs       ← deterministic scaffold (Node stdlib, --project/--dir flags)
+│   │       └── templates/files/   ← source of truth; STATIC_FILES before pnpm add/codegen, GLUE_FILES after
 │   ├── sprint-distill/            ← end-of-sprint distillation (compresses, never appends)
 │   │   ├── SKILL.md
 │   │   └── evals/evals.json

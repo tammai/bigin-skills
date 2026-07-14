@@ -24,6 +24,7 @@ scripts/git-hooks/        ← pre-commit running the budget gate
 | `task-workflow` | On-demand task workflow: scope → spec → plan file → implement → verify → review → cleanup (Tier 3) |
 | `nuxt-scaffold` | Scaffolds Nuxt 4 BFF app from scratch via `npm create nuxt@latest` |
 | `go-scaffold` | Scaffolds a contract-first Go REST API (oapi-codegen + sqlc + chi + Postgres); runs codegen + build/vet/test itself |
+| `nodejs-scaffold` | Scaffolds a contract-first Node.js REST API (openapi-typescript + Drizzle/drizzle-kit + Fastify + Postgres); runs codegen + lint/typecheck/build/test itself |
 | `nuxt-ui-figma-handoff` | Extracts a Nuxt UI Figma design handoff into main.css theme tokens + app.config.ts component overrides |
 | `sprint-distill` | End-of-sprint distillation into `knowledge/` + bigin-skills; compresses, never appends |
 | `session-handoff` | Session state persistence to `.claude/memory/SESSION.md` |
