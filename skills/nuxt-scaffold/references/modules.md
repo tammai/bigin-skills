@@ -36,7 +36,7 @@ The template also ships the eslint stylistic config — explicit override `comma
 | `pnpm add -D happy-dom` | `happy-dom` | DOM implementation required by `@nuxt/test-utils`'s `environment: 'nuxt'` — `pnpm test` fails without it |
 | `pnpm add -D simple-git-hooks` | `simple-git-hooks` | Lightweight git hook manager (project commit gate) — needs `pnpm approve-builds simple-git-hooks` (Stage 4) on pnpm 10+ |
 | `pnpm add -D lint-staged` | `lint-staged` | Run ESLint on staged files at commit |
-| `pnpm add -D openapi-typescript` | `openapi-typescript` | Generate server API types from `openapi.yaml` |
+| `pnpm add -D openapi-typescript` [`starter` only] | `openapi-typescript` | Generate server API types from `openapi.yaml` — only `starter` ships the stub contract + script that use it, so it's not installed for the other 8 templates |
 
 > **Already installed as dependencies of `@nuxt/ui`** (no need to add): `@nuxt/icon`, `@nuxt/fonts`, `@nuxtjs/color-mode`. They register automatically when `@nuxt/ui` is installed.
 

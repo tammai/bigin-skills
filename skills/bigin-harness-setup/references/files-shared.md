@@ -33,6 +33,18 @@ paths:
 ---
 ```
 
+**next:**
+```yaml
+---
+paths:
+  - "src/app/**"
+  - "src/components/**"
+  - "src/hooks/**"
+  - "src/lib/**"
+  - "src/proxy.ts"
+---
+```
+
 ---
 
 ## security.md

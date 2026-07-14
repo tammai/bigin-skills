@@ -39,8 +39,8 @@ Prerequisites: Node.js 22+, pnpm. Scaffolding is **in-place** into the target di
 
 Check the target directory:
 
-- **`nuxt.config.ts` exists + both signature files (`vitest.config.ts`, `.claude/settings.json`) exist** → complete scaffold. Say so and stop.
-- **`nuxt.config.ts` exists but a signature file is missing** → partial scaffold (prior failed run). Ask: *"Partial scaffold detected — resume (install BFF preset + apply artifacts + verify)? (yes / no)"*. If yes → set `resume: true` in the config and continue to Step 2 (theme answers are still needed for the artifact stage). If no → stop.
+- **`nuxt.config.ts` exists + both signature files (`vitest.config.ts`, `.claude/settings.json`) + `node_modules/` all exist** → complete scaffold. Say so and stop.
+- **`nuxt.config.ts` exists but a signature file or `node_modules/` is missing** → partial scaffold (prior failed run, or a maintainer's `skipInstall: true` run that still needs installing/verifying). Ask: *"Partial scaffold detected — resume (install BFF preset + apply artifacts + verify)? (yes / no)"*. If yes → set `resume: true` in the config and continue to Step 2 (theme answers are still needed for the artifact stage). If no → stop.
 - **No `nuxt.config.ts`** → ask: *"Scaffold a Nuxt 4 BFF app in this repo (non-interactive npm create nuxt@latest + BFF preset + config)? (yes / no)"*. If no → stop.
 
 (The script re-checks all of this and fails fast rather than overwriting — but resolving it conversationally first avoids a wasted run.)

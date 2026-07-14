@@ -1,0 +1,14 @@
+[
+  {"query": "scaffold a new next.js app with the saas template", "should_trigger": true},
+  {"query": "create a next.js app for our BFF layer", "should_trigger": true},
+  {"query": "initialize a new next project called my-app", "should_trigger": true},
+  {"query": "set up next.js with the dashboard template", "should_trigger": true},
+  {"query": "tạo một dự án next.js mới", "should_trigger": true},
+  {"query": "khởi tạo next cho dự án này", "should_trigger": true},
+  {"query": "set up the AI harness for this next.js repo", "should_trigger": false},
+  {"query": "add a new page to this existing next.js app", "should_trigger": false},
+  {"query": "fix the eslint config in this next.js project", "should_trigger": false},
+  {"query": "explain how iron-session works", "should_trigger": false},
+  {"query": "distill this sprint's learnings", "should_trigger": false},
+  {"query": "run the next.js dev server and check the homepage", "should_trigger": false}
+]

@@ -9,7 +9,7 @@
     {
       "name": "bigin-skills",
       "source": "./",
-      "description": "BigIn's Claude Code skills — harness setup (governance + enforcement gates for nuxt/go/nodejs), Nuxt, Go, and Node.js app scaffolding, end-of-sprint knowledge distillation, and session handoff.",
+      "description": "BigIn's Claude Code skills — harness setup (governance + enforcement gates for nuxt/go/nodejs/next), Nuxt, Next.js, Go, and Node.js app scaffolding, end-of-sprint knowledge distillation, and session handoff.",
       "author": {
         "name": "Tam Mai",
         "email": "tam.mai@bigin.vn"
@@ -17,7 +17,7 @@
       "homepage": "https://github.com/tammai/bigin-skills",
       "repository": "https://github.com/tammai/bigin-skills",
       "license": "MIT",
-      "keywords": ["harness", "harness-setup", "ai-governance", "enforcement-hooks", "code-conventions", "claude-md", "nuxt", "nuxt-scaffold", "nuxt-ui-templates", "saas-template", "go-backend", "go-scaffold", "oapi-codegen", "sqlc", "contract-first", "nodejs-backend", "nodejs-scaffold", "fastify", "drizzle", "drizzle-orm", "drizzle-kit", "postgres-js", "session-handoff", "sprint-distill", "knowledge-distillation", "knowledge-bundle", "ci", "github-actions", "gitlab-ci", "web-development", "task-workflow", "write-tests", "debug-workflow", "systematic-debugging", "root-cause-analysis", "testing", "context-budget", "claude-code-plugin", "figma", "figma-handoff", "design-handoff", "design-tokens", "nuxt-ui-theming", "handoff-skills", "model-router", "subagent-routing", "task-complexity", "effort-routing", "agent-tool", "stop-hook", "session-start-hook", "verify-gate", "deterministic-enforcement"]
+      "keywords": ["harness", "harness-setup", "ai-governance", "enforcement-hooks", "code-conventions", "claude-md", "nuxt", "nuxt-scaffold", "nuxt-ui-templates", "saas-template", "nextjs", "next-scaffold", "react", "shadcn-ui", "zustand", "tanstack-query", "iron-session", "vercel", "go-backend", "go-scaffold", "oapi-codegen", "sqlc", "contract-first", "nodejs-backend", "nodejs-scaffold", "fastify", "drizzle", "drizzle-orm", "drizzle-kit", "postgres-js", "session-handoff", "sprint-distill", "knowledge-distillation", "knowledge-bundle", "ci", "github-actions", "gitlab-ci", "web-development", "task-workflow", "write-tests", "debug-workflow", "systematic-debugging", "root-cause-analysis", "testing", "context-budget", "claude-code-plugin", "figma", "figma-handoff", "design-handoff", "design-tokens", "nuxt-ui-theming", "handoff-skills", "model-router", "subagent-routing", "task-complexity", "effort-routing", "agent-tool", "stop-hook", "session-start-hook", "verify-gate", "deterministic-enforcement"]
     }
   ]
 }

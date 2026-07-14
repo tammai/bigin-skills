@@ -2,6 +2,7 @@
   {"query": "set up the AI workflow harness for this repo", "should_trigger": true},
   {"query": "add CLAUDE.md and governance rules to this project", "should_trigger": true},
   {"query": "scaffold the harness for our go backend", "should_trigger": true},
+  {"query": "set up the AI workflow harness for our next.js frontend", "should_trigger": true},
   {"query": "onboard this existing repo with structured AI-assisted development conventions", "should_trigger": true},
   {"query": "thiết lập harness cho dự án này", "should_trigger": true},
   {"query": "cài harness AI cho repo backend", "should_trigger": true},

@@ -66,6 +66,36 @@ jobs:
 
 ---
 
+## github: next
+
+Write to `.github/workflows/ci.yml`. Identical to the nuxt job (same package manager and commands).
+
+```yaml
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm type-check
+      - run: pnpm test --run
+```
+
+---
+
 ## github: go
 
 Write to `.github/workflows/ci.yml`.
@@ -146,6 +176,31 @@ quality:
 
 ---
 
+## gitlab: next
+
+Write to `.gitlab-ci.yml`. Identical to the nuxt job.
+
+```yaml
+stages:
+  - quality
+
+quality:
+  stage: quality
+  image: node:20-slim
+  before_script:
+    - corepack enable
+    - corepack prepare pnpm@latest --activate
+    - pnpm install --frozen-lockfile
+  script:
+    - pnpm lint
+    - pnpm type-check
+    - pnpm test --run
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "main"'
+```
+
+---
+
 ## gitlab: go
 
 Write to `.gitlab-ci.yml`.
@@ -193,4 +248,4 @@ For the **go profile only** (the `golang` image has no Node), also add to `befor
 ```yaml
     - apt-get update -qq && apt-get install -y -qq nodejs
 ```
-The nuxt/nodejs profiles run on a `node` image — no addition needed.
+The nuxt/nodejs/next profiles run on a `node` image — no addition needed.

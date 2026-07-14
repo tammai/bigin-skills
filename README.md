@@ -15,9 +15,10 @@ The harness itself — setup, workflow, and maintenance for a repo under standar
 
 | Skill                  | Purpose                                                                                                  |
 | ---------------------- | -------------------------------------------------------------------------------------------------------- |
-| **bigin-harness-setup** | Scaffolds an AI workflow harness into a repo — `CLAUDE.md`, path-scoped rules, and enforcement gates. Profiles: `nuxt`, `go`, `nodejs`. |
+| **bigin-harness-setup** | Scaffolds an AI workflow harness into a repo — `CLAUDE.md`, path-scoped rules, and enforcement gates. Profiles: `nuxt`, `go`, `nodejs`, `next`. |
 | **task-workflow**       | On-demand task workflow skill (`/task-workflow`): scope → spec → plan file → implement → verify → review → cleanup. Loaded only when invoked, not on every session start. |
 | **nuxt-scaffold**       | Scaffolds a Nuxt 4 BFF app from scratch via a deterministic Node.js script (`scripts/scaffold.mjs`, config-driven, zero prompts, macOS/Windows) — `npm create nuxt@latest` + BFF preset + config/sample code. No GitHub clone. / Scaffold app Nuxt 4 BFF bằng script Node.js tất định — không prompt khi chạy. |
+| **next-scaffold**       | Scaffolds a Next.js App Router BFF app from scratch via a deterministic Node.js script (`scripts/scaffold.mjs`, config-driven, zero prompts, macOS/Windows) — `create-next-app` + BFF preset (Zustand, TanStack Query, shadcn/ui, iron-session, Zod, Vitest) + config/sample code. No GitHub clone; `dashboard`/`saas` templates layer official shadcn/ui blocks instead. |
 | **go-scaffold**         | Scaffolds a production-ready Go REST API via a deterministic Node.js script (`scripts/scaffold.mjs`, CLI-flag driven, zero prompts) — contract-first: `openapi.yaml` → server interface + models (`oapi-codegen`), SQL → typed queries (`sqlc`); chi router, Postgres, structured logging, rate limiting, CORS, Prometheus metrics. The script runs codegen + `go build`/`vet`/`test` itself before committing. |
 | **nodejs-scaffold**     | Scaffolds a production-ready Node.js REST API via a deterministic Node.js script (`scripts/scaffold.mjs`, CLI-flag driven, zero prompts) — contract-first: `openapi.yaml` → API types (`openapi-typescript`), `src/db/schema.ts` → migration SQL (`drizzle-kit`, the reverse direction of sqlc); Fastify, Postgres (`postgres`/postgres.js), Zod validation, rate limiting, CORS. The script runs codegen + `pnpm lint`/`type-check`/`build`/`test` itself before committing. |
 | **sprint-distill**      | End-of-sprint distillation: merged PRs + touched `knowledge/` concepts → proposal-first `knowledge/` and `bigin-skills` updates. Compresses, never just appends. |
@@ -55,6 +56,7 @@ Sets up a consistent "harness level" on any repo so team members of mixed skill 
 | `nuxt`   | Nuxt 4 fullstack (Cloudflare Pages), Nuxt ESLint, Pinia + Pinia Colada, VueUse, Nuxt UI, nuxt-auth-utils, Zod, Vitest — BFF proxy layer (no D1/KV/R2; backend owns data). Empty repo → scaffolded by the `nuxt-scaffold` skill (`npm create nuxt@latest`, no clone) |
 | `go`     | Go REST API — contract-first (`oapi-codegen` + `sqlc`), chi router, Postgres. Empty repo → scaffolded by the `go-scaffold` skill |
 | `nodejs` | Node.js TypeScript REST API — contract-first (`openapi-typescript` + Drizzle/`drizzle-kit`), Fastify, Postgres. Empty repo → scaffolded by the `nodejs-scaffold` skill |
+| `next`   | Next.js App Router fullstack (Vercel), shadcn/ui, Zustand, TanStack Query, iron-session, Zod, Vitest — BFF proxy layer (no ORM/DB driver; backend owns data). Empty repo → scaffolded by the `next-scaffold` skill (`create-next-app`, no clone) |
 
 ### What gets generated
 
@@ -64,6 +66,8 @@ Sets up a consistent "harness level" on any repo so team members of mixed skill 
 
 **nodejs on an empty repo:** scaffolded **by the `nodejs-scaffold` skill's deterministic script** — project name gathered upfront as a CLI flag, then `node scripts/scaffold.mjs --project <name>` writes the project, `pnpm add`s dependencies, runs `openapi-typescript` (from `openapi.yaml`) and `drizzle-kit generate` (from `src/db/schema.ts` — migrations are generated from the schema, the reverse direction of sqlc), writes the hand-written glue (`src/app.ts`, `src/routes`, `src/services`, `src/repositories`), then `pnpm lint` + `pnpm type-check` + `pnpm build` + `pnpm test --run` + `git commit` — all before reporting success. `nodejs-scaffold` writes no `.claude/` anything; the harness governance layer is overlaid additively afterward, same as go.
 
+**next on an empty repo:** the full app is first scaffolded **by the `next-scaffold` skill's deterministic script** — all decisions gathered upfront into a config JSON, then `node scripts/scaffold.mjs --config <path>` runs `create-next-app` + the BFF preset (Zustand, TanStack Query, Zod, iron-session, Vitest) + `shadcn/ui` (`npx shadcn@latest init` + `add`) + config and sample code (`next.config.ts`, `src/app/`, `src/hooks/`, `simple-git-hooks`) with zero prompts. The `dashboard` template layers the official shadcn `dashboard-01` block; `saas` adds a demo-auth-gated `/dashboard` (`iron-session`) with hand-authored login/signup pages instead of a full GitHub template clone — shadcn/ui has no equivalent gallery of standalone app templates to clone the way `nuxt-ui-templates` does. The Next app is a BFF proxy layer — no DB, the backend owns data persistence. The harness governance layer is then overlaid additively.
+
 ```
 your-repo/
 ├── CLAUDE.md                           ← Tier 1: always loaded, ≤60 lines
@@ -71,8 +75,8 @@ your-repo/
 ├── AI_REVIEW_CHECKLIST.md              ← definition of done (profile commands filled in)
 ├── .claude/
 │   ├── rules/
-│   │   ├── conventions-frontend.md     ← Tier 2: paths: app/** (nuxt only)
-│   │   ├── conventions-server.md       ← Tier 2: paths: server/** (nuxt only)
+│   │   ├── conventions-frontend.md     ← Tier 2: paths: app/** (nuxt) or src/app/**,src/components/**,src/hooks/** (next) — nuxt/next only
+│   │   ├── conventions-server.md       ← Tier 2: paths: server/** (nuxt) or src/app/api/**,src/lib/** (next) — nuxt/next only
 │   │   ├── conventions.md              ← Tier 2: paths: src/** or **/*.go (go/nodejs)
 │   │   ├── security.md                 ← Tier 2: paths: scoped per profile
 │   │   └── architecture.md             ← Tier 2: paths: scoped per profile
@@ -113,7 +117,7 @@ The skill detects the stack profile (or asks), confirms before overwriting anyth
 - **`.claude/guards/injection-scan-guard.mjs` + `.claude/guards/injection-gate-guard.mjs`** — a two-stage prompt-injection defense (inspired by Lasso Security's PostToolUse Defender). The scan guard (`PostToolUse`) heuristically checks `WebFetch`/`mcp__*` responses and `curl`/`wget` Bash output for injected instructions and flags a session-scoped marker; the gate guard (`PreToolUse`) asks for confirmation on the next risky `Bash`/`Write`/`Edit`/`mcp__*` call if that flag is still fresh (5-minute window), then clears it.
 - **`.claude/guards/session-resume-check.mjs`** — a `SessionStart` hook that deterministically injects a resume-prompt reminder when `.claude/memory/SESSION.md` has `status: in-progress`, instead of relying on CLAUDE.md prose alone.
 - **`.claude/guards/verify-gate.mjs`** — a `Stop` hook that blocks turn-end until lint + typecheck + test pass, skipping entirely on a clean working tree. The deterministic backstop for `task-workflow` Step 5's "show the actual output" convention.
-- **Auto-format** (nuxt) — set up by the `nuxt-scaffold` skill. ESLint via `@nuxt/eslint` is the only formatter (Prettier disabled). A `PostToolUse` hook runs `.claude/guards/lint-fix-file.mjs` after every agent Write/Edit, scoped to just the touched file; humans get the same via `.vscode/settings.json` format-on-save.
+- **Auto-format** (nuxt/next) — set up by the `nuxt-scaffold`/`next-scaffold` skill. ESLint is the only formatter (Prettier disabled). A `PostToolUse` hook runs `.claude/guards/lint-fix-file.mjs` after every agent Write/Edit, scoped to just the touched file; humans get the same via `.vscode/settings.json` format-on-save.
 - **`.claude/settings.json`** — pre-approves safe profile commands to reduce prompt friction.
 
 ---
@@ -166,6 +170,7 @@ bigin-skills/
 │   │   ├── evals/evals.json       ← should-trigger/should-not-trigger cases
 │   │   └── references/
 │   │       ├── profile-nuxt.md    ← CLAUDE.md + conventions-frontend/server + settings
+│   │       ├── profile-next.md    ← same shape as profile-nuxt.md
 │   │       ├── profile-go.md
 │   │       ├── profile-nodejs.md
 │   │       ├── files-shared.md    ← security, architecture, task guide, review checklist, paths substitutions
@@ -188,6 +193,16 @@ bigin-skills/
 │   │   └── references/
 │   │       ├── bootstrap.md       ← rationale for the script's command sequence
 │   │       ├── modules.md         ← BFF preset (always installed, no opt-in menu)
+│   │       └── artifacts.md       ← rationale + merge semantics for the templates
+│   ├── next-scaffold/             ← Next.js App Router BFF app scaffolder (create-next-app, no clone)
+│   │   ├── SKILL.md               ← decides config values; the script does the rest
+│   │   ├── evals/evals.json
+│   │   ├── scripts/
+│   │   │   ├── scaffold.mjs       ← deterministic scaffold (Node stdlib, --config JSON)
+│   │   │   └── templates/         ← source of truth for files written into the project
+│   │   └── references/
+│   │       ├── bootstrap.md       ← rationale for the script's command sequence
+│   │       ├── modules.md         ← BFF preset + shadcn/ui block registry notes
 │   │       └── artifacts.md       ← rationale + merge semantics for the templates
 │   ├── go-scaffold/               ← Go REST API scaffolder (contract-first: oapi-codegen + sqlc)
 │   │   ├── SKILL.md               ← CLI flags in, design notes for maintainers, no AskUserQuestion menu

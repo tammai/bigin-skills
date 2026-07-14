@@ -63,7 +63,7 @@ For each dimension: state what the docs say, what this repo currently does, cite
 
 ### Permissions
 
-- `templates/merge/claude-settings.json` and the three profile `settings.json` templates: any `permissions.allow` entry broader than needed, or any common safe command missing that would cut permission-prompt friction.
+- `templates/merge/claude-settings.json` and the four profile `settings.json` templates (nuxt, next, go, nodejs): any `permissions.allow` entry broader than needed, or any common safe command missing that would cut permission-prompt friction.
 
 ### Everything else
 

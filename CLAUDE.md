@@ -20,9 +20,10 @@ scripts/git-hooks/        ← pre-commit running the budget gate
 
 | Skill | Purpose |
 |---|---|
-| `bigin-harness-setup` | Scaffolds AI workflow harness into target repos (nuxt/go/nodejs); three-tier loading; idempotent |
+| `bigin-harness-setup` | Scaffolds AI workflow harness into target repos (nuxt/go/nodejs/next); three-tier loading; idempotent |
 | `task-workflow` | On-demand task workflow: scope → spec → plan file → implement → verify → review → cleanup (Tier 3) |
 | `nuxt-scaffold` | Scaffolds Nuxt 4 BFF app from scratch via `npm create nuxt@latest` |
+| `next-scaffold` | Scaffolds Next.js App Router BFF app from scratch via `create-next-app` + shadcn/ui |
 | `go-scaffold` | Scaffolds a contract-first Go REST API (oapi-codegen + sqlc + chi + Postgres); runs codegen + build/vet/test itself |
 | `nodejs-scaffold` | Scaffolds a contract-first Node.js REST API (openapi-typescript + Drizzle/drizzle-kit + Fastify + Postgres); runs codegen + lint/typecheck/build/test itself |
 | `nuxt-ui-figma-handoff` | Extracts a Nuxt UI Figma design handoff into main.css theme tokens + app.config.ts component overrides |

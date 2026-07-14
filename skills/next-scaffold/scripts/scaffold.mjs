@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 /**
- * scaffold.mjs — deterministic Nuxt 4 BFF scaffold.
+ * scaffold.mjs — deterministic Next.js BFF scaffold.
  *
  * Usage: node scaffold.mjs --config <path-to-json>
  *
  * All decisions are pre-resolved in the config file — this script never
- * prompts, never reads stdin. Node stdlib only; no npm install step.
+ * prompts, never reads stdin. Node stdlib only; no npm install step of its
+ * own (it shells out to npx/pnpm, same as nuxt-scaffold).
  * Exit codes: 0 ok, 1 runtime failure, 2 bad usage/config.
  *
  * The command sequence and its rationale live in ../references/bootstrap.md;
@@ -17,11 +18,9 @@
  *   spawning a .cmd without a shell throws EINVAL — so run() sets
  *   `shell: true` ON WINDOWS ONLY, always with an argument array (never a
  *   concatenated command string). Args are individually quoted for cmd.exe
- *   (winQuote), which also protects `^` in semver specs like `nuxt@^4` —
- *   cmd.exe would otherwise eat the caret. Every user-supplied value is
- *   regex-validated before it can reach an argv.
+ *   (winQuote).
  * - All file writes use "\n" line endings. If the target repo checks out
- *   with core.autocrlf=true, `@stylistic` lint rules may flag CRLF — the
+ *   with core.autocrlf=true, ESLint's stylistic rules may flag CRLF — the
  *   verify stage (pnpm lint) surfaces that immediately.
  * - Subprocess output is decoded as utf8 explicitly (cmd.exe defaults to a
  *   legacy codepage otherwise).
@@ -37,24 +36,19 @@ const IS_WIN = process.platform === 'win32'
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url))
 const TEMPLATES = path.join(SCRIPT_DIR, 'templates')
 
-const PRIMARY_COLORS = ['blue', 'green', 'emerald', 'teal', 'cyan', 'sky', 'indigo', 'violet', 'purple', 'fuchsia', 'pink', 'rose', 'amber', 'yellow', 'lime', 'orange', 'red']
-const NEUTRAL_COLORS = ['slate', 'gray', 'zinc', 'neutral', 'stone', 'taupe', 'mauve', 'mist', 'olive']
 const PROJECT_NAME_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/
-// Packages create-nuxt's `ui` template + `--modules` install; Stage 1b re-pins them.
-const TEMPLATE_PKGS = ['nuxt', '@nuxt/ui', '@nuxt/eslint', 'eslint', 'tailwindcss', 'vue-tsc', 'typescript', '@pinia/nuxt', 'nuxt-auth-utils', '@vueuse/nuxt']
-// `starter` = today's from-scratch `--template ui` path (no repo). Everything else clones the
-// matching official ui.nuxt.com template (github.com/nuxt-ui-templates/<slug>) via `nuxi init`.
-const TEMPLATE_REPOS = {
-  saas: 'nuxt-ui-templates/saas',
-  dashboard: 'nuxt-ui-templates/dashboard',
-  landing: 'nuxt-ui-templates/landing',
-  docs: 'nuxt-ui-templates/docs',
-  portfolio: 'nuxt-ui-templates/portfolio',
-  chat: 'nuxt-ui-templates/chat',
-  changelog: 'nuxt-ui-templates/changelog',
-  editor: 'nuxt-ui-templates/editor'
+// Packages create-next-app's template installs; Stage 1b re-pins them.
+const TEMPLATE_PKGS = ['next', 'react', 'react-dom', 'typescript', 'eslint', 'eslint-config-next', 'tailwindcss', '@tailwindcss/postcss']
+// shadcn/ui components are copied into the repo's own source tree by the CLI, not installed as
+// a versioned dependency — nothing to re-pin the way @nuxt/ui is. `base` = every template gets
+// these; the rest are added on top per template, same tiering as nuxt-scaffold's saas/dashboard.
+const BASE_BLOCKS = ['button', 'card', 'tooltip']
+const TEMPLATE_BLOCKS = {
+  starter: [],
+  dashboard: ['dashboard-01'],
+  saas: ['input', 'label']
 }
-const TEMPLATES_ENUM = ['starter', ...Object.keys(TEMPLATE_REPOS)]
+const TEMPLATES_ENUM = Object.keys(TEMPLATE_BLOCKS)
 
 function log(msg) {
   console.log(`[scaffold] ${msg}`)
@@ -87,7 +81,7 @@ function loadConfig() {
 }
 
 function validateConfig(cfg) {
-  const KNOWN = ['projectName', 'targetDir', 'packageManager', 'template', 'theme', 'versionPolicy', 'resume', 'gitCommit', 'skipInstall']
+  const KNOWN = ['projectName', 'targetDir', 'packageManager', 'template', 'versionPolicy', 'resume', 'gitCommit', 'skipInstall']
   for (const k of Object.keys(cfg)) {
     if (!KNOWN.includes(k)) fail(`unknown config key "${k}" (known: ${KNOWN.join(', ')})`, 2)
   }
@@ -101,7 +95,6 @@ function validateConfig(cfg) {
     targetDir: path.resolve(cfg.targetDir ?? '.'),
     packageManager: cfg.packageManager ?? 'pnpm',
     template: cfg.template ?? 'starter',
-    theme: { primary: cfg.theme?.primary ?? 'blue', neutral: cfg.theme?.neutral ?? 'slate' },
     versionPolicy: cfg.versionPolicy ?? 'capped',
     resume: cfg.resume ?? false,
     gitCommit: cfg.gitCommit ?? true,
@@ -109,8 +102,6 @@ function validateConfig(cfg) {
   }
   if (out.packageManager !== 'pnpm') bad(`packageManager must be "pnpm" (BigIn standard), got ${JSON.stringify(out.packageManager)}`)
   if (!TEMPLATES_ENUM.includes(out.template)) bad(`template must be one of ${TEMPLATES_ENUM.join('/')}`)
-  if (!PRIMARY_COLORS.includes(out.theme.primary)) bad(`theme.primary must be one of ${PRIMARY_COLORS.join('/')}`)
-  if (!NEUTRAL_COLORS.includes(out.theme.neutral)) bad(`theme.neutral must be one of ${NEUTRAL_COLORS.join('/')}`)
   if (!['capped', 'latest'].includes(out.versionPolicy)) bad('versionPolicy must be "capped" or "latest"')
   if (typeof out.resume !== 'boolean') bad('resume must be a boolean')
   if (typeof out.gitCommit !== 'boolean') bad('gitCommit must be a boolean')
@@ -156,8 +147,6 @@ function must(bin, args, what) {
  * pnpm add wrapper. `ERR_PNPM_IGNORED_BUILDS` exits 1 but the packages DO
  * install (build scripts deferred pending approval) — treat it as expected,
  * approve the named packages, continue. Any other failure is fatal.
- * Each approve runs separately with allowFail: naming a package that isn't
- * actually pending fails the whole `pnpm approve-builds` call.
  */
 function pnpmAdd(args, approvable = []) {
   const res = run('pnpm', ['add', ...args], { capture: true })
@@ -230,29 +219,32 @@ function readTemplate(relPath, subs = {}) {
 
 // ── stages ──────────────────────────────────────────────────────────────
 
+function hasNextConfig(dir) {
+  return ['next.config.ts', 'next.config.js', 'next.config.mjs'].some(f => fs.existsSync(path.join(dir, f)))
+}
+
 function preflight() {
   const nodeMajor = Number(process.version.slice(1).split('.')[0])
-  if (nodeMajor < 22) fail(`Node.js 22+ required (running ${process.version})`)
+  if (nodeMajor < 20) fail(`Node.js 20+ required (running ${process.version})`)
   const pnpmCheck = run('pnpm', ['--version'], { capture: true, allowFail: true, cwd: process.cwd() })
   if (pnpmCheck.status !== 0) fail('pnpm is required but not installed. Install: corepack enable && corepack prepare pnpm@latest --activate')
 
   fs.mkdirSync(CFG.targetDir, { recursive: true })
 
-  const nuxtConfig = path.join(CFG.targetDir, 'nuxt.config.ts')
-  const hasNuxtConfig = fs.existsSync(nuxtConfig)
+  const hasConfig = hasNextConfig(CFG.targetDir)
   // node_modules is the signal a skipInstall run never produces — the two signature files alone
   // are written unconditionally in Stage 3 regardless of skipInstall, so they can't distinguish
   // "actually installed and verified" from "files written, nothing installed."
   const complete = fs.existsSync(path.join(CFG.targetDir, 'vitest.config.ts')) && fs.existsSync(path.join(CFG.targetDir, '.claude', 'settings.json')) && fs.existsSync(path.join(CFG.targetDir, 'node_modules'))
 
   if (CFG.resume) {
-    if (!hasNuxtConfig) fail('resume=true but no nuxt.config.ts in targetDir — nothing to resume; run without resume')
+    if (!hasConfig) fail('resume=true but no next.config.* in targetDir — nothing to resume; run without resume')
     if (complete) fail('resume=true but the scaffold looks complete (vitest.config.ts + .claude/settings.json + node_modules present) — nothing to do')
     log('partial scaffold detected — resuming from the BFF-preset stage')
-  } else if (hasNuxtConfig) {
+  } else if (hasConfig) {
     fail(complete
-      ? 'nuxt.config.ts found and the scaffold looks complete — refusing to overwrite. Nothing to do.'
-      : 'nuxt.config.ts found but vitest.config.ts, .claude/settings.json, or node_modules is missing — partial scaffold. Re-run with "resume": true to continue from the BFF-preset stage.')
+      ? 'next.config.* found and the scaffold looks complete — refusing to overwrite. Nothing to do.'
+      : 'next.config.* found but vitest.config.ts, .claude/settings.json, or node_modules is missing — partial scaffold. Re-run with "resume": true to continue from the BFF-preset stage.')
   }
 
   // Monorepo hoisting warning (informational, matches bootstrap.md)
@@ -266,9 +258,8 @@ function preflight() {
   log(`preflight ok — Node ${process.version}, pnpm ${pnpmCheck.stdout.trim()}, target ${CFG.targetDir}`)
 }
 
-const CORE_MODULES = ['@pinia/nuxt', 'nuxt-auth-utils', '@vueuse/nuxt']
-const PRESET_DEPS = ['@pinia/colada', '@pinia/colada-nuxt', 'zod']
-const PRESET_DEV_DEPS = ['vitest', '@nuxt/test-utils', 'happy-dom', 'simple-git-hooks', 'lint-staged']
+const PRESET_DEPS = ['zustand', '@tanstack/react-query', 'zod', 'iron-session']
+const PRESET_DEV_DEPS = ['vitest', '@vitejs/plugin-react', 'jsdom', '@testing-library/react', '@testing-library/jest-dom', 'simple-git-hooks', 'lint-staged']
 // Only the starter template ships an openapi.yaml stub + openapi-types script to consume it
 // (templates/starter/merge/package.json) — every other template has no backend contract to
 // describe, so this stays out of the universally-installed PRESET_DEV_DEPS above.
@@ -283,68 +274,28 @@ function declareDepsUnresolved(deps, devDeps) {
   mergeJsonFile(path.join(CFG.targetDir, 'package.json'), fragment)
 }
 
-function verifyCoreModulesRegistered(context) {
-  const nuxtConfig = fs.readFileSync(path.join(CFG.targetDir, 'nuxt.config.ts'), 'utf8')
-  for (const mod of CORE_MODULES) {
-    if (!nuxtConfig.includes(mod)) {
-      fail(`${context}: ${mod} is not registered in nuxt.config.ts — re-verify bootstrap.md Stage 1`)
-    }
-  }
-}
-
 function stage1Init() {
-  // --no-install only skips the base template's own dependency install (create-nuxt/nuxi
-  // still write files + package.json). --gitInit is silently skipped alongside it, so the
-  // explicit git-init fallback right below always covers both cases. --modules ALSO can't be
-  // combined with --no-install: without installed node_modules create-nuxt can't detect the
-  // Nuxt version, treats @pinia/nuxt as incompatible, and blocks on an interactive "continue
-  // anyway?" prompt that silently defaults to "No" non-interactively — so --modules is atomic
-  // install-and-register and only ever passed when an install is actually happening.
-  const noInstall = CFG.skipInstall ? ['--no-install'] : []
-  const modulesFlag = CFG.skipInstall ? [] : ['--modules', 'pinia,auth-utils,vueuse']
-  const noInstallLabel = CFG.skipInstall ? ', --no-install' : ''
-  if (CFG.template === 'starter') {
-    log(`stage 1: npm create nuxt@latest (non-interactive, ui template, in-place${noInstallLabel})`)
-    const createArgs = ['create', 'nuxt@latest', '.', '--', '--template', 'ui', '--packageManager', CFG.packageManager, '--gitInit', '--force', ...modulesFlag, ...noInstall]
-    let res = run('npm', createArgs)
-    if (res.status !== 0) {
-      log('npm create failed — clearing npm cache and retrying once')
-      run('npm', ['cache', 'clean', '--force'], { allowFail: true })
-      res = run('npm', createArgs)
-    }
-    if (res.status !== 0) {
-      log('npm create failed twice — falling back to npx nuxi init')
-      must('npx', ['nuxi@latest', 'init', '.', '--template', 'ui', '--packageManager', CFG.packageManager, '--gitInit', '--force', ...modulesFlag, ...noInstall], 'nuxi init fallback')
-    }
-  } else {
-    const repo = TEMPLATE_REPOS[CFG.template]
-    log(`stage 1: npx nuxi init (non-interactive, cloning gh:${repo}, in-place${noInstallLabel})`)
-    must('npx', ['nuxi@latest', 'init', '.', '--template', `gh:${repo}`, '--packageManager', CFG.packageManager, '--gitInit', '--force', ...noInstall], `nuxi init --template gh:${repo}`)
-  }
+  // --no-agents-md: create-next-app writes its own AGENTS.md + CLAUDE.md by default — this
+  // skill does NOT own CLAUDE.md (bigin-harness-setup writes it fresh, same division of labor
+  // as nuxt-scaffold; see SKILL.md Phase 2's note). --skip-install mirrors nuxt-scaffold's
+  // --no-install: writes files + package.json but skips the dependency install.
+  const skipInstall = CFG.skipInstall ? ['--skip-install'] : []
+  log(`stage 1: create-next-app@latest (non-interactive, in-place${CFG.skipInstall ? ', --skip-install' : ''})`)
+  must('npx', [
+    'create-next-app@latest', '.',
+    '--ts', '--tailwind', '--eslint', '--app', '--src-dir',
+    '--import-alias', '@/*',
+    '--use-pnpm', '--turbopack',
+    '--no-agents-md',
+    ...skipInstall
+  ], 'create-next-app')
 
-  // --gitInit only fires when the install step runs; make sure a repo exists either way.
+  // --disable-git is never passed, so create-next-app runs its own git init — except when
+  // --skip-install also suppresses it (same "check, don't assume" pattern as nuxt-scaffold's
+  // --gitInit fallback).
   if (!fs.existsSync(path.join(CFG.targetDir, '.git'))) {
-    log('--gitInit did not fire — running git init explicitly')
+    log('git init did not fire — running it explicitly')
     must('git', ['init'], 'git init')
-  }
-
-  if (CFG.template === 'starter' && !CFG.skipInstall) {
-    // Registration check: create-nuxt@latest is unpinned, so --modules silently
-    // changing behavior is the risk a version pin used to cover.
-    verifyCoreModulesRegistered("Stage 1's --modules flag did not register core modules")
-  } else {
-    // Either a cloned template (arbitrary giget templates don't support --modules) or
-    // skipInstall (which drops --modules on every template, see above) — add and register
-    // the BFF preset's core modules ourselves so Stage 1b's refresh step (which assumes
-    // they're already installed) sees the same shape as the starter+install path.
-    const registerVerb = CFG.skipInstall ? 'declaring' : 'installing'
-    const registerReason = CFG.template === 'starter' ? 'skipInstall drops --modules' : 'not supported by --modules on a cloned template'
-    const registerContext = CFG.template === 'starter' ? '(skipInstall path)' : 'after cloning the template'
-    log(`stage 1: ${registerVerb} core BFF modules (pinia, nuxt-auth-utils, vueuse) — ${registerReason}`)
-    if (CFG.skipInstall) declareDepsUnresolved(CORE_MODULES, [])
-    else pnpmAdd(CORE_MODULES)
-    for (const mod of CORE_MODULES) ensureModuleRegistered(mod)
-    verifyCoreModulesRegistered(`failed to register core modules ${registerContext}`)
   }
 
   const pkgPath = path.join(CFG.targetDir, 'package.json')
@@ -356,7 +307,7 @@ function stage1Init() {
 
 function stage1bRefresh() {
   if (CFG.skipInstall) {
-    log('stage 1b: skipped (skipInstall) — package.json keeps whatever versions create-nuxt@latest shipped, unrefreshed')
+    log('stage 1b: skipped (skipInstall) — package.json keeps whatever versions create-next-app@latest shipped, unrefreshed')
     return
   }
   log(`stage 1b: refreshing template-installed packages (policy: ${CFG.versionPolicy})`)
@@ -364,7 +315,7 @@ function stage1bRefresh() {
     if (CFG.versionPolicy === 'latest') return `${p}@latest`
     const pkgJson = path.join(CFG.targetDir, 'node_modules', ...p.split('/'), 'package.json')
     if (!fs.existsSync(pkgJson)) {
-      fail(`stage 1b: ${p} was not installed by stage 1 — create-nuxt@latest's template package set may have changed; re-verify bootstrap.md Stage 1`)
+      fail(`stage 1b: ${p} was not installed by stage 1 — create-next-app@latest's default package set may have changed; re-verify bootstrap.md Stage 1`)
     }
     // Read the file directly — require()/import of '<pkg>/package.json' breaks on restrictive `exports` maps.
     const v = JSON.parse(fs.readFileSync(pkgJson, 'utf8')).version
@@ -373,56 +324,49 @@ function stage1bRefresh() {
   pnpmAdd(specs)
 
   // Safety checks: catch an unwanted major or a changed template shape before later stages build on it.
-  const nuxtVersion = JSON.parse(fs.readFileSync(path.join(CFG.targetDir, 'node_modules', 'nuxt', 'package.json'), 'utf8')).version
-  if (nuxtVersion.split('.')[0] !== '4') {
-    fail(`nuxt is now v${nuxtVersion} (expected v4) — stop, re-validate this skill before continuing`)
+  const nextVersion = JSON.parse(fs.readFileSync(path.join(CFG.targetDir, 'node_modules', 'next', 'package.json'), 'utf8')).version
+  if (nextVersion.split('.')[0] !== '16') {
+    fail(`next is now v${nextVersion} (expected v16) — stop, re-validate this skill before continuing`)
   }
-  const nuxtConfig = fs.readFileSync(path.join(CFG.targetDir, 'nuxt.config.ts'), 'utf8')
-  if (!fs.existsSync(path.join(CFG.targetDir, 'app', 'app.config.ts')) || !fs.existsSync(path.join(CFG.targetDir, 'eslint.config.mjs')) || !nuxtConfig.includes('css:') || !nuxtConfig.includes('routeRules')) {
-    fail("create-nuxt@latest's template shape changed — re-verify artifacts.md merge instructions (nuxt.config.ts key order, app.config.ts) before continuing")
+  if (!hasNextConfig(CFG.targetDir) || !fs.existsSync(path.join(CFG.targetDir, 'src', 'app', 'layout.tsx'))) {
+    fail("create-next-app@latest's template shape changed — re-verify artifacts.md merge instructions (src/app/layout.tsx, next.config.*) before continuing")
   }
-  log('stage 1b done — nuxt v4 confirmed, template shape ok')
+  const globalsCss = fs.readFileSync(path.join(CFG.targetDir, 'src', 'app', 'globals.css'), 'utf8')
+  if (!globalsCss.includes('tailwindcss')) {
+    fail('src/app/globals.css does not import tailwindcss — Tailwind v4 CSS-first shape changed; re-verify artifacts.md')
+  }
+  log('stage 1b done — next v16 confirmed, template shape ok')
 }
 
 function stage2Preset() {
   const devDeps = CFG.template === 'starter' ? [...PRESET_DEV_DEPS, ...STARTER_DEV_DEPS] : PRESET_DEV_DEPS
   if (CFG.skipInstall) {
-    log('stage 2: skipped installing BFF preset packages (skipInstall) — declaring them in package.json as "latest" for a later `pnpm install`')
+    log('stage 2: skipped installing BFF preset + shadcn/ui (skipInstall) — declaring preset deps in package.json as "latest" for a later `pnpm install`; shadcn/ui itself must be initialized manually (`npx shadcn@latest init`) since it needs a real install to detect the project shape')
     declareDepsUnresolved(PRESET_DEPS, devDeps)
-    // Required for useQuery/useMutation to work at all — registration is a text edit, not an install.
-    ensureModuleRegistered('@pinia/colada-nuxt')
     return
   }
   log('stage 2: installing BFF preset packages')
   pnpmAdd(PRESET_DEPS)
-  // Required for useQuery/useMutation to work at all (SSR-safe cache, auto PiniaColadaSSRNoGc) — not optional.
-  ensureModuleRegistered('@pinia/colada-nuxt')
   // simple-git-hooks trips ERR_PNPM_IGNORED_BUILDS — expected; approved right after.
   pnpmAdd(['-D', ...devDeps], ['simple-git-hooks'])
-  log('stage 2 done')
-}
 
-function ensureModuleRegistered(moduleName) {
-  const nuxtConfigPath = path.join(CFG.targetDir, 'nuxt.config.ts')
-  let content = fs.readFileSync(nuxtConfigPath, 'utf8')
-  if (!content.includes(moduleName)) {
-    // nuxi can silently skip registration when a native-dep build-approval prompt defaults to "No".
-    log(`${moduleName} missing from nuxt.config.ts modules — adding it`)
-    const m = content.match(/modules:\s*\[/)
-    if (!m) fail(`cannot find a modules array in nuxt.config.ts to register ${moduleName}`)
-    const at = m.index + m[0].length
-    content = `${content.slice(0, at)}\n    '${moduleName}',${content.slice(at)}`
-    fs.writeFileSync(nuxtConfigPath, content)
+  // components.json is shadcn init's own signature file — re-running init on a resume would
+  // rewrite components.json/globals.css even though nothing needs it; `shadcn add` below is
+  // already idempotent (skips files that exist) so it always re-runs safely.
+  if (!fs.existsSync(path.join(CFG.targetDir, 'components.json'))) {
+    log('stage 2: initializing shadcn/ui (non-interactive defaults)')
+    must('npx', ['shadcn@latest', 'init', '-y', '-d'], 'shadcn init')
+  } else {
+    log('stage 2: shadcn/ui already initialized (components.json present) — skipping init')
   }
+  const blocks = [...BASE_BLOCKS, ...TEMPLATE_BLOCKS[CFG.template]]
+  must('npx', ['shadcn@latest', 'add', ...blocks, '-y'], 'shadcn add')
+  log('stage 2 done')
 }
 
 function applyArtifacts() {
   log('stage 3: applying artifacts')
-  const subs = {
-    PROJECT_NAME: CFG.projectName,
-    PRIMARY: CFG.theme.primary,
-    NEUTRAL: CFG.theme.neutral
-  }
+  const subs = { PROJECT_NAME: CFG.projectName }
 
   // Write-fresh files (ours — safe to overwrite on resume).
   const filesRoot = path.join(TEMPLATES, 'files')
@@ -431,8 +375,10 @@ function applyArtifacts() {
     writeFileEnsured(path.join(CFG.targetDir, rel), substitute(fs.readFileSync(src, 'utf8'), subs))
   }
   // Template-specific overlays (same write-fresh mechanism as `files/`, gated by CFG.template):
-  // `starter` gets the openapi stub (no backend contract to describe for a cloned template);
-  // `saas` gets the demo-auth + private dashboard wiring the official template doesn't ship.
+  // `starter` gets the openapi stub (no backend contract to describe yet); `saas` gets the
+  // demo-auth + private dashboard wiring that a bare create-next-app + shadcn init doesn't ship.
+  // `dashboard` gets nothing bespoke — the shadcn `dashboard-01` block added in stage2Preset IS
+  // the deliverable, same as 6 of nuxt-scaffold's 8 non-starter templates getting zero extra files.
   const templateOverlay = CFG.template === 'starter' ? 'starter' : CFG.template === 'saas' ? 'saas' : null
   if (templateOverlay) {
     const overlayRoot = path.join(TEMPLATES, templateOverlay)
@@ -442,50 +388,40 @@ function applyArtifacts() {
       writeFileEnsured(path.join(CFG.targetDir, rel), substitute(fs.readFileSync(src, 'utf8'), subs))
     }
   }
-  // nuxt.config.ts merge: insert runtimeConfig between css and routeRules (key
-  // order enforced by nuxt/nuxt-config-keys-order; comment on its own line —
-  // a trailing comment trips @stylistic/no-multi-spaces).
-  const nuxtConfigPath = path.join(CFG.targetDir, 'nuxt.config.ts')
-  let nuxtConfig = fs.readFileSync(nuxtConfigPath, 'utf8')
-  if (!nuxtConfig.includes('runtimeConfig')) {
-    const m = nuxtConfig.match(/^([ \t]*)routeRules/m)
-    if (!m) fail('cannot find routeRules in nuxt.config.ts — template shape changed; re-verify artifacts.md')
-    const block = `${m[1]}// server-only; set via NUXT_BACKEND_URL env\n${m[1]}runtimeConfig: { backendUrl: '' },\n`
-    nuxtConfig = nuxtConfig.slice(0, m.index) + block + nuxtConfig.slice(m.index)
-  }
-  // devtools: BFF preset ships with devtools off by default.
-  if (!nuxtConfig.includes('devtools: { enabled: false }')) {
-    const before = nuxtConfig
-    nuxtConfig = nuxtConfig.replace(/devtools:\s*\{\s*enabled:\s*true\s*\}/, 'devtools: { enabled: false }')
-    if (nuxtConfig === before) fail('cannot find devtools: { enabled: true } in nuxt.config.ts — template shape changed; re-verify artifacts.md')
-  }
-  // The ui template ships nuxt.config.ts without a trailing newline (@stylistic/eol-last fails lint).
-  if (!nuxtConfig.endsWith('\n')) nuxtConfig += '\n'
-  fs.writeFileSync(nuxtConfigPath, nuxtConfig)
 
-  // app/app.config.ts: set theme colors in place (template ships green/slate).
-  const appConfigPath = path.join(CFG.targetDir, 'app', 'app.config.ts')
-  let appConfig = fs.readFileSync(appConfigPath, 'utf8')
-  const before = appConfig
-  appConfig = appConfig
-    .replace(/primary:\s*(['"])[a-z]+\1/, `primary: '${CFG.theme.primary}'`)
-    .replace(/neutral:\s*(['"])[a-z]+\1/, `neutral: '${CFG.theme.neutral}'`)
-  if (appConfig === before && (!appConfig.includes(`'${CFG.theme.primary}'`) || !appConfig.includes(`'${CFG.theme.neutral}'`))) {
-    fail('could not set theme colors in app/app.config.ts — template shape changed; re-verify artifacts.md')
+  // src/app/layout.tsx: wrap children in <Providers> so TanStack Query's client is available
+  // app-wide. Import inserted at the top, wrapper inserted around <body>'s children.
+  const layoutPath = path.join(CFG.targetDir, 'src', 'app', 'layout.tsx')
+  let layout = fs.readFileSync(layoutPath, 'utf8')
+  if (!layout.includes('./providers')) {
+    const before = layout
+    layout = `import { Providers } from './providers'\n${layout}`
+    layout = layout.replace(/<body([^>]*)>([\s\S]*?)<\/body>/, (_m, attrs, inner) => `<body${attrs}>\n        <Providers>${inner}</Providers>\n      </body>`)
+    if (layout === before || !layout.includes('<Providers>')) {
+      fail('cannot wire <Providers> into src/app/layout.tsx — template shape changed; re-verify artifacts.md')
+    }
+    fs.writeFileSync(layoutPath, layout)
   }
-  fs.writeFileSync(appConfigPath, appConfig)
 
-  // app/assets/css/main.css: BigIn brand default is Google Sans, regardless of
-  // which font a given ui-templates repo ships (most ship 'Public Sans'; landing
-  // ships 'Instrument Sans') — replace whatever's quoted after --font-sans.
-  const mainCssPath = path.join(CFG.targetDir, 'app', 'assets', 'css', 'main.css')
-  let mainCss = fs.readFileSync(mainCssPath, 'utf8')
-  if (!mainCss.includes("--font-sans: 'Google Sans'")) {
-    const before = mainCss
-    mainCss = mainCss.replace(/--font-sans:\s*'[^']+'/, "--font-sans: 'Google Sans'")
-    if (mainCss === before) fail('cannot find --font-sans in app/assets/css/main.css — template shape changed; re-verify artifacts.md')
+  // dashboard only: the shadcn `dashboard-01` block's own shipped source trips two react-hooks
+  // rules that ship enabled-by-default in eslint-config-next 16 (React Compiler diagnostics,
+  // on regardless of whether the compiler itself is enabled) — confirmed via a live scaffold run
+  // on 2026-07-14 (src/hooks/use-mobile.ts, src/components/chart-area-interactive.tsx). This is
+  // vendored block code, not ours to rewrite; scope an override to exactly those two files rather
+  // than disabling the rules project-wide.
+  if (CFG.template === 'dashboard') {
+    const eslintConfigPath = path.join(CFG.targetDir, 'eslint.config.mjs')
+    let eslintConfig = fs.readFileSync(eslintConfigPath, 'utf8')
+    if (!eslintConfig.includes('react-hooks/set-state-in-effect')) {
+      const before = eslintConfig
+      eslintConfig = eslintConfig.replace(
+        /(\.\.\.nextTs,\n)/,
+        `$1  {\n    files: ['src/hooks/use-mobile.ts', 'src/components/chart-area-interactive.tsx'],\n    rules: { 'react-hooks/set-state-in-effect': 'off' }\n  },\n`
+      )
+      if (eslintConfig === before) fail('cannot patch eslint.config.mjs for the dashboard-01 block override — template shape changed; re-verify artifacts.md')
+      fs.writeFileSync(eslintConfigPath, eslintConfig)
+    }
   }
-  fs.writeFileSync(mainCssPath, mainCss)
 
   // JSON merges — merge, never overwrite.
   mergeJsonFile(path.join(CFG.targetDir, 'package.json'), JSON.parse(readTemplate(path.join('merge', 'package.json'), subs)))
@@ -534,43 +470,46 @@ function commitIfDirty() {
   if (status.stdout.trim() === '') return
   log('creating initial commit')
   must('git', ['add', '-A'], 'git add')
-  must('git', ['commit', '-m', 'chore: scaffold Nuxt 4 BFF app'], 'git commit')
+  must('git', ['commit', '-m', 'chore: scaffold Next.js app'], 'git commit')
 }
 
 function printNextSteps() {
   const lines = [
     '',
-    `Nuxt 4 BFF app scaffolded (template: ${CFG.template}).`,
+    `Next.js app scaffolded (template: ${CFG.template}).`,
     '',
     'Next:'
   ]
   if (CFG.template === 'starter') {
     lines.push(
       '  1. Copy .env.example → .env and set:',
-      '     - NUXT_SESSION_PASSWORD (openssl rand -base64 32)',
-      '     - NUXT_BACKEND_URL     (backend REST API; server-only)',
+      '     - SESSION_PASSWORD (openssl rand -base64 32) — unused until you add auth',
+      '     - BACKEND_URL      (backend REST API; server-only)',
       '  2. Replace the stub openapi.yaml with the real backend contract, then:',
       '     pnpm openapi-types',
       '  3. Overlay governance: run bigin-harness-setup (CLAUDE.md, rules, bash-guard).',
-      '  4. Start: pnpm dev'
+      '  4. Start: pnpm dev',
+      '  5. Deploy: vercel (or the Vercel GitHub integration) — zero-config for Next.js.'
     )
   } else if (CFG.template === 'saas') {
     lines.push(
-      '  1. Copy .env.example → .env and set NUXT_SESSION_PASSWORD (openssl rand -base64 32).',
+      '  1. Copy .env.example → .env and set SESSION_PASSWORD (openssl rand -base64 32).',
       '  2. /api/login and /api/signup are stubbed (any valid-shaped credentials succeed, no backend call) — swap in a real backend before shipping.',
       '  3. Overlay governance: run bigin-harness-setup (CLAUDE.md, rules, bash-guard).',
-      '  4. Start: pnpm dev — public site at /, private area at /dashboard.'
+      '  4. Start: pnpm dev — public site at /, private area at /dashboard.',
+      '  5. Deploy: vercel (or the Vercel GitHub integration) — zero-config for Next.js.'
     )
   } else {
     lines.push(
-      '  1. Copy .env.example → .env and set NUXT_SESSION_PASSWORD (openssl rand -base64 32).',
-      `  2. This is the official nuxt-ui-templates/${CFG.template} starter layered with the BFF preset — see its own README for template-specific usage.`,
+      '  1. Copy .env.example → .env and set BACKEND_URL.',
+      '  2. The shadcn `dashboard-01` block wrote a working admin shell straight to /dashboard (sidebar, charts, data table — currently on sample data, not the BFF sample route); wire it to real data or a nav entry as needed.',
       '  3. Overlay governance: run bigin-harness-setup (CLAUDE.md, rules, bash-guard).',
-      '  4. Start: pnpm dev'
+      '  4. Start: pnpm dev — admin shell at /dashboard.',
+      '  5. Deploy: vercel (or the Vercel GitHub integration) — zero-config for Next.js.'
     )
   }
   if (CFG.versionPolicy === 'latest') {
-    lines.push('  ⚠ versionPolicy=latest — skim the changelogs for nuxt/@nuxt/ui/tailwindcss (and the other refreshed packages) for breaking changes before shipping.')
+    lines.push('  ⚠ versionPolicy=latest — skim the changelogs for next/react/tailwindcss (and the other refreshed packages) for breaking changes before shipping.')
   }
   if (CFG.skipInstall) {
     lines.push(
@@ -578,8 +517,9 @@ function printNextSteps() {
       '     a. pnpm install',
       '     b. pnpm approve-builds simple-git-hooks   (deferred build script)',
       '     c. pnpm simple-git-hooks                  (activates the pre-commit hook)',
-      '     d. pnpm lint && pnpm type-check && pnpm test',
-      '  Preset packages (@pinia/colada*, zod, vitest, etc.) are pinned to the "latest" dist-tag in package.json, unresolved — pin exact versions once installed if you want reproducible installs.'
+      `     d. npx shadcn@latest init -y -d && npx shadcn@latest add ${[...BASE_BLOCKS, ...TEMPLATE_BLOCKS[CFG.template]].join(' ')} -y   (skipped above)`,
+      '     e. pnpm lint && pnpm type-check && pnpm test',
+      '  Preset packages (zustand, @tanstack/react-query, zod, iron-session, vitest, etc.) are pinned to the "latest" dist-tag in package.json, unresolved — pin exact versions once installed if you want reproducible installs.'
     )
   }
   console.log(lines.join('\n'))

@@ -1,0 +1,5 @@
+{
+  "scripts": {
+    "openapi-types": "mkdir -p src/types && openapi-typescript openapi.yaml -o src/types/api.d.ts"
+  }
+}

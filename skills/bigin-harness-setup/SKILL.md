@@ -1,6 +1,6 @@
 ---
 name: bigin-harness-setup
-description: "Scaffolds BigIn AI workflow harness into a repo — CLAUDE.md, governance rules, and enforcement gates. MUST use when user says: 'set up harness', 'add AI rules', 'scaffold harness', 'add CLAUDE.md', 'initialize AI workflow', 'set up claude rules', 'thiết lập harness', 'cài harness', 'thêm AI rules', or when onboarding an existing repo for structured AI-assisted development. Supports nuxt, go, nodejs profiles."
+description: "Scaffolds BigIn AI workflow harness into a repo — CLAUDE.md, governance rules, and enforcement gates. MUST use when user says: 'set up harness', 'add AI rules', 'scaffold harness', 'add CLAUDE.md', 'initialize AI workflow', 'set up claude rules', 'thiết lập harness', 'cài harness', 'thêm AI rules', or when onboarding an existing repo for structured AI-assisted development. Supports nuxt, go, nodejs, next profiles."
 effort: medium
 allowed-tools: Bash(git init) Bash(git rev-parse *) Bash(chmod +x *) Bash(ln -sf *)
 ---
@@ -17,15 +17,17 @@ Check for stack indicators:
 1. `nuxt.config.ts` or `nuxt.config.js` → profile = `nuxt`
 2. `go.mod` → profile = `go`
 3. `package.json` with express/fastify/hono/koa in dependencies → profile = `nodejs`
-4. None found or ambiguous → ask:
+4. `next.config.ts`, `next.config.js`, or `next.config.mjs` → profile = `next`
+5. None found or ambiguous → ask:
 
 ```
 Which stack profile?
 1. nuxt   — Nuxt 4 fullstack (Cloudflare Pages): Nuxt UI, Pinia + Colada, VueUse, nuxt-auth-utils, Vitest, Zod — BFF proxy layer, no direct DB access
 2. go     — Go REST API backend
 3. nodejs — Node.js TypeScript REST API backend
+4. next   — Next.js App Router fullstack (Vercel): shadcn/ui, Zustand, TanStack Query, iron-session, Vitest, Zod — BFF proxy layer, no direct DB access
 
-Type 1, 2, or 3.
+Type 1, 2, 3, or 4.
 ```
 
 Store result as `PROFILE`. Load `references/profile-{PROFILE}.md` for all template content.
@@ -50,7 +52,7 @@ Scaffolding is done by the `nuxt-scaffold` skill's deterministic script — **no
 
 Set `SCAFFOLDED = true` when the script exits 0 (the governance overlay reconciles with what the scaffold provides — see Phases 1 and 5).
 
-Skip this phase entirely if `nuxt.config.ts` already exists (onboarding an existing repo) or for the `go` / `nodejs` profiles.
+Skip this phase entirely if `nuxt.config.ts` already exists (onboarding an existing repo) or for the `go` / `nodejs` / `next` profiles.
 
 ---
 
@@ -73,7 +75,7 @@ If `CI_PROVIDER` includes `github`, note that `go-scaffold` already wrote `.gith
 
 Set `SCAFFOLDED = true` when the script exits 0 (the governance overlay reconciles with what the scaffold provides — see Phases 1 and 5).
 
-Skip this phase entirely if `go.mod` already exists (onboarding an existing repo) or for the `nuxt` / `nodejs` profiles.
+Skip this phase entirely if `go.mod` already exists (onboarding an existing repo) or for the `nuxt` / `nodejs` / `next` profiles.
 
 ---
 
@@ -96,7 +98,29 @@ If `CI_PROVIDER` includes `github`, note that `nodejs-scaffold` already wrote `.
 
 Set `SCAFFOLDED = true` when the script exits 0 (the governance overlay reconciles with what the scaffold provides — see Phases 1 and 5).
 
-Skip this phase entirely if `package.json` already exists (onboarding an existing repo) or for the `nuxt` / `go` profiles.
+Skip this phase entirely if `package.json` already exists (onboarding an existing repo) or for the `nuxt` / `go` / `next` profiles.
+
+---
+
+## Phase 0.5d: Next Project Scaffold
+
+**next profile only.** If `PROFILE = next` **and** the repo has no `next.config.*`:
+
+Scaffolding is done by the `next-scaffold` skill's deterministic script — **not** conversationally. Three steps, and **all questions happen up front, in one batch; zero prompts once scaffolding starts** (same config-JSON shape as Phase 0.5's nuxt branch, since `next-scaffold` has multiple decisions like `nuxt-scaffold` does — not the single-flag CLI style of the go/nodejs branches):
+
+1. **Gather every scaffold decision now**, in the same turn, back-to-back with this skill's own remaining decisions: ask `skills/next-scaffold/SKILL.md` → Step 2 (project name, template, version policy), then immediately ask Phase 1.5's bundle below (Knowledge Bundle + CI config + Security reviewer — an empty repo can't hit Phase 1's conflict path, so only those three apply here). Confirm the scaffold summary once. Store `KNOWLEDGE_BUNDLE` / `CI_PROVIDER` / `SECURITY_REVIEWER` now — Phase 1.5 is a no-op later in this branch since they're already decided. `CODE_REVIEWER` needs no question (see Phase 1.5).
+2. **Write the config JSON** (schema in `skills/next-scaffold/SKILL.md` → Step 3) to a temp file outside the repo, with `"packageManager": "pnpm"`.
+3. **Run the script and stream its output** (several minutes — installs + shadcn/ui + verify gates):
+   ```sh
+   node skills/next-scaffold/scripts/scaffold.mjs --config <path>
+   ```
+   Exit 0 = scaffolded, verified (lint/type-check/test), committed. Non-zero → report the script's last `[scaffold] ERROR:` line and stop; do not improvise the remaining steps by hand.
+
+**No GitHub template clone, no embedded skill copy.** Do not write any project files yourself while it runs.
+
+Set `SCAFFOLDED = true` when the script exits 0 (the governance overlay reconciles with what the scaffold provides — see Phases 1 and 5).
+
+Skip this phase entirely if `next.config.*` already exists (onboarding an existing repo) or for the `nuxt` / `go` / `nodejs` profiles.
 
 ---
 
@@ -107,6 +131,8 @@ If `SCAFFOLDED = true` from the nuxt branch, the `nuxt-scaffold` skill already b
 If `SCAFFOLDED = true` from the go branch instead, `go-scaffold` brought `go.mod`, `cmd/`, `internal/`, `db/migrations/`, `Makefile`, `Dockerfile`, `docker-compose.yml`, `.env.example`, `.github/workflows/ci.yml`, and an initial git commit — but **no** `.claude/` anything (it has no governance overlay, unlike nuxt-scaffold). Treat those as pre-existing (do not clobber) and continue through Phases 2 onward normally; there's no partial-guardrail merge to do here since nothing `.claude/`-related exists yet to merge against.
 
 If `SCAFFOLDED = true` from the nodejs branch instead, `nodejs-scaffold` brought `package.json`, `src/`, `drizzle/`, `Dockerfile`, `docker-compose.yml`, `.env.example`, `.github/workflows/ci.yml`, and an initial git commit — but, like the go branch, **no** `.claude/` anything. Treat those as pre-existing (do not clobber) and continue through Phases 2 onward normally.
+
+If `SCAFFOLDED = true` from the next branch instead, `next-scaffold` already brought `next.config.ts`, `src/app/`, `components.json`, `.claude/settings.json` (permissions + a `PostToolUse` lint-fix hook), `.vscode/settings.json`, and a `simple-git-hooks` pre-commit gate — same shape as the nuxt branch, not the go/nodejs one. Treat those as pre-existing (do not clobber) and skip straight to adding the BigIn guardrails the scaffold lacks: `bash-guard.mjs`, `spec-gate-guard.mjs`, and the `injection-scan-guard.mjs` / `injection-gate-guard.mjs` pair (+ their `PreToolUse`/`PostToolUse` hooks), governance rules, and AI files.
 
 Check for existing harness files:
 ```
@@ -169,7 +195,7 @@ Read the content from `references/profile-{PROFILE}.md` → `## CLAUDE.md Templa
 Write to `CLAUDE.md` in the project root.
 Skip if `INSTALL_MODE=new` and `CLAUDE.md` already exists.
 
-(The `nuxt-scaffold` skill does **not** write a `CLAUDE.md` — governance is this skill's job — so for `SCAFFOLDED = true` nuxt repos there is no existing `CLAUDE.md` to preserve; write it fresh.)
+(Neither `nuxt-scaffold` nor `next-scaffold` writes a `CLAUDE.md` — governance is this skill's job — so for `SCAFFOLDED = true` nuxt/next repos there is no existing `CLAUDE.md` to preserve; write it fresh.)
 
 ---
 
@@ -184,6 +210,14 @@ Create `.claude/rules/` if it doesn't exist.
 - **testing.md** — from `references/profile-nuxt.md` → `## testing.md Template`. Includes `paths:` frontmatter scoping it to `tests/**` + `vitest.config.ts`. Centralized-tests convention: `tests/` mirrors `app/`/`server/`, cross-tree imports use the `~~/` root alias, Nitro auto-imports stubbed via `tests/support/`.
 - **security.md** — from `references/files-shared.md` → `## security.md`. **Prepend** the nuxt paths frontmatter from `## paths substitutions` in `references/files-shared.md` before the content.
 - **architecture.md** — from `references/files-shared.md` → `## architecture.md`, then append the profile block from `references/profile-nuxt.md` → `## architecture addendum`. **Prepend** the nuxt paths frontmatter from `## paths substitutions` before the content.
+
+**For next** — generate five files, same shape as nuxt (a frontend+backend split app, not a single-tree backend) — each: skip if `INSTALL_MODE=new` and already exists:
+
+- **conventions-frontend.md** — from `references/profile-next.md` → `## conventions-frontend.md Template`. Includes `paths:` frontmatter scoping it to `src/app/**`, `src/components/**`, `src/hooks/**`, `src/stores/**`.
+- **conventions-server.md** — from `references/profile-next.md` → `## conventions-server.md Template`. Includes `paths:` frontmatter scoping it to `src/app/api/**`, `src/lib/**`, `src/proxy.ts`.
+- **testing.md** — from `references/profile-next.md` → `## testing.md Template`. Includes `paths:` frontmatter scoping it to `src/**/*.test.ts(x)` + `vitest.config.ts`. Co-located-tests convention (unlike nuxt's centralized `tests/` tree): tests sit next to the source they cover.
+- **security.md** — from `references/files-shared.md` → `## security.md`. **Prepend** the next paths frontmatter from `## paths substitutions` in `references/files-shared.md` before the content.
+- **architecture.md** — from `references/files-shared.md` → `## architecture.md`, then append the profile block from `references/profile-next.md` → `## architecture addendum`. **Prepend** the next paths frontmatter from `## paths substitutions` before the content.
 
 **For go / nodejs** — generate three files (each: skip if `INSTALL_MODE=new` and already exists):
 
@@ -207,9 +241,9 @@ Skip each if `INSTALL_MODE=new` and file already exists.
 
 ### 5-1. Pre-commit hook
 
-**First check for an existing git-hook manager.** If the repo already gates commits via `simple-git-hooks` or `husky` (key in `package.json`), a `.husky/` dir, or an existing `.git/hooks/pre-commit` → **do NOT create `scripts/pre-commit.sh`**. The existing mechanism is the gate; skip to 5-2. (This is the case for `SCAFFOLDED = true` nuxt repos — the template uses `simple-git-hooks` → `pnpm lint-staged`.)
+**First check for an existing git-hook manager.** If the repo already gates commits via `simple-git-hooks` or `husky` (key in `package.json`), a `.husky/` dir, or an existing `.git/hooks/pre-commit` → **do NOT create `scripts/pre-commit.sh`**. The existing mechanism is the gate; skip to 5-2. (This is the case for `SCAFFOLDED = true` nuxt/next repos — the template uses `simple-git-hooks` → `pnpm lint-staged`.)
 
-Otherwise (go / nodejs, or a nuxt repo without a hook manager): read `references/hook-guard.md` → `## pre-commit: {PROFILE}`. Write to `scripts/pre-commit.sh`, then `chmod +x scripts/pre-commit.sh`, and continue to 5-1b.
+Otherwise (go / nodejs, or a nuxt/next repo without a hook manager): read `references/hook-guard.md` → `## pre-commit: {PROFILE}`. Write to `scripts/pre-commit.sh`, then `chmod +x scripts/pre-commit.sh`, and continue to 5-1b.
 
 ### 5-1b. Initialize git + install the hook
 
@@ -246,7 +280,7 @@ If `scripts/pre-commit.sh` was created in 5-1, the budget check step is already 
 
 Read from `references/hook-guard.md` → `## bash-guard.mjs`. Write to `.claude/guards/bash-guard.mjs`.
 
-> nuxt auto-format also needs a guard script — `.claude/guards/lint-fix-file.mjs`, ESLint `--fix` scoped to the single touched file (a blanket `pnpm lint --fix` would rewrite every pre-existing lint violation in the repo on the first edit). If `SCAFFOLDED = true`, `nuxt-scaffold` already wrote it. Otherwise (onboarding an existing nuxt repo), copy it now from `skills/nuxt-scaffold/scripts/templates/files/.claude/guards/lint-fix-file.mjs` — single source of truth, don't duplicate the script body here.
+> nuxt/next auto-format also needs a guard script — `.claude/guards/lint-fix-file.mjs`, ESLint `--fix` scoped to the single touched file (a blanket `pnpm lint --fix` would rewrite every pre-existing lint violation in the repo on the first edit). If `SCAFFOLDED = true`, `nuxt-scaffold`/`next-scaffold` already wrote it. Otherwise (onboarding an existing nuxt or next repo), copy it now from `skills/nuxt-scaffold/scripts/templates/files/.claude/guards/lint-fix-file.mjs` (nuxt) or `skills/next-scaffold/scripts/templates/files/.claude/guards/lint-fix-file.mjs` (next) — same script body in both, single source of truth per profile, don't duplicate it here.
 
 ### 5-2b. Spec gate guard (blocks non-trivial edits before plan approval)
 
@@ -262,24 +296,24 @@ Read from `references/hook-guard.md` → `## session-resume-check.mjs`. Write to
 
 ### 5-2e. Verify gate (deterministic Stop hook for lint+typecheck+test)
 
-Read from `references/hook-guard.md` → `## verify-gate.mjs: nuxt / nodejs` (nuxt and nodejs profiles) or `## verify-gate.mjs: go` (go profile). Write to `.claude/guards/verify-gate.mjs`. Replaces task-workflow Step 5's prose-only "show the actual output" enforcement with a hard `Stop` gate — skips entirely on a clean working tree, otherwise blocks turn-end until lint+typecheck+test pass.
+Read from `references/hook-guard.md` → `## verify-gate.mjs: nuxt / nodejs / next` (nuxt, nodejs, and next profiles — identical pnpm lint/type-check/test command shape) or `## verify-gate.mjs: go` (go profile). Write to `.claude/guards/verify-gate.mjs`. Replaces task-workflow Step 5's prose-only "show the actual output" enforcement with a hard `Stop` gate — skips entirely on a clean working tree, otherwise blocks turn-end until lint+typecheck+test pass.
 
 ### 5-3. .claude/settings.json
 
-For **nuxt**:
-- **If `SCAFFOLDED = true`**: the `nuxt-scaffold` skill already wrote `.claude/settings.json` with `permissions.allow` + a `PostToolUse` `lint-fix-file.mjs` hook (and the script itself). Merge the `PreToolUse` `bash-guard.mjs` + `spec-gate-guard.mjs` + `injection-gate-guard.mjs` hooks, a `SessionStart` `session-resume-check.mjs` hook, a `Stop` `verify-gate.mjs` hook, any missing `permissions.allow` entries, **and** a second `PostToolUse` entry for `injection-scan-guard.mjs` alongside the existing `lint-fix-file.mjs` one — do not replace or duplicate the existing `lint-fix-file.mjs` entry. Merge per-event; show additions before writing.
-- **Otherwise** (onboarding an existing nuxt repo): write `.claude/guards/lint-fix-file.mjs` per 5-2's note above if missing, then read the full settings.json template from `references/profile-nuxt.md` → `## settings.json Template`. If `.claude/settings.json` exists, merge the `hooks` block + missing `permissions.allow` entries (per-event, never drop the user's); if not, write fresh.
+For **nuxt** / **next** (same merge shape, different scaffold skill):
+- **If `SCAFFOLDED = true`**: the `nuxt-scaffold`/`next-scaffold` skill already wrote `.claude/settings.json` with `permissions.allow` + a `PostToolUse` `lint-fix-file.mjs` hook (and the script itself). Merge the `PreToolUse` `bash-guard.mjs` + `spec-gate-guard.mjs` + `injection-gate-guard.mjs` hooks, a `SessionStart` `session-resume-check.mjs` hook, a `Stop` `verify-gate.mjs` hook, any missing `permissions.allow` entries, **and** a second `PostToolUse` entry for `injection-scan-guard.mjs` alongside the existing `lint-fix-file.mjs` one — do not replace or duplicate the existing `lint-fix-file.mjs` entry. Merge per-event; show additions before writing.
+- **Otherwise** (onboarding an existing nuxt or next repo): write `.claude/guards/lint-fix-file.mjs` per 5-2's note above if missing, then read the full settings.json template from `references/profile-nuxt.md` or `references/profile-next.md` → `## settings.json Template`. If `.claude/settings.json` exists, merge the `hooks` block + missing `permissions.allow` entries (per-event, never drop the user's); if not, write fresh.
 
 For **go** / **nodejs**: read the template from `references/profile-{PROFILE}.md` → `## settings.json Template`. If the file exists, merge the `hooks` block + missing `permissions.allow` entries (per-event); otherwise write fresh.
 
-### 5-3b. .vscode/settings.json (nuxt only)
+### 5-3b. .vscode/settings.json (nuxt / next only)
 
-Editor format-on-save via ESLint. Read `references/profile-nuxt.md` → `## .vscode/settings.json Template`.
+Editor format-on-save via ESLint. Read `references/profile-nuxt.md` or `references/profile-next.md` → `## .vscode/settings.json Template`.
 
 - If `.vscode/settings.json` exists: **merge** the keys in (never overwrite; show additions first).
 - If not: write fresh.
 
-Other profiles: skip.
+Other profiles (go, nodejs — backend-only, no editor-format concern): skip.
 
 ### 5-3c. Harness version marker
 
@@ -412,6 +446,7 @@ the always-loaded budget unless you're editing those paths.
 - Nuxt scaffold (Phase 0.5) — only if `PROFILE=nuxt` and no `nuxt.config.ts`; delegates to the `nuxt-scaffold` skill (no clone, no embedded copy into the target). When `SCAFFOLDED`, do not overwrite the scaffold's `.vscode/settings.json` or pre-commit — overlay additively.
 - Go scaffold (Phase 0.5b) — only if `PROFILE=go` and no `go.mod`; delegates to the `go-scaffold` skill. Unlike nuxt-scaffold, it writes no `.claude/` anything and no pre-commit hook manager — Phases 5-1 and 5-3 proceed through their normal go/nodejs branches unchanged once `SCAFFOLDED=true`.
 - Node.js scaffold (Phase 0.5c) — only if `PROFILE=nodejs` and no `package.json`; delegates to the `nodejs-scaffold` skill. Like go-scaffold, it writes no `.claude/` anything and no pre-commit hook manager — Phases 5-1 and 5-3 proceed through their normal go/nodejs branches unchanged once `SCAFFOLDED=true`.
+- Next scaffold (Phase 0.5d) — only if `PROFILE=next` and no `next.config.*`; delegates to the `next-scaffold` skill (no clone, no embedded copy into the target). Same shape as nuxt-scaffold, not go/nodejs-scaffold — when `SCAFFOLDED`, do not overwrite the scaffold's `.vscode/settings.json` or pre-commit — overlay additively.
 - Knowledge Bundle (Phase 5.5) — opt-in only, decided once in Phase 1.5 (`KNOWLEDGE_BUNDLE`); skip entirely if declined. Never edit unknown CI config automatically — only note it's needed.
 - security-reviewer agent (Phase 5-4b) — opt-in only, decided once in Phase 1.5 (`SECURITY_REVIEWER`); skip entirely if declined.
 - CI Config (Phase 5.6) — opt-in only, decided once in Phase 1.5 (`CI_PROVIDER`, auto-detected default); skip entirely if `no`. Only ever writes/overwrites CI files this skill generated; never edits pre-existing, hand-written CI config.
@@ -431,6 +466,8 @@ Read `references/summary-checklist.md` → `## Output Checklist` and verify ever
 ## References
 
 - `references/profile-nuxt.md` — templates for nuxt profile (CLAUDE.md, conventions-frontend, conventions-server, testing, architecture addendum, settings.json, .vscode/settings.json)
+- `references/profile-next.md` — templates for next profile (same shape as profile-nuxt.md)
+- `skills/next-scaffold/SKILL.md` — empty-repo next scaffold (Phase 0.5d): create-next-app + BFF preset (Zustand, TanStack Query, shadcn/ui, iron-session)
 - `references/profile-go.md` — templates for go profile
 - `skills/go-scaffold/SKILL.md` — empty-repo go scaffold (Phase 0.5b): contract-first (oapi-codegen + sqlc), chi, Postgres
 - `references/profile-nodejs.md` — templates for nodejs profile

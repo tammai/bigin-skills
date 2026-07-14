@@ -285,7 +285,7 @@ process.exit(0)
 
 ---
 
-## verify-gate.mjs: nuxt / nodejs
+## verify-gate.mjs: nuxt / nodejs / next
 
 Write to `.claude/guards/verify-gate.mjs`.
 
@@ -384,6 +384,34 @@ Write to `scripts/pre-commit.sh`.
 ```bash
 #!/bin/sh
 # Pre-commit quality gates — nuxt profile
+set -e
+
+echo "Running pre-commit gates..."
+
+echo "  lint..."
+pnpm lint
+
+echo "  typecheck..."
+pnpm type-check
+
+echo "  tests..."
+pnpm test --run
+
+echo "  context budget..."
+if [ -f tools/context_budget.mjs ]; then node tools/context_budget.mjs; fi
+
+echo "All gates passed."
+```
+
+---
+
+## pre-commit: next
+
+Write to `scripts/pre-commit.sh`. Only reached when onboarding an **existing** Next.js repo with no `simple-git-hooks`/`husky`/hook already in place — a `next-scaffold`-produced repo always has `simple-git-hooks` already (Phase 5-1 skips straight past this). Identical to the nuxt job (same package manager and commands).
+
+```bash
+#!/bin/sh
+# Pre-commit quality gates — next profile
 set -e
 
 echo "Running pre-commit gates..."

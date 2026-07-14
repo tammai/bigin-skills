@@ -17,6 +17,8 @@ pnpm --version >/dev/null 2>&1 || { echo "pnpm is required but not installed. In
 
 **Monorepo warning:** if a parent `pnpm-workspace.yaml` exists above the target directory, `pnpm add` may hoist dependencies to the root. Scaffold outside the workspace, or use `--ignore-workspace` on each `pnpm add` call.
 
+**Complete vs. partial:** a scaffold is "complete" — and `resume: true` refuses with "nothing to do" — only when `vitest.config.ts`, `.claude/settings.json`, **and** `node_modules/` all exist. The first two are written unconditionally in Stage 3 regardless of `skipInstall`, so they alone can't tell a fully-installed-and-verified scaffold apart from a `skipInstall: true` run that only wrote files. `node_modules/` is the signal a `skipInstall` run never produces.
+
 **Build-script approval:** pnpm 10+ blocks a dependency's postinstall/build scripts by default. `simple-git-hooks` and `esbuild`/`workerd` (via `wrangler`) hit this. For these packages, two things matter here:
 
 1. **The `pnpm add` that introduces the package exits 1 with `ERR_PNPM_IGNORED_BUILDS` — but the package still installs**, just with its build script deferred pending approval. This is *not* the "partial install, stop" failure the stages below otherwise warn about — treat this specific error as expected, run `pnpm approve-builds <pkg>` (named in the error output) immediately after, and continue.
@@ -126,9 +128,15 @@ The `--template ui` init already installed `@nuxt/ui`, `@nuxt/eslint`, `vue-tsc`
 
 ```sh
 pnpm add @pinia/colada @pinia/colada-nuxt zod
-pnpm add -D vitest @nuxt/test-utils happy-dom simple-git-hooks lint-staged openapi-typescript
+pnpm add -D vitest @nuxt/test-utils happy-dom simple-git-hooks lint-staged
 pnpm approve-builds simple-git-hooks || true
 ```
+
+`starter` only, additionally:
+```sh
+pnpm add -D openapi-typescript
+```
+`openapi-typescript` only makes sense alongside `starter`'s `openapi.yaml` stub + `openapi-types` script (Stage 3) — every other template has no backend contract to describe by default, so it stays out of the universally-installed set above rather than shipping as a dead devDependency on templates that never wire up a script to run it.
 
 `zod` and the dev tooling are plain packages (not Nuxt modules) — consumed in code, no `nuxt.config.ts` registration needed. `@pinia/colada-nuxt` **is** a Nuxt module and must be registered in `nuxt.config.ts`'s `modules` array — per the [official Nuxt guide](https://pinia-colada.esm.dev/nuxt.html), this isn't an optional SSR nicety, it's required for `useQuery`/`useMutation` to work at all; the module also auto-installs the `PiniaColadaSSRNoGc` plugin so SSR caching needs no extra `await`. `nuxi module add` is unreliable non-interactively, so the script registers it directly via `ensureModuleRegistered('@pinia/colada-nuxt')` right after `pnpm add` rather than shelling out to `nuxi`. `happy-dom` is required by `@nuxt/test-utils`'s `environment: 'nuxt'` (set in `vitest.config.ts`, Stage 3) — without it `pnpm test` fails outright with "Could not resolve happy-dom". The second `pnpm add` line above will exit 1 with `ERR_PNPM_IGNORED_BUILDS` because of `simple-git-hooks` — that's expected (see "Build-script approval" above); the `approve-builds` line immediately after handles it.
 
