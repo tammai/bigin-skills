@@ -192,38 +192,9 @@ status: in-progress | complete
 
 ---
 
-## Integration with Harness Workflow
+## Mid-workflow saves
 
-When session-handoff is used during harness execution:
-
-**Mid-harness save (e.g., during Phase 3):**
-SESSION.md includes harness-specific state:
-
-```markdown
-## Current Harness State
-
-Phase: 3 (Stack Verification)
-Project Type: Fullstack MVP
-Selected Agents: architect, frontend-dev, qa
-Optional Modules: auth disabled
-
-## Progress
-
-- [x] Phase 0: Repo detection (empty)
-- [x] Phase 1: Type selection
-- [x] Phase 2: Agent role selection
-- [x] Phase 3: Stack verification
-- [ ] Phase 4: Agent generation (NEXT)
-- [ ] Phase 5: Skill install
-- [ ] Phase 6: Orchestrator generation
-- [ ] Phase 7: Validation
-```
-
-**On resume:**
-
-- Harness skill reads SESSION.md
-- Restores phase progress
-- Continues from the next uncompleted phase
+When session-handoff is triggered partway through another multi-step skill (`bigin-harness-setup`, `task-workflow`, `sprint-distill`), no per-skill schema is needed — record the in-progress step in plain language under "Current State" (e.g. "bigin-harness-setup: Phase 4 of 8, CLAUDE.md and .claude/rules/ written, enforcement gates not yet generated"). On resume, the target skill re-derives its actual progress from what's already on disk (which files exist, `PLAN.md`'s task table, etc.) rather than trusting a saved phase number — SESSION.md's job is pointing the user/agent back at where they left off, not being the source of truth for it.
 
 ---
 

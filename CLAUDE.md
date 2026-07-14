@@ -42,7 +42,6 @@ scripts/git-hooks/        ← pre-commit running the budget gate
 | `quick-executor` | haiku/low — mechanical, single-file, low-risk tasks. Routed by `model-router`. |
 | `standard-worker` | sonnet/medium — default tier, most feature/bug-fix work. Routed by `model-router`. |
 | `deep-architect` | opus/high — architectural decisions, contract/schema changes, full-spec tier. Routed by `model-router`. |
-| `security-reviewer` | opus/high, read-only (`Read, Grep, Glob, Bash`) — auth/session/secrets/PII review. Opt-in: spawn explicitly, not routed by `model-router`. |
 
 Details live in each skill's own `SKILL.md` — read it when working on that skill. Authoring conventions are in `.claude/rules/skill-authoring.md` (loads when editing `skills/`).
 

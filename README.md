@@ -87,9 +87,7 @@ your-repo/
 │   │   ├── injection-gate-guard.mjs     ← asks for confirmation before the next risky tool call after a flag
 │   │   ├── session-resume-check.mjs     ← SessionStart hook: prompts to resume an in-progress SESSION.md
 │   │   └── verify-gate.mjs              ← Stop hook: blocks turn-end until lint+typecheck+test pass
-│   ├── settings.json                   ← pre-approved commands + hook wiring
-│   └── agents/
-│       └── code-reviewer.md            ← optional, read-only (opt-in)
+│   └── settings.json                   ← pre-approved commands + hook wiring
 ├── tools/
 │   └── context_budget.mjs               ← budget gate: CLAUDE.md ≤60, unscoped rules ≤40
 ├── scripts/
@@ -249,8 +247,7 @@ bigin-skills/
 ├── agents/                        ← plugin-level subagents, spawned via Agent tool (not invoked as skills)
 │   ├── quick-executor.md          ← haiku/low — mechanical, single-file, low-risk tasks
 │   ├── standard-worker.md         ← sonnet/medium — default tier, most feature/bug-fix work
-│   ├── deep-architect.md          ← opus/high — architectural decisions, contract/schema changes, full-spec tier
-│   └── security-reviewer.md       ← opus/high, read-only — auth/session/secrets/PII review, opt-in (not routed by model-router)
+│   └── deep-architect.md          ← opus/high — architectural decisions, contract/schema changes, full-spec tier
 ├── CHANGELOG.md
 └── README.md
 ```

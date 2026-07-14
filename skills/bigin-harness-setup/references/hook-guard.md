@@ -343,6 +343,7 @@ Write to `.claude/guards/verify-gate.mjs`.
 #!/usr/bin/env node
 // Stop hook — go profile. See the nuxt/nodejs variant above for rationale.
 import { execSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 
 function treeIsClean() {
   try {
@@ -354,10 +355,9 @@ function treeIsClean() {
 
 if (treeIsClean()) process.exit(0)
 
-function hasStaticcheck() {
+function hasLintTarget() {
   try {
-    execSync('command -v staticcheck', { stdio: 'ignore' })
-    return true
+    return /^lint:/m.test(readFileSync('Makefile', 'utf-8'))
   } catch {
     return false
   }
@@ -365,7 +365,7 @@ function hasStaticcheck() {
 
 const STEPS = [
   ['build/typecheck', 'go build ./...'],
-  ...(hasStaticcheck() ? [['lint', 'make lint']] : []),
+  ...(hasLintTarget() ? [['lint', 'make lint']] : []),
   ['test', 'go test ./... -count=1']
 ]
 
@@ -455,10 +455,10 @@ echo "  build/typecheck..."
 go build ./...
 
 echo "  lint..."
-if command -v staticcheck >/dev/null 2>&1; then
+if [ -f Makefile ] && grep -q '^lint:' Makefile; then
   make lint
 else
-  echo "  staticcheck not found — skipping (run: go install honnef.co/go/tools/cmd/staticcheck@latest)"
+  echo "  no lint target in Makefile — skipping"
 fi
 
 echo "  tests..."

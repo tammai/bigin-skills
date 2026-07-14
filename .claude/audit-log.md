@@ -69,3 +69,26 @@ CHANGELOG.md entry added and version bumped to 1.30.0 in the same pass (not defe
 Deferred (logged, not acted on): none — all 5 findings from this run were approved and applied.
 
 Noted but out of scope (not one of the 5 approved findings, not acted on): `skills/session-handoff/SKILL.md`'s "Integration with Harness Workflow" section (lines ~195-227) describes a "Phase 3 Stack Verification" / "architect, frontend-dev, qa agent roles" model that doesn't match `bigin-harness-setup`'s actual current Phase 0-8 structure or agent set (`code-reviewer`/`security-reviewer`) at all — looks like leftover drift from an older harness design. Flag for a future pass.
+
+## 2026-07-15
+
+Docs checked: skills.md, best-practices.md, hooks.md, plugins-reference.md, sub-agents.md, memory.md — all fetched successfully, no failures (though `hooks.md`/`hooks-guide.md` fetches were summarized/truncated on one specific point — see Verified note below).
+
+Context: earlier the same day, `code-reviewer` and `security-reviewer` (both the `bigin-harness-setup`-scaffolded downstream templates and this repo's own plugin-level `agents/security-reviewer.md`) were removed entirely in favor of the built-in `/code-review`/`/security-review` skills — a deliberate decision made in conversation, not an audit finding. Several previously-Closed findings in this log that reference those agent templates (2026-07-06, 2026-07-13, 2026-07-13 follow-up) are now moot: the files they applied to no longer exist. Not re-litigated here.
+
+New findings: 3 actionable (2 drift, 1 opportunity) + 1 verified-correct (no drift).
+- drift: `bigin-harness-setup/SKILL.md` regrown 442→467 lines since the 2026-07-13 follow-up's re-flag threshold — the standing criterion was met again
+- drift: `session-handoff/SKILL.md`'s "Integration with Harness Workflow" section (flagged out-of-scope last audit) — confirmed still wrong, and now additionally references an agent set (`code-reviewer`/`security-reviewer`) that no longer exists at all
+- opportunity: `agents/standard-worker.md` referenced `debug-workflow`/`write-tests` by name in prose but didn't preload them via the subagent `skills:` frontmatter field, despite running in an isolated context that doesn't see the main conversation
+- verified, no drift: `injection-scan-guard.mjs`'s use of `tool_response` for the PostToolUse tool-output field — official docs fetches couldn't confirm this field name (truncated each time), so confirmed directly against the installed Claude Code binary instead (`strings ~/.local/share/claude/versions/2.1.209 | grep tool_response` → `"tool_response": { "success": true }  // PostToolUse only`)
+
+Also recorded, not a drift: docs' canonical subagent worked example (`best-practices.md`, `sub-agents.md`) is still a `security-reviewer` agent — this repo now deliberately diverges from that default pattern (see context above). Informational only.
+
+Closed this run (user approved all 3, applied same pass):
+- Extracted Phase 6's README-append templates from `bigin-harness-setup/SKILL.md` into `references/summary-checklist.md` (`## Phase 6 README Templates`) — 467→433 lines. Still above the ~400 heuristic; remaining content (Phase 5 enforcement, Phase 7 summary) judged core per-run instructions, same standing call as the 2026-07-13 follow-up — Closed
+- `session-handoff/SKILL.md`'s stale "Integration with Harness Workflow" section replaced with a short "Mid-workflow saves" note (record the step in plain language, resumed skill re-derives progress from disk) — Closed
+- Added `skills: [debug-workflow, write-tests]` to `agents/standard-worker.md` frontmatter (YAML list form, matching the documented example exactly rather than the untested comma-separated shorthand) — Closed
+
+CHANGELOG.md entry added and version bumped to 1.35.1 in the same pass.
+
+Deferred (logged, not acted on): none — all 3 findings from this run were approved and applied.

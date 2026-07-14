@@ -5,6 +5,109 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.35.1] - 2026-07-15
+
+### Fixed
+
+- **`bigin-harness-setup/SKILL.md` had regrown 442→467 lines since the last audit's re-flag threshold, past the ~400-line heuristic.** Extracted Phase 6's README-append templates (`## AI Onboarding`, `### Runtime hygiene`, `## Context Budget`) into `references/summary-checklist.md` under a new `## Phase 6 README Templates` section — pure literal print material, same shape as the Phase 7 templates already externalized there. Phase 6 in `SKILL.md` is now a one-line pointer. 467→433 lines; still above the heuristic, but the remaining content is Phase 5 enforcement + Phase 7 summary logic, judged core per-run instructions rather than reference material (same standing call as the prior audit).
+- **`session-handoff/SKILL.md`'s "Integration with Harness Workflow" section described a "Phase 3 Stack Verification"/"architect, frontend-dev, qa agent roles" model that never matched `bigin-harness-setup`'s actual Phase 0-8 structure, and additionally named an agent set (`code-reviewer`/`security-reviewer`) removed entirely in v1.35.0.** Flagged out-of-scope in a prior audit ("flag for a future pass"). Replaced with a short "Mid-workflow saves" note: record the in-progress step in plain language, and let the resumed skill re-derive its own progress from what's on disk rather than trusting a saved phase number.
+- **`go-scaffold`'s generated `Dockerfile` never set a `WORKDIR` on the `distroless/static-debian12:nonroot` final stage.** That base image's default working directory is `/home/nonroot`, not `/` — the server binary's relative `os.ReadFile("openapi.yaml")` (used to serve `/docs` and `/openapi.yaml`) 404s at runtime even though `COPY openapi.yaml /openapi.yaml` puts the file at the image root. Added `WORKDIR /` before the binary/asset `COPY` lines so the relative path resolves correctly.
+
+### Changed
+
+- **`agents/standard-worker.md` now preloads the `debug-workflow` and `write-tests` skills via the subagent `skills:` frontmatter field**, instead of only referencing them by name in prose. A spawned subagent runs in an isolated context (its own system prompt + basic env details, not the main conversation), so relying on it to independently discover and invoke those skills via the Skill tool was weaker than guaranteeing their content is already present at startup.
+
+### Verified (no change)
+
+- `injection-scan-guard.mjs` reads `tool_response` as the PostToolUse hook's tool-output field. This is a load-bearing security gate that was never explicitly listed as functionally tested (unlike `verify-gate.mjs`/`session-resume-check.mjs`), and official docs fetches couldn't confirm the field name (summarization truncated that part of the page each time). Confirmed directly against the installed Claude Code binary (`strings` on `~/.local/share/claude/versions/2.1.209`): `"tool_response": { "success": true }  // PostToolUse only`. No code change needed.
+
+## [1.35.0] - 2026-07-14
+
+### Removed
+
+- **Standardized on the `/code-review` and `/security-review` skills for all review work, in both downstream repos and this repo itself — removed every built-in reviewer agent that duplicated them.** `/code-review`'s multi-agent finder+verify `Workflow` pipeline already outperforms a single read-only subagent pass (it caught a real regression in this repo's own v1.34.2/v1.34.3 fixes that a one-shot reviewer would likely have missed). Keeping bespoke reviewer agents around meant multiple mechanisms doing the same job at different quality/cost points, with templates that were a second copy of content no generator kept in sync with anything.
+
+  **`bigin-harness-setup` no longer scaffolds `.claude/agents/code-reviewer.md` or `.claude/agents/security-reviewer.md` into target repos.** Removed: the Phase 1.5 "Add an opt-in security-reviewer agent?" question and `SECURITY_REVIEWER`/`CODE_REVIEWER` decision variables, Phase 5-4/5-4b generation steps, the `## code-reviewer agent` / `## security-reviewer agent` templates in `references/files-shared.md`, and all mentions in `references/summary-checklist.md` (Phase 7 summary + Output Checklist) and `README.md`'s target-repo tree diagram. The Phase 7 "Next steps" now points at `/code-review` and `/security-review` directly. No `patch` block — patch mode only ever inserts/replaces, it can't delete a previously-scaffolded file, so already-scaffolded repos keep their existing `.claude/agents/code-reviewer.md`/`security-reviewer.md` as harmless orphans; only new installs skip them.
+
+  **This repo's own plugin-level `agents/security-reviewer.md` (`bigin-skills:security-reviewer`) is also removed** — deleted the file, its row in `CLAUDE.md`'s Agents table and `README.md`'s repo tree, the `security-reviewer`/`security-review`/`auth-review`/`secrets-scan`/`pii` keywords from `plugin.json`/`marketplace.json`, and the now-moot `security-reviewer`-gets-`opus` carve-out in `.claude/rules/skill-authoring.md`'s model-convention line. `quick-executor`/`standard-worker`/`deep-architect` (routed by `model-router`) are unaffected.
+
+### Changed
+
+- **`task-workflow`'s Step 6 (Review) now actually calls `/code-review`/`/security-review` instead of only self-checking `AI_REVIEW_CHECKLIST.md`.** With the reviewer agents gone, the sole remaining pointer to these skills was a one-time "next steps" line printed at initial harness setup — nothing in the recurring per-task flow reinforced it, so review silently degraded to "eyeball the checklist yourself." Step 6 in both `skills/task-workflow/SKILL.md` and the generated `AI_TASK_GUIDE.md` template (`references/files-shared.md`) is now: run `/code-review` on the diff; also run `/security-review` if the change touches auth, sessions, secrets, PII, or untrusted input (the same trigger condition Step 2's spec gate already uses, for consistency); then check `AI_REVIEW_CHECKLIST.md` and mark done only once both are clean.
+
+  ```patch
+  target: AI_TASK_GUIDE.md
+  anchor: 6. **Review** — check `AI_REVIEW_CHECKLIST.md`. Mark done only when the checklist is clean.
+  insert: replace
+  ---
+  6. **Review** — run `/code-review` on the diff. If the change touches auth, sessions, secrets, PII, or untrusted input, also run `/security-review`. Check `AI_REVIEW_CHECKLIST.md`; mark done only once both are clean.
+  ```
+
+## [1.34.3] - 2026-07-14
+
+### Fixed
+
+- **The go profile's lint gate in `verify-gate.mjs` and `pre-commit.sh` still checked for the `staticcheck` binary specifically, even though v1.34.2 changed the command it guards to `make lint`** — a developer who customizes the Makefile's `lint` target to use a different tool (the exact use case v1.34.2 was fixing) and doesn't have `staticcheck` on `PATH` got the entire lint step silently skipped, reproducing the same silent-skip bug v1.34.2 claimed to fix. `hasStaticcheck()` (checked `command -v staticcheck`) is now `hasLintTarget()` (checks the repo's own `Makefile` for a `^lint:` target) in `verify-gate.mjs: go`; the `pre-commit: go` shell check and its skip message were updated to match — it now says "no lint target in Makefile — skipping" instead of pointing at a staticcheck install command that may not even be relevant to the customized target. Found via code review of the v1.34.2 fix.
+
+  ```patch
+  target: .claude/guards/verify-gate.mjs
+  anchor: import { execSync } from 'node:child_process'
+  insert: after
+  ---
+  import { readFileSync } from 'node:fs'
+  ```
+
+  ```patch
+  target: .claude/guards/verify-gate.mjs
+  anchor:
+  function hasStaticcheck() {
+    try {
+      execSync('command -v staticcheck', { stdio: 'ignore' })
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  const STEPS = [
+    ['build/typecheck', 'go build ./...'],
+    ...(hasStaticcheck() ? [['lint', 'make lint']] : []),
+    ['test', 'go test ./... -count=1']
+  ]
+  insert: replace
+  ---
+  function hasLintTarget() {
+    try {
+      return /^lint:/m.test(readFileSync('Makefile', 'utf-8'))
+    } catch {
+      return false
+    }
+  }
+
+  const STEPS = [
+    ['build/typecheck', 'go build ./...'],
+    ...(hasLintTarget() ? [['lint', 'make lint']] : []),
+    ['test', 'go test ./... -count=1']
+  ]
+  ```
+
+  ```patch
+  target: scripts/pre-commit.sh
+  anchor:
+  if command -v staticcheck >/dev/null 2>&1; then
+    make lint
+  else
+    echo "  staticcheck not found — skipping (run: go install honnef.co/go/tools/cmd/staticcheck@latest)"
+  fi
+  insert: replace
+  ---
+  if [ -f Makefile ] && grep -q '^lint:' Makefile; then
+    make lint
+  else
+    echo "  no lint target in Makefile — skipping"
+  fi
+  ```
+
 ## [1.34.2] - 2026-07-14
 
 ### Fixed

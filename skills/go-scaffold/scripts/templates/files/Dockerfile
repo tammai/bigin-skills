@@ -10,6 +10,9 @@ COPY . .
 RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /out/server ./cmd/server
 
 FROM gcr.io/distroless/static-debian12:nonroot
+# distroless nonroot's default WORKDIR is /home/nonroot, not / — without this,
+# main.go's relative os.ReadFile("openapi.yaml") 404s /docs and /openapi.yaml.
+WORKDIR /
 COPY --from=build /out/server /server
 COPY openapi.yaml /openapi.yaml
 EXPOSE 8080

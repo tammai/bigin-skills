@@ -40,7 +40,7 @@ Store result as `PROFILE`. Load `references/profile-{PROFILE}.md` for all templa
 
 Scaffolding is done by the `nuxt-scaffold` skill's deterministic script — **not** conversationally. Three steps, and **all questions happen up front, in one batch; zero prompts once scaffolding starts**:
 
-1. **Gather every scaffold decision now**, in the same turn, back-to-back with this skill's own remaining decisions: ask `skills/nuxt-scaffold/SKILL.md` → Step 2 (project name, primary/neutral theme colors, version policy), then immediately ask Phase 1.5's bundle below (Knowledge Bundle + CI config + Security reviewer — an empty repo can't hit Phase 1's conflict path, so only those three apply here). Confirm the scaffold summary once. Store `KNOWLEDGE_BUNDLE` / `CI_PROVIDER` / `SECURITY_REVIEWER` now — Phase 1.5 is a no-op later in this branch since they're already decided. `CODE_REVIEWER` needs no question (see Phase 1.5).
+1. **Gather every scaffold decision now**, in the same turn, back-to-back with this skill's own remaining decisions: ask `skills/nuxt-scaffold/SKILL.md` → Step 2 (project name, primary/neutral theme colors, version policy), then immediately ask Phase 1.5's bundle below (Knowledge Bundle + CI config — an empty repo can't hit Phase 1's conflict path, so only those two apply here). Confirm the scaffold summary once. Store `KNOWLEDGE_BUNDLE` / `CI_PROVIDER` now — Phase 1.5 is a no-op later in this branch since they're already decided.
 2. **Write the config JSON** (schema in `skills/nuxt-scaffold/SKILL.md` → Step 3) to a temp file outside the repo, with `"packageManager": "pnpm"`.
 3. **Run the script and stream its output** (several minutes — installs + verify gates):
    ```sh
@@ -62,7 +62,7 @@ Skip this phase entirely if `nuxt.config.ts` already exists (onboarding an exist
 
 Scaffolding is done by the `go-scaffold` skill's deterministic script — **not** conversationally. All questions happen up front, in one batch; zero prompts once scaffolding starts:
 
-1. **Gather every scaffold decision now**, in the same turn, back-to-back with this skill's own remaining decisions: ask `skills/go-scaffold/SKILL.md` → Step 2 (module path, project name), then immediately ask Phase 1.5's bundle below (Knowledge Bundle + CI config + Security reviewer — an empty repo can't hit Phase 1's conflict path, so only those three apply here). Confirm the scaffold summary once. Store `KNOWLEDGE_BUNDLE` / `CI_PROVIDER` / `SECURITY_REVIEWER` now — Phase 1.5 is a no-op later in this branch since they're already decided. `CODE_REVIEWER` needs no question (see Phase 1.5).
+1. **Gather every scaffold decision now**, in the same turn, back-to-back with this skill's own remaining decisions: ask `skills/go-scaffold/SKILL.md` → Step 2 (module path, project name), then immediately ask Phase 1.5's bundle below (Knowledge Bundle + CI config — an empty repo can't hit Phase 1's conflict path, so only those two apply here). Confirm the scaffold summary once. Store `KNOWLEDGE_BUNDLE` / `CI_PROVIDER` now — Phase 1.5 is a no-op later in this branch since they're already decided.
 2. **Run the script and stream its output** (roughly a minute — first run downloads/builds `oapi-codegen` + `sqlc`, then `go mod tidy`, `go vet`, `go build`, `go test`):
    ```sh
    node skills/go-scaffold/scripts/scaffold.mjs --module <module-path> --dir . [--project <name>]
@@ -85,7 +85,7 @@ Skip this phase entirely if `go.mod` already exists (onboarding an existing repo
 
 Scaffolding is done by the `nodejs-scaffold` skill's deterministic script — **not** conversationally. All questions happen up front, in one batch; zero prompts once scaffolding starts:
 
-1. **Gather every scaffold decision now**, in the same turn, back-to-back with this skill's own remaining decisions: ask `skills/nodejs-scaffold/SKILL.md` → Step 2 (project name), then immediately ask Phase 1.5's bundle below (Knowledge Bundle + CI config + Security reviewer — an empty repo can't hit Phase 1's conflict path, so only those three apply here). Confirm the scaffold summary once. Store `KNOWLEDGE_BUNDLE` / `CI_PROVIDER` / `SECURITY_REVIEWER` now — Phase 1.5 is a no-op later in this branch since they're already decided. `CODE_REVIEWER` needs no question (see Phase 1.5).
+1. **Gather every scaffold decision now**, in the same turn, back-to-back with this skill's own remaining decisions: ask `skills/nodejs-scaffold/SKILL.md` → Step 2 (project name), then immediately ask Phase 1.5's bundle below (Knowledge Bundle + CI config — an empty repo can't hit Phase 1's conflict path, so only those two apply here). Confirm the scaffold summary once. Store `KNOWLEDGE_BUNDLE` / `CI_PROVIDER` now — Phase 1.5 is a no-op later in this branch since they're already decided.
 2. **Run the script and stream its output** (a couple of minutes — `pnpm add` for deps then devDeps, then `openapi-typescript` + `drizzle-kit generate`, then lint/typecheck/build/test):
    ```sh
    node skills/nodejs-scaffold/scripts/scaffold.mjs --project <name> --dir .
@@ -108,7 +108,7 @@ Skip this phase entirely if `package.json` already exists (onboarding an existin
 
 Scaffolding is done by the `next-scaffold` skill's deterministic script — **not** conversationally. Three steps, and **all questions happen up front, in one batch; zero prompts once scaffolding starts** (same config-JSON shape as Phase 0.5's nuxt branch, since `next-scaffold` has multiple decisions like `nuxt-scaffold` does — not the single-flag CLI style of the go/nodejs branches):
 
-1. **Gather every scaffold decision now**, in the same turn, back-to-back with this skill's own remaining decisions: ask `skills/next-scaffold/SKILL.md` → Step 2 (project name, template, version policy), then immediately ask Phase 1.5's bundle below (Knowledge Bundle + CI config + Security reviewer — an empty repo can't hit Phase 1's conflict path, so only those three apply here). Confirm the scaffold summary once. Store `KNOWLEDGE_BUNDLE` / `CI_PROVIDER` / `SECURITY_REVIEWER` now — Phase 1.5 is a no-op later in this branch since they're already decided. `CODE_REVIEWER` needs no question (see Phase 1.5).
+1. **Gather every scaffold decision now**, in the same turn, back-to-back with this skill's own remaining decisions: ask `skills/next-scaffold/SKILL.md` → Step 2 (project name, template, version policy), then immediately ask Phase 1.5's bundle below (Knowledge Bundle + CI config — an empty repo can't hit Phase 1's conflict path, so only those two apply here). Confirm the scaffold summary once. Store `KNOWLEDGE_BUNDLE` / `CI_PROVIDER` now — Phase 1.5 is a no-op later in this branch since they're already decided.
 2. **Write the config JSON** (schema in `skills/next-scaffold/SKILL.md` → Step 3) to a temp file outside the repo, with `"packageManager": "pnpm"`.
 3. **Run the script and stream its output** (several minutes — installs + shadcn/ui + verify gates):
    ```sh
@@ -177,14 +177,9 @@ Otherwise, ask **one bundled `AskUserQuestion` call**, before writing any files,
    Add CI config? (github/gitlab/both/no)
    Generates a workflow that runs {LINT} && {TYPECHECK} && {TEST} on push to main and on merge/pull requests.
    ```
-3. **Security reviewer** (yes/no):
-   ```
-   Add an opt-in security-reviewer agent? (yes/no)
-   A read-only subagent (Read/Grep/Glob/Bash, opus) focused on auth, session, secrets, and PII handling — for an extra adversarial review pass on top of code-reviewer when a repo or feature touches those surfaces. See references/files-shared.md for the template.
-   ```
-4. **Install mode** — only if Phase 1 detected an existing-harness conflict in this run: the overwrite/new/cancel question from Phase 1 above.
+3. **Install mode** — only if Phase 1 detected an existing-harness conflict in this run: the overwrite/new/cancel question from Phase 1 above.
 
-Store `KNOWLEDGE_BUNDLE`, `CI_PROVIDER`, `SECURITY_REVIEWER` (and `INSTALL_MODE` if included). Set `CODE_REVIEWER = true` unconditionally — no question; it's a read-only, low-risk agent file (mentioned in the Phase 7 summary so the user knows it's there).
+Store `KNOWLEDGE_BUNDLE`, `CI_PROVIDER` (and `INSTALL_MODE` if included). Code and security review are not scaffolded as project-local agents — point the user at the `/code-review` and `/security-review` skills instead (see Phase 7 summary).
 
 ---
 
@@ -322,14 +317,6 @@ Write `.claude/harness-version` containing the current version from this plugin'
 - `INSTALL_MODE=yes` (or a fresh install) → always write/overwrite; every generated file now matches current templates.
 - `INSTALL_MODE=new` → only write if the marker doesn't already exist. Files skipped as pre-existing may still be older than the recorded version — a later patch run reports those as "anchor not found" rather than corrupting them, so this is a safe degradation, not a correctness bug.
 
-### 5-4. code-reviewer agent
-
-`CODE_REVIEWER` is always `true` (decided in Phase 1.5 — no question). Read from `references/files-shared.md` → `## code-reviewer agent`. Write to `.claude/agents/code-reviewer.md`.
-
-### 5-4b. security-reviewer agent (optional)
-
-Decided in Phase 1.5 (`SECURITY_REVIEWER`). If true, read from `references/files-shared.md` → `## security-reviewer agent`. Write to `.claude/agents/security-reviewer.md`. If false, skip — no other phase depends on it.
-
 ---
 
 ## Phase 5.5: Knowledge Bundle (optional)
@@ -370,41 +357,7 @@ This phase only ever writes CI files it generates itself. It never edits a pre-e
 
 ## Phase 6: Update README
 
-Check for `README.md`. If found, check whether it already contains `## AI Onboarding`.
-
-If not present, append the following block (replace `{LINT}`, `{TYPECHECK}`, `{TEST}` with profile commands):
-
-```markdown
-## AI Onboarding
-
-1. Clone the repo and install dependencies.
-2. Run `claude` in the repo root and accept the workspace trust dialog — this repo ships a `.claude/settings.json` with pre-approved permissions, which Claude Code only applies after you trust the folder. (If the dialog doesn't appear, or you're on a headless/non-interactive setup, set `hasTrustDialogAccepted: true` for this path in `~/.claude.json`.)
-3. Install git hook:
-   ```sh
-   ln -sf ../../scripts/pre-commit.sh .git/hooks/pre-commit && chmod +x scripts/pre-commit.sh
-   ```
-4. Verify gates pass: `{LINT} && {TYPECHECK} && {TEST}`
-5. Read `CLAUDE.md` → use `/task-workflow` (or read `AI_TASK_GUIDE.md`) for the per-task workflow.
-6. Do one scoped task end-to-end through all gates to confirm the setup works.
-
-### Runtime hygiene
-- Run `/clear` between unrelated tasks to reset context and avoid token accumulation.
-- Pipe long command output: `long-cmd | head -50` to avoid flooding context.
-- Delegate broad scans (grep across the repo, full test suites) to subagents rather than running them inline.
-```
-
-Also append the Context Budget table if not already present:
-
-```markdown
-## Context Budget
-
-Run `/context` after setup and record the harness token footprint. Run `node tools/context_budget.mjs` for the automated budget check.
-
-| Date | Always-loaded tokens (est.) | Budget status |
-|------|-----------------------------|---------------|
-```
-
-If no `README.md` exists: skip this phase (do not create one).
+Check for `README.md`. If found, check whether it already contains `## AI Onboarding`. If not present, append the templates from `references/summary-checklist.md` → `## Phase 6 README Templates` (replace `{LINT}`, `{TYPECHECK}`, `{TEST}` with profile commands). If no `README.md` exists: skip this phase (do not create one).
 
 ---
 
@@ -448,7 +401,6 @@ the always-loaded budget unless you're editing those paths.
 - Node.js scaffold (Phase 0.5c) — only if `PROFILE=nodejs` and no `package.json`; delegates to the `nodejs-scaffold` skill. Like go-scaffold, it writes no `.claude/` anything and no pre-commit hook manager — Phases 5-1 and 5-3 proceed through their normal go/nodejs branches unchanged once `SCAFFOLDED=true`.
 - Next scaffold (Phase 0.5d) — only if `PROFILE=next` and no `next.config.*`; delegates to the `next-scaffold` skill (no clone, no embedded copy into the target). Same shape as nuxt-scaffold, not go/nodejs-scaffold — when `SCAFFOLDED`, do not overwrite the scaffold's `.vscode/settings.json` or pre-commit — overlay additively.
 - Knowledge Bundle (Phase 5.5) — opt-in only, decided once in Phase 1.5 (`KNOWLEDGE_BUNDLE`); skip entirely if declined. Never edit unknown CI config automatically — only note it's needed.
-- security-reviewer agent (Phase 5-4b) — opt-in only, decided once in Phase 1.5 (`SECURITY_REVIEWER`); skip entirely if declined.
 - CI Config (Phase 5.6) — opt-in only, decided once in Phase 1.5 (`CI_PROVIDER`, auto-detected default); skip entirely if `no`. Only ever writes/overwrites CI files this skill generated; never edits pre-existing, hand-written CI config.
 - All user-facing questions (profile ambiguity, harness conflicts, Knowledge Bundle, CI, foreign pre-commit hook) resolve before any file is written — see Phase 1.5.
 - Never delete files not part of the harness.
@@ -472,7 +424,7 @@ Read `references/summary-checklist.md` → `## Output Checklist` and verify ever
 - `skills/go-scaffold/SKILL.md` — empty-repo go scaffold (Phase 0.5b): contract-first (oapi-codegen + sqlc), chi, Postgres
 - `references/profile-nodejs.md` — templates for nodejs profile
 - `skills/nodejs-scaffold/SKILL.md` — empty-repo nodejs scaffold (Phase 0.5c): contract-first (openapi-typescript + Drizzle/drizzle-kit), Fastify, Postgres
-- `references/files-shared.md` — shared files: security, architecture, AI task guide, review checklist, code-reviewer agent, paths substitutions per profile
+- `references/files-shared.md` — shared files: security, architecture, AI task guide, review checklist, paths substitutions per profile
 - `references/patch-mode.md` — Phase 1a: version diffing + CHANGELOG patch-block application for `INSTALL_MODE=patch`
 - `references/hook-guard.md` — bash-guard.mjs, spec-gate-guard.mjs, injection-scan-guard.mjs, injection-gate-guard.mjs, session-resume-check.mjs, verify-gate.mjs scripts + pre-commit scripts per profile
 - `references/budget-gate.md` — context_budget.mjs script (context budget gate)

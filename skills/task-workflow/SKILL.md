@@ -25,7 +25,7 @@ Follow this workflow for every non-trivial task.
 
 5. **Verify** — run lint + typecheck + tests. All must pass before marking done. Show the actual command output in your response before flipping any `PLAN.md` task row to `Done` — a claim that tests pass without the output showing it doesn't count. In a repo scaffolded by `bigin-harness-setup`, a `verify-gate.mjs` `Stop` hook enforces this deterministically (blocks turn-end on a dirty tree until the gates pass) — showing the output here is still what makes the result reviewable by a human, not just machine-checked.
 
-6. **Review** — check `AI_REVIEW_CHECKLIST.md`. Mark done only when the checklist is clean.
+6. **Review** — run `/code-review` on the diff. If the change touches auth, sessions, secrets, PII, or untrusted input, also run `/security-review`. Check `AI_REVIEW_CHECKLIST.md`; mark done only once both are clean.
 
 7. **Cleanup** — once every task in `PLAN.md` is `Done` and the review checklist is clean, delete `PLAN.md`. It's a working file for the task, not project documentation — nothing to preserve once the task ships.
 

@@ -1,6 +1,46 @@
 # Summary & Checklist Templates
 
-Literal output templates for Phase 7 and the Output Checklist — pure print/verify material, no branching logic, same shape as the other externalized templates in this directory.
+Literal output templates for Phase 6, Phase 7, and the Output Checklist — pure print/verify material, no branching logic, same shape as the other externalized templates in this directory.
+
+---
+
+## Phase 6 README Templates
+
+Check for `README.md`. If found, check whether it already contains `## AI Onboarding`.
+
+If not present, append the following block (replace `{LINT}`, `{TYPECHECK}`, `{TEST}` with profile commands):
+
+```markdown
+## AI Onboarding
+
+1. Clone the repo and install dependencies.
+2. Run `claude` in the repo root and accept the workspace trust dialog — this repo ships a `.claude/settings.json` with pre-approved permissions, which Claude Code only applies after you trust the folder. (If the dialog doesn't appear, or you're on a headless/non-interactive setup, set `hasTrustDialogAccepted: true` for this path in `~/.claude.json`.)
+3. Install git hook:
+   ```sh
+   ln -sf ../../scripts/pre-commit.sh .git/hooks/pre-commit && chmod +x scripts/pre-commit.sh
+   ```
+4. Verify gates pass: `{LINT} && {TYPECHECK} && {TEST}`
+5. Read `CLAUDE.md` → use `/task-workflow` (or read `AI_TASK_GUIDE.md`) for the per-task workflow.
+6. Do one scoped task end-to-end through all gates to confirm the setup works.
+
+### Runtime hygiene
+- Run `/clear` between unrelated tasks to reset context and avoid token accumulation.
+- Pipe long command output: `long-cmd | head -50` to avoid flooding context.
+- Delegate broad scans (grep across the repo, full test suites) to subagents rather than running them inline.
+```
+
+Also append the Context Budget table if not already present:
+
+```markdown
+## Context Budget
+
+Run `/context` after setup and record the harness token footprint. Run `node tools/context_budget.mjs` for the automated budget check.
+
+| Date | Always-loaded tokens (est.) | Budget status |
+|------|-----------------------------|---------------|
+```
+
+If no `README.md` exists: skip this phase (do not create one).
 
 ---
 
@@ -34,8 +74,6 @@ Created:
   .claude/harness-version [current version stamp]
   CLAUDE.md [created]
   scripts/pre-commit.sh [skipped if a hook manager already exists]
-  .claude/agents/code-reviewer.md
-  [.claude/agents/security-reviewer.md] (if opted in)
   [Knowledge Bundle: .claude/rules/knowledge.md, knowledge/*, tools/knowledge_validate.mjs] (if opted in)
   [.github/workflows/ci.yml] (if CI_PROVIDER is github/both)
   [.gitlab-ci.yml] (if CI_PROVIDER is gitlab/both)
@@ -55,7 +93,8 @@ Next steps:
   2. {LINT} && {TYPECHECK} && {TEST}
   3. Read CLAUDE.md + use /task-workflow for the per-task workflow
   4. One scoped task through all gates — confirm the harness works.
-  [5. Add `node tools/knowledge_validate.mjs` to your existing CI — this skill only wires it into CI it generated itself.] (if opted in and CI_PROVIDER=no but foreign CI config detected)
+  5. Use /code-review and /security-review for code/security review — not scaffolded as project-local agents.
+  [6. Add `node tools/knowledge_validate.mjs` to your existing CI — this skill only wires it into CI it generated itself.] (if opted in and CI_PROVIDER=no but foreign CI config detected)
 ```
 
 ---
@@ -80,8 +119,6 @@ Next steps:
 - [ ] `.claude/guards/injection-gate-guard.mjs` — asks for confirmation before the next risky tool call after a fresh flag
 - [ ] `.claude/guards/session-resume-check.mjs` — SessionStart hook, injects a resume prompt when SESSION.md has status: in-progress
 - [ ] `.claude/guards/verify-gate.mjs` — Stop hook, blocks turn-end until lint+typecheck+test pass (skips on a clean tree)
-- [ ] `.claude/agents/code-reviewer.md` — read-only reviewer agent (always added, no question)
-- [ ] **if opted in** — `.claude/agents/security-reviewer.md` — read-only, security-focused reviewer agent (auth/session/secrets/PII)
 - [ ] **nuxt/next only** — `.claude/guards/lint-fix-file.mjs` — ESLint `--fix` scoped to the touched file
 - [ ] `.claude/settings.json` — guards wired + profile permissions
 - [ ] `tools/context_budget.mjs` — budget gate, executable
