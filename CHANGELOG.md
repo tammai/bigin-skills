@@ -5,6 +5,63 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.34.2] - 2026-07-14
+
+### Fixed
+
+- **The go profile's `verify-gate.mjs`, `pre-commit.sh`, and both CI templates hardcoded `staticcheck ./...` directly instead of deferring to the Makefile's own `lint` target** — unlike the nuxt/next/nodejs variants, which correctly call `pnpm lint` (deferring to `package.json`'s script) rather than invoking a linter binary directly. The generated `Makefile` (`skills/go-scaffold/scripts/templates/files/Makefile`) already defines `lint: staticcheck ./...` as the single source of truth; any developer customization of that target (exclusions, extra flags, an additional tool) was silently ignored by every enforcement path that ran lint, since none of them actually called `make lint`. Found via a downstream go-scaffold repo where an added Makefile exclusion had no effect on the verify gate. Fixed in `verify-gate.mjs: go` and `pre-commit: go` (both in `hook-guard.md`), `github: go` and `gitlab: go` (both in `ci.md`) — all four now run `make lint`; `profile-go.md`'s Commands/CLAUDE.md-template docs updated to match. `staticcheck` install/presence checks are unchanged, since `make lint` still needs the binary on `PATH`.
+
+  ```patch
+  target: .claude/guards/verify-gate.mjs
+  anchor: ['lint', 'staticcheck ./...']
+  insert: replace
+  ---
+  ['lint', 'make lint']
+  ```
+
+  ```patch
+  target: scripts/pre-commit.sh
+  anchor:
+  if command -v staticcheck >/dev/null 2>&1; then
+    staticcheck ./...
+  else
+  insert: replace
+  ---
+  if command -v staticcheck >/dev/null 2>&1; then
+    make lint
+  else
+  ```
+
+  ```patch
+  target: .github/workflows/ci.yml
+  anchor:
+      - name: lint
+        run: |
+          go install honnef.co/go/tools/cmd/staticcheck@latest
+          staticcheck ./...
+  insert: replace
+  ---
+      - name: lint
+        run: |
+          go install honnef.co/go/tools/cmd/staticcheck@latest
+          make lint
+  ```
+
+  ```patch
+  target: .gitlab-ci.yml
+  anchor:
+    script:
+      - go build ./...
+      - staticcheck ./...
+      - go test ./... -count=1
+  insert: replace
+  ---
+    script:
+      - go build ./...
+      - make lint
+      - go test ./... -count=1
+  ```
+
 ## [1.34.1] - 2026-07-14
 
 ### Fixed

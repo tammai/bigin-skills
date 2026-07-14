@@ -120,7 +120,7 @@ jobs:
       - name: lint
         run: |
           go install honnef.co/go/tools/cmd/staticcheck@latest
-          staticcheck ./...
+          make lint
       - run: go test ./... -count=1
 ```
 
@@ -216,7 +216,7 @@ quality:
     - go install honnef.co/go/tools/cmd/staticcheck@latest
   script:
     - go build ./...
-    - staticcheck ./...
+    - make lint
     - go test ./... -count=1
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "main"'

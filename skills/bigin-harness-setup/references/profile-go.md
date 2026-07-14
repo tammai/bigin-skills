@@ -9,7 +9,7 @@ Empty repo → scaffolded by the **`go-scaffold`** skill (writes files, runs cod
 ## Commands
 
 ```
-lint:       staticcheck ./...
+lint:       make lint         # staticcheck ./...
 typecheck:  go build ./...
 test:       go test ./...
 dev:        go run ./cmd/server
@@ -33,7 +33,7 @@ Go: ≥1.24
 | dev       | `make run`                            |
 | test      | `go test ./...`                       |
 | vet       | `go vet ./...`                        |
-| lint      | `staticcheck ./...`                   |
+| lint      | `make lint`                           |
 | build     | `go build -o bin/server ./cmd/server` |
 | generate  | `make generate`                       |
 

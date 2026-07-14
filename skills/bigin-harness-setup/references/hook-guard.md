@@ -365,7 +365,7 @@ function hasStaticcheck() {
 
 const STEPS = [
   ['build/typecheck', 'go build ./...'],
-  ...(hasStaticcheck() ? [['lint', 'staticcheck ./...']] : []),
+  ...(hasStaticcheck() ? [['lint', 'make lint']] : []),
   ['test', 'go test ./... -count=1']
 ]
 
@@ -456,7 +456,7 @@ go build ./...
 
 echo "  lint..."
 if command -v staticcheck >/dev/null 2>&1; then
-  staticcheck ./...
+  make lint
 else
   echo "  staticcheck not found — skipping (run: go install honnef.co/go/tools/cmd/staticcheck@latest)"
 fi
