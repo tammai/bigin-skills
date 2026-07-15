@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.37.1] - 2026-07-15
+
+### Changed
+
+- **`task-workflow`'s Review step no longer auto-runs `/code-review`/`/security-review`.** It now asks the user whether to run them (and lets them decline or defer) instead of treating both as mandatory before Cleanup. Updated `task-workflow/SKILL.md`'s Review and Cleanup steps and the identical wording duplicated in `references/files-shared.md`'s `AI_TASK_GUIDE.md` template, so newly scaffolded repos get the ask-first behavior too.
+
+  ```patch
+  target: AI_TASK_GUIDE.md
+  anchor: 6. **Review** — run `/code-review` on the diff. If the change touches auth, sessions, secrets, PII, or untrusted input, also run `/security-review`. Check `AI_REVIEW_CHECKLIST.md`; mark done only once both are clean.
+  insert: replace
+  ---
+  6. **Review** — ask whether to run `/code-review` (and `/security-review` too, if the change touches auth, sessions, secrets, PII, or untrusted input) on the diff — don't run either automatically. If the user says yes, check `AI_REVIEW_CHECKLIST.md` and don't mark this step done until it's clean. If they decline or want to defer, note that in `PLAN.md` and move on.
+  ```
+
+  ```patch
+  target: AI_TASK_GUIDE.md
+  anchor: 7. **Cleanup** — once every task in `PLAN.md` is `Done` and the review checklist is clean, delete `PLAN.md`. It's a working file for the task, not project documentation — nothing to preserve once the task ships.
+  insert: replace
+  ---
+  7. **Cleanup** — once every task in `PLAN.md` is `Done` and review is resolved (clean, or explicitly declined by the user), delete `PLAN.md`. It's a working file for the task, not project documentation — nothing to preserve once the task ships.
+  ```
+
 ## [1.37.0] - 2026-07-15
 
 ### Removed

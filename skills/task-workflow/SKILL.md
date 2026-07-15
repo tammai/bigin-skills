@@ -35,9 +35,9 @@ Follow this workflow for every non-trivial task.
 
    For any new test files, follow the `write-tests` skill's discipline (style-matching, no unnecessary mocking, TDD ordering for business logic). For bug fixes specifically, use the `debug-workflow` skill's four-phase process instead of ad-hoc trial and error.
 
-5. **Review** — run `/code-review` on the diff. If the change touches auth, sessions, secrets, PII, or untrusted input, also run `/security-review`. Check `AI_REVIEW_CHECKLIST.md`; mark done only once both are clean.
+5. **Review** — ask whether to run `/code-review` (and `/security-review` too, if the change touches auth, sessions, secrets, PII, or untrusted input) on the diff — don't run either automatically. If the user says yes, check `AI_REVIEW_CHECKLIST.md` and don't mark this step done until it's clean. If they decline or want to defer, note that in `PLAN.md` and move on.
 
-6. **Cleanup** — once every task in `PLAN.md` is `Done` and the review checklist is clean, delete `PLAN.md`. It's a working file for the task, not project documentation — nothing to preserve once the task ships.
+6. **Cleanup** — once every task in `PLAN.md` is `Done` and review is resolved (clean, or explicitly declined by the user), delete `PLAN.md`. It's a working file for the task, not project documentation — nothing to preserve once the task ships.
 
 ## Spec format (when required)
 

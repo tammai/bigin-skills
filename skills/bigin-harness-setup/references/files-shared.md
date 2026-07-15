@@ -112,9 +112,9 @@ Follow this workflow for every non-trivial task.
 
 5. **Verify** — run lint + typecheck + tests. All must pass before marking done. Show the actual command output in your response before flipping any `PLAN.md` task row to `Done` — a claim that tests pass without the output showing it doesn't count.
 
-6. **Review** — run `/code-review` on the diff. If the change touches auth, sessions, secrets, PII, or untrusted input, also run `/security-review`. Check `AI_REVIEW_CHECKLIST.md`; mark done only once both are clean.
+6. **Review** — ask whether to run `/code-review` (and `/security-review` too, if the change touches auth, sessions, secrets, PII, or untrusted input) on the diff — don't run either automatically. If the user says yes, check `AI_REVIEW_CHECKLIST.md` and don't mark this step done until it's clean. If they decline or want to defer, note that in `PLAN.md` and move on.
 
-7. **Cleanup** — once every task in `PLAN.md` is `Done` and the review checklist is clean, delete `PLAN.md`. It's a working file for the task, not project documentation — nothing to preserve once the task ships.
+7. **Cleanup** — once every task in `PLAN.md` is `Done` and review is resolved (clean, or explicitly declined by the user), delete `PLAN.md`. It's a working file for the task, not project documentation — nothing to preserve once the task ships.
 
 ## Spec format (when required)
 
