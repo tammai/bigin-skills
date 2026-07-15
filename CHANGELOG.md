@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.36.0] - 2026-07-15
+
+### Added
+
+- **`task-workflow`'s Verify step only ever checked lint/typecheck/tests passing — nothing independently checked that the diff actually matched the approved `PLAN.md` spec, so scope drift (doing more, less, or something different than what was approved) could slip through as long as the code was clean and green.** Replaced the standalone Verify step with an implement/verify loop: the tier subagent (`quick-executor`/`standard-worker`/`deep-architect`) still implements and self-checks lint+typecheck+tests, but a new read-only `verifier` subagent (haiku/low, `agents/verifier.md`) is spawned fresh each round to audit the diff against `PLAN.md` **directly** — never against the implementer's own summary, which is exactly the self-report problem this loop exists to avoid. On `FAIL`, the same implementer agent is resumed via `SendMessage` with the issues list verbatim (not re-briefed from scratch); a new verifier with no memory of prior rounds re-checks the fix. Capped at 3 rounds — past that, `task-workflow` stops and asks the user how to proceed rather than looping indefinitely. Skipped for trivial changes where the spec gate itself was skipped. Added `skills/task-workflow/references/verify-contract.md` as the single source of truth for the verifier's `{"verdict": "PASS"|"FAIL", "issues": [...]}` output schema, referenced by both `agents/verifier.md` and `SKILL.md`'s parsing step so the schema isn't duplicated. `deep-architect`/`standard-worker`/`quick-executor` each got a one-line note on how to handle a resume from a failed verify round.
+
 ## [1.35.1] - 2026-07-15
 
 ### Fixed

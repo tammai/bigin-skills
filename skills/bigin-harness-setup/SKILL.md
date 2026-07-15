@@ -291,7 +291,7 @@ Read from `references/hook-guard.md` → `## session-resume-check.mjs`. Write to
 
 ### 5-2e. Verify gate (deterministic Stop hook for lint+typecheck+test)
 
-Read from `references/hook-guard.md` → `## verify-gate.mjs: nuxt / nodejs / next` (nuxt, nodejs, and next profiles — identical pnpm lint/type-check/test command shape) or `## verify-gate.mjs: go` (go profile). Write to `.claude/guards/verify-gate.mjs`. Replaces task-workflow Step 5's prose-only "show the actual output" enforcement with a hard `Stop` gate — skips entirely on a clean working tree, otherwise blocks turn-end until lint+typecheck+test pass.
+Read from `references/hook-guard.md` → `## verify-gate.mjs: nuxt / nodejs / next` (nuxt, nodejs, and next profiles — identical pnpm lint/type-check/test command shape) or `## verify-gate.mjs: go` (go profile). Write to `.claude/guards/verify-gate.mjs`. Replaces task-workflow Step 4's prose-only "show the actual output" enforcement with a hard `Stop` gate — skips entirely on a clean working tree, otherwise blocks turn-end until lint+typecheck+test pass.
 
 ### 5-3. .claude/settings.json
 

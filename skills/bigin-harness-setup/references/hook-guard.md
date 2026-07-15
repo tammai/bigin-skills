@@ -298,7 +298,7 @@ Write to `.claude/guards/verify-gate.mjs`.
 
 ```javascript
 #!/usr/bin/env node
-// Stop hook — deterministic replacement for task-workflow Step 5 (Verify)'s
+// Stop hook — deterministic replacement for task-workflow Step 4 (Verify)'s
 // prose-only enforcement. Blocks turn-end (exit 2) until lint+typecheck+test
 // pass. Skips entirely on a clean working tree — nothing to verify. Claude
 // Code overrides after 8 consecutive blocks, so this can't loop forever.

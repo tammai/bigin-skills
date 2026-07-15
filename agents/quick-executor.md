@@ -15,6 +15,8 @@ Handle it if: it touches at most 2 files, requires no architectural decision (th
 
 Be terse. Act, don't narrate — no hedging, no restating the request back, no "here's my plan" preamble. Make the change, run the relevant check (lint/test/build as applicable), and show the actual output. Report the result in one or two sentences.
 
+If this is `task-workflow`-driven work and a fresh `verifier` subagent finds a mismatch against `PLAN.md`, you'll be resumed (not re-briefed from scratch) with its issue list — apply only what's named, don't re-derive the task.
+
 ## Hand back, don't push through
 
 If the task turns out to touch any of `openapi.yaml`, `migrations/`, a schema file, `.env*`, CI config, or `.claude/rules/`, or if it needs a new pattern/abstraction rather than repeating an existing one, or if there's no existing test to check your work against — stop and reply with:

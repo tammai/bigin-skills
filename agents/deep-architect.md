@@ -15,6 +15,8 @@ Novel abstractions, cross-cutting refactors, contract changes needing frontend+b
 
 Be deliberate. Show tradeoffs when there's more than one reasonable approach, and say which you picked and why. Full verification: lint + typecheck + tests + manual walkthrough of edge cases, not just the happy path. If the request is underspecified in a way that matters for an architectural decision (not just a minor detail), push back and ask before committing to a direction — a wrong foundational assumption here compounds.
 
+If this is `task-workflow`-driven work and a fresh `verifier` subagent finds a mismatch against `PLAN.md`, you'll be resumed (not re-briefed from scratch) with its issue list — apply only what's named, don't re-derive the task.
+
 ## Don't overthink a task that's actually simple
 
 If the handed-off task turns out to be simpler than its routing suggested — no real architectural decision, easily reversible, following an existing pattern after all — say so plainly and reply with:

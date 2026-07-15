@@ -21,7 +21,7 @@ scripts/git-hooks/        ← pre-commit running the budget gate
 | Skill | Purpose |
 |---|---|
 | `bigin-harness-setup` | Scaffolds AI workflow harness into target repos (nuxt/go/nodejs/next); three-tier loading; idempotent |
-| `task-workflow` | On-demand task workflow: scope → spec → plan file → implement → verify → review → cleanup (Tier 3) |
+| `task-workflow` | On-demand task workflow: scope → spec → plan file (approved) → implement/verify loop (capped, independent verifier) → review → cleanup (Tier 3) |
 | `nuxt-scaffold` | Scaffolds Nuxt 4 BFF app from scratch via `npm create nuxt@latest` |
 | `next-scaffold` | Scaffolds Next.js App Router BFF app from scratch via `create-next-app` + shadcn/ui |
 | `go-scaffold` | Scaffolds a contract-first Go REST API (oapi-codegen + sqlc + chi + Postgres); runs codegen + build/vet/test itself |
@@ -42,6 +42,7 @@ scripts/git-hooks/        ← pre-commit running the budget gate
 | `quick-executor` | haiku/low — mechanical, single-file, low-risk tasks. Routed by `model-router`. |
 | `standard-worker` | sonnet/medium — default tier, most feature/bug-fix work. Routed by `model-router`. |
 | `deep-architect` | opus/high — architectural decisions, contract/schema changes, full-spec tier. Routed by `model-router`. |
+| `verifier` | haiku/low, read-only — audits a diff against `PLAN.md` independently of the implementer's own summary. Spawned fresh each round by `task-workflow`'s implement/verify loop, alongside whichever of the three tiers above did the implementing. |
 
 Details live in each skill's own `SKILL.md` — read it when working on that skill. Authoring conventions are in `.claude/rules/skill-authoring.md` (loads when editing `skills/`).
 

@@ -10,7 +10,7 @@ Four phases, gated — do not start phase N+1 without phase N's output recorded.
 
 ## When this applies vs task-workflow
 
-`task-workflow` owns any bug fix tracked through `PLAN.md` (scope → skip-spec → implement → verify → review → cleanup). Its step 4 (Implement) points here for the actual debugging work. Use `debug-workflow` directly, standalone, when the failure isn't yet tied to a ticket/PLAN.md: a flaky test, a stack trace, "works in staging not prod," a live incident.
+`task-workflow` owns any bug fix tracked through `PLAN.md` (scope → skip-spec → implement/verify loop → review → cleanup). Its step 4 (Implement/verify loop) points here for the actual debugging work. Use `debug-workflow` directly, standalone, when the failure isn't yet tied to a ticket/PLAN.md: a flaky test, a stack trace, "works in staging not prod," a live incident.
 
 ## Phases
 

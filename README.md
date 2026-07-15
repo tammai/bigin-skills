@@ -16,7 +16,7 @@ The harness itself — setup, workflow, and maintenance for a repo under standar
 | Skill                  | Purpose                                                                                                  |
 | ---------------------- | -------------------------------------------------------------------------------------------------------- |
 | **bigin-harness-setup** | Scaffolds an AI workflow harness into a repo — `CLAUDE.md`, path-scoped rules, and enforcement gates. Profiles: `nuxt`, `go`, `nodejs`, `next`. |
-| **task-workflow**       | On-demand task workflow skill (`/task-workflow`): scope → spec → plan file → implement → verify → review → cleanup. Loaded only when invoked, not on every session start. |
+| **task-workflow**       | On-demand task workflow skill (`/task-workflow`): scope → spec → plan file (approved) → implement/verify loop (capped, independent verifier) → review → cleanup. Loaded only when invoked, not on every session start. |
 | **nuxt-scaffold**       | Scaffolds a Nuxt 4 BFF app from scratch via a deterministic Node.js script (`scripts/scaffold.mjs`, config-driven, zero prompts, macOS/Windows) — `npm create nuxt@latest` + BFF preset + config/sample code. No GitHub clone. / Scaffold app Nuxt 4 BFF bằng script Node.js tất định — không prompt khi chạy. |
 | **next-scaffold**       | Scaffolds a Next.js App Router BFF app from scratch via a deterministic Node.js script (`scripts/scaffold.mjs`, config-driven, zero prompts, macOS/Windows) — `create-next-app` + BFF preset (Zustand, TanStack Query, shadcn/ui, iron-session, Zod, Vitest) + config/sample code. No GitHub clone; `dashboard`/`saas` templates layer official shadcn/ui blocks instead. |
 | **go-scaffold**         | Scaffolds a production-ready Go REST API via a deterministic Node.js script (`scripts/scaffold.mjs`, CLI-flag driven, zero prompts) — contract-first: `openapi.yaml` → server interface + models (`oapi-codegen`), SQL → typed queries (`sqlc`); chi router, Postgres, structured logging, rate limiting, CORS, Prometheus metrics. The script runs codegen + `go build`/`vet`/`test` itself before committing. |
@@ -114,7 +114,7 @@ The skill detects the stack profile (or asks), confirms before overwriting anyth
 - **`.claude/guards/spec-gate-guard.mjs`** — a `PreToolUse` hook that blocks non-trivial `Edit`/`Write`/`MultiEdit` calls until `PLAN.md` exists with `Status: approved`. Trivial paths (`tests/**`, `*.md`, `.env.example`, common config files) and edits ≤20 lines are exempt.
 - **`.claude/guards/injection-scan-guard.mjs` + `.claude/guards/injection-gate-guard.mjs`** — a two-stage prompt-injection defense (inspired by Lasso Security's PostToolUse Defender). The scan guard (`PostToolUse`) heuristically checks `WebFetch`/`mcp__*` responses and `curl`/`wget` Bash output for injected instructions and flags a session-scoped marker; the gate guard (`PreToolUse`) asks for confirmation on the next risky `Bash`/`Write`/`Edit`/`mcp__*` call if that flag is still fresh (5-minute window), then clears it.
 - **`.claude/guards/session-resume-check.mjs`** — a `SessionStart` hook that deterministically injects a resume-prompt reminder when `.claude/memory/SESSION.md` has `status: in-progress`, instead of relying on CLAUDE.md prose alone.
-- **`.claude/guards/verify-gate.mjs`** — a `Stop` hook that blocks turn-end until lint + typecheck + test pass, skipping entirely on a clean working tree. The deterministic backstop for `task-workflow` Step 5's "show the actual output" convention.
+- **`.claude/guards/verify-gate.mjs`** — a `Stop` hook that blocks turn-end until lint + typecheck + test pass, skipping entirely on a clean working tree. The deterministic backstop for `task-workflow` Step 4's "show the actual output" convention.
 - **Auto-format** (nuxt/next) — set up by the `nuxt-scaffold`/`next-scaffold` skill. ESLint is the only formatter (Prettier disabled). A `PostToolUse` hook runs `.claude/guards/lint-fix-file.mjs` after every agent Write/Edit, scoped to just the touched file; humans get the same via `.vscode/settings.json` format-on-save.
 - **`.claude/settings.json`** — pre-approves safe profile commands to reduce prompt friction.
 
@@ -178,9 +178,10 @@ bigin-skills/
 │   │       ├── knowledge-bundle.md
 │   │       └── ci.md
 │   ├── task-workflow/             ← on-demand task workflow (Tier 3)
-│   │   ├── SKILL.md               ← scope → spec → plan file → implement → verify → review → cleanup
+│   │   ├── SKILL.md               ← scope → spec → plan file (approved) → implement/verify loop (capped) → review → cleanup
 │   │   ├── references/
-│   │   │   └── full-spec-example.md ← filled example of the opt-in full-spec tier
+│   │   │   ├── full-spec-example.md ← filled example of the opt-in full-spec tier
+│   │   │   └── verify-contract.md   ← single-source verifier output schema (PASS/FAIL + issues)
 │   │   └── evals/evals.json
 │   ├── nuxt-scaffold/             ← Nuxt 4 BFF app scaffolder (npm create nuxt, no clone)
 │   │   ├── SKILL.md               ← decides config values; the script does the rest
@@ -247,7 +248,8 @@ bigin-skills/
 ├── agents/                        ← plugin-level subagents, spawned via Agent tool (not invoked as skills)
 │   ├── quick-executor.md          ← haiku/low — mechanical, single-file, low-risk tasks
 │   ├── standard-worker.md         ← sonnet/medium — default tier, most feature/bug-fix work
-│   └── deep-architect.md          ← opus/high — architectural decisions, contract/schema changes, full-spec tier
+│   ├── deep-architect.md          ← opus/high — architectural decisions, contract/schema changes, full-spec tier
+│   └── verifier.md                ← haiku/low, read-only — independently audits a diff against PLAN.md, spawned alongside whichever of the three tiers above implements it
 ├── CHANGELOG.md
 └── README.md
 ```
