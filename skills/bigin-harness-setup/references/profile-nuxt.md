@@ -325,16 +325,6 @@ Governance superset: `permissions` + `PostToolUse` lint-fix (the `nuxt-scaffold`
           }
         ]
       }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node .claude/guards/verify-gate.mjs"
-          }
-        ]
-      }
     ]
   }
 }

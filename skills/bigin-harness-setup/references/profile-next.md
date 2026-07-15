@@ -332,16 +332,6 @@ Governance superset: `permissions` + `PostToolUse` lint-fix (the `next-scaffold`
           }
         ]
       }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node .claude/guards/verify-gate.mjs"
-          }
-        ]
-      }
     ]
   }
 }

@@ -1,6 +1,6 @@
 ---
 name: model-router
-description: "Evaluates task complexity against a deterministic rubric (files touched, contract/schema risk, test coverage, reversibility, architectural-decision judgment) and routes execution to one of three pre-defined subagents — quick-executor (haiku/low effort), standard-worker (sonnet/medium effort), deep-architect (opus/high effort) — spawned via the Agent tool. Routes down as well as up: high effort on a trivial task overthinks (slow, hedged, verbose), so a one-line fix gets the fast/cheap tier, not the default. MUST use when user says: 'route this task', 'which model should handle this', 'pick the right model tier for this', 'assess task complexity and route it', 'spawn the right agent for this change', 'should this be quick or deep', 'delegate this to the appropriate tier', 'định tuyến task này', 'chọn model phù hợp cho việc này', 'giao việc này cho agent nào', 'đánh giá độ phức tạp và định tuyến'. Do NOT use when the user has already named a specific model/tier explicitly (e.g. 'use opus for this') — honor that directly instead of re-scoring it. Do NOT use for the spec-format decision itself — task-workflow's full-spec tier triggers only on an explicit request, never on perceived complexity; model-router only picks the executing tier once work is about to start (it does treat an already-produced full-spec PLAN.md as an automatic high-tier signal)."
+description: "Evaluates task complexity against a deterministic rubric (files touched, contract/schema risk, test coverage, reversibility, architectural-decision judgment) and routes execution to one of three pre-defined subagents — quick-executor (haiku/low effort), standard-worker (sonnet/high effort), deep-architect (opus/high effort) — spawned via the Agent tool. Routes down as well as up: high effort on a trivial task overthinks (slow, hedged, verbose), so a one-line fix gets the fast/cheap tier, not the default. MUST use when user says: 'route this task', 'which model should handle this', 'pick the right model tier for this', 'assess task complexity and route it', 'spawn the right agent for this change', 'should this be quick or deep', 'delegate this to the appropriate tier', 'định tuyến task này', 'chọn model phù hợp cho việc này', 'giao việc này cho agent nào', 'đánh giá độ phức tạp và định tuyến'. Do NOT use when the user has already named a specific model/tier explicitly (e.g. 'use opus for this') — honor that directly instead of re-scoring it. Do NOT use for the spec-format decision itself — task-workflow's full-spec tier triggers only on an explicit request, never on perceived complexity; model-router only picks the executing tier once work is about to start (it does treat an already-produced full-spec PLAN.md as an automatic high-tier signal)."
 effort: medium
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/classify.mjs *), Bash(git status *), Bash(git diff *)
 ---
@@ -9,11 +9,11 @@ allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/classify.mjs *), Bash(git s
 
 Scores a task, then hands it off to the matching subagent. Three tiers, one each:
 
-| Tier | Subagent | Model | Effort |
-|---|---|---|---|
-| Quick | `bigin-skills:quick-executor` | haiku | low |
-| Standard | `bigin-skills:standard-worker` | sonnet | medium |
-| Deep | `bigin-skills:deep-architect` | opus | high |
+| Tier     | Subagent                       | Model  | Effort |
+| -------- | ------------------------------ | ------ | ------ |
+| Quick    | `bigin-skills:quick-executor`  | haiku  | low    |
+| Standard | `bigin-skills:standard-worker` | sonnet | high   |
+| Deep     | `bigin-skills:deep-architect`  | opus   | high   |
 
 Mechanical signals come from `scripts/classify.mjs`; two signals are not mechanically detectable and must be reasoned about directly — never invent a score for them from the diff alone.
 
@@ -31,17 +31,18 @@ If the script errors (non-git-repo, no `git` on `PATH`, etc.) it still returns v
 ## Step 3: Score → bucket → tier
 
 **Auto-overrides — skip scoring, go straight to Deep:**
+
 - `highRiskMatches` is non-empty (touches `openapi.yaml`, migrations, schema, secrets, or CI config)
 - `fullSpecDetected` is true (a `task-workflow` full-spec-tier `PLAN.md` already exists)
 
 **Otherwise, score with the point table:**
 
-| Signal | 0 pts | +1 | +2 | +3 |
-|---|---|---|---|---|
-| Files touched | 1 | 2-4 | 5+ | |
-| Test coverage ratio | ≥0.7 | 0.3-0.7 | <0.3 | |
-| Architectural decision required | No | | | Yes |
-| Reversibility | Easy | | Hard | |
+| Signal                          | 0 pts | +1      | +2   | +3  |
+| ------------------------------- | ----- | ------- | ---- | --- |
+| Files touched                   | 1     | 2-4     | 5+   |     |
+| Test coverage ratio             | ≥0.7  | 0.3-0.7 | <0.3 |     |
+| Architectural decision required | No    |         |      | Yes |
+| Reversibility                   | Easy  |         | Hard |     |
 
 Total 0-1 → Quick · 2-4 → Standard · 5+ → Deep.
 

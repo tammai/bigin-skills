@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.37.0] - 2026-07-15
+
+### Removed
+
+- **`bigin-harness-setup` no longer scaffolds the `verify-gate.mjs` `Stop` hook (deterministic lint+typecheck+test gate on turn-end) into target repos.** Removed Phase 5-2e's generation step and the `Stop` hook entry from all four profiles' `.claude/settings.json` templates (`references/profile-nuxt.md`, `profile-next.md`, `profile-nodejs.md`, `profile-go.md`), the `verify-gate.mjs: nuxt / nodejs / next` and `verify-gate.mjs: go` script templates from `references/hook-guard.md`, and all mentions in `references/summary-checklist.md` (Phase 7 summary + Output Checklist), `references/files-shared.md`'s `AI_TASK_GUIDE.md` Verify-step template, `task-workflow/SKILL.md`, and `README.md`'s target-repo tree diagram + enforcement list. `pre-commit.sh` (lint+typecheck+test at commit time) and `task-workflow`'s own prose-only "show the actual output before marking Done" step are unaffected — this only removes the extra turn-end backstop. No `patch` block — patch mode only ever inserts/replaces via an anchor, it can't delete a previously-scaffolded file or a `Stop` key already merged into a repo's `settings.json`, so already-scaffolded repos keep `verify-gate.mjs` and its hook wiring as a harmless orphan; only new installs skip it. Also dropped the now-moot `stop-hook`/`verify-gate` keywords from `plugin.json`/`marketplace.json`.
+
 ## [1.36.0] - 2026-07-15
 
 ### Added

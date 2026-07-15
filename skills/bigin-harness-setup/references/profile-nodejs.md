@@ -244,16 +244,6 @@ Prepend `paths: ["src/**"]` as YAML frontmatter when writing `architecture.md` (
           }
         ]
       }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node .claude/guards/verify-gate.mjs"
-          }
-        ]
-      }
     ]
   }
 }

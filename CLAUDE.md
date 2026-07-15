@@ -18,31 +18,31 @@ scripts/git-hooks/        ← pre-commit running the budget gate
 
 ## Skills
 
-| Skill | Purpose |
-|---|---|
-| `bigin-harness-setup` | Scaffolds AI workflow harness into target repos (nuxt/go/nodejs/next); three-tier loading; idempotent |
-| `task-workflow` | On-demand task workflow: scope → spec → plan file (approved) → implement/verify loop (capped, independent verifier) → review → cleanup (Tier 3) |
-| `nuxt-scaffold` | Scaffolds Nuxt 4 BFF app from scratch via `npm create nuxt@latest` |
-| `next-scaffold` | Scaffolds Next.js App Router BFF app from scratch via `create-next-app` + shadcn/ui |
-| `go-scaffold` | Scaffolds a contract-first Go REST API (oapi-codegen + sqlc + chi + Postgres); runs codegen + build/vet/test itself |
-| `nodejs-scaffold` | Scaffolds a contract-first Node.js REST API (openapi-typescript + Drizzle/drizzle-kit + Fastify + Postgres); runs codegen + lint/typecheck/build/test itself |
-| `nuxt-ui-figma-handoff` | Extracts a Nuxt UI Figma design handoff into main.css theme tokens + app.config.ts component overrides |
-| `sprint-distill` | End-of-sprint distillation into `knowledge/` + bigin-skills; compresses, never appends |
-| `session-handoff` | Session state persistence to `.claude/memory/SESSION.md` |
-| `write-tests` | On-demand test authoring: style-match, scope, edge-case list, TDD ordering, no unnecessary mocking |
-| `debug-workflow` | On-demand systematic debugging: root cause → pattern analysis → hypothesis → fix+validation (Tier 3) |
-| `model-router` | Scores task complexity via a deterministic rubric and routes execution to one of three subagents (`quick-executor`/`standard-worker`/`deep-architect`) spawned via the Agent tool |
+| Skill                   | Purpose                                                                                                                                                                           |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bigin-harness-setup`   | Scaffolds AI workflow harness into target repos (nuxt/go/nodejs/next); three-tier loading; idempotent                                                                             |
+| `task-workflow`         | On-demand task workflow: scope → spec → plan file (approved) → implement/verify loop (capped, independent verifier) → review → cleanup (Tier 3)                                   |
+| `nuxt-scaffold`         | Scaffolds Nuxt 4 BFF app from scratch via `npm create nuxt@latest`                                                                                                                |
+| `next-scaffold`         | Scaffolds Next.js App Router BFF app from scratch via `create-next-app` + shadcn/ui                                                                                               |
+| `go-scaffold`           | Scaffolds a contract-first Go REST API (oapi-codegen + sqlc + chi + Postgres); runs codegen + build/vet/test itself                                                               |
+| `nodejs-scaffold`       | Scaffolds a contract-first Node.js REST API (openapi-typescript + Drizzle/drizzle-kit + Fastify + Postgres); runs codegen + lint/typecheck/build/test itself                      |
+| `nuxt-ui-figma-handoff` | Extracts a Nuxt UI Figma design handoff into main.css theme tokens + app.config.ts component overrides                                                                            |
+| `sprint-distill`        | End-of-sprint distillation into `knowledge/` + bigin-skills; compresses, never appends                                                                                            |
+| `session-handoff`       | Session state persistence to `.claude/memory/SESSION.md`                                                                                                                          |
+| `write-tests`           | On-demand test authoring: style-match, scope, edge-case list, TDD ordering, no unnecessary mocking                                                                                |
+| `debug-workflow`        | On-demand systematic debugging: root cause → pattern analysis → hypothesis → fix+validation (Tier 3)                                                                              |
+| `model-router`          | Scores task complexity via a deterministic rubric and routes execution to one of three subagents (`quick-executor`/`standard-worker`/`deep-architect`) spawned via the Agent tool |
 
 ## Agents
 
 `agents/<name>.md` — plugin-level subagents spawned via the Agent tool (`bigin-skills:<name>`), not invoked as skills.
 
-| Agent | Purpose |
-|---|---|
-| `quick-executor` | haiku/low — mechanical, single-file, low-risk tasks. Routed by `model-router`. |
-| `standard-worker` | sonnet/medium — default tier, most feature/bug-fix work. Routed by `model-router`. |
-| `deep-architect` | opus/high — architectural decisions, contract/schema changes, full-spec tier. Routed by `model-router`. |
-| `verifier` | haiku/low, read-only — audits a diff against `PLAN.md` independently of the implementer's own summary. Spawned fresh each round by `task-workflow`'s implement/verify loop, alongside whichever of the three tiers above did the implementing. |
+| Agent             | Purpose                                                                                                                                                                                                                                        |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `quick-executor`  | haiku/low — mechanical, single-file, low-risk tasks. Routed by `model-router`.                                                                                                                                                                 |
+| `standard-worker` | sonnet/high — default tier, most feature/bug-fix work. Routed by `model-router`.                                                                                                                                                               |
+| `deep-architect`  | opus/high — architectural decisions, contract/schema changes, full-spec tier. Routed by `model-router`.                                                                                                                                        |
+| `verifier`        | haiku/low, read-only — audits a diff against `PLAN.md` independently of the implementer's own summary. Spawned fresh each round by `task-workflow`'s implement/verify loop, alongside whichever of the three tiers above did the implementing. |
 
 Details live in each skill's own `SKILL.md` — read it when working on that skill. Authoring conventions are in `.claude/rules/skill-authoring.md` (loads when editing `skills/`).
 

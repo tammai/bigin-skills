@@ -67,7 +67,6 @@ Created:
   .claude/guards/injection-scan-guard.mjs
   .claude/guards/injection-gate-guard.mjs
   .claude/guards/session-resume-check.mjs
-  .claude/guards/verify-gate.mjs
   [.claude/guards/lint-fix-file.mjs] (nuxt/next only; skipped if `nuxt-scaffold`/`next-scaffold` already wrote it)
   .claude/settings.json [created/merged]
   tools/context_budget.mjs
@@ -83,7 +82,6 @@ Enabled:
   pre-commit gate [scripts/pre-commit.sh hook | existing simple-git-hooks/husky]
   context budget gate (tools/context_budget.mjs — wired into pre-commit)
   session resume prompt (SessionStart hook — deterministic, replaces CLAUDE.md prose)
-  verify gate (Stop hook — blocks turn-end until lint+typecheck+test pass on a dirty tree)
   [knowledge bundle validation wired into the pre-commit gate] (if opted in)
   [knowledge bundle validation wired into generated CI] (if opted in and CI_PROVIDER != no)
   [sprint-distill available — run it at sprint end to fold merged work into knowledge/ and bigin-skills] (if opted in)
@@ -118,7 +116,6 @@ Next steps:
 - [ ] `.claude/guards/injection-scan-guard.mjs` — flags likely prompt-injection markers in WebFetch/mcp__/curl-wget Bash output
 - [ ] `.claude/guards/injection-gate-guard.mjs` — asks for confirmation before the next risky tool call after a fresh flag
 - [ ] `.claude/guards/session-resume-check.mjs` — SessionStart hook, injects a resume prompt when SESSION.md has status: in-progress
-- [ ] `.claude/guards/verify-gate.mjs` — Stop hook, blocks turn-end until lint+typecheck+test pass (skips on a clean tree)
 - [ ] **nuxt/next only** — `.claude/guards/lint-fix-file.mjs` — ESLint `--fix` scoped to the touched file
 - [ ] `.claude/settings.json` — guards wired + profile permissions
 - [ ] `tools/context_budget.mjs` — budget gate, executable
