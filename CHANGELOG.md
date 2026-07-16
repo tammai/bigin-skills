@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.38.0] - 2026-07-16
+
+### Added
+
+- **`oss-port` skill** — reimplements ("clones") an existing project, usually open source, into a different tech stack through a gated, spec-first workflow: license check (STOP on GPL/AGPL/SSPL/BUSL or no license file) → read-only reference clone → behavioral inventory (`PORT/FEATURES.md`, CORE/ADAPT/SKIP) → contract extraction (`PORT/contract/`: OpenAPI/CLI/API/views) → target scaffold (delegates to `go-scaffold`/`nodejs-scaffold` when the stack matches) → vertical slice (patterns gate) → module-by-module port (re-read source per module, translate intent not syntax) → parity report (`PORT/PARITY.md`). Each phase ends in a user-approval gate; explicitly refuses one-shot ports, transliteration, porting from memory, and verbatim source copying. Includes `references/templates.md` (FEATURES.md/PARITY.md templates), `references/parity-testing.md` (black-box suite against both implementations), and `references/idiom-translation.md` (per-stack-pair transliteration traps). Added to README.md's Handoff Skills table and CLAUDE.md's skills table.
+
 ## [1.37.1] - 2026-07-15
 
 ### Changed

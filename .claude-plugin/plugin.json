@@ -1,7 +1,7 @@
 {
   "name": "bigin-skills",
-  "version": "1.37.1",
-  "description": "BigIn's collection of Claude Code skills for standardized AI-assisted development — harness setup (governance files + enforcement gates for nuxt/go/nodejs/next repos), Nuxt, Next.js, Go, and Node.js app scaffolding, end-of-sprint knowledge distillation, and session handoff. / Bộ skill Claude Code của BigIn cho phát triển với AI chuẩn hoá — thiết lập harness, scaffold app Nuxt, Next.js, Go và Node.js, chưng cất tri thức cuối sprint, và chuyển tiếp phiên.",
+  "version": "1.38.0",
+  "description": "BigIn's collection of Claude Code skills for standardized AI-assisted development — harness setup (governance files + enforcement gates for nuxt/go/nodejs/next repos), Nuxt, Next.js, Go, and Node.js app scaffolding, gated OSS/stack porting, end-of-sprint knowledge distillation, and session handoff. / Bộ skill Claude Code của BigIn cho phát triển với AI chuẩn hoá — thiết lập harness, scaffold app Nuxt, Next.js, Go và Node.js, port project sang stack khác có gate, chưng cất tri thức cuối sprint, và chuyển tiếp phiên.",
   "author": {
     "name": "Tam Mai",
     "email": "tam.mai@bigin.vn"
@@ -65,6 +65,13 @@
     "effort-routing",
     "agent-tool",
     "session-start-hook",
-    "deterministic-enforcement"
+    "deterministic-enforcement",
+    "oss-port",
+    "code-porting",
+    "repo-clone",
+    "license-check",
+    "parity-testing",
+    "vertical-slice",
+    "idiom-translation"
   ]
 }

@@ -34,6 +34,7 @@ Add-ons for a specific cross-role handoff (e.g. designer → developer). Not req
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **session-handoff**       | Saves session state (tasks, decisions, uncommitted changes) to `SESSION.md` and restores it on resume.                                                                                                                                            |
 | **nuxt-ui-figma-handoff** | Turns a Nuxt UI Figma design handoff into code — global tokens into `main.css` (`@theme`, `--ui-radius`), semantic color roles and per-component Tailwind Variants overrides into `app.config.ts`. Requires a Figma file/frame URL from the user. |
+| **oss-port**              | Reimplements ("clones") an existing project — usually open source — into a different tech stack via a gated, spec-first workflow: license check → reference setup → behavioral inventory (`FEATURES.md`) → contract extraction (OpenAPI/CLI/API/views) → target scaffold → vertical slice (patterns gate) → module-by-module port → parity report (`PARITY.md`). |
 
 ---
 
