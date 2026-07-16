@@ -41,8 +41,8 @@ General rules (any pair):
 ## Go → TS, TS → Python, others
 
 Same method: list the source's load-bearing patterns during Phase 5, decide
-the target-native equivalent for each, write the mapping table into the
-vertical-slice PR description, and hold every Phase 6 module to it. If a
+the target-native equivalent for each, write the mapping table into
+`PORT/PATTERNS.md`, and hold every Phase 6 module to it. If a
 pattern has no clean target equivalent, that's an ADAPT item in FEATURES.md
 with the difference recorded — not a silent improvisation.
 
