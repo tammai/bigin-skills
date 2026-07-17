@@ -64,13 +64,13 @@ Treat `reference/` as read-only. Never edit it, never copy files from it verbati
 
 Record source commit hash in `PORT/FEATURES.md` header — parity claims are meaningless without pinning what you ported.
 
-### Optional: reference graph index
+### Optional: reference graph (graphify)
 
-For reference repos too large to explore in-context (roughly >300 files or >100k LOC), consider indexing `reference/` with `codebase-memory-mcp` for structural navigation during Phases 2–6. See `references/graph-index.md` for setup, caveats, and query patterns. Skip for small references — grep/read beats indexing overhead. Don't index the target/clone repo itself until it grows past a few hundred files.
+At the end of Phase 1, ask the user whether to build a `graphify` graph of `reference/` for structural navigation during Phases 2–6 — their call, no size check. If yes, follow `references/graph-index.md` to install graphify and index `./reference` (graph lands in `reference/graphify-out/`, covered by the `reference/` gitignore). If the graph exists in later phases, use it — but source reads stay ground truth. Never index the target/clone repo itself.
 
 ## Phase 2 — Behavioral inventory → FEATURES.md
 
-Read the source and produce `PORT/FEATURES.md` using the template in `references/templates.md`. This is the single most important artifact: everything not in FEATURES.md will not be ported, and everything in it will be.
+Read the source and produce `PORT/FEATURES.md` using the template in `references/templates.md`. This is the single most important artifact: everything not in FEATURES.md will not be ported, and everything in it will be. If a `reference/graphify-out/` graph exists (Phase 1), use `graphify query`/`explain` to enumerate entry points and trace structure before reading — the graph navigates, the source read decides.
 
 Inventory by reading in this order:
 1. **Entry points** — routes/CLI commands/exported API. This is the feature surface.
@@ -112,7 +112,7 @@ The point of this phase is to fix the *patterns*: error shape, logging, transact
 Work through FEATURES.md one module at a time, in dependency order (entities before features that use them). A full port can run dozens of modules — doing each one inline in the main conversation (re-reading source, writing target code, running tests) makes context grow without bound over a long or unattended run, especially in "auto"/looped execution with no natural checkpoint to compact. Avoid that by dispatching each module to a fresh subagent via the Agent tool instead of porting it inline, and by pairing it with an independent check rather than trusting its own self-report of what it did:
 
 1. Spawn a `general-purpose` subagent (not a `task-workflow` tier agent like `standard-worker` — those assume `PLAN.md`, a verifier loop, and other harness scaffolding that a port target repo won't have unless `bigin-harness-setup` was separately run there).
-2. Give it a self-contained prompt: the module's exact FEATURES.md rows, the full contents of `PORT/PATTERNS.md`, the specific `reference/` file path(s) to port from, and the contract file(s) it must satisfy. Tell it to discover how the target repo actually runs tests (`package.json` scripts, `Makefile`, `go test`, etc.) rather than assuming a command. It should not need anything else from this conversation.
+2. Give it a self-contained prompt: the module's exact FEATURES.md rows, the full contents of `PORT/PATTERNS.md`, the specific `reference/` file path(s) to port from, and the contract file(s) it must satisfy. If a `reference/graphify-out/` graph exists, say so in the brief so the subagent can use `graphify path`/`query` (with `--graph reference/graphify-out/graph.json`) to locate related reference code instead of re-discovering it by grep. Tell it to discover how the target repo actually runs tests (`package.json` scripts, `Makefile`, `go test`, etc.) rather than assuming a command. It should not need anything else from this conversation.
 3. Instruct it to: re-read the source module in `reference/` (port from code, not from memory of Phase 2), implement using the patterns and target-stack idioms — **translate intent, not syntax**, see `references/idiom-translation.md` for common transliteration traps per stack pair — then write/extend parity tests against the contract and run them.
 4. Have it return a short structured result only: module name, files touched, test command output (pass/fail), and any deviations from FEATURES.md or the patterns. Don't have it paste full diffs back.
 5. If tests fail, resume the *same* subagent with the failure output (don't re-brief from scratch) and retry, capped at 3 rounds. Past that, stop and escalate to the user with what's failing rather than looping indefinitely or letting it force a pass.
@@ -142,4 +142,4 @@ If a shared black-box suite exists, run it against both implementations and incl
 - `references/templates.md` — FEATURES.md and PARITY.md templates. Read when starting Phase 2 or 7.
 - `references/parity-testing.md` — how to build a black-box suite that runs against both implementations. Read at Phase 3.
 - `references/idiom-translation.md` — per-stack-pair transliteration traps (JS→Go, Python→TS, etc.). Read at Phase 5 and when starting Phase 6.
-- `references/graph-index.md` — optional `codebase-memory-mcp` indexing of a large `reference/` repo for structural navigation. Read at Phase 1 when the reference repo is large.
+- `references/graph-index.md` — optional `graphify` graph of the `reference/` repo for structural navigation (user opts in at Phase 1). Read at Phase 1 when the user says yes.

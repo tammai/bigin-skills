@@ -1,9 +1,9 @@
-# Reference graph index
+# Reference graph (graphify)
 
-`codebase-memory-mcp` (github.com/DeusData/codebase-memory-mcp) builds a code
-graph over a repo and answers structural queries against it. Used here, it
-indexes `reference/` only — a navigation aid for finding where things live and
-tracing call chains, nothing more.
+`graphify` (github.com/Graphify-Labs/graphify) builds a queryable knowledge
+graph over a folder using local tree-sitter parsing — no API keys, nothing
+leaves the machine. Used here, it maps `reference/` only — a navigation aid
+for finding where things live and tracing call chains, nothing more.
 
 ## What it is NOT
 
@@ -18,66 +18,79 @@ wins — the graph is a shortcut to the read, not a replacement for it. Phase 2
 and Phase 6 still require re-reading the actual source file before writing
 FEATURES.md rows or porting a module.
 
-## When to index
+## When to build the graph
 
-- **Reference repo**: index when it's too large to explore in-context —
-  roughly >300 files or >100k LOC. Below that, grep + read is faster than the
-  indexing round-trip; skip it.
-- **Target/clone repo**: don't index at all early on — a fresh port fits in
-  context. Revisit once the new implementation itself grows past a few
-  hundred files.
+At the end of Phase 1, **ask the user** whether to build a graphify graph of
+`reference/` — no size heuristic, their call. If yes, run the install/index
+flow below on `./reference`. If no, the workflow proceeds unchanged with
+grep/read.
+
+Never index the target/clone repo itself — a fresh port fits in context.
 
 ## Install / index flow
 
-Do not hardcode the install command or MCP config from memory — this tool
-releases frequently and past instructions go stale. At index time:
+Do not hardcode the install command or flags from memory — this tool releases
+frequently and past instructions go stale. At index time:
 
-1. Open the repo's own README (github.com/DeusData/codebase-memory-mcp) and
-   follow its current install/setup instructions verbatim.
-2. Record the version actually installed in `PORT/PARITY.md` (or the port log
-   if that file doesn't exist yet) — a parity claim that depends on graph
-   queries is only reproducible if the tool version is pinned.
-3. Index `reference/` (not the target repo, per above).
+1. Open the repo's own README (github.com/Graphify-Labs/graphify) and follow
+   its current install instructions verbatim. Verified at v0.9.17:
+   `uv tool install graphifyy` (package name has the double-y), then
+   `graphify install` to register the `/graphify` skill.
+2. Index the reference: `/graphify ./reference` (in-assistant skill, full
+   flow including doc extraction), or headless
+   `graphify update ./reference` — works for the initial build too, code
+   only, local AST, no LLM/API key needed. The graph lands **inside the
+   indexed path**: `reference/graphify-out/` (`graph.json`, `graph.html`,
+   `GRAPH_REPORT.md`), plus a small `graphify-out/manifest.json` stub in the
+   cwd.
+3. Gitignore: `reference/` in the target's `.gitignore` (Phase 1) already
+   covers the graph; add a root `graphify-out/` line too for the manifest
+   stub. Writing `reference/graphify-out/` doesn't violate the read-only
+   rule — it's derived tool output, not a source edit.
+4. Record the graphify version actually installed (`graphify --version`) in
+   `PORT/PARITY.md` (or the port log if that file doesn't exist yet) — a
+   parity claim that depends on graph queries is only reproducible if the
+   tool version is pinned.
 
-## Project-ID note
+## Using the graph (Phases 2–6)
 
-The tool derives project IDs from the repo path (slashes become hyphens).
-Use whatever ID it reports back verbatim in all subsequent calls for that
-repo — don't reconstruct it by hand.
+If `reference/graphify-out/` exists, use it — don't fall back to blind grep
+for questions the graph answers directly. Commands default to
+`graphify-out/graph.json` in the cwd, so from the target repo root always
+pass `--graph reference/graphify-out/graph.json`:
 
-## Language-accuracy caveat
+- **"Where is X implemented?"** — `graphify explain "X"` (exact-ish node
+  name) or `graphify query "where is X handled?"` (natural language, BFS
+  from matched start nodes — not Cypher).
+- **Call-chain spot-checks** — `graphify path "A" "B"` to confirm a
+  relationship actually exists between two symbols.
+- **Broader structure** — `graphify query "what connects auth to the
+  database?"`-style questions to enumerate handlers, entry points, or
+  dependents before reading.
 
-Full call-graph accuracy is only available for the Hybrid LSP language set:
-Python, TS/JS, PHP, C#, Go, C/C++, Java, Kotlin, Rust, Perl. Outside that set,
-the tool falls back to tree-sitter-level analysis only.
+Phase 6 subagent briefs should mention the graph exists so a fresh subagent
+can use these commands to locate related reference code instead of
+re-discovering it by grep.
 
-If the reference is written in a dynamic, heavy-metaprogramming language —
-Ruby/Rails, Elixir — expect call-graph gaps (metaprogrammed routes, DSL-built
-methods, macro-generated functions won't resolve cleanly). Flag this
-explicitly to the user when the reference is one of these, and lean more on
-direct source reads for those modules.
+MCP alternative: graphify ships a `serve` module exposing `query_graph`,
+`get_node`, `get_neighbors`, `shortest_path` — same data, tool calls instead
+of CLI (see the README for setup; the module lives inside graphify's own
+environment, not system Python). The CLI is simpler for a port; use MCP only
+if it's already set up.
 
-## Mandatory: verify labels before trusting queries
+## Accuracy caveats
 
-Node labels vary by language — e.g. Go methods are labeled `Method`, not
-`Function`, so a query pattern like `(f:Function)` silently returns zero rows
-instead of erroring. Before relying on any query result:
-
-1. Run one unlabeled probe query first (e.g. match any node, or match by name
-   only) to discover what labels the indexer actually used for this
-   reference's language.
-2. From then on, use an inclusive label pattern such as
-   `(f:Function|Method)` rather than assuming one label name.
-
-A confident-looking empty result set is a label mismatch, not evidence the
-thing doesn't exist — always confirm labels before concluding "not found."
-
-## Query patterns
-
-- **Accuracy-sensitive checks** (does this call chain actually exist, in what
-  order): prefer `trace_path` with `"direction": "both"` — it traces both
-  callers and callees from a node, catching cases where the relationship runs
-  the opposite direction from what you assumed.
-- **Broader structural queries** (find all handlers touching entity X, list
-  everything implementing interface Y): use `query_graph` with Cypher, after
-  the label-verification probe above.
+- **Edge confidence tags**: relationships are tagged `EXTRACTED` (explicit in
+  source) or `INFERRED` (resolved by cross-file analysis), with `AMBIGUOUS`
+  marking uncertain inferences. Treat `INFERRED`/`AMBIGUOUS` edges as
+  pointers to a source read, never as confirmation on their own.
+- **Dynamic / metaprogrammed code**: tree-sitter is static analysis —
+  metaprogrammed routes, DSL-built methods, and macro-generated functions
+  (Ruby/Rails, Elixir) won't resolve cleanly. Flag this explicitly to the
+  user when the reference is one of these, and lean on direct source reads
+  for those modules.
+- **Large graphs**: past ~5000 nodes the HTML visualization is skipped —
+  query `graph.json` via the CLI/MCP instead; that's the normal path here
+  anyway.
+- A confident-looking empty result is not evidence the thing doesn't exist —
+  confirm with a grep/read before concluding "not found."

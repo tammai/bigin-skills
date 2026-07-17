@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.39.0] - 2026-07-17
+
+### Changed
+
+- **`oss-port`'s reference graph tool switched from `codebase-memory-mcp` to `graphify`, and the gate changed from a size heuristic to a user prompt.** `references/graph-index.md` was rewritten for `graphify` (github.com/Graphify-Labs/graphify): install via the tool's own README (`uv tool install graphifyy` + `graphify install`, verified live at v0.9.17, version pinned in `PORT/PARITY.md`), index with `/graphify ./reference` or headless `graphify update ./reference` (local AST, no LLM; graph lands in `reference/graphify-out/`, covered by the `reference/` gitignore, plus a root `graphify-out/manifest.json` stub to ignore), query via the natural-language CLI (`graphify query`/`path`/`explain`, with `--graph reference/graphify-out/graph.json` from the repo root) or its MCP server — replacing the old Cypher/label-probe/project-ID guidance with graphify-specific caveats (`EXTRACTED` vs `INFERRED`/`AMBIGUOUS` edge-confidence tags, static tree-sitter gaps on metaprogrammed code, >5000-node graphs skipping HTML viz). The Phase 1 gate is now simply: ask the user whether to build the graph — no >300-files/>100k-LOC threshold check; "never index the target/clone repo" stands. New use-if-present rule: when `reference/graphify-out/` exists, Phase 2 uses it to enumerate entry points before reading, and Phase 6 subagent briefs mention it so fresh subagents locate reference code by graph query instead of grep. Unchanged: the graph is a navigation aid, never ground truth — source reads win every disagreement, and the skill degrades unchanged when the user declines or graphify isn't installed.
+
 ## [1.38.4] - 2026-07-17
 
 ### Added
