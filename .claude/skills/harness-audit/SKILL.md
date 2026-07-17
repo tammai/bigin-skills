@@ -28,6 +28,8 @@ If any fetch fails, note it in the report and proceed with what's available — 
 
 For each dimension: state what the docs say, what this repo currently does, cite the specific file/line, and classify as match / drift / opportunity. Skip anything that's already correct — the report only needs what doesn't pass.
 
+Skip the generated table regions in `CLAUDE.md`/`README.md` (between `<!-- gen:* -->` markers) — they're mechanically derived from `skills/*/SKILL.md` + `agents/*.md` + `tools/docs-manifest.json` via `node tools/docs_sync.mjs` and are correct by construction. Any doc-staleness check focuses on the remaining manual surfaces instead: prose, the README tree diagram, and `marketplace.json`.
+
 ### Skill frontmatter (all skills under `skills/*/SKILL.md`)
 
 - `description:` follows the "specific and pushy" rule (`.claude/rules/skill-authoring.md`) with real trigger phrases, EN + VI where the skill has Vietnamese triggers.
@@ -39,7 +41,7 @@ For each dimension: state what the docs say, what this repo currently does, cite
 
 ### Hooks
 
-- `bash-guard.mjs`, `spec-gate-guard.mjs`, `injection-scan-guard.mjs`, and `injection-gate-guard.mjs` regexes/exit-code/decision-output contract still match the current hooks.md schema (event names, stdin format, exit codes, `hookSpecificOutput` fields like `additionalContext` and `permissionDecision`).
+- `bash-guard.mjs`, `spec-gate-guard.mjs`, `injection-scan-guard.mjs`, `injection-gate-guard.mjs` (including its stage-3 canary check), and `canary-seed.mjs` regexes/exit-code/decision-output contract still match the current hooks.md schema (event names, stdin format, exit codes, `hookSpecificOutput` fields like `additionalContext` and `permissionDecision`).
 - Any hook event from the current docs (`SessionStart`, `PreCompact`, `Stop`, etc.) that's missing here but would close a real gap — not "adopt everything," only what fixes something concrete.
 - `bigin-harness-setup`'s settings.json merge logic (Phase 5-3) still matches how Claude Code actually merges hooks across scopes per current docs.
 

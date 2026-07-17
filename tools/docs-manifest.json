@@ -1,0 +1,24 @@
+{
+  "skills": {
+    "bigin-harness-setup": { "group": "core", "summary": "Scaffolds an AI workflow harness into a repo — CLAUDE.md, path-scoped rules, and enforcement gates. Profiles: nuxt, go, nodejs, next." },
+    "task-workflow": { "group": "core", "summary": "On-demand task workflow (/task-workflow): scope → spec → plan (approved) → implement/verify loop (capped, independent verifier) → review → cleanup." },
+    "nuxt-scaffold": { "group": "core", "summary": "Scaffolds a Nuxt 4 BFF app from scratch via a deterministic Node.js script — npm create nuxt@latest + BFF preset + config/sample code. No GitHub clone." },
+    "next-scaffold": { "group": "core", "summary": "Scaffolds a Next.js App Router BFF app from scratch via a deterministic Node.js script — create-next-app + BFF preset + shadcn/ui. No GitHub clone." },
+    "go-scaffold": { "group": "core", "summary": "Scaffolds a production-ready Go REST API — contract-first (oapi-codegen + sqlc), chi router, Postgres. Runs codegen + build/vet/test itself." },
+    "nodejs-scaffold": { "group": "core", "summary": "Scaffolds a production-ready Node.js REST API — contract-first (openapi-typescript + Drizzle), Fastify, Postgres. Runs codegen + lint/typecheck/test itself." },
+    "sprint-distill": { "group": "core", "summary": "End-of-sprint distillation: merged PRs + touched knowledge/ concepts → proposal-first knowledge/ and bigin-skills updates. Compresses, never just appends." },
+    "write-tests": { "group": "core", "summary": "On-demand test authoring (/write-tests): style-matches the nearest test file, lists edge cases first, TDD-orders logic, mocks only true I/O boundaries." },
+    "debug-workflow": { "group": "core", "summary": "On-demand systematic debugging (/debug-workflow): root cause → pattern analysis → hypothesis testing → fix + validation. For untracked bugs/incidents." },
+    "model-router": { "group": "core", "summary": "Scores task complexity via a deterministic rubric and routes to quick-executor/standard-worker/deep-architect. Routes down as well as up." },
+    "session-handoff": { "group": "handoff", "summary": "Saves session state (tasks, decisions, uncommitted changes) to SESSION.md and restores it on resume." },
+    "nuxt-ui-figma-handoff": { "group": "handoff", "summary": "Turns a Nuxt UI Figma design handoff into code — theme tokens into main.css, component overrides into app.config.ts. Requires a Figma URL." },
+    "oss-port": { "group": "addon", "summary": "Reimplements an existing (often OSS) project into another stack via a gated spec-first workflow: license → inventory → contract → port → parity report." }
+  },
+  "agents": {
+    "quick-executor": { "summary": "mechanical, single-file, low-risk tasks. Routed by `model-router`." },
+    "standard-worker": { "summary": "default tier, most feature/bug-fix work. Routed by `model-router`." },
+    "deep-architect": { "summary": "architectural decisions, contract/schema changes, full-spec tier. Routed by `model-router`." },
+    "verifier": { "summary": "read-only — audits a diff against `PLAN.md` independently of the implementer's own summary. Spawned fresh each round, alongside whichever tier implemented." }
+  },
+  "groups": { "core": "Core Skills", "handoff": "Handoff Skills", "addon": "Addon Skills" }
+}

@@ -294,7 +294,7 @@ Governance superset: `permissions` + `PostToolUse` lint-fix (the `next-scaffold`
         ]
       },
       {
-        "matcher": "Bash|Write|Edit|mcp__.*",
+        "matcher": "Bash|Write|Edit|WebFetch|mcp__.*",
         "hooks": [
           {
             "type": "command",
@@ -326,6 +326,10 @@ Governance superset: `permissions` + `PostToolUse` lint-fix (the `next-scaffold`
     "SessionStart": [
       {
         "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/guards/canary-seed.mjs"
+          },
           {
             "type": "command",
             "command": "node .claude/guards/session-resume-check.mjs"

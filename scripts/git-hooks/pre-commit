@@ -1,2 +1,4 @@
 #!/bin/sh
-cd "$(git rev-parse --show-toplevel)" && node tools/context_budget.mjs
+cd "$(git rev-parse --show-toplevel)" \
+  && node tools/context_budget.mjs \
+  && node tools/docs_sync.mjs --check

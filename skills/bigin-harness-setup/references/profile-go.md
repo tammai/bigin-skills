@@ -202,7 +202,7 @@ Prepend `paths: ["**/*.go"]` as YAML frontmatter when writing `architecture.md` 
         ]
       },
       {
-        "matcher": "Bash|Write|Edit|mcp__.*",
+        "matcher": "Bash|Write|Edit|WebFetch|mcp__.*",
         "hooks": [
           {
             "type": "command",
@@ -225,6 +225,10 @@ Prepend `paths: ["**/*.go"]` as YAML frontmatter when writing `architecture.md` 
     "SessionStart": [
       {
         "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/guards/canary-seed.mjs"
+          },
           {
             "type": "command",
             "command": "node .claude/guards/session-resume-check.mjs"

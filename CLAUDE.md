@@ -18,38 +18,42 @@ scripts/git-hooks/        ← pre-commit running the budget gate
 
 ## Skills
 
-| Skill                   | Purpose                                                                                                                                                                           |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `bigin-harness-setup`   | Scaffolds AI workflow harness into target repos (nuxt/go/nodejs/next); three-tier loading; idempotent                                                                             |
-| `task-workflow`         | On-demand task workflow: scope → spec → plan file (approved) → implement/verify loop (capped, independent verifier) → review → cleanup (Tier 3)                                   |
-| `nuxt-scaffold`         | Scaffolds Nuxt 4 BFF app from scratch via `npm create nuxt@latest`                                                                                                                |
-| `next-scaffold`         | Scaffolds Next.js App Router BFF app from scratch via `create-next-app` + shadcn/ui                                                                                               |
-| `go-scaffold`           | Scaffolds a contract-first Go REST API (oapi-codegen + sqlc + chi + Postgres); runs codegen + build/vet/test itself                                                               |
-| `nodejs-scaffold`       | Scaffolds a contract-first Node.js REST API (openapi-typescript + Drizzle/drizzle-kit + Fastify + Postgres); runs codegen + lint/typecheck/build/test itself                      |
-| `nuxt-ui-figma-handoff` | Extracts a Nuxt UI Figma design handoff into main.css theme tokens + app.config.ts component overrides                                                                            |
-| `oss-port`              | Ports/reimplements an existing (often OSS) project into a different stack via a gated spec-first workflow: license check → behavioral inventory → contract extraction → vertical slice → module-by-module port → parity report                                                                            |
-| `sprint-distill`        | End-of-sprint distillation into `knowledge/` + bigin-skills; compresses, never appends                                                                                            |
-| `session-handoff`       | Session state persistence to `.claude/memory/SESSION.md`                                                                                                                          |
-| `write-tests`           | On-demand test authoring: style-match, scope, edge-case list, TDD ordering, no unnecessary mocking                                                                                |
-| `debug-workflow`        | On-demand systematic debugging: root cause → pattern analysis → hypothesis → fix+validation (Tier 3)                                                                              |
-| `model-router`          | Scores task complexity via a deterministic rubric and routes execution to one of three subagents (`quick-executor`/`standard-worker`/`deep-architect`) spawned via the Agent tool |
+<!-- gen:skills-table -->
+| Skill                   | Purpose                                                                                                                                                      |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `bigin-harness-setup`   | Scaffolds an AI workflow harness into a repo — CLAUDE.md, path-scoped rules, and enforcement gates. Profiles: nuxt, go, nodejs, next.                        |
+| `task-workflow`         | On-demand task workflow (/task-workflow): scope → spec → plan (approved) → implement/verify loop (capped, independent verifier) → review → cleanup.          |
+| `nuxt-scaffold`         | Scaffolds a Nuxt 4 BFF app from scratch via a deterministic Node.js script — npm create nuxt@latest + BFF preset + config/sample code. No GitHub clone.      |
+| `next-scaffold`         | Scaffolds a Next.js App Router BFF app from scratch via a deterministic Node.js script — create-next-app + BFF preset + shadcn/ui. No GitHub clone.          |
+| `go-scaffold`           | Scaffolds a production-ready Go REST API — contract-first (oapi-codegen + sqlc), chi router, Postgres. Runs codegen + build/vet/test itself.                 |
+| `nodejs-scaffold`       | Scaffolds a production-ready Node.js REST API — contract-first (openapi-typescript + Drizzle), Fastify, Postgres. Runs codegen + lint/typecheck/test itself. |
+| `sprint-distill`        | End-of-sprint distillation: merged PRs + touched knowledge/ concepts → proposal-first knowledge/ and bigin-skills updates. Compresses, never just appends.   |
+| `write-tests`           | On-demand test authoring (/write-tests): style-matches the nearest test file, lists edge cases first, TDD-orders logic, mocks only true I/O boundaries.      |
+| `debug-workflow`        | On-demand systematic debugging (/debug-workflow): root cause → pattern analysis → hypothesis testing → fix + validation. For untracked bugs/incidents.       |
+| `model-router`          | Scores task complexity via a deterministic rubric and routes to quick-executor/standard-worker/deep-architect. Routes down as well as up.                    |
+| `session-handoff`       | Saves session state (tasks, decisions, uncommitted changes) to SESSION.md and restores it on resume.                                                         |
+| `nuxt-ui-figma-handoff` | Turns a Nuxt UI Figma design handoff into code — theme tokens into main.css, component overrides into app.config.ts. Requires a Figma URL.                   |
+| `oss-port`              | Reimplements an existing (often OSS) project into another stack via a gated spec-first workflow: license → inventory → contract → port → parity report.      |
+<!-- /gen:skills-table -->
 
 ## Agents
 
 `agents/<name>.md` — plugin-level subagents spawned via the Agent tool (`bigin-skills:<name>`), not invoked as skills.
 
-| Agent             | Purpose                                                                                                                                                                                                                                        |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `quick-executor`  | haiku/low — mechanical, single-file, low-risk tasks. Routed by `model-router`.                                                                                                                                                                 |
-| `standard-worker` | sonnet/high — default tier, most feature/bug-fix work. Routed by `model-router`.                                                                                                                                                               |
-| `deep-architect`  | opus/high — architectural decisions, contract/schema changes, full-spec tier. Routed by `model-router`.                                                                                                                                        |
-| `verifier`        | haiku/low, read-only — audits a diff against `PLAN.md` independently of the implementer's own summary. Spawned fresh each round by `task-workflow`'s implement/verify loop, alongside whichever of the three tiers above did the implementing. |
+<!-- gen:agents-table -->
+| Agent             | Purpose                                                                                                                                                                 |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `quick-executor`  | haiku/low — mechanical, single-file, low-risk tasks. Routed by `model-router`.                                                                                          |
+| `standard-worker` | sonnet/high — default tier, most feature/bug-fix work. Routed by `model-router`.                                                                                        |
+| `deep-architect`  | opus/high — architectural decisions, contract/schema changes, full-spec tier. Routed by `model-router`.                                                                 |
+| `verifier`        | haiku/low — read-only — audits a diff against `PLAN.md` independently of the implementer's own summary. Spawned fresh each round, alongside whichever tier implemented. |
+<!-- /gen:agents-table -->
 
 Details live in each skill's own `SKILL.md` — read it when working on that skill. Authoring conventions are in `.claude/rules/skill-authoring.md` (loads when editing `skills/`).
 
 ## Versioning
 
-Version lives in `.claude-plugin/plugin.json`. Bump it when publishing changes and add a `CHANGELOG.md` entry. Before a **major or minor** bump, find and fix all stale docs first (file lists, counts, cross-references in `README.md`, `CLAUDE.md`, `SKILL.md`s, `marketplace.json`) — patch bumps don't require this sweep. Pre-commit budget gate: activate once with `git config core.hooksPath scripts/git-hooks`.
+Version lives in `.claude-plugin/plugin.json`. Bump it when publishing changes and add a `CHANGELOG.md` entry. Before a **major or minor** bump, find and fix all stale docs first — the skills/agents tables in `CLAUDE.md`/`README.md` are generated (run `node tools/docs_sync.mjs`), so sweep only the remaining manual surfaces: prose, cross-references, the README tree diagram, `SKILL.md`s, `marketplace.json`. Patch bumps don't require this sweep. Pre-commit gates: activate once with `git config core.hooksPath scripts/git-hooks` (runs the budget gate + `docs_sync.mjs --check`).
 
 ## Session Handoff
 

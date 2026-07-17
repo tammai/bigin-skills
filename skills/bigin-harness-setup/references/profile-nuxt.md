@@ -287,7 +287,7 @@ Governance superset: `permissions` + `PostToolUse` lint-fix (the `nuxt-scaffold`
         ]
       },
       {
-        "matcher": "Bash|Write|Edit|mcp__.*",
+        "matcher": "Bash|Write|Edit|WebFetch|mcp__.*",
         "hooks": [
           {
             "type": "command",
@@ -319,6 +319,10 @@ Governance superset: `permissions` + `PostToolUse` lint-fix (the `nuxt-scaffold`
     "SessionStart": [
       {
         "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/guards/canary-seed.mjs"
+          },
           {
             "type": "command",
             "command": "node .claude/guards/session-resume-check.mjs"

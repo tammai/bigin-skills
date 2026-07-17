@@ -13,35 +13,41 @@ Skills for standardized, AI-assisted development across BigIn's stacks.
 
 The harness itself — setup, workflow, and maintenance for a repo under standardized AI-assisted development.
 
-| Skill                   | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **bigin-harness-setup** | Scaffolds an AI workflow harness into a repo — `CLAUDE.md`, path-scoped rules, and enforcement gates. Profiles: `nuxt`, `go`, `nodejs`, `next`.                                                                                                                                                                                                                                                                                                                               |
-| **task-workflow**       | On-demand task workflow skill (`/task-workflow`): scope → spec → plan file (approved) → implement/verify loop (capped, independent verifier) → review → cleanup. Loaded only when invoked, not on every session start.                                                                                                                                                                                                                                                        |
-| **nuxt-scaffold**       | Scaffolds a Nuxt 4 BFF app from scratch via a deterministic Node.js script (`scripts/scaffold.mjs`, config-driven, zero prompts, macOS/Windows) — `npm create nuxt@latest` + BFF preset + config/sample code. No GitHub clone. / Scaffold app Nuxt 4 BFF bằng script Node.js tất định — không prompt khi chạy.                                                                                                                                                                |
-| **next-scaffold**       | Scaffolds a Next.js App Router BFF app from scratch via a deterministic Node.js script (`scripts/scaffold.mjs`, config-driven, zero prompts, macOS/Windows) — `create-next-app` + BFF preset (Zustand, TanStack Query, shadcn/ui, iron-session, Zod, Vitest) + config/sample code. No GitHub clone; `dashboard`/`saas` templates layer official shadcn/ui blocks instead.                                                                                                     |
-| **go-scaffold**         | Scaffolds a production-ready Go REST API via a deterministic Node.js script (`scripts/scaffold.mjs`, CLI-flag driven, zero prompts) — contract-first: `openapi.yaml` → server interface + models (`oapi-codegen`), SQL → typed queries (`sqlc`); chi router, Postgres, structured logging, rate limiting, CORS, Prometheus metrics. The script runs codegen + `go build`/`vet`/`test` itself before committing.                                                               |
-| **nodejs-scaffold**     | Scaffolds a production-ready Node.js REST API via a deterministic Node.js script (`scripts/scaffold.mjs`, CLI-flag driven, zero prompts) — contract-first: `openapi.yaml` → API types (`openapi-typescript`), `src/db/schema.ts` → migration SQL (`drizzle-kit`, the reverse direction of sqlc); Fastify, Postgres (`postgres`/postgres.js), Zod validation, rate limiting, CORS. The script runs codegen + `pnpm lint`/`type-check`/`build`/`test` itself before committing. |
-| **sprint-distill**      | End-of-sprint distillation: merged PRs + touched `knowledge/` concepts → proposal-first `knowledge/` and `bigin-skills` updates. Compresses, never just appends.                                                                                                                                                                                                                                                                                                              |
-| **write-tests**         | On-demand test authoring (`/write-tests`): style-matches the nearest existing test file, lists edge cases before coding, TDD-orders business logic, mocks only true I/O boundaries.                                                                                                                                                                                                                                                                                           |
-| **debug-workflow**      | On-demand systematic debugging (`/debug-workflow`): four gated phases — root cause investigation → pattern analysis → hypothesis testing → fix + validation. For untracked debugging (flaky tests, stack traces, incidents), not tracked bug fixes (see task-workflow) or test authoring (see write-tests).                                                                                                                                                                   |
-| **model-router**        | Scores a task against a deterministic rubric (files touched, contract/schema risk, test coverage, reversibility, architectural-decision judgment) and routes it to one of three subagents — `quick-executor` (haiku/low), `standard-worker` (sonnet/high), `deep-architect` (opus/high) — spawned via the Agent tool. Routes down as well as up, so a trivial fix doesn't get an overthinking high-effort pass.                                                               |
+<!-- gen:skills-core -->
+| Skill                   | Purpose                                                                                                                                                      |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **bigin-harness-setup** | Scaffolds an AI workflow harness into a repo — CLAUDE.md, path-scoped rules, and enforcement gates. Profiles: nuxt, go, nodejs, next.                        |
+| **task-workflow**       | On-demand task workflow (/task-workflow): scope → spec → plan (approved) → implement/verify loop (capped, independent verifier) → review → cleanup.          |
+| **nuxt-scaffold**       | Scaffolds a Nuxt 4 BFF app from scratch via a deterministic Node.js script — npm create nuxt@latest + BFF preset + config/sample code. No GitHub clone.      |
+| **next-scaffold**       | Scaffolds a Next.js App Router BFF app from scratch via a deterministic Node.js script — create-next-app + BFF preset + shadcn/ui. No GitHub clone.          |
+| **go-scaffold**         | Scaffolds a production-ready Go REST API — contract-first (oapi-codegen + sqlc), chi router, Postgres. Runs codegen + build/vet/test itself.                 |
+| **nodejs-scaffold**     | Scaffolds a production-ready Node.js REST API — contract-first (openapi-typescript + Drizzle), Fastify, Postgres. Runs codegen + lint/typecheck/test itself. |
+| **sprint-distill**      | End-of-sprint distillation: merged PRs + touched knowledge/ concepts → proposal-first knowledge/ and bigin-skills updates. Compresses, never just appends.   |
+| **write-tests**         | On-demand test authoring (/write-tests): style-matches the nearest test file, lists edge cases first, TDD-orders logic, mocks only true I/O boundaries.      |
+| **debug-workflow**      | On-demand systematic debugging (/debug-workflow): root cause → pattern analysis → hypothesis testing → fix + validation. For untracked bugs/incidents.       |
+| **model-router**        | Scores task complexity via a deterministic rubric and routes to quick-executor/standard-worker/deep-architect. Routes down as well as up.                    |
+<!-- /gen:skills-core -->
 
 ### Handoff Skills
 
 Add-ons for a specific cross-role handoff (e.g. designer → developer). Not required for the core harness — opt in per project as the relevant handoff comes up.
 
-| Skill                     | Purpose                                                                                                                                                                                                                                           |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **session-handoff**       | Saves session state (tasks, decisions, uncommitted changes) to `SESSION.md` and restores it on resume.                                                                                                                                            |
-| **nuxt-ui-figma-handoff** | Turns a Nuxt UI Figma design handoff into code — global tokens into `main.css` (`@theme`, `--ui-radius`), semantic color roles and per-component Tailwind Variants overrides into `app.config.ts`. Requires a Figma file/frame URL from the user. |
+<!-- gen:skills-handoff -->
+| Skill                     | Purpose                                                                                                                                    |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| **session-handoff**       | Saves session state (tasks, decisions, uncommitted changes) to SESSION.md and restores it on resume.                                       |
+| **nuxt-ui-figma-handoff** | Turns a Nuxt UI Figma design handoff into code — theme tokens into main.css, component overrides into app.config.ts. Requires a Figma URL. |
+<!-- /gen:skills-handoff -->
 
 ### Addon Skills
 
 Opt-in capabilities that aren't tied to a cross-role handoff or the core harness workflow — standalone, invoked only when the specific need comes up.
 
-| Skill        | Purpose                                                                                                                                                                                                                                                                                                                                                             |
-| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **oss-port** | Reimplements ("clones") an existing project — usually open source — into a different tech stack via a gated, spec-first workflow: license check → reference setup → behavioral inventory (`FEATURES.md`) → contract extraction (OpenAPI/CLI/API/views) → target scaffold → vertical slice (patterns gate) → module-by-module port → parity report (`PARITY.md`). |
+<!-- gen:skills-addon -->
+| Skill        | Purpose                                                                                                                                                 |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **oss-port** | Reimplements an existing (often OSS) project into another stack via a gated spec-first workflow: license → inventory → contract → port → parity report. |
+<!-- /gen:skills-addon -->
 
 ---
 
@@ -92,8 +98,9 @@ your-repo/
 │   │   ├── bash-guard.mjs               ← blocks --no-verify and force-push to main
 │   │   ├── spec-gate-guard.mjs          ← blocks non-trivial edits before PLAN.md is approved
 │   │   ├── injection-scan-guard.mjs     ← flags likely prompt-injection markers in fetched content
-│   │   ├── injection-gate-guard.mjs     ← asks for confirmation before the next risky tool call after a flag
-│   │   └── session-resume-check.mjs     ← SessionStart hook: prompts to resume an in-progress SESSION.md
+│   │   ├── injection-gate-guard.mjs     ← asks for confirmation after a flag; denies outright on a canary-token match
+│   │   ├── session-resume-check.mjs     ← SessionStart hook: prompts to resume an in-progress SESSION.md
+│   │   └── canary-seed.mjs              ← SessionStart hook: seeds a per-session exfiltration canary token
 │   └── settings.json                   ← pre-approved commands + hook wiring
 ├── tools/
 │   └── context_budget.mjs               ← budget gate: CLAUDE.md ≤60, unscoped rules ≤40
@@ -119,7 +126,8 @@ The skill detects the stack profile (or asks), confirms before overwriting anyth
 - **`scripts/pre-commit.sh`** — runs lint + typecheck + tests; fails closed. The skill installs it as a git hook (and `git init`s the repo if needed).
 - **`.claude/guards/bash-guard.mjs`** — a `PreToolUse` hook that blocks the agent from weakening its own gates (`--no-verify`, `git commit -n`, force-push to main). `--force-with-lease` on a feature branch is allowed.
 - **`.claude/guards/spec-gate-guard.mjs`** — a `PreToolUse` hook that blocks non-trivial `Edit`/`Write`/`MultiEdit` calls until `PLAN.md` exists with `Status: approved`. Trivial paths (`tests/**`, `*.md`, `.env.example`, common config files) and edits ≤20 lines are exempt.
-- **`.claude/guards/injection-scan-guard.mjs` + `.claude/guards/injection-gate-guard.mjs`** — a two-stage prompt-injection defense (inspired by Lasso Security's PostToolUse Defender). The scan guard (`PostToolUse`) heuristically checks `WebFetch`/`mcp__*` responses and `curl`/`wget` Bash output for injected instructions and flags a session-scoped marker; the gate guard (`PreToolUse`) asks for confirmation on the next risky `Bash`/`Write`/`Edit`/`mcp__*` call if that flag is still fresh (5-minute window), then clears it.
+- **`.claude/guards/injection-scan-guard.mjs` + `.claude/guards/injection-gate-guard.mjs`** — a three-stage prompt-injection defense (inspired by Lasso Security's PostToolUse Defender). The scan guard (`PostToolUse`, stage 1) heuristically checks `WebFetch`/`mcp__*` responses and `curl`/`wget` Bash output for injected instructions and flags a session-scoped marker; the gate guard (`PreToolUse`, stage 2) asks for confirmation on the next risky `Bash`/`Write`/`Edit`/`WebFetch`/`mcp__*` call if that flag is still fresh (5-minute window), then clears it.
+- **`.claude/guards/canary-seed.mjs`** — a `SessionStart` hook that seeds a per-session random token and instructs the model never to reproduce it. `injection-gate-guard.mjs`'s stage 3 denies (not asks) any tool call whose input contains that token — a per-session UUID has zero legitimate reason to appear anywhere, so this is a hard block rather than a confirmation.
 - **`.claude/guards/session-resume-check.mjs`** — a `SessionStart` hook that deterministically injects a resume-prompt reminder when `.claude/memory/SESSION.md` has `status: in-progress`, instead of relying on CLAUDE.md prose alone.
 - **Auto-format** (nuxt/next) — set up by the `nuxt-scaffold`/`next-scaffold` skill. ESLint is the only formatter (Prettier disabled). A `PostToolUse` hook runs `.claude/guards/lint-fix-file.mjs` after every agent Write/Edit, scoped to just the touched file; humans get the same via `.vscode/settings.json` format-on-save.
 - **`.claude/settings.json`** — pre-approves safe profile commands to reduce prompt friction.
@@ -179,7 +187,7 @@ bigin-skills/
 │   │       ├── profile-nodejs.md
 │   │       ├── files-shared.md    ← security, architecture, task guide, review checklist, paths substitutions
 │   │       ├── patch-mode.md      ← Phase 1a: version diffing + CHANGELOG patch-block application
-│   │       ├── hook-guard.md      ← bash-guard.mjs, spec-gate-guard.mjs, injection-scan/gate-guard.mjs + pre-commit scripts per profile
+│   │       ├── hook-guard.md      ← bash-guard.mjs, spec-gate-guard.mjs, injection-scan/gate-guard.mjs, canary-seed.mjs + pre-commit scripts per profile
 │   │       ├── budget-gate.md     ← context_budget.mjs (budget gate script)
 │   │       ├── knowledge-bundle.md
 │   │       └── ci.md
@@ -280,6 +288,15 @@ Run it with:
 ```
 
 It fetches the live docs, checks skill frontmatter / hooks / sub-agents / context budget / plugin structure / eval coverage / permissions against them, then **stops** with a findings table and asks whether to act on anything or just log the report. Closed findings are tracked in `.claude/audit-log.md` (created on first run) so re-runs don't re-litigate what's already been fixed.
+
+**Docs sync** — the skills/agents tables in `CLAUDE.md` and `README.md` (between `<!-- gen:* -->` markers) are generated from `skills/*/SKILL.md`, `agents/*.md` frontmatter, and `tools/docs-manifest.json`, not hand-maintained.
+
+```
+node tools/docs_sync.mjs          # regenerate the tables in place
+node tools/docs_sync.mjs --check  # diff-only; exits 1 on stale regions (pre-commit gate)
+```
+
+A new skill or agent needs a matching entry in `tools/docs-manifest.json` (skill: `group` + `summary`; agent: `summary`) — the generator fails closed both ways, so a skill dir with no manifest entry (or vice versa) blocks the commit by name.
 
 ---
 
