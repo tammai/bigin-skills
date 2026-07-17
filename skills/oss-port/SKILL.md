@@ -64,6 +64,10 @@ Treat `reference/` as read-only. Never edit it, never copy files from it verbati
 
 Record source commit hash in `PORT/FEATURES.md` header — parity claims are meaningless without pinning what you ported.
 
+### Optional: reference graph index
+
+For reference repos too large to explore in-context (roughly >300 files or >100k LOC), consider indexing `reference/` with `codebase-memory-mcp` for structural navigation during Phases 2–6. See `references/graph-index.md` for setup, caveats, and query patterns. Skip for small references — grep/read beats indexing overhead. Don't index the target/clone repo itself until it grows past a few hundred files.
+
 ## Phase 2 — Behavioral inventory → FEATURES.md
 
 Read the source and produce `PORT/FEATURES.md` using the template in `references/templates.md`. This is the single most important artifact: everything not in FEATURES.md will not be ported, and everything in it will be.
@@ -138,3 +142,4 @@ If a shared black-box suite exists, run it against both implementations and incl
 - `references/templates.md` — FEATURES.md and PARITY.md templates. Read when starting Phase 2 or 7.
 - `references/parity-testing.md` — how to build a black-box suite that runs against both implementations. Read at Phase 3.
 - `references/idiom-translation.md` — per-stack-pair transliteration traps (JS→Go, Python→TS, etc.). Read at Phase 5 and when starting Phase 6.
+- `references/graph-index.md` — optional `codebase-memory-mcp` indexing of a large `reference/` repo for structural navigation. Read at Phase 1 when the reference repo is large.

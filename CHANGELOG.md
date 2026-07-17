@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.38.4] - 2026-07-17
+
+### Added
+
+- **`oss-port` gained an optional reference graph-index step.** Phase 1 (Reference setup) now points at a new `references/graph-index.md` for indexing a large `reference/` repo (roughly >300 files or >100k LOC) with `codebase-memory-mcp`, so a porting agent can answer "where is X implemented" / call-chain questions via graph queries instead of grep-then-read cycles. The graph is explicitly a navigation aid, never ground truth — behavior truth stays with the contract and parity tests. The reference file covers: the size threshold (and the matching guidance to skip indexing the target/clone repo until it itself grows past a few hundred files), verifying the install/index command from the tool's own README at index time rather than hardcoding it (and pinning the version used in `PORT/PARITY.md`), the Hybrid-LSP language-accuracy caveat (flag Ruby/Elixir-style references explicitly for call-graph gaps), a mandatory unlabeled-probe-query step before trusting any labeled query (node labels vary by language — e.g. Go `Method` vs. `Function` — so a wrong label silently returns zero rows), the project-ID derivation note, and `trace_path`/`direction: both` vs. `query_graph` Cypher guidance. SKILL.md itself only gained a 4-line pointer plus one reference-files-list entry — the full guidance lives entirely in the new reference file, loaded only during Phase 1 on large references. No new hard dependency: indexing is optional and the skill degrades unchanged when `codebase-memory-mcp` isn't installed.
+
 ## [1.38.3] - 2026-07-17
 
 ### Added

@@ -256,7 +256,8 @@ bigin-skills/
 │       └── references/
 │           ├── templates.md       ← FEATURES.md / PARITY.md templates
 │           ├── parity-testing.md  ← black-box suite against both implementations
-│           └── idiom-translation.md ← per-stack-pair transliteration traps
+│           ├── idiom-translation.md ← per-stack-pair transliteration traps
+│           └── graph-index.md     ← optional codebase-memory-mcp indexing of a large reference/ repo
 ├── agents/                        ← plugin-level subagents, spawned via Agent tool (not invoked as skills)
 │   ├── quick-executor.md          ← haiku/low — mechanical, single-file, low-risk tasks
 │   ├── standard-worker.md         ← sonnet/high — default tier, most feature/bug-fix work
