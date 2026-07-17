@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.38.3] - 2026-07-17
+
+### Added
+
+- **`oss-port` gained an explicit "Resuming a port" section.** A port can span many sessions with no conversation memory carried between them; previously nothing told a fresh session to check disk state before asking the user what's in progress. Now, before starting any phase, check whether `PORT/` already exists: read `PORT/FEATURES.md` first (checked-off modules are done; the first unchecked module in dependency order is where Phase 6 resumes), then `PORT/PATTERNS.md`/`PORT/contract/` if present (already-locked gates, don't re-derive), and only ask the user if `PORT/FEATURES.md` itself is ambiguous. Makes the on-disk artifacts written throughout Phases 2–6 the actual source of truth for cross-session continuity, rather than relying on `session-handoff`/`SESSION.md` (which requires remembering to invoke it before a session ends).
+
+## [1.38.2] - 2026-07-17
+
+### Changed
+
+- **`oss-port` moved out of README.md's "Handoff Skills" table into a new "Addon Skills" group.** Handoff Skills are for a specific cross-role handoff (designer → developer, session continuity); `oss-port` isn't tied to a handoff at all — it's a standalone, opt-in porting workflow. Added the new `### Addon Skills` section (single-row table, same style as the existing group tables) and moved `oss-port`'s row there. Also filled in `oss-port`'s previously-missing entry in the repo tree diagram (`SKILL.md` + `references/templates.md`, `parity-testing.md`, `idiom-translation.md`), grouped under the new Addon Skills comment.
+
 ## [1.38.1] - 2026-07-16
 
 ### Fixed

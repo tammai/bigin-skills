@@ -36,6 +36,14 @@ Core discipline: **never one-shot the port.** Every phase below ends in a gate �
 
 Phases 0–3 are analysis only — write no target code before the contract gate passes.
 
+## Resuming a port
+
+A port can span many sessions with no conversation memory carried between them. Before starting any work, check whether `PORT/` already exists in the target repo — if so, this is a resume, not a fresh start:
+
+1. Read `PORT/FEATURES.md` first. Checked-off modules are done; the first unchecked module in dependency order is where Phase 6 picks back up.
+2. Read `PORT/PATTERNS.md` and `PORT/contract/` if present — those gates are already locked, don't re-derive or re-litigate them.
+3. Only ask the user what's in progress if `PORT/FEATURES.md` itself is ambiguous (e.g. a module edited with no checkbox either way) — don't rely on conversation history to reconstruct state; a new session has none.
+
 ## Phase 0 — License & scope
 
 Read the source repo's LICENSE and any NOTICE files before anything else.

@@ -34,7 +34,14 @@ Add-ons for a specific cross-role handoff (e.g. designer → developer). Not req
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **session-handoff**       | Saves session state (tasks, decisions, uncommitted changes) to `SESSION.md` and restores it on resume.                                                                                                                                            |
 | **nuxt-ui-figma-handoff** | Turns a Nuxt UI Figma design handoff into code — global tokens into `main.css` (`@theme`, `--ui-radius`), semantic color roles and per-component Tailwind Variants overrides into `app.config.ts`. Requires a Figma file/frame URL from the user. |
-| **oss-port**              | Reimplements ("clones") an existing project — usually open source — into a different tech stack via a gated, spec-first workflow: license check → reference setup → behavioral inventory (`FEATURES.md`) → contract extraction (OpenAPI/CLI/API/views) → target scaffold → vertical slice (patterns gate) → module-by-module port → parity report (`PARITY.md`). |
+
+### Addon Skills
+
+Opt-in capabilities that aren't tied to a cross-role handoff or the core harness workflow — standalone, invoked only when the specific need comes up.
+
+| Skill        | Purpose                                                                                                                                                                                                                                                                                                                                                             |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **oss-port** | Reimplements ("clones") an existing project — usually open source — into a different tech stack via a gated, spec-first workflow: license check → reference setup → behavioral inventory (`FEATURES.md`) → contract extraction (OpenAPI/CLI/API/views) → target scaffold → vertical slice (patterns gate) → module-by-module port → parity report (`PARITY.md`). |
 
 ---
 
@@ -237,13 +244,19 @@ bigin-skills/
 │   ├── session-handoff/           ← Handoff Skills (add-ons, opt in per project)
 │   │   ├── SKILL.md               ← session state persistence
 │   │   └── evals/evals.json
-│   └── nuxt-ui-figma-handoff/
-│       ├── SKILL.md               ← requires a Figma file/frame URL from the user
-│       ├── references/
-│       │   └── nuxt-ui-v4-theming.md ← @theme tokens, ui.colors, Tailwind Variants overrides
-│       ├── scripts/
-│       │   └── generate_color_scale.mjs ← fills in a 50-950 ramp from one brand swatch
-│       └── evals/evals.json
+│   ├── nuxt-ui-figma-handoff/
+│   │   ├── SKILL.md               ← requires a Figma file/frame URL from the user
+│   │   ├── references/
+│   │   │   └── nuxt-ui-v4-theming.md ← @theme tokens, ui.colors, Tailwind Variants overrides
+│   │   ├── scripts/
+│   │   │   └── generate_color_scale.mjs ← fills in a 50-950 ramp from one brand swatch
+│   │   └── evals/evals.json
+│   └── oss-port/                  ← Addon Skills (opt-in, standalone)
+│       ├── SKILL.md               ← license check → FEATURES.md → contract → scaffold → vertical slice → module port → PARITY.md
+│       └── references/
+│           ├── templates.md       ← FEATURES.md / PARITY.md templates
+│           ├── parity-testing.md  ← black-box suite against both implementations
+│           └── idiom-translation.md ← per-stack-pair transliteration traps
 ├── agents/                        ← plugin-level subagents, spawned via Agent tool (not invoked as skills)
 │   ├── quick-executor.md          ← haiku/low — mechanical, single-file, low-risk tasks
 │   ├── standard-worker.md         ← sonnet/high — default tier, most feature/bug-fix work
