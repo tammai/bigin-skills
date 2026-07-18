@@ -40,7 +40,7 @@ Store result as `PROFILE`. Load `references/profile-{PROFILE}.md` for all templa
 
 Scaffolding is done by the `nuxt-scaffold` skill's deterministic script — **not** conversationally. Three steps, and **all questions happen up front, in one batch; zero prompts once scaffolding starts**:
 
-1. **Gather every scaffold decision now**, in the same turn, back-to-back with this skill's own remaining decisions: ask `skills/nuxt-scaffold/SKILL.md` → Step 2 (project name, primary/neutral theme colors, version policy), then immediately ask Phase 1.5's bundle below (Knowledge Bundle + CI config — an empty repo can't hit Phase 1's conflict path, so only those two apply here). Confirm the scaffold summary once. Store `KNOWLEDGE_BUNDLE` / `CI_PROVIDER` now — Phase 1.5 is a no-op later in this branch since they're already decided.
+1. **Gather every scaffold decision now**, in the same turn, back-to-back with this skill's own remaining decisions: ask `skills/nuxt-scaffold/SKILL.md` → Step 2 (project name, primary/neutral theme colors, version policy), then immediately ask Phase 1.5's bundle below (Knowledge Bundle/Graphify + CI config — an empty repo can't hit Phase 1's conflict path, so only those two apply here). Confirm the scaffold summary once. Store `KNOWLEDGE_BUNDLE` / `GRAPH` / `CI_PROVIDER` now — Phase 1.5 is a no-op later in this branch since they're already decided.
 2. **Write the config JSON** (schema in `skills/nuxt-scaffold/SKILL.md` → Step 3) to a temp file outside the repo, with `"packageManager": "pnpm"`.
 3. **Run the script and stream its output** (several minutes — installs + verify gates):
    ```sh
@@ -62,7 +62,7 @@ Skip this phase entirely if `nuxt.config.ts` already exists (onboarding an exist
 
 Scaffolding is done by the `go-scaffold` skill's deterministic script — **not** conversationally. All questions happen up front, in one batch; zero prompts once scaffolding starts:
 
-1. **Gather every scaffold decision now**, in the same turn, back-to-back with this skill's own remaining decisions: ask `skills/go-scaffold/SKILL.md` → Step 2 (module path, project name), then immediately ask Phase 1.5's bundle below (Knowledge Bundle + CI config — an empty repo can't hit Phase 1's conflict path, so only those two apply here). Confirm the scaffold summary once. Store `KNOWLEDGE_BUNDLE` / `CI_PROVIDER` now — Phase 1.5 is a no-op later in this branch since they're already decided.
+1. **Gather every scaffold decision now**, in the same turn, back-to-back with this skill's own remaining decisions: ask `skills/go-scaffold/SKILL.md` → Step 2 (module path, project name), then immediately ask Phase 1.5's bundle below (Knowledge Bundle/Graphify + CI config — an empty repo can't hit Phase 1's conflict path, so only those two apply here). Confirm the scaffold summary once. Store `KNOWLEDGE_BUNDLE` / `GRAPH` / `CI_PROVIDER` now — Phase 1.5 is a no-op later in this branch since they're already decided.
 2. **Run the script and stream its output** (roughly a minute — first run downloads/builds `oapi-codegen` + `sqlc`, then `go mod tidy`, `go vet`, `go build`, `go test`):
    ```sh
    node skills/go-scaffold/scripts/scaffold.mjs --module <module-path> --dir . [--project <name>]
@@ -85,7 +85,7 @@ Skip this phase entirely if `go.mod` already exists (onboarding an existing repo
 
 Scaffolding is done by the `nodejs-scaffold` skill's deterministic script — **not** conversationally. All questions happen up front, in one batch; zero prompts once scaffolding starts:
 
-1. **Gather every scaffold decision now**, in the same turn, back-to-back with this skill's own remaining decisions: ask `skills/nodejs-scaffold/SKILL.md` → Step 2 (project name), then immediately ask Phase 1.5's bundle below (Knowledge Bundle + CI config — an empty repo can't hit Phase 1's conflict path, so only those two apply here). Confirm the scaffold summary once. Store `KNOWLEDGE_BUNDLE` / `CI_PROVIDER` now — Phase 1.5 is a no-op later in this branch since they're already decided.
+1. **Gather every scaffold decision now**, in the same turn, back-to-back with this skill's own remaining decisions: ask `skills/nodejs-scaffold/SKILL.md` → Step 2 (project name), then immediately ask Phase 1.5's bundle below (Knowledge Bundle/Graphify + CI config — an empty repo can't hit Phase 1's conflict path, so only those two apply here). Confirm the scaffold summary once. Store `KNOWLEDGE_BUNDLE` / `GRAPH` / `CI_PROVIDER` now — Phase 1.5 is a no-op later in this branch since they're already decided.
 2. **Run the script and stream its output** (a couple of minutes — `pnpm add` for deps then devDeps, then `openapi-typescript` + `drizzle-kit generate`, then lint/typecheck/build/test):
    ```sh
    node skills/nodejs-scaffold/scripts/scaffold.mjs --project <name> --dir .
@@ -108,7 +108,7 @@ Skip this phase entirely if `package.json` already exists (onboarding an existin
 
 Scaffolding is done by the `next-scaffold` skill's deterministic script — **not** conversationally. Three steps, and **all questions happen up front, in one batch; zero prompts once scaffolding starts** (same config-JSON shape as Phase 0.5's nuxt branch, since `next-scaffold` has multiple decisions like `nuxt-scaffold` does — not the single-flag CLI style of the go/nodejs branches):
 
-1. **Gather every scaffold decision now**, in the same turn, back-to-back with this skill's own remaining decisions: ask `skills/next-scaffold/SKILL.md` → Step 2 (project name, template, version policy), then immediately ask Phase 1.5's bundle below (Knowledge Bundle + CI config — an empty repo can't hit Phase 1's conflict path, so only those two apply here). Confirm the scaffold summary once. Store `KNOWLEDGE_BUNDLE` / `CI_PROVIDER` now — Phase 1.5 is a no-op later in this branch since they're already decided.
+1. **Gather every scaffold decision now**, in the same turn, back-to-back with this skill's own remaining decisions: ask `skills/next-scaffold/SKILL.md` → Step 2 (project name, template, version policy), then immediately ask Phase 1.5's bundle below (Knowledge Bundle/Graphify + CI config — an empty repo can't hit Phase 1's conflict path, so only those two apply here). Confirm the scaffold summary once. Store `KNOWLEDGE_BUNDLE` / `GRAPH` / `CI_PROVIDER` now — Phase 1.5 is a no-op later in this branch since they're already decided.
 2. **Write the config JSON** (schema in `skills/next-scaffold/SKILL.md` → Step 3) to a temp file outside the repo, with `"packageManager": "pnpm"`.
 3. **Run the script and stream its output** (several minutes — installs + shadcn/ui + verify gates):
    ```sh
@@ -163,15 +163,20 @@ Self-contained — skip Phases 1.5 through 8 entirely when this runs; it ends wi
 
 ## Phase 1.5: Gather Remaining Decisions
 
-Skip this phase entirely if `KNOWLEDGE_BUNDLE` and `CI_PROVIDER` are already set (Phase 0.5/0.5b asked them alongside the nuxt-scaffold/go-scaffold batch for the empty-repo branch).
+Skip this phase entirely if `KNOWLEDGE_BUNDLE`, `GRAPH`, and `CI_PROVIDER` are already set (Phase 0.5/0.5b asked them alongside the nuxt-scaffold/go-scaffold batch for the empty-repo branch).
 
 Otherwise, ask **one bundled `AskUserQuestion` call**, before writing any files, combining:
 
-1. **Knowledge Bundle** (yes/no):
+1. **Knowledge Bundle & Graphify** (four-way):
    ```
-   Add the Knowledge Bundle convention? (yes/no)
-   Structured domain knowledge under knowledge/ — concept files with frontmatter, linked from an index, validated by a script. See references/knowledge-bundle.md for the spec.
+   Add structured knowledge tracking? (knowledge+graphify / knowledge only / graphify only / none)
+   1. knowledge + graphify (default) — knowledge/ concept bundle (decisions, invariants, "why") plus a graphify structural graph of this repo (graphify-out/, query-only navigation aid — see docs/graph-usage.md)
+   2. knowledge only — knowledge/ concept bundle, no graph
+   3. graphify only — structural graph, no knowledge/ bundle
+   4. none — skip both
+   See references/knowledge-bundle.md and references/graph.md for what each writes.
    ```
+   Store `KNOWLEDGE_BUNDLE` (true for options 1/2) and `GRAPH` (true for options 1/3) — `KNOWLEDGE_BUNDLE` semantics are unchanged from the old yes/no ask.
 2. **CI config** (github/gitlab/both/no) — auto-detect a default first: run `git remote get-url origin 2>/dev/null`; if it matches `github.com` preselect `github`, if `gitlab.com` preselect `gitlab`; if undetermined (no remote, unrecognized host, or ambiguous) preselect `both`. Present the preselected option first/labeled as detected, but let the user override:
    ```
    Add CI config? (github/gitlab/both/no)
@@ -179,7 +184,7 @@ Otherwise, ask **one bundled `AskUserQuestion` call**, before writing any files,
    ```
 3. **Install mode** — only if Phase 1 detected an existing-harness conflict in this run: the overwrite/new/cancel question from Phase 1 above.
 
-Store `KNOWLEDGE_BUNDLE`, `CI_PROVIDER` (and `INSTALL_MODE` if included). Code and security review are not scaffolded as project-local agents — point the user at the `/code-review` and `/security-review` skills instead (see Phase 7 summary).
+Store `KNOWLEDGE_BUNDLE`, `GRAPH`, `CI_PROVIDER` (and `INSTALL_MODE` if included). Code and security review are not scaffolded as project-local agents — point the user at the `/code-review` and `/security-review` skills instead (see Phase 7 summary).
 
 ---
 
@@ -355,6 +360,17 @@ This phase only ever writes CI files it generates itself. It never edits a pre-e
 
 ---
 
+## Phase 5.7: Graphify (optional)
+
+Decided in Phase 1.5 (`GRAPH`). If false, skip everything below — no graph files, no gitignore entries, no `graphify-out/` expectations exist anywhere in the harness.
+
+1. **Write templates** from `references/graph.md`: `## .claude/rules/graph.md` → `.claude/rules/graph.md`, `## docs/graph-usage.md` → `docs/graph-usage.md`. Skip each if `INSTALL_MODE=new` and it already exists.
+2. **Gitignore contract**: append `graphify-out/cost.json` (and `graphify-out/cache/` if the tool creates one) to `.gitignore` — idempotent, check before appending. Never add `graphify-out/` itself; that directory is committed.
+3. **Install check**: run `graphify --version`. If not found, open the tool's own README (github.com/Graphify-Labs/graphify) and follow its current install instructions verbatim — do not hardcode a command from memory, and note explicitly that the package name is `graphifyy` (double-y) to avoid a typosquat lookalike. Prompt the user to install; this is the only point in the harness that prompts for a graphify install.
+4. **Propose the initial index**: skip entirely if `graphify-out/graph.json` already exists — nothing to propose, the graph is already built (this keeps a re-run on an already-compliant repo a no-op, same as the rest of this phase). Otherwise, once installed, propose (don't auto-run) `graphify update .` (headless, AST-only, zero API cost) or `/graphify .`. After it runs, replace `{GRAPHIFY_VERSION}` in `docs/graph-usage.md` with the output of `graphify --version`.
+
+---
+
 ## Phase 6: Update README
 
 Check for `README.md`. If found, check whether it already contains `## AI Onboarding`. If not present, append the templates from `references/summary-checklist.md` → `## Phase 6 README Templates` (replace `{LINT}`, `{TYPECHECK}`, `{TEST}` with profile commands). If no `README.md` exists: skip this phase (do not create one).
@@ -402,6 +418,7 @@ the always-loaded budget unless you're editing those paths.
 - Next scaffold (Phase 0.5d) — only if `PROFILE=next` and no `next.config.*`; delegates to the `next-scaffold` skill (no clone, no embedded copy into the target). Same shape as nuxt-scaffold, not go/nodejs-scaffold — when `SCAFFOLDED`, do not overwrite the scaffold's `.vscode/settings.json` or pre-commit — overlay additively.
 - Knowledge Bundle (Phase 5.5) — opt-in only, decided once in Phase 1.5 (`KNOWLEDGE_BUNDLE`); skip entirely if declined. Never edit unknown CI config automatically — only note it's needed.
 - CI Config (Phase 5.6) — opt-in only, decided once in Phase 1.5 (`CI_PROVIDER`, auto-detected default); skip entirely if `no`. Only ever writes/overwrites CI files this skill generated; never edits pre-existing, hand-written CI config.
+- Graphify (Phase 5.7) — opt-in only, decided once in Phase 1.5 (`GRAPH`); skip entirely if declined. Never auto-runs the initial index — always proposed. Install prompting happens here only, never in a consuming skill.
 - All user-facing questions (profile ambiguity, harness conflicts, Knowledge Bundle, CI, foreign pre-commit hook) resolve before any file is written — see Phase 1.5.
 - Never delete files not part of the harness.
 - `.claude/harness-version` — written on every fresh/overwrite setup (Phase 5-3c) as a baseline for future patch runs; `new` mode only writes it if absent, since skipped pre-existing files may be older than the recorded version.
@@ -429,5 +446,6 @@ Read `references/summary-checklist.md` → `## Output Checklist` and verify ever
 - `references/hook-guard.md` — bash-guard.mjs, spec-gate-guard.mjs, injection-scan-guard.mjs, injection-gate-guard.mjs, session-resume-check.mjs, canary-seed.mjs scripts + pre-commit scripts per profile
 - `references/budget-gate.md` — context_budget.mjs script (context budget gate)
 - `references/knowledge-bundle.md` — optional Knowledge Bundle: rule file, spec, starter concept files, validator script
+- `references/graph.md` — optional Graphify: rule file, usage doc, install/gitignore contract
 - `references/ci.md` — optional CI config: GitHub Actions + GitLab CI templates per profile, plus the knowledge-validate step
 - `references/summary-checklist.md` — Phase 7 summary print template + Output Checklist

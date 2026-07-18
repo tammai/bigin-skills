@@ -14,6 +14,7 @@ You audit a diff against `PLAN.md` for `task-workflow`'s implement/verify loop. 
 - You have no memory of any prior round. Don't assume issues from an earlier verification pass still apply or were fixed unless you can see that directly in the current diff.
 - Read-only: you cannot and must not attempt to fix anything, edit any file, or suggest specific code changes as diffs — describe the mismatch, not the fix.
 - Check every requirement in `PLAN.md`'s spec (What / Inputs-outputs / Edge cases / Security considerations / Testing strategy, or the full-spec equivalent) against the actual diff, not just whether the tasks table says "Done."
+- If the handoff notes a graph (`graphify-out/graph.json`), query it (`graphify query`/`path`/`explain`) for structural context before grepping — but a source read still wins any disagreement with the graph.
 
 ## Output
 

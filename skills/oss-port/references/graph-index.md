@@ -46,7 +46,11 @@ frequently and past instructions go stale. At index time:
 3. Gitignore: `reference/` in the target's `.gitignore` (Phase 1) already
    covers the graph; add a root `graphify-out/` line too for the manifest
    stub. Writing `reference/graphify-out/` doesn't violate the read-only
-   rule — it's derived tool output, not a source edit.
+   rule — it's derived tool output, not a source edit. (This is scoped to
+   `reference/` only — the target/project repo has its own, opposite
+   Graphify policy, committing its own root `graphify-out/`; see
+   `bigin-harness-setup`'s `docs/graph-usage.md` template if that repo has
+   adopted it. The two policies don't conflict — different directories.)
 4. Record the graphify version actually installed (`graphify --version`) in
    `PORT/PARITY.md` (or the port log if that file doesn't exist yet) — a
    parity claim that depends on graph queries is only reproducible if the

@@ -14,7 +14,7 @@ Four phases, gated — do not start phase N+1 without phase N's output recorded.
 
 ## Phases
 
-1. **Root Cause Investigation.** Trace the failure backward through the call stack / request path. Add diagnostic logging at each component boundary crossed, explicit per layer:
+1. **Root Cause Investigation.** If the symptom names a function/handler/table and `graphify-out/graph.json` exists, query the graph for callers/callees/dependents first and read only the files it implicates — `INFERRED`/`AMBIGUOUS` edges on the suspect path are a pointer to a source read, not confirmation, before moving to phase 4. Trace the failure backward through the call stack / request path. Add diagnostic logging at each component boundary crossed, explicit per layer:
    - Nuxt composable → log inputs/outputs at the call site
    - Pinia / Pinia Colada store → log state before and after the action
    - API client → log the request payload and response
@@ -26,7 +26,7 @@ Four phases, gated — do not start phase N+1 without phase N's output recorded.
 
 3. **Hypothesis Testing.** State exactly one hypothesis, supported by evidence from phases 1–2. Test it with the smallest possible change — a disposable probe to confirm or refute, not a shippable fix. If wrong, discard the probe and return to phase 1 — do not stack a second hypothesis on an unconfirmed one.
 
-4. **Fix + Validation.** Implement only once root cause is confirmed. Validate with the actual failing test/repro now passing, plus a check that nothing adjacent broke. Show this validation output — don't claim it passed without showing it (same discipline as `write-tests` and `task-workflow`'s Verify step).
+4. **Fix + Validation.** Implement only once root cause is confirmed. Validate with the actual failing test/repro now passing, plus a check that nothing adjacent broke. Show this validation output — don't claim it passed without showing it (same discipline as `write-tests` and `task-workflow`'s Verify step). If code changed and `graphify-out/graph.json` exists, propose a graph rebuild (`graphify update .`) alongside that check.
 
 ## Escalation safeguard
 
@@ -36,3 +36,4 @@ After 3 failed fix attempts on the same issue: **stop and ask** — flag it as a
 
 - `references/race-conditions.md` — condition-based waiting instead of arbitrary timeouts, for timing-related bugs
 - `references/defense-in-depth.md` — after the fix, add validation at the layer that should have caught it originally
+- consumer repo's own `docs/graph-usage.md` (if this repo adopted Graphify via `bigin-harness-setup`) — query recipes for phase 1's graph-first lookup

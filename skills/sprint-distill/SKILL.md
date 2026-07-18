@@ -45,10 +45,11 @@ Turns a sprint's worth of merged work into `knowledge/` updates and `bigin-skill
 2. `git diff --stat SPRINT_START..HEAD -- knowledge/` (if `KB_MODE = full`) — concept files touched this sprint.
 3. Current `.claude/rules/*.md` — read so you don't re-propose a convention that's already documented.
 4. **Stale-rules scan**: for each file in `.claude/rules/` and `CLAUDE.md`, identify the most recent `git log` entry that touched it. Flag any file with no merged PR touching it in the 2 sprints since `SPRINT_START` as a deletion candidate. Output as a list: `{file} — last touched {date}, {N} sprints ago`.
+5. **If `graphify-out/graph.json` exists**: check whether any commit since the graph's last build touched an indexed path — if so, flag the graph as stale so Phase 2's checks run against a fresh rebuild. If `KB_MODE = full`, also check each concept file's referenced identifiers (functions/tables/routes it names) against `graph.json`; any that no longer resolve join Phase 2's stale-concept output with reason "symbol no longer in graph" (code-state expiry, not calendar).
 
-Have the subagent return: the commit titles/bodies, the `knowledge/` diff stat, and the stale-rules list — not raw `git log`/`git diff` output. This is a plain subagent delegation (Agent tool), not the skill-level `context: fork` frontmatter — only steps 1-4 need isolating, and `context: fork` would run the entire skill (including step 5's interactive question) as a subagent, where `AskUserQuestion` isn't available.
+Have the subagent return: the commit titles/bodies, the `knowledge/` diff stat, the stale-rules list, and (if a graph exists) the staleness flag + symbol-miss list — not raw `git log`/`git diff` output. This is a plain subagent delegation (Agent tool), not the skill-level `context: fork` frontmatter — only steps 1-5 need isolating, and `context: fork` would run the entire skill (including step 6's interactive question) as a subagent, where `AskUserQuestion` isn't available.
 
-5. **After the subagent returns**, ask the user directly (main conversation):
+6. **After the subagent returns**, ask the user directly (main conversation):
    ```
    Any out-of-repo material for this sprint? (meeting notes, transcripts, client
    docs — paste directly, or say none)
@@ -79,6 +80,7 @@ Proposals that just append without a corresponding compression are reclassified 
 **Stale-concept detection** (if `KB_MODE = full`, first-class output, not an afterthought):
 - Any concept file whose `resource:`/citation target appears in this sprint's diff, but the concept file itself wasn't updated — flag as possibly stale.
 - Any concept file unreachable from `knowledge/index.md` — flag (mirrors what `tools/knowledge_validate.mjs` warns on).
+- If a `graphify-out/graph.json` graph exists: Phase 1's symbol-miss list joins here with reason "symbol no longer in graph"; and any concept file whose content overlaps graph-extractable structure (call flow, dependency, schema shape) — flag as a deletion/merge candidate under the net-neutral rule above (this is the B1 sweep: structural facts belong in the graph, not restated in `knowledge/`). If Phase 1 flagged the graph itself as stale, propose a rebuild before trusting these checks, so knowledge updates and graph regeneration land together. This check is distill-only in v1 — `tools/knowledge_validate.mjs` stays unchanged until the false-positive rate is known. Negative test: this skill never writes into or reads `graphify-out/` as an update source, only compares symbol names already extracted by Phase 1's subagent.
 
 **Hard constraints while drafting** (non-negotiable, apply regardless of what a candidate learning suggests):
 - Concept files ≤ ~60 lines. Terse beats complete.

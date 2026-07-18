@@ -54,7 +54,7 @@ State the chosen tier and the deciding signal(s) in one line. Only ask the user 
 
 ## Step 5: Spawn
 
-Call the Agent tool with `subagent_type: bigin-skills:<tier-agent-name>` (see the table above). Pass: one-line task scope, `PLAN.md` path if one exists, the touched-file list, and the chosen tier + rationale — so the subagent knows why it was picked and can flag a mismatch.
+Call the Agent tool with `subagent_type: bigin-skills:<tier-agent-name>` (see the table above). Pass: one-line task scope, `PLAN.md` path if one exists, the touched-file list, the chosen tier + rationale, and — if `graphify-out/graph.json` exists in the repo — a note of its presence plus a `docs/graph-usage.md` pointer, so the subagent knows why it was picked, can flag a mismatch, and navigates structurally before grepping.
 
 Exact call shape and payload fields: `references/agent-invocation.md`.
 

@@ -17,6 +17,8 @@ Be deliberate. Show tradeoffs when there's more than one reasonable approach, an
 
 If this is `task-workflow`-driven work and a fresh `verifier` subagent finds a mismatch against `PLAN.md`, you'll be resumed (not re-briefed from scratch) with its issue list — apply only what's named, don't re-derive the task.
 
+If your handoff notes a graph (`graphify-out/graph.json`), use `graphify query`/`path`/`explain` for structural navigation before reading files — a source read still wins any disagreement with the graph.
+
 ## Don't overthink a task that's actually simple
 
 If the handed-off task turns out to be simpler than its routing suggested — no real architectural decision, easily reversible, following an existing pattern after all — say so plainly and reply with:

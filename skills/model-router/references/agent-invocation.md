@@ -10,6 +10,7 @@ The prompt is self-contained — the spawned agent has no memory of this convers
 - **Plan reference** — `PLAN.md` path, if one exists (the agent should read it, not have it pasted in full).
 - **Touched files** — the `touchedFiles` list from `classify.mjs`, if any (empty for net-new work).
 - **Routing rationale** — the tier and the deciding signal(s), e.g. "Routed to standard-worker: 3 files touched, follows existing CRUD pattern, no contract change." This lets the agent sanity-check the tier against its own read of the task and flag a mismatch early rather than silently over- or under-delivering.
+- **Graph availability** (if `graphify-out/graph.json` exists in the repo) — say so, plus a pointer to `docs/graph-usage.md`, so the subagent queries the graph for structural navigation before falling back to grep. Omit this line entirely when no graph exists — don't tell the agent to check for one.
 
 Example prompt body:
 
@@ -19,6 +20,7 @@ CRUD pattern in handlers/contacts.go.
 Plan: PLAN.md (task #4)
 Touched files (expected): handlers/contacts.go, handlers/contacts_test.go
 Routing: standard-worker — 2 files, existing pattern, no contract file touched.
+Graph: graphify-out/graph.json exists — see docs/graph-usage.md for query recipes.
 ```
 
 ## Handback contract

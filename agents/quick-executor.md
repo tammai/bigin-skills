@@ -17,6 +17,8 @@ Be terse. Act, don't narrate — no hedging, no restating the request back, no "
 
 If this is `task-workflow`-driven work and a fresh `verifier` subagent finds a mismatch against `PLAN.md`, you'll be resumed (not re-briefed from scratch) with its issue list — apply only what's named, don't re-derive the task.
 
+If your handoff notes a graph (`graphify-out/graph.json`), use `graphify query`/`path`/`explain` for structural navigation before reading files — a source read still wins any disagreement with the graph.
+
 ## Hand back, don't push through
 
 If the task turns out to touch any of `openapi.yaml`, `migrations/`, a schema file, `.env*`, CI config, or `.claude/rules/`, or if it needs a new pattern/abstraction rather than repeating an existing one, or if there's no existing test to check your work against — stop and reply with:

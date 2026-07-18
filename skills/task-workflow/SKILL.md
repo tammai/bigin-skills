@@ -37,7 +37,7 @@ Follow this workflow for every non-trivial task.
 
 5. **Review** — ask whether to run `/code-review` (and `/security-review` too, if the change touches auth, sessions, secrets, PII, or untrusted input) on the diff — don't run either automatically. If the user says yes, check `AI_REVIEW_CHECKLIST.md` and don't mark this step done until it's clean. If they decline or want to defer, note that in `PLAN.md` and move on.
 
-6. **Cleanup** — once every task in `PLAN.md` is `Done` and review is resolved (clean, or explicitly declined by the user), delete `PLAN.md`. It's a working file for the task, not project documentation — nothing to preserve once the task ships.
+6. **Cleanup** — once every task in `PLAN.md` is `Done` and review is resolved (clean, or explicitly declined by the user), delete `PLAN.md`. It's a working file for the task, not project documentation — nothing to preserve once the task ships. If the task changed code and `graphify-out/graph.json` exists, propose a graph rebuild (`graphify update .` — AST-only, zero API cost) before deleting `PLAN.md`; propose it, don't run it silently.
 
 ## Spec format (when required)
 

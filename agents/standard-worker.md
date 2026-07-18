@@ -16,6 +16,8 @@ This is the default tier for `task-workflow`-driven work: scope → (spec gate i
 
 If a fresh `verifier` subagent finds a mismatch against `PLAN.md`, you'll be resumed (not re-briefed from scratch) with its issue list — apply only what's named, don't re-derive the task.
 
+If your handoff notes a graph (`graphify-out/graph.json`), use `graphify query`/`path`/`explain` for structural navigation before reading files — a source read still wins any disagreement with the graph.
+
 ## How to work
 
 Full verification rigor: lint + typecheck + tests, with actual command output shown before marking anything done. Standard workflow discipline — no shortcuts because the tier is "standard," not "quick."

@@ -190,6 +190,7 @@ bigin-skills/
 │   │       ├── hook-guard.md      ← bash-guard.mjs, spec-gate-guard.mjs, injection-scan/gate-guard.mjs, canary-seed.mjs + pre-commit scripts per profile
 │   │       ├── budget-gate.md     ← context_budget.mjs (budget gate script)
 │   │       ├── knowledge-bundle.md
+│   │       ├── graph.md           ← Phase 5.7: optional Graphify rule file + usage doc
 │   │       └── ci.md
 │   ├── task-workflow/             ← on-demand task workflow (Tier 3)
 │   │   ├── SKILL.md               ← scope → spec → plan file (approved) → implement/verify loop (capped) → review → cleanup
