@@ -194,7 +194,7 @@ status: in-progress | complete
 
 ## Mid-workflow saves
 
-When session-handoff is triggered partway through another multi-step skill (`bigin-harness-setup`, `task-workflow`, `sprint-distill`), no per-skill schema is needed — record the in-progress step in plain language under "Current State" (e.g. "bigin-harness-setup: Phase 4 of 8, CLAUDE.md and .claude/rules/ written, enforcement gates not yet generated"). On resume, the target skill re-derives its actual progress from what's already on disk (which files exist, `PLAN.md`'s task table, etc.) rather than trusting a saved phase number — SESSION.md's job is pointing the user/agent back at where they left off, not being the source of truth for it.
+When session-handoff is triggered partway through another multi-step skill (`bigin-harness-setup`, `task-workflow`, `sprint-distill`, `oss-port`), no per-skill schema is needed — record the in-progress step in plain language under "Current State" (e.g. "bigin-harness-setup: Phase 4 of 8, CLAUDE.md and .claude/rules/ written, enforcement gates not yet generated"). On resume, the target skill re-derives its actual progress from what's already on disk (which files exist, `PLAN.md`'s task table, `PORT/PLAN.md`'s sprint table + `PORT/FEATURES.md` checkboxes for `oss-port`, etc.) rather than trusting a saved phase number — SESSION.md's job is pointing the user/agent back at where they left off, not being the source of truth for it.
 
 ---
 

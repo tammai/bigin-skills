@@ -12,7 +12,7 @@
     "model-router": { "group": "core", "summary": "Scores task complexity via a deterministic rubric and routes to quick-executor/standard-worker/deep-architect. Routes down as well as up." },
     "session-handoff": { "group": "handoff", "summary": "Saves session state (tasks, decisions, uncommitted changes) to SESSION.md and restores it on resume." },
     "nuxt-ui-figma-handoff": { "group": "handoff", "summary": "Turns a Nuxt UI Figma design handoff into code — theme tokens into main.css, component overrides into app.config.ts. Requires a Figma URL." },
-    "oss-port": { "group": "addon", "summary": "Reimplements an existing (often OSS) project into another stack via a gated spec-first workflow: license → inventory → contract → port → parity report." }
+    "oss-port": { "group": "addon", "summary": "Reimplements an existing (often OSS) project in another stack via a gated workflow: license → inventory → specs + contract → sprint plan → port → parity report." }
   },
   "agents": {
     "quick-executor": { "summary": "mechanical, single-file, low-risk tasks. Routed by `model-router`." },

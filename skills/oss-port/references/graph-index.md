@@ -15,7 +15,7 @@ API contract (`PORT/contract/`) and the black-box parity suite
 
 If a graph query and an actual source read ever disagree, the source read
 wins — the graph is a shortcut to the read, not a replacement for it. Phase 2
-and Phase 6 still require re-reading the actual source file before writing
+and Phase 7 still require re-reading the actual source file before writing
 FEATURES.md rows or porting a module.
 
 ## When to build the graph
@@ -56,7 +56,7 @@ frequently and past instructions go stale. At index time:
    parity claim that depends on graph queries is only reproducible if the
    tool version is pinned.
 
-## Using the graph (Phases 2–6)
+## Using the graph (Phases 2–7)
 
 If `reference/graphify-out/` exists, use it — don't fall back to blind grep
 for questions the graph answers directly. Commands default to
@@ -72,7 +72,7 @@ pass `--graph reference/graphify-out/graph.json`:
   database?"`-style questions to enumerate handlers, entry points, or
   dependents before reading.
 
-Phase 6 subagent briefs should mention the graph exists so a fresh subagent
+Phase 7 subagent briefs should mention the graph exists so a fresh subagent
 can use these commands to locate related reference code instead of
 re-discovering it by grep.
 
