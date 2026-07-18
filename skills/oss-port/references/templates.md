@@ -17,12 +17,13 @@
 | 2 | Password reset email flow | src/services/mail.js | ADAPT (SES → SMTP) | auth | [ ] | — |
 | 3 | Legacy XML export | src/export/xml.js | SKIP (user descoped) | — | [s] | — |
 
-The Module column is filled in at Phase 3a when rows are grouped into named
-modules; each named module gets a `PORT/spec/<module>.md`. SKIP'd rows get `—`.
+The Module column (here and on the Data model table below) is filled in at
+Phase 3a when rows are grouped into named modules; each named module gets a
+`PORT/spec/<module>.md`. SKIP'd rows get `—`.
 
 ## Data model
-| Entity | Fields/constraints of note | Relations | Rating | Status |
-|--------|---------------------------|-----------|--------|--------|
+| Entity | Fields/constraints of note | Relations | Rating | Module | Status |
+|--------|---------------------------|-----------|--------|--------|--------|
 
 ## Business rules
 One row per rule that is NOT obvious from the entry-point table — validation
@@ -66,12 +67,17 @@ don't duplicate them here.
 ## Business rules
 Exact thresholds, permission conditions, state transitions, calculations —
 quoted from source with reference/ file:line. These are what drift first.
+This supersedes FEATURES.md's terser Business rules entry for the same
+row(s) if the two ever disagree — this section comes from a dedicated
+re-read of the source, FEATURES.md's was a first-pass summary.
 
 ## Edge cases & error behavior
 Bad input, conflicts, empty states — the behaviors parity tests must pin.
 
 ## Side effects
-Emails, queues, jobs, file writes — payloads and timing.
+Emails, queues, jobs, file writes — payloads and timing. Same authority
+rule as Business rules above: this supersedes FEATURES.md's entry if the
+two disagree.
 
 ## Target adaptations
 ADAPT-rated rows only: what changes vs. source and why. The only

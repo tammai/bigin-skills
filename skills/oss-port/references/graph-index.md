@@ -56,7 +56,7 @@ frequently and past instructions go stale. At index time:
    parity claim that depends on graph queries is only reproducible if the
    tool version is pinned.
 
-## Using the graph (Phases 2–6)
+## Using the graph (Phases 2–7)
 
 If `reference/graphify-out/` exists, use it — don't fall back to blind grep
 for questions the graph answers directly. Commands default to
