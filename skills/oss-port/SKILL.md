@@ -42,12 +42,12 @@ Phases 0–4 are analysis only — write no target code before the plan gate pas
 
 A port can span many sessions with no conversation memory carried between them. Before starting any work, check whether `PORT/` already exists in the target repo — if so, this is a resume, not a fresh start:
 
-1. Read `PORT/PLAN.md` first — the sprint/module tables say which sprint is in flight and which module is next.
-2. Read `PORT/FEATURES.md` for row-level status within the in-progress module. Checked-off rows are done — FEATURES.md is authoritative here: if a module's rows are all checked but PLAN.md's Status doesn't say Done, correct PLAN.md's Status to match rather than treating it as ambiguous.
-3. Read `PORT/PATTERNS.md`, `PORT/spec/`, and `PORT/contract/` if present — those gates are already locked, don't re-derive or re-litigate them.
+1. Read `PORT/PLAN.md` first, if it exists — the sprint/module tables say which sprint is in flight and which module is next.
+2. Read `PORT/FEATURES.md` for row-level status. It is authoritative for module done-ness in both directions: if a module's rows are all checked but PLAN.md's Status doesn't say Done, correct PLAN.md's Status to Done; if PLAN.md's Status says Done or In progress but the module's rows aren't all checked, correct PLAN.md's Status back down to match FEATURES.md instead. Either direction is a mechanical correction, not the kind of disagreement that needs a user question.
+3. Read `PORT/PATTERNS.md`, the in-flight module's `PORT/spec/<module>.md`, and `PORT/contract/` if present — those gates are already locked, don't re-derive or re-litigate them.
 4. Only ask the user what's in progress if the disk artifacts disagree or are ambiguous (e.g. a module edited with no checkbox either way) — don't rely on conversation history to reconstruct state; a new session has none.
 
-**If `PORT/` exists with a FEATURES.md but no PLAN.md** (port started under an older skill version): offer the user a choice — backfill the Phase 3–4 artifacts (specs + plan) for the remaining modules, or continue on FEATURES.md checkboxes alone.
+**If `PORT/` exists with a FEATURES.md but no PLAN.md**, check `PORT/spec/` before assuming why: partial `PORT/spec/<module>.md` files present means this is a current-version port resuming mid-Phase-3a — cross-check FEATURES.md's `Module` column against which modules already have a spec, finish the rest, then continue to Phase 4. No `PORT/spec/` at all means the port started under an older skill version: offer the user a choice — backfill the Phase 3–4 artifacts (specs + plan) for the remaining modules, or continue on FEATURES.md checkboxes alone.
 
 ## Phase 0 — License & scope
 
@@ -148,7 +148,7 @@ Never batch multiple modules into one subagent call "to save time" — behavior 
 
 ## Phase 8 — Parity report
 
-Produce `PORT/PARITY.md`: per feature in FEATURES.md — ported/adapted/skipped, covering test, and any known behavioral differences (there are always some: error message wording, timestamp precision, sort stability). Deliberate differences are fine; undocumented ones are bugs. The summary also confirms every PLAN.md sprint is Done — an unfinished sprint means the report is premature.
+Produce `PORT/PARITY.md`: per feature in FEATURES.md — ported/adapted/skipped, covering test, and any known behavioral differences (there are always some: error message wording, timestamp precision, sort stability). Where a module has a `PORT/spec/<module>.md`, its Business rules and Side effects sections supersede FEATURES.md's terser entry for the same rows (see `references/templates.md`) — check the spec, not just FEATURES.md, before writing up a feature's behavior. Deliberate differences are fine; undocumented ones are bugs. The summary also confirms every PLAN.md sprint is Done — an unfinished sprint means the report is premature.
 
 If a shared black-box suite exists, run it against both implementations and include the results.
 

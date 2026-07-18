@@ -108,7 +108,10 @@ SKIP'd rows, deferred behavior.
 |---|--------|------|--------|------------|--------|-------|
 | 1 | auth | PORT/spec/auth.md | 1 | — | Not started | |
 
-Statuses: Not started · In progress · Done · Blocked
+Statuses: Not started · In progress · Done · Blocked (same vocabulary as
+`task-workflow`'s PLAN.md, chosen deliberately for consistency across
+sprint/task trackers — distinct from FEATURES.md's own checkbox legend
+above, which tracks rows, not modules/sprints).
 A module is Done only when all its FEATURES.md rows are checked and its
 Phase 7 gate passed. Deferred-spec sprints carry a "write + approve specs"
 row before their first module row.
