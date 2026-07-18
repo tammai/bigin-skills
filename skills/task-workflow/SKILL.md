@@ -33,7 +33,7 @@ Follow this workflow for every non-trivial task.
    4. **Round cap hit** — stop looping. Show the user the latest issues list and ask whether to adjust `PLAN.md`, raise the cap, or take over manually. Do not proceed to Review.
    5. **On `PASS`** — continue to Review below. The implementer is responsible for lint + typecheck + tests passing before it ever reports a diff as ready — the verifier's job is auditing against `PLAN.md`, not re-running the test suite. Show the actual command output in your response before flipping any `PLAN.md` task row to `Done` — a claim that tests pass without the output showing it doesn't count.
 
-   For any new test files, follow the `write-tests` skill's discipline (style-matching, no unnecessary mocking, TDD ordering for business logic). For bug fixes specifically, use the `debug-workflow` skill's four-phase process instead of ad-hoc trial and error.
+   For any new test files, follow the `write-tests` skill's discipline (style-matching, no unnecessary mocking, TDD ordering for business logic). For bug fixes specifically, use the `debug-workflow` skill's triage + guardrails (fast path for obvious bugs, full workflow for flaky/env/repeat failures) instead of ad-hoc trial and error.
 
 5. **Review** — ask whether to run `/code-review` (and `/security-review` too, if the change touches auth, sessions, secrets, PII, or untrusted input) on the diff — don't run either automatically. If the user says yes, check `AI_REVIEW_CHECKLIST.md` and don't mark this step done until it's clean. If they decline or want to defer, note that in `PLAN.md` and move on.
 

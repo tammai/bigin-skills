@@ -193,6 +193,15 @@ Prepend `paths: ["**/*.go"]` as YAML frontmatter when writing `architecture.md` 
         ]
       },
       {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/guards/bugfix-test-guard.mjs"
+          }
+        ]
+      },
+      {
         "matcher": "Edit|Write|MultiEdit",
         "hooks": [
           {

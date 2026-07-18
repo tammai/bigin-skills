@@ -5,6 +5,109 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.43.0] - 2026-07-18
+
+### Added
+
+- **`bugfix-test-guard.mjs` — every bug fix now ships a regression test, enforced at commit time instead of by prose.** Team feedback on `debug-workflow` was that it "can't see any difference" vs free-form prompting — expected, since the model already debugs systematically by default; a prose workflow restating default competence has near-zero marginal value. The fix is structural: move the skill's one genuinely non-default requirement (a bug fix leaves a regression test behind) out of prose and into a deterministic `PreToolUse` gate, same pattern as `bash-guard.mjs`/`spec-gate-guard.mjs`. It inspects `git commit` commands with a fix-shaped message (conventional-commit `fix:`/`fix(scope):`/`fix!:`, or `bugfix`/`hotfix` anywhere) and blocks (exit 2) unless a staged file matches a test pattern, all staged files are docs/config (same trivial allowlist as `spec-gate-guard.mjs`), or the message contains an explicit `[no-test]` override. Applies to all four profiles.
+
+  ```patch
+  target: .claude/guards/bugfix-test-guard.mjs
+  mode: create-if-missing
+  ---
+  #!/usr/bin/env node
+  // Blocks fix-shaped `git commit`s that include no test file — every bug fix ships a regression test.
+  // Claude Code PreToolUse hook — reads tool input from stdin, exits 2 to block.
+  import { execSync } from 'node:child_process'
+  import { readFileSync } from 'node:fs'
+
+  const data = JSON.parse(readFileSync(0, 'utf-8'))
+  const command = data?.tool_input?.command ?? ''
+
+  // Detect `git commit` outside quoted strings (same scrub bash-guard.mjs uses).
+  const scrubbed = command.replace(/'[^']*'/g, "''").replace(/"[^"]*"/g, '""')
+  if (!/\bgit\s+commit\b/.test(scrubbed)) process.exit(0)
+
+  // Extract the commit message from -m/--message. No parsable message → can't judge → allow.
+  const msgMatch =
+    command.match(/(?:-m|--message)(?:=|\s+)"([^"]*)"/) ??
+    command.match(/(?:-m|--message)(?:=|\s+)'([^']*)'/)
+  if (!msgMatch) process.exit(0)
+  const message = msgMatch[1]
+
+  // Explicit override: [no-test] in the message (state the reason next to it).
+  if (message.includes('[no-test]')) process.exit(0)
+
+  // Fix-shaped: conventional-commit fix prefix (any line), or bugfix/hotfix anywhere.
+  if (!/^\s*fix(\([^)]*\))?!?:/im.test(message) && !/\b(bugfix|hotfix)\b/i.test(message)) process.exit(0)
+
+  // Files this commit will include: staged, plus tracked-modified when -a/--all is used.
+  let files = []
+  try {
+    files = execSync('git diff --cached --name-only', { encoding: 'utf-8' }).split('\n')
+    if (/\s(-[a-z]*a[a-z]*|--all)(\s|$)/.test(scrubbed)) {
+      files = files.concat(execSync('git diff --name-only', { encoding: 'utf-8' }).split('\n'))
+    }
+  } catch {
+    process.exit(0) // not a git repo / git unavailable — never block on guard failure
+  }
+  files = files.map(f => f.trim()).filter(Boolean)
+  if (files.length === 0) process.exit(0)
+
+  const TEST_PATTERNS = [
+    /\.test\.[^/\\]+$/i,
+    /\.spec\.[^/\\]+$/i,
+    /_test\.go$/,
+    /(^|[/\\])tests?[/\\]/i,
+    /(^|[/\\])__tests__[/\\]/
+  ]
+  if (files.some(f => TEST_PATTERNS.some(p => p.test(f)))) process.exit(0)
+
+  // Docs/config-only fixes have no runtime surface to test — same allowlist as spec-gate-guard.mjs.
+  const TRIVIAL_PATTERNS = [
+    /\.md$/i,
+    /\.env\.example$/i,
+    /(^|[/\\])(\.eslintrc(\.\w+)?|eslint\.config\.\w+|\.prettierrc(\.\w+)?|prettier\.config\.\w+|tsconfig(\.\w+)?\.json|vite\.config\.\w+|vitest\.config\.\w+|nuxt\.config\.\w+|\.editorconfig|\.gitignore|\.npmrc)$/i
+  ]
+  if (files.every(f => TRIVIAL_PATTERNS.some(p => p.test(f)))) process.exit(0)
+
+  console.error(
+    'Error: fix commit with no test file included. Every bug fix ships a regression test (see the debug-workflow skill). Stage a test covering the bug, or add [no-test] to the commit message with the reason.'
+  )
+  process.exit(2)
+  ```
+
+  ```patch
+  target: .claude/settings.json
+  anchor: "command": "node .claude/guards/bash-guard.mjs"
+          }
+        ]
+      },
+  insert: after
+  ---
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/guards/bugfix-test-guard.mjs"
+          }
+        ]
+      },
+  ```
+
+### Changed
+
+- **`debug-workflow` rewritten: triage first, then the smallest process that fits the bug.** Replaces the previous uniform four-phase gate (root cause → pattern analysis → hypothesis testing → fix + validation) applied to every bug regardless of difficulty. New shape: a **triage** step routes flaky/timing, cross-environment, production-incident, repeat-failed-fix, or still-unclear-after-reading-the-code cases into the **full workflow**; everything else takes a **fast path** (reproduce → fix → show validation → add a regression test if missing). The full workflow keeps only the guards that don't happen by default: a repro-before-hypothesizing gate, one hypothesis at a time with **pre-registered pass/fail criteria for the probe** (closes the "symptom disappeared but cause unconfirmed" gap), ≥5 repeated runs for timing bugs, and a **prevention step promoted from afterthought to required output** (regression test + defense-in-depth validation). All existing trigger phrases (including the Vietnamese ones) are unchanged. `references/race-conditions.md` and `references/defense-in-depth.md` are unchanged and still linked.
+
+  ```patch
+  target: CLAUDE.md
+  anchor: For bug fixes specifically, use the `debug-workflow` skill's four-phase process instead of ad-hoc trial and error.
+  insert: replace
+  ---
+  For bug fixes specifically, use the `debug-workflow` skill's triage + guardrails (fast path for obvious bugs, full workflow for flaky/env/repeat failures) instead of ad-hoc trial and error.
+  ```
+
 ## [1.42.0] - 2026-07-18
 
 ### Added

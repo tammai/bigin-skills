@@ -8,7 +8,7 @@
     "nodejs-scaffold": { "group": "core", "summary": "Scaffolds a production-ready Node.js REST API — contract-first (openapi-typescript + Drizzle), Fastify, Postgres. Runs codegen + lint/typecheck/test itself." },
     "sprint-distill": { "group": "core", "summary": "End-of-sprint distillation: merged PRs + touched knowledge/ concepts → proposal-first knowledge/ and bigin-skills updates. Compresses, never just appends." },
     "write-tests": { "group": "core", "summary": "On-demand test authoring (/write-tests): style-matches the nearest test file, lists edge cases first, TDD-orders logic, mocks only true I/O boundaries." },
-    "debug-workflow": { "group": "core", "summary": "On-demand systematic debugging (/debug-workflow): root cause → pattern analysis → hypothesis testing → fix + validation. For untracked bugs/incidents." },
+    "debug-workflow": { "group": "core", "summary": "On-demand systematic debugging (/debug-workflow): triage → fast path for obvious bugs, full guarded workflow for flaky/env/repeat-failure bugs." },
     "model-router": { "group": "core", "summary": "Scores task complexity via a deterministic rubric and routes to quick-executor/standard-worker/deep-architect. Routes down as well as up." },
     "session-handoff": { "group": "handoff", "summary": "Saves session state (tasks, decisions, uncommitted changes) to SESSION.md and restores it on resume." },
     "nuxt-ui-figma-handoff": { "group": "handoff", "summary": "Turns a Nuxt UI Figma design handoff into code — theme tokens into main.css, component overrides into app.config.ts. Requires a Figma URL." },

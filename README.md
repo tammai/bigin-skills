@@ -24,7 +24,7 @@ The harness itself — setup, workflow, and maintenance for a repo under standar
 | **nodejs-scaffold**     | Scaffolds a production-ready Node.js REST API — contract-first (openapi-typescript + Drizzle), Fastify, Postgres. Runs codegen + lint/typecheck/test itself. |
 | **sprint-distill**      | End-of-sprint distillation: merged PRs + touched knowledge/ concepts → proposal-first knowledge/ and bigin-skills updates. Compresses, never just appends.   |
 | **write-tests**         | On-demand test authoring (/write-tests): style-matches the nearest test file, lists edge cases first, TDD-orders logic, mocks only true I/O boundaries.      |
-| **debug-workflow**      | On-demand systematic debugging (/debug-workflow): root cause → pattern analysis → hypothesis testing → fix + validation. For untracked bugs/incidents.       |
+| **debug-workflow**      | On-demand systematic debugging (/debug-workflow): triage → fast path for obvious bugs, full guarded workflow for flaky/env/repeat-failure bugs.              |
 | **model-router**        | Scores task complexity via a deterministic rubric and routes to quick-executor/standard-worker/deep-architect. Routes down as well as up.                    |
 <!-- /gen:skills-core -->
 
@@ -97,6 +97,7 @@ your-repo/
 │   ├── guards/
 │   │   ├── bash-guard.mjs               ← blocks --no-verify and force-push to main
 │   │   ├── spec-gate-guard.mjs          ← blocks non-trivial edits before PLAN.md is approved
+│   │   ├── bugfix-test-guard.mjs        ← blocks fix-shaped commits with no staged regression test
 │   │   ├── injection-scan-guard.mjs     ← flags likely prompt-injection markers in fetched content
 │   │   ├── injection-gate-guard.mjs     ← asks for confirmation after a flag; denies outright on a canary-token match
 │   │   ├── session-resume-check.mjs     ← SessionStart hook: prompts to resume an in-progress SESSION.md
@@ -126,6 +127,7 @@ The skill detects the stack profile (or asks), confirms before overwriting anyth
 - **`scripts/pre-commit.sh`** — runs lint + typecheck + tests; fails closed. The skill installs it as a git hook (and `git init`s the repo if needed).
 - **`.claude/guards/bash-guard.mjs`** — a `PreToolUse` hook that blocks the agent from weakening its own gates (`--no-verify`, `git commit -n`, force-push to main). `--force-with-lease` on a feature branch is allowed.
 - **`.claude/guards/spec-gate-guard.mjs`** — a `PreToolUse` hook that blocks non-trivial `Edit`/`Write`/`MultiEdit` calls until `PLAN.md` exists with `Status: approved`. Trivial paths (`tests/**`, `*.md`, `.env.example`, common config files) and edits ≤20 lines are exempt.
+- **`.claude/guards/bugfix-test-guard.mjs`** — a `PreToolUse` hook that blocks fix-shaped `git commit`s (conventional `fix:`, or `bugfix`/`hotfix`) unless a staged file matches a test pattern, all staged files are docs/config, or the message contains `[no-test]`. Enforces `debug-workflow`'s regression-test requirement deterministically instead of by prose.
 - **`.claude/guards/injection-scan-guard.mjs` + `.claude/guards/injection-gate-guard.mjs`** — a three-stage prompt-injection defense (inspired by Lasso Security's PostToolUse Defender). The scan guard (`PostToolUse`, stage 1) heuristically checks `WebFetch`/`mcp__*` responses and `curl`/`wget` Bash output for injected instructions and flags a session-scoped marker; the gate guard (`PreToolUse`, stage 2) asks for confirmation on the next risky `Bash`/`Write`/`Edit`/`WebFetch`/`mcp__*` call if that flag is still fresh (5-minute window), then clears it.
 - **`.claude/guards/canary-seed.mjs`** — a `SessionStart` hook that seeds a per-session random token and instructs the model never to reproduce it. `injection-gate-guard.mjs`'s stage 3 denies (not asks) any tool call whose input contains that token — a per-session UUID has zero legitimate reason to appear anywhere, so this is a hard block rather than a confirmation.
 - **`.claude/guards/session-resume-check.mjs`** — a `SessionStart` hook that deterministically injects a resume-prompt reminder when `.claude/memory/SESSION.md` has `status: in-progress`, instead of relying on CLAUDE.md prose alone.
@@ -187,7 +189,7 @@ bigin-skills/
 │   │       ├── profile-nodejs.md
 │   │       ├── files-shared.md    ← security, architecture, task guide, review checklist, paths substitutions
 │   │       ├── patch-mode.md      ← Phase 1a: version diffing + CHANGELOG patch-block application
-│   │       ├── hook-guard.md      ← bash-guard.mjs, spec-gate-guard.mjs, injection-scan/gate-guard.mjs, canary-seed.mjs + pre-commit scripts per profile
+│   │       ├── hook-guard.md      ← bash-guard.mjs, spec-gate-guard.mjs, bugfix-test-guard.mjs, injection-scan/gate-guard.mjs, canary-seed.mjs + pre-commit scripts per profile
 │   │       ├── budget-gate.md     ← context_budget.mjs (budget gate script)
 │   │       ├── knowledge-bundle.md
 │   │       ├── graph.md           ← Phase 5.7: optional Graphify rule file + usage doc
@@ -237,7 +239,7 @@ bigin-skills/
 │   │   ├── SKILL.md               ← style-match, scope, edge cases, TDD ordering, no over-mocking
 │   │   └── evals/evals.json
 │   ├── debug-workflow/            ← on-demand systematic debugging (Tier 3)
-│   │   ├── SKILL.md               ← four gated phases: root cause → pattern → hypothesis → fix+validation
+│   │   ├── SKILL.md               ← triage → fast path (obvious bugs) or full guarded workflow (flaky/env/repeat failures)
 │   │   ├── references/
 │   │   │   ├── race-conditions.md   ← condition-based waiting vs arbitrary timeouts
 │   │   │   └── defense-in-depth.md  ← add validation at the layer that should've caught it

@@ -64,6 +64,7 @@ Created:
   .claude/rules/conventions.md    [go/nodejs only] (paths: scoped to source dir)
   .claude/guards/bash-guard.mjs
   .claude/guards/spec-gate-guard.mjs
+  .claude/guards/bugfix-test-guard.mjs
   .claude/guards/injection-scan-guard.mjs
   .claude/guards/injection-gate-guard.mjs
   .claude/guards/session-resume-check.mjs
@@ -115,6 +116,7 @@ Next steps:
 - [ ] `scripts/pre-commit.sh` — lint + typecheck + test + context budget check, executable
 - [ ] `.claude/guards/bash-guard.mjs` — blocks `--no-verify` and force-push to main
 - [ ] `.claude/guards/spec-gate-guard.mjs` — blocks non-trivial edits until `PLAN.md` is approved
+- [ ] `.claude/guards/bugfix-test-guard.mjs` — blocks fix-shaped commits with no staged test file
 - [ ] `.claude/guards/injection-scan-guard.mjs` — flags likely prompt-injection markers in WebFetch/mcp__/curl-wget Bash output
 - [ ] `.claude/guards/injection-gate-guard.mjs` — asks for confirmation before the next risky tool call after a fresh flag
 - [ ] `.claude/guards/session-resume-check.mjs` — SessionStart hook, injects a resume prompt when SESSION.md has status: in-progress

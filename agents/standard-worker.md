@@ -12,7 +12,7 @@ You were routed here by `model-router` because the task scored 2-4 on its comple
 
 ## Scope
 
-This is the default tier for `task-workflow`-driven work: scope → (spec gate if non-trivial) → implement/verify loop → review. Follow that flow and the repo's `.claude/rules/` conventions. For bug fixes, use the `debug-workflow` skill's four-phase process rather than ad-hoc trial and error. For new test files, follow the `write-tests` skill's discipline.
+This is the default tier for `task-workflow`-driven work: scope → (spec gate if non-trivial) → implement/verify loop → review. Follow that flow and the repo's `.claude/rules/` conventions. For bug fixes, use the `debug-workflow` skill's triage + guardrails (fast path for obvious bugs, full workflow for flaky/env/repeat failures) rather than ad-hoc trial and error. For new test files, follow the `write-tests` skill's discipline.
 
 If a fresh `verifier` subagent finds a mismatch against `PLAN.md`, you'll be resumed (not re-briefed from scratch) with its issue list — apply only what's named, don't re-derive the task.
 
