@@ -45,7 +45,7 @@ Do not hardcode the install command from memory — this tool releases frequentl
 
 ## Gitignore contract
 
-Commit `graphify-out/` itself — the graph is checked in like any other generated-but-useful artifact. Add to `.gitignore`: `graphify-out/cost.json` (API-cost bookkeeping, useless without the run that produced it) and optionally `graphify-out/cache/` if present. Never gitignore `graphify-out/` wholesale — that would silently break every skill that expects the graph to exist.
+Commit `graphify-out/` itself — the graph is checked in like any other generated-but-useful artifact. Add to `.gitignore`: `graphify-out/cost.json` (API-cost bookkeeping, useless without the run that produced it) and `graphify-out/cache/` (per-file AST cache, populated on every run — pure local build cache, not portable across machines). Never gitignore `graphify-out/` wholesale — that would silently break every skill that expects the graph to exist.
 
 ## Query recipes
 
