@@ -44,9 +44,9 @@ Add-ons for a specific cross-role handoff (e.g. designer → developer). Not req
 Opt-in capabilities that aren't tied to a cross-role handoff or the core harness workflow — standalone, invoked only when the specific need comes up.
 
 <!-- gen:skills-addon -->
-| Skill        | Purpose                                                                                                                                                 |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **oss-port** | Reimplements an existing (often OSS) project into another stack via a gated spec-first workflow: license → inventory → contract → port → parity report. |
+| Skill        | Purpose                                                                                                                                                          |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **oss-port** | Reimplements an existing (often OSS) project in another stack via a gated workflow: license → inventory → specs + contract → sprint plan → port → parity report. |
 <!-- /gen:skills-addon -->
 
 ---
@@ -263,9 +263,9 @@ bigin-skills/
 │   │   │   └── generate_color_scale.mjs ← fills in a 50-950 ramp from one brand swatch
 │   │   └── evals/evals.json
 │   └── oss-port/                  ← Addon Skills (opt-in, standalone)
-│       ├── SKILL.md               ← license check → FEATURES.md → contract → scaffold → vertical slice → module port → PARITY.md
+│       ├── SKILL.md               ← license check → FEATURES.md → specs + contract → PLAN.md sprints → scaffold → vertical slice → module port → PARITY.md
 │       └── references/
-│           ├── templates.md       ← FEATURES.md / PARITY.md templates
+│           ├── templates.md       ← FEATURES.md / spec / PLAN.md / PARITY.md templates
 │           ├── parity-testing.md  ← black-box suite against both implementations
 │           ├── idiom-translation.md ← per-stack-pair transliteration traps
 │           └── graph-index.md     ← optional graphify graph of the reference/ repo (user opts in)

@@ -12,7 +12,7 @@ General rules (any pair):
   have that race, the mutex is not a feature.
 - Source-stack utility layers (their homegrown lodash, their result-wrapper)
   do not get ported. Target-stack equivalents or nothing.
-- Error-handling style, logging style, and test style come from the Phase 5
+- Error-handling style, logging style, and test style come from the Phase 6
   vertical slice — never from the source.
 
 ## JS/TS (Express/Nest) → Go
@@ -36,13 +36,13 @@ General rules (any pair):
 | decorators for validation | decorator emulation | schema validation at the boundary (e.g. TypeBox/zod) per team standard |
 | sync blocking code | wrapping everything in `Promise.resolve` | genuinely async I/O; CPU-bound work stays sync or moves to workers |
 | module-level singletons | mutable module globals | explicit construction/injection at the composition root |
-| exceptions for control flow | throw/catch business logic | typed results or thrown errors per the Phase 5 pattern — one, consistently |
+| exceptions for control flow | throw/catch business logic | typed results or thrown errors per the Phase 6 pattern — one, consistently |
 
 ## Go → TS, TS → Python, others
 
-Same method: list the source's load-bearing patterns during Phase 5, decide
+Same method: list the source's load-bearing patterns during Phase 6, decide
 the target-native equivalent for each, write the mapping table into
-`PORT/PATTERNS.md`, and hold every Phase 6 module to it. If a
+`PORT/PATTERNS.md`, and hold every Phase 7 module to it. If a
 pattern has no clean target equivalent, that's an ADAPT item in FEATURES.md
 with the difference recorded — not a silent improvisation.
 
