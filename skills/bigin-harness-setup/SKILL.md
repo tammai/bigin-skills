@@ -292,7 +292,7 @@ Read from `references/hook-guard.md` → `## injection-scan-guard.mjs` and `## i
 
 ### 5-2d. Session resume check (deterministic resume prompt)
 
-Read from `references/hook-guard.md` → `## session-resume-check.mjs`. Write to `.claude/guards/session-resume-check.mjs`. Applies to all profiles — replaces the previous CLAUDE.md-prose-only "check for SESSION.md on session start" instruction with a `SessionStart` hook.
+Read from `references/hook-guard.md` → `## session-resume-check.mjs`. Write to `.claude/guards/session-resume-check.mjs`. Applies to all profiles — replaces the previous CLAUDE.md-prose-only "check for SESSION.md on session start" instruction with a `SessionStart` hook. If `graphify-out/graph.json` exists, this same hook also surfaces its presence and freshness (a cheap `git log` comparison against everything outside `graphify-out/`) — this is the mechanism for the graphify freshness-warn behavior; it runs here, once per session, rather than as a `Stop` hook, since `Stop` hooks can only force continuation (`decision: "block"`) or stay silent — there's no documented non-blocking, user-visible `Stop` output.
 
 ### 5-2e. Canary exfiltration seed (stage 3 of the injection gate)
 

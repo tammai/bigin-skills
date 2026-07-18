@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.42.0] - 2026-07-18
+
+### Added
+
+- **Graphify freshness-warn (R7) and session-resume presence hint (R8), pulled forward from the original spec's P1/v1.42+ deferral.** Both land as one extension of the existing `session-resume-check.mjs` `SessionStart` hook rather than as separate mechanisms: the spec's working title "verify-gate/Stop-hook" for R7 doesn't hold up against Claude Code's real hook API — a `Stop` hook can only force continuation (`decision: "block"`) or stay silent, there is no documented non-blocking, user-visible `Stop` output (confirmed against the actual hooks documentation before implementing, rather than guessing a schema that would've silently done nothing). `SessionStart` was already this harness's precedent for exactly this shape of warning (the existing SESSION.md-resume prompt uses the same `additionalContext` mechanism), fires once per session rather than on every turn, and needed no new hook wiring. When `graphify-out/graph.json` exists, the hook now runs one cheap `git log -1 -- graphify-out/graph.json` to find the graph's last-build commit, then `git log <that-commit>..HEAD -- . ':(exclude)graphify-out'` to check whether anything outside `graphify-out/` has landed since — changes to `graphify-out/` itself (cache, report regen) are correctly excluded and don't count as staleness, verified directly against this repo's own git history before shipping. Three states surface: up to date, N commits behind (propose a rebuild, never auto-run), or graph present but not yet committed. No graph at all — the existing degrade-silently behavior — produces no output at all, same as always. Validated end-to-end in a scratch repo across five scenarios (fresh, stale, `graphify-out`-only change correctly ignored, uncommitted graph, no graph) before merging into `references/hook-guard.md`.
+
 ## [1.41.0] - 2026-07-18
 
 ### Added
