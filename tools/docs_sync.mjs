@@ -143,7 +143,6 @@ const REGIONS = [
   { name: "gen:agents-table", file: "CLAUDE.md", render: agentsTable },
   { name: "gen:skills-core", file: "README.md", render: () => skillsGroupTable("core") },
   { name: "gen:skills-handoff", file: "README.md", render: () => skillsGroupTable("handoff") },
-  { name: "gen:skills-addon", file: "README.md", render: () => skillsGroupTable("addon") },
 ];
 
 // --- marker replacement ---

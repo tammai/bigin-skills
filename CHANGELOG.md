@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.45.0] - 2026-07-18
+
+### Removed
+
+- **`oss-port` removed entirely.** The skill (`SKILL.md` + all four `references/` files — `templates.md`, `parity-testing.md`, `idiom-translation.md`, `graph-index.md`) is deleted, along with every cross-reference: its `Addon Skills` group in `CLAUDE.md`/`README.md` (auto-regenerated via `tools/docs_sync.mjs` after removing its entry from `tools/docs-manifest.json`, which also drops the now-empty `addon` group and its `gen:skills-addon` region from `docs_sync.mjs` itself), the README repo-tree entry, `session-handoff`'s mid-workflow-saves list and its `PORT/PLAN.md`/`FEATURES.md` example, and the oss-port-specific keywords (`oss-port`, `code-porting`, `repo-clone`, `license-check`, `parity-testing`, `vertical-slice`, `idiom-translation`) plus porting mentions in both `plugin.json`'s and `marketplace.json`'s descriptions. `graphify`-related keywords are kept — `graphify` is no longer oss-port-specific as of v1.41.0's generalization into a project-repo convention.
+
 ## [1.44.0] - 2026-07-18
 
 ### Added

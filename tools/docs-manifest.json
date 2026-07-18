@@ -11,8 +11,7 @@
     "debug-workflow": { "group": "core", "summary": "On-demand systematic debugging (/debug-workflow): triage → fast path for obvious bugs, full guarded workflow for flaky/env/repeat-failure bugs." },
     "model-router": { "group": "core", "summary": "Scores task complexity via a deterministic rubric and routes to quick-executor/standard-worker/deep-architect. Routes down as well as up." },
     "session-handoff": { "group": "handoff", "summary": "Saves session state (tasks, decisions, uncommitted changes) to SESSION.md and restores it on resume." },
-    "nuxt-ui-figma-handoff": { "group": "handoff", "summary": "Turns a Nuxt UI Figma design handoff into code — theme tokens into main.css, component overrides into app.config.ts. Requires a Figma URL." },
-    "oss-port": { "group": "addon", "summary": "Reimplements an existing (often OSS) project in another stack via a gated workflow: license → inventory → specs + contract → sprint plan → port → parity report." }
+    "nuxt-ui-figma-handoff": { "group": "handoff", "summary": "Turns a Nuxt UI Figma design handoff into code — theme tokens into main.css, component overrides into app.config.ts. Requires a Figma URL." }
   },
   "agents": {
     "quick-executor": { "summary": "mechanical, single-file, low-risk tasks. Routed by `model-router`." },
@@ -20,5 +19,5 @@
     "deep-architect": { "summary": "architectural decisions, contract/schema changes, full-spec tier. Routed by `model-router`." },
     "verifier": { "summary": "read-only — audits a diff against `PLAN.md` independently of the implementer's own summary. Spawned fresh each round, alongside whichever tier implemented." }
   },
-  "groups": { "core": "Core Skills", "handoff": "Handoff Skills", "addon": "Addon Skills" }
+  "groups": { "core": "Core Skills", "handoff": "Handoff Skills" }
 }
