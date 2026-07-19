@@ -345,6 +345,16 @@ Governance superset: `permissions` + `PostToolUse` lint-fix (the `next-scaffold`
           }
         ]
       }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/guards/precompact-snapshot.mjs"
+          }
+        ]
+      }
     ]
   }
 }

@@ -91,7 +91,8 @@ your-repo/
 │   │   ├── injection-scan-guard.mjs     ← flags likely prompt-injection markers in fetched content
 │   │   ├── injection-gate-guard.mjs     ← asks for confirmation after a flag; denies outright on a canary-token match
 │   │   ├── session-resume-check.mjs     ← SessionStart hook: prompts to resume an in-progress SESSION.md
-│   │   └── canary-seed.mjs              ← SessionStart hook: seeds a per-session exfiltration canary token
+│   │   ├── canary-seed.mjs              ← SessionStart hook: seeds a per-session exfiltration canary token
+│   │   └── precompact-snapshot.mjs      ← PreCompact hook: autosaves SESSION.md before context compaction
 │   └── settings.json                   ← pre-approved commands + hook wiring
 ├── tools/
 │   └── context_budget.mjs               ← budget gate: CLAUDE.md ≤60, unscoped rules ≤40
@@ -121,6 +122,7 @@ The skill detects the stack profile (or asks), confirms before overwriting anyth
 - **`.claude/guards/injection-scan-guard.mjs` + `.claude/guards/injection-gate-guard.mjs`** — a three-stage prompt-injection defense (inspired by Lasso Security's PostToolUse Defender). The scan guard (`PostToolUse`, stage 1) heuristically checks `WebFetch`/`mcp__*` responses and `curl`/`wget` Bash output for injected instructions and flags a session-scoped marker; the gate guard (`PreToolUse`, stage 2) asks for confirmation on the next risky `Bash`/`Write`/`Edit`/`WebFetch`/`mcp__*` call if that flag is still fresh (5-minute window), then clears it.
 - **`.claude/guards/canary-seed.mjs`** — a `SessionStart` hook that seeds a per-session random token and instructs the model never to reproduce it. `injection-gate-guard.mjs`'s stage 3 denies (not asks) any tool call whose input contains that token — a per-session UUID has zero legitimate reason to appear anywhere, so this is a hard block rather than a confirmation.
 - **`.claude/guards/session-resume-check.mjs`** — a `SessionStart` hook that deterministically injects a resume-prompt reminder when `.claude/memory/SESSION.md` has `status: in-progress`, instead of relying on CLAUDE.md prose alone.
+- **`.claude/guards/precompact-snapshot.mjs`** — a `PreCompact` hook that writes/updates `.claude/memory/SESSION.md` (in `session-handoff`'s own format, marked `<!-- precompact-autosave -->`) before a context compaction, so an automatic mid-task compaction doesn't silently lose in-flight state. Always exits 0 — a failed autosave never blocks compaction.
 - **Auto-format** (nuxt/next) — set up by the `nuxt-scaffold`/`next-scaffold` skill. ESLint is the only formatter (Prettier disabled). A `PostToolUse` hook runs `.claude/guards/lint-fix-file.mjs` after every agent Write/Edit, scoped to just the touched file; humans get the same via `.vscode/settings.json` format-on-save.
 - **`.claude/settings.json`** — pre-approves safe profile commands to reduce prompt friction.
 
@@ -179,7 +181,7 @@ bigin-skills/
 │   │       ├── profile-nodejs.md
 │   │       ├── files-shared.md    ← security, architecture, task guide, review checklist, paths substitutions
 │   │       ├── patch-mode.md      ← Phase 1a: version diffing + CHANGELOG patch-block application
-│   │       ├── hook-guard.md      ← bash-guard.mjs, spec-gate-guard.mjs, bugfix-test-guard.mjs, injection-scan/gate-guard.mjs, canary-seed.mjs + pre-commit scripts per profile
+│   │       ├── hook-guard.md      ← bash-guard.mjs, spec-gate-guard.mjs, bugfix-test-guard.mjs, injection-scan/gate-guard.mjs, session-resume-check.mjs, canary-seed.mjs, precompact-snapshot.mjs + pre-commit scripts per profile
 │   │       ├── budget-gate.md     ← context_budget.mjs (budget gate script)
 │   │       ├── knowledge-bundle.md
 │   │       ├── graph.md           ← Phase 5.7: optional Graphify rule file + usage doc

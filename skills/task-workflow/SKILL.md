@@ -98,3 +98,7 @@ Valid statuses: `Not started`, `In progress`, `Done`, `Blocked`.
 ## Scope discipline
 
 If implementation reveals the task requires changes outside the stated scope: **stop and ask**. Never expand scope silently. A second task is better than a sprawling first one.
+
+## Running multiple instances
+
+Running more than one Claude Code instance at once (e.g. a separate frontend + backend task) — see `references/parallelization.md` for the worktree-per-instance rule and per-worktree spec-gate/SESSION.md interaction.

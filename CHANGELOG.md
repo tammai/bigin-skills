@@ -5,6 +5,190 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.46.0] - 2026-07-19
+
+### Added
+
+- **`precompact-snapshot.mjs` — autosaves in-flight session state before context compaction, closing the "compaction silently destroys in-flight state" gap.** Previously `session-handoff`'s `.claude/memory/SESSION.md` was written only on an explicit manual save; an automatic mid-task compaction between saves lost everything with no recovery path. New `PreCompact` hook (`.claude/guards/precompact-snapshot.mjs`, all four profiles) reads the hook's stdin payload (`session_id`, `transcript_path`, `cwd`, `compaction_trigger: manual|auto`) and writes/updates `.claude/memory/SESSION.md` in `session-handoff`'s exact template shape — frontmatter (`session-id`/`created`/`last-updated`/`status`) and section headings unchanged, so `session-resume-check.mjs` (`SessionStart`) picks it up with zero changes on its side. Deterministically gatherable state only: branch, `git status`/`diff --stat`, staged files. A `<!-- precompact-autosave -->` marker (inserted once, right after the closing frontmatter fence) distinguishes an autosave from a deliberate human/skill save; on an existing `SESSION.md`, only `last-updated`/`status`/the Uncommitted-Changes section are refreshed — `Decisions Made`/`Next Steps`/`Context Notes` are left exactly as written, never overwritten with a script's guess. Always exits 0 (a `PreCompact` hook can block compaction via exit 2, but a failed autosave is a missed convenience, not a reason to freeze the session) — every fallible step is independently wrapped so one failure degrades that step only. New `## precompact-snapshot.mjs` section in `references/hook-guard.md` (after `canary-seed.mjs`); a `"PreCompact"` key added as a sibling of `"SessionStart"` in all four `profile-*.md` `settings.json` templates, no `matcher` (runs on both `manual` and `auto` triggers). `session-resume-check.mjs` itself is unchanged — it already keys off `SESSION.md`'s `status:` field.
+
+  ```patch
+  target: .claude/guards/precompact-snapshot.mjs
+  mode: create-if-missing
+  ---
+  #!/usr/bin/env node
+  // Autosaves in-flight session state before context compaction, so an auto-compact
+  // mid-task doesn't silently destroy it. Claude Code PreCompact hook — reads hook input
+  // from stdin (session_id, transcript_path, cwd, compaction_trigger: manual|auto) and
+  // writes/updates .claude/memory/SESSION.md in the exact shape the session-handoff skill
+  // uses, so session-resume-check.mjs (SessionStart) picks it up with no changes on its
+  // side. Always exits 0 — a PreCompact hook CAN block compaction (exit 2), but this one
+  // never should; a failed autosave is a missed convenience, not a reason to freeze the
+  // session. Every fallible step is wrapped so one failure degrades that step only, not
+  // the whole guard.
+  import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
+  import { join } from 'node:path'
+  import { execFileSync } from 'node:child_process'
+  import { randomUUID } from 'node:crypto'
+
+  const MARKER = '<!-- precompact-autosave -->'
+
+  function readStdinPayload() {
+    try {
+      return JSON.parse(readFileSync(0, 'utf-8'))
+    } catch {
+      return {}
+    }
+  }
+
+  function git(args, cwd) {
+    try {
+      return execFileSync('git', args, { cwd, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
+    } catch {
+      return ''
+    }
+  }
+
+  function gatherState(cwd) {
+    return {
+      branch: git(['rev-parse', '--abbrev-ref', 'HEAD'], cwd) || 'unknown',
+      status: git(['status', '--porcelain'], cwd),
+      diffStat: git(['diff', '--stat'], cwd),
+      staged: git(['diff', '--cached', '--name-only'], cwd)
+    }
+  }
+
+  function renderUncommittedSection(state) {
+    const body = state.diffStat || (state.status ? state.status : 'clean')
+    const stagedLine = state.staged ? `\nStaged: ${state.staged.split('\n').join(', ')}` : ''
+    return '```\n' + body + '\n```' + stagedLine
+  }
+
+  function freshSessionMd(sessionId, nowIso, state) {
+    return `---
+  session-id: ${sessionId}
+  created: ${nowIso}
+  last-updated: ${nowIso}
+  status: in-progress
+  ---
+  ${MARKER}
+
+  # Session Handoff
+
+  **Session saved:** ${nowIso}
+  **Branch:** ${state.branch}
+
+  ## What We Were Working On
+
+  (autosaved before compaction — no summary captured yet; fill in on next manual save)
+
+  ## Current State
+
+  ### Tasks
+
+  (none captured by autosave — see TaskList)
+
+  ### Decisions Made
+
+  (none captured by autosave)
+
+  ### Uncommitted Changes
+
+  ${renderUncommittedSection(state)}
+
+  ### Next Steps
+  1. Resume from where compaction interrupted the session.
+
+  ## Context Notes
+
+  Created by precompact-snapshot.mjs — a real session-handoff save will fill this in properly.
+  `
+  }
+
+  function updateExisting(content, nowIso, state) {
+    let updated = content
+      .replace(/^last-updated:.*$/m, `last-updated: ${nowIso}`)
+      .replace(/^status:\s*\S+$/m, 'status: in-progress')
+
+    if (!updated.includes(MARKER)) {
+      const fenceMatches = [...updated.matchAll(/^---\s*$/gm)]
+      if (fenceMatches.length >= 2) {
+        const closeIdx = fenceMatches[1].index + fenceMatches[1][0].length
+        updated = updated.slice(0, closeIdx) + `\n${MARKER}` + updated.slice(closeIdx)
+      }
+    }
+
+    const sectionRe = /(### Uncommitted Changes\n)([\s\S]*?)(?=\n###|\n## |$)/
+    if (sectionRe.test(updated)) {
+      updated = updated.replace(sectionRe, `$1\n${renderUncommittedSection(state)}\n`)
+    }
+
+    return updated
+  }
+
+  function main() {
+    const payload = readStdinPayload()
+    const cwd = payload.cwd || process.cwd()
+    const nowIso = new Date().toISOString()
+    const sessionDir = join(cwd, '.claude', 'memory')
+    const sessionPath = join(sessionDir, 'SESSION.md')
+
+    try {
+      const state = gatherState(cwd)
+      if (existsSync(sessionPath)) {
+        const content = readFileSync(sessionPath, 'utf-8')
+        writeFileSync(sessionPath, updateExisting(content, nowIso, state))
+      } else {
+        mkdirSync(sessionDir, { recursive: true })
+        const sessionId = payload.session_id || randomUUID()
+        writeFileSync(sessionPath, freshSessionMd(sessionId, nowIso, state))
+      }
+    } catch (err) {
+      console.error(`precompact-snapshot: autosave failed, compaction proceeding — ${err.message}`)
+    }
+
+    process.exit(0)
+  }
+
+  main()
+  ```
+
+  ```patch
+  target: .claude/settings.json
+  anchor: "SessionStart": [
+        {
+          "hooks": [
+            {
+              "type": "command",
+              "command": "node .claude/guards/canary-seed.mjs"
+            },
+            {
+              "type": "command",
+              "command": "node .claude/guards/session-resume-check.mjs"
+            }
+          ]
+        }
+      ]
+  insert: after
+  ---
+      ,
+      "PreCompact": [
+        {
+          "hooks": [
+            {
+              "type": "command",
+              "command": "node .claude/guards/precompact-snapshot.mjs"
+            }
+          ]
+        }
+      ]
+  ```
+
+- **`skills/task-workflow/references/parallelization.md` — a parallelization playbook for teams running more than one Claude Code instance at once.** Minimum-viable-parallelization stance (add an instance only from true necessity, never a fixed count); worktree-per-instance rule with copy-paste `git worktree add` commands for the Nuxt+Go two-repo layout; role-split default (main instance for code changes, forks for research/questions, never two instances writing the same files); a cascade pattern for 3-4 concurrent tasks; and an explicit spec-gate-per-worktree call-out — each worktree needs its own approved `PLAN.md` and its own `.claude/memory/SESSION.md`, since "the other instance's plan was approved" is the most common multi-instance confusion. `SKILL.md` gained a 2-line pointer under a new "Running multiple instances" heading. No `​```patch​` block — nothing here is copied verbatim into target repos.
+
+### Changed
+
+- **`model-router` gains iterative retrieval: dispatches carry purpose, and returns are evaluated before acceptance.** Previously a spawned subagent's return was used as-is once it replied — no check against what "done" meant for that dispatch, so shallow Haiku-tier returns went unnoticed until a manual re-prompt. The Step 5 spawn payload (`SKILL.md` + `references/agent-invocation.md`) gains three fixed template fields — **Objective** (why the task exists), **Constraints** (what the result must respect), **Definition of done** (what a sufficient return contains) — payload, not prose advice, per the v1.43.0 lesson that prose guidance shows no behavioral difference. New **Step 6: Return evaluation** (old Step 6 "Handback protocol" renumbered to Step 7) checks the return against definition-of-done: unmet → exactly one follow-up naming the gap, capped at 2 follow-up cycles (3 dispatches total); quick-tier exhaustion escalates to exactly one `standard-worker` attempt with full loop history, standard/deep exhaustion surfaces to the user; the loop never escalates into `deep-architect` (that stays Step 3's auto-override-only route). A `ROUTING_MISMATCH:` reply at any point short-circuits straight to Step 7. Deliberately does not spawn `bigin-skills:verifier` (a separate, `task-workflow`-only mechanism) — this evaluation is lighter than a verifier round. `references/agent-invocation.md` gained a matching example-payload extension and a new "Return evaluation contract" section (met/partial/unmet + evidence per item; no evidence for an item defaults to unmet, not an inferred pass). Token overhead of the three new fields: estimated ~90-110 tokens per dispatch from the template's own example text (~394 chars / ~58 words) — an estimate from the template, not yet a live-session measurement; replace with a measured number after the first real dispatch through the new Step 6. `evals/evals.json` is unchanged — it's trigger-phrase-only and can't express loop/cycle behavior; this is a documented gap, not a to-do. No `​```patch​` block — nothing here is copied verbatim into target repos.
+
 ## [1.45.0] - 2026-07-18
 
 ### Removed

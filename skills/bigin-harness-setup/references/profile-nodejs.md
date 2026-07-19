@@ -257,6 +257,16 @@ Prepend `paths: ["src/**"]` as YAML frontmatter when writing `architecture.md` (
           }
         ]
       }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/guards/precompact-snapshot.mjs"
+          }
+        ]
+      }
     ]
   }
 }
