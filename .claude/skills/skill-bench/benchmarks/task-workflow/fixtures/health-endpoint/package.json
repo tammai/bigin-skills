@@ -1,0 +1,5 @@
+{
+  "name": "bench-fixture-health-endpoint",
+  "private": true,
+  "type": "module"
+}

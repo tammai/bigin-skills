@@ -1,0 +1,13 @@
+[
+  {
+    "id": "slugify",
+    "prompt": "Write tests for the `slugify` function in `slugify.js`. It has no existing test file — there is no sibling style to match, so pick a zero-dependency convention (Node's built-in `node:test` + `node:assert/strict` is fine, since this fixture has no test framework installed). Cover at minimum: a normal string, leading/trailing whitespace, mixed case, and an empty-string input.",
+    "fixture": "fixtures/slugify",
+    "rubric": [
+      { "type": "file-exists", "path": "slugify.test.js", "description": "a test file for slugify.js was created" },
+      { "type": "file-contains", "path": "slugify.test.js", "pattern": "slugify", "description": "test file imports/calls slugify" },
+      { "type": "file-contains", "path": "slugify.test.js", "pattern": "(''|\"\")", "description": "empty-string edge case is covered" },
+      { "type": "command", "cmd": "node --test 2>&1 | grep -qE '^# pass [1-9]'", "expectExit": 0, "description": "test suite runs at least one test and all pass (guards against a trivial 0-tests-found exit 0)" }
+    ]
+  }
+]

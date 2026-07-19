@@ -1,0 +1,11 @@
+[
+  {
+    "id": "sum-range",
+    "prompt": "`node --test` is failing in this fixture. `sum-range.test.js` expects `sumRange(1, 5)` to equal 15 (1+2+3+4+5), but `sumRange` in `sum-range.js` returns 10. Debug and fix it.",
+    "fixture": "fixtures/sum-range",
+    "rubric": [
+      { "type": "command", "cmd": "node --test", "expectExit": 0, "description": "test suite passes after the fix" },
+      { "type": "file-contains", "path": "sum-range.test.js", "pattern": "sumRange", "description": "the regression test still exercises sumRange (not deleted/weakened)" }
+    ]
+  }
+]

@@ -1,0 +1,12 @@
+[
+  {
+    "id": "health-endpoint",
+    "prompt": "Add a GET /health endpoint to this bare Node HTTP server (server.js) that responds 200 with JSON body {\"status\":\"ok\"}. Follow task-workflow. Bench note: pre-approve the spec gate immediately so this single trial can complete in one pass — still write and follow a PLAN.md as usual, and still run its Cleanup step (delete PLAN.md once every task is Done).",
+    "fixture": "fixtures/health-endpoint",
+    "rubric": [
+      { "type": "file-contains", "path": "server.js", "pattern": "/health", "description": "server.js routes /health" },
+      { "type": "command", "cmd": "node verify.mjs", "expectExit": 0, "description": "GET /health returns 200 {status: ok}" },
+      { "type": "file-exists", "path": "PLAN.md", "expect": false, "description": "PLAN.md was cleaned up per task-workflow's Cleanup step" }
+    ]
+  }
+]
