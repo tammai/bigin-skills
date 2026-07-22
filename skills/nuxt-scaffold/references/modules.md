@@ -2,7 +2,7 @@
 
 The BFF preset is installed for every `template` (`starter` and every cloned template alike — see `references/bootstrap.md`'s "Stage 1 (cloned templates)" section for how `@pinia/nuxt`/`nuxt-auth-utils`/`@vueuse/nuxt` get added and registered on the clone path). There is no optional-module menu — the scaffolder never installs `@nuxt/image` or `@nuxt/content`. BFF is a proxy layer only — the Nuxt app never accesses a database directly; there is no DB opt-in.
 
-Installing `nuxt-auth-utils` doesn't mean a template ships an auth *flow* — only `saas` writes a sample login/session/dashboard implementation (a demo one, not backend-proxied; see `references/artifacts.md`'s `## saas opt-in`). For `starter` and every other cloned template, the module is present but unused until hand-wired.
+Installing `nuxt-auth-utils` doesn't mean a template ships an auth *flow* — only `saas` writes login/signup/logout routes (they call the paired backend and seal the token pair in the session's server-only `secure` key; see `references/artifacts.md`'s `## saas opt-in`). For `starter` and every other cloned template, the module is present but unused until hand-wired.
 
 ---
 
@@ -23,20 +23,26 @@ The template also ships the eslint stylistic config — explicit override `comma
 
 ### Stage 2 — BFF preset packages
 
+Universal `PRESET_DEPS` land via one `pnpm add`, `PRESET_DEV_DEPS` via one `pnpm add -D`; `STARTER_DEV_DEPS` are appended to the `-D` set only when `template === 'starter'` (the arrays live at the top of `scaffold.mjs`).
+
 | Command | npm package | Why |
 | --- | --- | --- |
 | *(Stage 1 `--modules`)* | `@pinia/nuxt` | Vue state management, auto-imported stores |
 | *(Stage 1 `--modules`)* | `nuxt-auth-utils` | Sealed session cookie + OAuth/password helpers — the only auth path |
 | *(Stage 1 `--modules`)* | `@vueuse/nuxt` | Vue composition utilities, auto-imported |
+| `pnpm add pinia` | `pinia` | Declared explicitly (not just as `@pinia/nuxt`'s transitive peer): `@pinia/colada` peer-depends on it, and on the cloned templates pnpm won't hoist the peer, so vitest can't resolve `pinia` without it |
 | `pnpm add @pinia/colada` | `@pinia/colada` | Async data (`useQuery` / `useMutation`) on top of Pinia |
 | `pnpm add @pinia/colada-nuxt` | `@pinia/colada-nuxt` | Nuxt module for `@pinia/colada` — **required**, not optional (see [official guide](https://pinia-colada.esm.dev/nuxt.html)); without it `useQuery`/`useMutation` throw. Registered in `nuxt.config.ts` by the script itself (`ensureModuleRegistered`), not `nuxi module add` |
 | `pnpm add zod` | `zod` | Runtime schema validation (validate backend responses in API routes, request bodies) |
+| `pnpm add openapi-fetch` | `openapi-fetch` | Runtime typed backend client (`shared/api-client`) — universal, since every template ships the BFF proxy + generated client |
 | `pnpm add -D vitest` | `vitest` | Unit test runner |
 | `pnpm add -D @nuxt/test-utils` | `@nuxt/test-utils` | Nuxt-aware Vitest environment (`defineVitestConfig`) |
 | `pnpm add -D happy-dom` | `happy-dom` | DOM implementation required by `@nuxt/test-utils`'s `environment: 'nuxt'` — `pnpm test` fails without it |
 | `pnpm add -D simple-git-hooks` | `simple-git-hooks` | Lightweight git hook manager (project commit gate) — needs `pnpm approve-builds simple-git-hooks` (Stage 4) on pnpm 10+ |
 | `pnpm add -D lint-staged` | `lint-staged` | Run ESLint on staged files at commit |
-| `pnpm add -D openapi-typescript` [`starter` only] | `openapi-typescript` | Generate server API types from `openapi.yaml` — only `starter` ships the stub contract + script that use it, so it's not installed for the other 8 templates |
+| `pnpm add -D openapi-typescript` | `openapi-typescript` | Regenerates the committed client-types snapshot (`pnpm openapi-types`) from `openapi.yaml` — **universal** now that `openapi.yaml` + `shared/api-client` ship in every template's base preset |
+| `pnpm add -D eslint-plugin-boundaries` [`starter` only] | `eslint-plugin-boundaries` | Enforces the Nuxt Layers cross-layer import boundaries — only `starter` is restructured into Layers, so it's not installed for the other 8 templates |
+| `pnpm add -D eslint-import-resolver-typescript` [`starter` only] | `eslint-import-resolver-typescript` | Load-bearing resolver for `eslint-plugin-boundaries` (see `starter/eslint.boundaries.mjs`) — `starter` only, alongside the boundaries plugin |
 
 > **Already installed as dependencies of `@nuxt/ui`** (no need to add): `@nuxt/icon`, `@nuxt/fonts`, `@nuxtjs/color-mode`. They register automatically when `@nuxt/ui` is installed.
 

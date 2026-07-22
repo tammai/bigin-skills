@@ -7,10 +7,13 @@ useSeoMeta({
   title: 'Dashboard'
 })
 
-const { user, clear } = useUserSession()
+const { user, fetch: refreshSession } = useUserSession()
 
 async function onLogout() {
-  await clear()
+  // Hit the BFF logout route (revokes the refresh token on the backend, then
+  // clears the sealed cookie) rather than clearing the client session alone.
+  await $fetch('/api/logout', { method: 'POST' })
+  await refreshSession()
   await navigateTo('/')
 }
 </script>
@@ -36,8 +39,9 @@ async function onLogout() {
       >
         <p class="text-muted">
           This is a private area — only reachable when logged in (see app/middleware/auth.global.ts).
-          Auth here is a demo stand-in with no backend wired; swap server/api/login.post.ts and
-          server/api/signup.post.ts for real calls before shipping.
+          Login/signup call the paired backend (server/api/login.post.ts, signup.post.ts) and store the
+          token pair in the session's server-only `secure` key; browser data calls go through the
+          same-origin BFF proxy at /api/backend/*.
         </p>
       </UPageCard>
     </UContainer>

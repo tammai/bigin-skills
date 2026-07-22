@@ -1,0 +1,338 @@
+# Committed snapshot of the PAIRED backend's contract (go-scaffold's
+# api/openapi.yaml — the ADR's default Go+Nuxt pairing). It is the input to
+# `pnpm openapi-types`, which regenerates shared/api-client/schema.d.ts (the typed
+# openapi-fetch client). This is NOT authored here — the backend owns it. After a
+# backend contract change, copy its api/openapi.yaml over this file and re-run
+# `pnpm openapi-types`. Paths are written in full, including /v1.
+openapi: 3.0.3
+info:
+  title: "{PROJECT_NAME} API"
+  version: 0.1.0
+servers:
+  - url: /
+tags:
+  - name: users
+    description: Users & auth module
+  - name: posts
+    description: Posts module
+paths:
+  /v1/users:
+    post:
+      tags: [users]
+      operationId: createUser
+      summary: Register a user (public)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateUserRequest" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+    get:
+      tags: [users]
+      operationId: listUsers
+      summary: List users (offset-paginated)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserList" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+  /v1/users/{id}:
+    get:
+      tags: [users]
+      operationId: getUser
+      summary: Get a user by id
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [users]
+      operationId: eraseUser
+      summary: Erase a user (self or admin) — soft delete + anonymize their posts
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "204": { description: No Content }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /v1/auth/login:
+    post:
+      tags: [users]
+      operationId: login
+      summary: Exchange credentials for a token pair
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TokenPair" }
+        "401": { $ref: "#/components/responses/Error" }
+  /v1/auth/refresh:
+    post:
+      tags: [users]
+      operationId: refreshToken
+      summary: Rotate a refresh token for a new pair
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RefreshRequest" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TokenPair" }
+        "401": { $ref: "#/components/responses/Error" }
+  /v1/auth/logout:
+    post:
+      tags: [users]
+      operationId: logout
+      summary: Revoke a refresh token
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LogoutRequest" }
+      responses:
+        "204": { description: No Content }
+        "401": { $ref: "#/components/responses/Error" }
+  /v1/posts:
+    post:
+      tags: [posts]
+      operationId: createPost
+      summary: Create a post
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreatePostRequest" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Post" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+    get:
+      tags: [posts]
+      operationId: listPosts
+      summary: List posts with author names (offset-paginated)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PostList" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+  /v1/posts/{id}:
+    patch:
+      tags: [posts]
+      operationId: updatePost
+      summary: Update a post (optimistic concurrency via version)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdatePostRequest" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Post" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    Offset:
+      name: offset
+      in: query
+      required: false
+      schema: { type: integer, minimum: 0, default: 0 }
+  responses:
+    Error:
+      description: Error
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+  schemas:
+    # Fixed error envelope (ADR §9.1): nested { error: { ... } }. `code` is a
+    # stable, module-prefixed machine string the frontend switches on.
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, request_id]
+          properties:
+            code:
+              type: string
+              enum:
+                - bad_request
+                - unauthenticated
+                - unauthorized
+                - not_found
+                - conflict
+                - unprocessable_entity
+                - rate_limited
+                - internal_error
+                - validation_failed
+                - users.not_found
+                - users.email_taken
+                - users.invalid_credentials
+                - users.invalid_refresh_token
+                - posts.not_found
+                - posts.version_conflict
+            message: { type: string }
+            request_id: { type: string }
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  field: { type: string }
+                  message: { type: string }
+    User:
+      type: object
+      required: [id, email, name, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        name: { type: string }
+        created_at: { type: string, format: date-time }
+    UserList:
+      type: object
+      required: [data, limit, offset]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/User" }
+        limit: { type: integer }
+        offset: { type: integer }
+    CreateUserRequest:
+      type: object
+      required: [email, name, password]
+      properties:
+        email: { type: string, format: email }
+        name: { type: string, minLength: 1 }
+        password: { type: string, minLength: 8 }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 1 }
+    RefreshRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token: { type: string, minLength: 1 }
+    LogoutRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token: { type: string, minLength: 1 }
+    TokenPair:
+      type: object
+      required: [access_token, refresh_token, token_type, expires_in]
+      properties:
+        access_token: { type: string }
+        refresh_token: { type: string }
+        token_type: { type: string }
+        expires_in: { type: integer }
+    Post:
+      type: object
+      required: [id, title, body, created_at, version]
+      properties:
+        id: { type: string, format: uuid }
+        author_id:
+          type: string
+          format: uuid
+          nullable: true
+        author_name:
+          type: string
+          nullable: true
+        title: { type: string }
+        body: { type: string }
+        created_at: { type: string, format: date-time }
+        version: { type: integer }
+    PostList:
+      type: object
+      required: [data, limit, offset]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/Post" }
+        limit: { type: integer }
+        offset: { type: integer }
+    CreatePostRequest:
+      type: object
+      required: [title, body]
+      properties:
+        title: { type: string, minLength: 1 }
+        body: { type: string, minLength: 1 }
+    UpdatePostRequest:
+      type: object
+      required: [version]
+      properties:
+        title: { type: string, minLength: 1 }
+        body: { type: string, minLength: 1 }
+        version: { type: integer, minimum: 1 }

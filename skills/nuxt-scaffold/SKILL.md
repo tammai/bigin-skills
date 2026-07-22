@@ -18,7 +18,7 @@ Stack: Nuxt 4, Nuxt UI v4, Nuxt ESLint, Pinia + Pinia Colada, VueUse, nuxt-auth-
 | slug | source | shape |
 | --- | --- | --- |
 | `starter` (default) | `npm create nuxt@latest --template ui` (no clone) | minimal Nuxt UI + BFF preset, no auth wired |
-| `saas` | clones `github.com/nuxt-ui-templates/saas` | public landing/pricing/blog/docs **+ private `/dashboard`** gated by demo `nuxt-auth-utils` auth (no real backend — see `references/artifacts.md`) |
+| `saas` | clones `github.com/nuxt-ui-templates/saas` | public landing/pricing/blog/docs **+ private `/dashboard`** gated by `nuxt-auth-utils` auth wired to the paired backend (login/signup/logout call the real API; token pair stored in the session's server-only `secure` key) |
 | `dashboard` | clones `github.com/nuxt-ui-templates/dashboard` | admin-style multi-column shell |
 | `landing` | clones `github.com/nuxt-ui-templates/landing` | marketing landing page |
 | `docs` | clones `github.com/nuxt-ui-templates/docs` | documentation site |
@@ -28,6 +28,14 @@ Stack: Nuxt 4, Nuxt UI v4, Nuxt ESLint, Pinia + Pinia Colada, VueUse, nuxt-auth-
 | `editor` | clones `github.com/nuxt-ui-templates/editor` | Notion-like WYSIWYG editor |
 
 Only `saas` gets the extra private-dashboard/auth treatment. Every other cloned template gets the BFF preset layered on top and nothing more.
+
+### BFF backend wiring (all templates)
+
+Every template ships the full BFF proxy against the paired **Go backend** (ADR default pairing): a same-origin catch-all proxy at `server/api/backend/[...path].ts` (attaches the session's Bearer token, runs 401→refresh→retry-once), a CSRF middleware (`server/middleware/csrf.ts`) rejecting cross-site mutations, and a generated typed client (`shared/api-client/`, from the committed `openapi.yaml` snapshot via `pnpm openapi-types`) wrapped in Pinia Colada composables. The token pair lives only in nuxt-auth-utils' server-only `secure` session key — never sent to the browser. `saas` adds the auth routes (`login`/`signup`/`logout`) that populate that session.
+
+### Known deliberate asymmetry: Nuxt Layers, `starter` only
+
+The **`starter`** template is the only one restructured into Nuxt **Layers** (`layers/<feature>/app/{pages,composables,components}` + `layers/shared/{app,api-client}`), with `imports: { scan: false }` on feature layers (the ADR §5.1/5.3 precondition for boundary lint to see real imports) and `eslint-plugin-boundaries` blocking cross-layer imports. The **other 8 cloned templates get the BFF wiring above but NOT the Layers restructuring** — retrofitting Layers onto an externally-cloned ui.nuxt.com template's existing upstream structure risks fighting its layout, so it's intentionally skipped. This is a known, accepted gap, not an oversight.
 
 > Governance (CLAUDE.md, `.claude/rules/`, AI guides, `bash-guard.mjs`) is **not** this skill's job — run `bigin-harness-setup` afterward to overlay it.
 

@@ -10,6 +10,7 @@
       "Bash(pnpm add:*)",
       "Bash(pnpm remove:*)",
       "Bash(pnpm install:*)",
+      "Bash(pnpm openapi-types:*)",
       "Bash(pnpm openapi-typescript:*)",
       "Bash(npx nuxi:*)",
       "Bash(git status:*)",

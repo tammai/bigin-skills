@@ -267,12 +267,20 @@ function preflight() {
 }
 
 const CORE_MODULES = ['@pinia/nuxt', 'nuxt-auth-utils', '@vueuse/nuxt']
-const PRESET_DEPS = ['@pinia/colada', '@pinia/colada-nuxt', 'zod']
-const PRESET_DEV_DEPS = ['vitest', '@nuxt/test-utils', 'happy-dom', 'simple-git-hooks', 'lint-staged']
-// Only the starter template ships an openapi.yaml stub + openapi-types script to consume it
-// (templates/starter/merge/package.json) — every other template has no backend contract to
-// describe, so this stays out of the universally-installed PRESET_DEV_DEPS above.
-const STARTER_DEV_DEPS = ['openapi-typescript']
+// openapi-fetch is the runtime typed backend client (shared/api-client) — universal now that every
+// template ships the BFF proxy + generated client, not just an unauthenticated sample.
+// `pinia` is explicit (not just a transitive peer of @pinia/nuxt): @pinia/colada peer-depends on it,
+// and on the CLONED templates — where stage 1 installs @pinia/nuxt via pnpm add, not create-nuxt's
+// `--modules pinia` — pnpm won't hoist the peer, so vitest can't resolve `pinia` without this.
+const PRESET_DEPS = ['pinia', '@pinia/colada', '@pinia/colada-nuxt', 'zod', 'openapi-fetch']
+// openapi-typescript regenerates the committed client-types snapshot (pnpm openapi-types) —
+// universal now that openapi.yaml + shared/api-client ship in every template's base preset.
+const PRESET_DEV_DEPS = ['vitest', '@nuxt/test-utils', 'happy-dom', 'simple-git-hooks', 'lint-staged', 'openapi-typescript']
+// starter-only: the Layers restructuring adds eslint-plugin-boundaries (+ its typescript import
+// resolver, load-bearing — see starter/eslint.boundaries.mjs) to enforce cross-layer boundaries.
+// The 8 cloned ui.nuxt.com templates are NOT restructured into Layers (see SKILL.md), so these
+// stay out of the universal preset.
+const STARTER_DEV_DEPS = ['eslint-plugin-boundaries', 'eslint-import-resolver-typescript']
 
 /** skipInstall-only: declare deps in package.json as the "latest" dist-tag (no registry lookup, no pnpm add) so a later `pnpm install` resolves them. */
 function declareDepsUnresolved(deps, devDeps) {
@@ -431,8 +439,10 @@ function applyArtifacts() {
     writeFileEnsured(path.join(CFG.targetDir, rel), substitute(fs.readFileSync(src, 'utf8'), subs))
   }
   // Template-specific overlays (same write-fresh mechanism as `files/`, gated by CFG.template):
-  // `starter` gets the openapi stub (no backend contract to describe for a cloned template);
-  // `saas` gets the demo-auth + private dashboard wiring the official template doesn't ship.
+  // `starter` gets the Nuxt Layers scaffolding (per-layer nuxt.config.ts + eslint.boundaries.mjs)
+  // that restructureStarterLayers() then wires up — openapi.yaml + the api-client are universal now,
+  // shipped via `files/`; `saas` gets the backend-wired auth routes (login/signup/logout) + private
+  // dashboard the official template doesn't ship.
   const templateOverlay = CFG.template === 'starter' ? 'starter' : CFG.template === 'saas' ? 'saas' : null
   if (templateOverlay) {
     const overlayRoot = path.join(TEMPLATES, templateOverlay)
@@ -491,10 +501,13 @@ function applyArtifacts() {
   mergeJsonFile(path.join(CFG.targetDir, 'package.json'), JSON.parse(readTemplate(path.join('merge', 'package.json'), subs)))
   mergeJsonFile(path.join(CFG.targetDir, '.claude', 'settings.json'), JSON.parse(readTemplate(path.join('merge', 'claude-settings.json'), subs)))
   mergeJsonFile(path.join(CFG.targetDir, '.vscode', 'settings.json'), JSON.parse(readTemplate(path.join('merge', 'vscode-settings.json'), subs)))
-  if (CFG.template === 'starter') {
-    // openapi-types script only makes sense alongside the openapi.yaml stub (starter-only overlay above).
-    mergeJsonFile(path.join(CFG.targetDir, 'package.json'), JSON.parse(readTemplate(path.join('starter', 'merge', 'package.json'), subs)))
-  }
+
+  // starter-only: fold the flat app/composables + shared/api-client into Nuxt
+  // Layers and wire the boundary lint (ADR §5.1/5.3). The 8 cloned templates keep
+  // their upstream layout — see SKILL.md's documented asymmetry.
+  if (CFG.template === 'starter') restructureStarterLayers()
+  // Universal: ignore the generated openapi schema in lint (+ append boundaries on starter).
+  patchEslintConfig()
 
   // .env must never be committed.
   const gitignorePath = path.join(CFG.targetDir, '.gitignore')
@@ -503,6 +516,113 @@ function applyArtifacts() {
     fs.writeFileSync(gitignorePath, `${gitignore}${gitignore.endsWith('\n') || gitignore === '' ? '' : '\n'}.env\n`)
   }
   log('stage 3 done — artifacts written/merged')
+}
+
+/**
+ * starter-only Nuxt Layers restructuring (ADR §5.1/5.3). The base `files/` overlay
+ * writes the api-client + users composable at flat root locations (the layout the
+ * 8 cloned templates keep); here we relocate them into layers/ and wire the
+ * boundary lint. Deliberately NOT applied to any cloned template — retrofitting
+ * Layers onto an externally-cloned upstream layout risks fighting it (see SKILL.md).
+ *
+ * The layer nuxt.config.ts files + eslint.boundaries.mjs already landed via the
+ * `starter/` overlay; this only moves files, fixes their import paths, and patches
+ * the root nuxt.config.ts (extends) + eslint.config.mjs (boundariesConfig).
+ */
+function restructureStarterLayers() {
+  log('stage 3b: restructuring starter into Nuxt Layers (feature boundaries)')
+
+  const move = (fromRel, toRel) => {
+    const from = path.join(CFG.targetDir, ...fromRel.split('/'))
+    const to = path.join(CFG.targetDir, ...toRel.split('/'))
+    if (!fs.existsSync(from)) fail(`starter Layers: expected ${fromRel} before restructuring — files/ overlay shape changed; re-verify artifacts.md`)
+    fs.mkdirSync(path.dirname(to), { recursive: true })
+    fs.renameSync(from, to)
+    // Prune now-empty ancestor dirs left behind by the move (e.g. shared/,
+    // app/composables/queries/) so the tree has no confusing empty stubs.
+    for (let dir = path.dirname(from); dir !== CFG.targetDir; dir = path.dirname(dir)) {
+      try {
+        if (fs.readdirSync(dir).length === 0) fs.rmdirSync(dir)
+        else break
+      } catch { break }
+    }
+  }
+  const rewrite = (rel, from, to) => {
+    const p = path.join(CFG.targetDir, ...rel.split('/'))
+    fs.writeFileSync(p, fs.readFileSync(p, 'utf8').split(from).join(to))
+  }
+
+  // shared kernel → layers/shared; users feature → layers/users.
+  move('shared/api-client', 'layers/shared/api-client')
+  move('app/composables/queries/users.ts', 'layers/users/app/composables/queries/users.ts')
+
+  // Fix the cross-layer import (feature → shared, allowed by the boundary policy)
+  // and the test's import of the now-relocated composable.
+  rewrite('layers/users/app/composables/queries/users.ts', '~~/shared/api-client', '~~/layers/shared/api-client')
+  rewrite('tests/app/composables/queries/users.test.ts', '~~/app/composables/queries/users', '~~/layers/users/app/composables/queries/users')
+
+  // Root nuxt.config.ts: register the layers via `extends` (must be the first key —
+  // nuxt/nuxt-config-keys-order sorts `extends` ahead of `modules`).
+  const nuxtConfigPath = path.join(CFG.targetDir, 'nuxt.config.ts')
+  let nuxtConfig = fs.readFileSync(nuxtConfigPath, 'utf8')
+  if (!nuxtConfig.includes('extends:')) {
+    const m = nuxtConfig.match(/defineNuxtConfig\(\{\n/)
+    if (!m) fail('starter Layers: cannot find defineNuxtConfig({ in nuxt.config.ts — template shape changed; re-verify artifacts.md')
+    const at = m.index + m[0].length
+    nuxtConfig = `${nuxtConfig.slice(0, at)}  extends: ['./layers/shared', './layers/users'],\n${nuxtConfig.slice(at)}`
+    fs.writeFileSync(nuxtConfigPath, nuxtConfig)
+  }
+
+  // The universal `openapi-types` script (merged into package.json earlier) writes
+  // `-o shared/api-client/schema.d.ts`, but the move above relocated that dir to
+  // layers/shared/api-client. Repoint the output so `pnpm openapi-types`
+  // regenerates the client in place instead of recreating a stray root-level
+  // shared/api-client/. Idempotent (resume-safe) via the layers/ guard.
+  const pkgPath = path.join(CFG.targetDir, 'package.json')
+  const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'))
+  const openapiScript = pkg.scripts?.['openapi-types']
+  if (openapiScript?.includes('shared/api-client/schema.d.ts') && !openapiScript.includes('layers/shared/api-client')) {
+    pkg.scripts['openapi-types'] = openapiScript.replace('shared/api-client/schema.d.ts', 'layers/shared/api-client/schema.d.ts')
+    writeFileEnsured(pkgPath, JSON.stringify(pkg, null, 2))
+  }
+  // Boundary lint wiring (import + composer .append) is done by patchEslintConfig.
+}
+
+/**
+ * Patch the create-nuxt eslint.config.mjs via @nuxt/eslint's FlatConfigComposer
+ * chain (withNuxt(...).append(...)) — NOT by injecting call arguments, which
+ * trips @stylistic/comma-dangle. Universal: every template must ignore the
+ * generated openapi-typescript schema (4-space/double-quote/semicolon output that
+ * conflicts with @stylistic). starter additionally appends the layer boundary
+ * config. Idempotent (resume-safe): re-running detects the marker and skips.
+ */
+function patchEslintConfig() {
+  const p = path.join(CFG.targetDir, 'eslint.config.mjs')
+  if (!fs.existsSync(p)) fail('eslint.config.mjs not found — create-nuxt/nuxi template shape changed; re-verify artifacts.md')
+  let content = fs.readFileSync(p, 'utf8')
+  if (content.includes('api-client/schema.d.ts')) return // already patched (resume-safe)
+
+  const starter = CFG.template === 'starter'
+  if (starter) {
+    content = content.replace(
+      /(import\s+withNuxt\s+from\s+['"]\.\/\.nuxt\/eslint\.config\.mjs['"]\n?)/,
+      `$1import { boundariesConfig } from './eslint.boundaries.mjs'\n`
+    )
+    if (!content.includes('eslint.boundaries.mjs')) fail('cannot add boundariesConfig import to eslint.config.mjs — shape changed; re-verify artifacts.md')
+  }
+
+  // Chain onto withNuxt(...)'s closing paren via @nuxt/eslint's FlatConfigComposer
+  // (.append) — appending call ARGUMENTS instead would trip @stylistic/comma-dangle.
+  // Same-line to sidestep chained-member indent rules. The generated openapi-typescript
+  // schema is ignored everywhere (its formatting conflicts with @stylistic); starter
+  // additionally appends the layer boundary config.
+  const chain = `.append({ ignores: ['**/api-client/schema.d.ts'] })${starter ? '.append(boundariesConfig)' : ''}`
+  const trimmed = content.replace(/\s+$/, '')
+  const m = trimmed.match(/\)(;?)$/)
+  if (!m) fail('cannot find the withNuxt(...) closing paren in eslint.config.mjs — shape changed; re-verify artifacts.md')
+  const cut = trimmed.length - m[0].length + 1 // index just after the closing ')'
+  content = `${trimmed.slice(0, cut)}${chain}${m[1]}\n`
+  fs.writeFileSync(p, content)
 }
 
 function activateHooks() {
@@ -548,22 +668,27 @@ function printNextSteps() {
     lines.push(
       '  1. Copy .env.example → .env and set:',
       '     - NUXT_SESSION_PASSWORD (openssl rand -base64 32)',
-      '     - NUXT_BACKEND_URL     (backend REST API; server-only)',
-      '  2. Replace the stub openapi.yaml with the real backend contract, then:',
-      '     pnpm openapi-types',
-      '  3. Overlay governance: run bigin-harness-setup (CLAUDE.md, rules, bash-guard).',
-      '  4. Start: pnpm dev'
+      '     - NUXT_BACKEND_URL     (paired Go backend REST API; server-only)',
+      '  2. openapi.yaml is a committed snapshot of the paired backend contract; after a',
+      '     backend change, copy its api/openapi.yaml over it and run: pnpm openapi-types',
+      '  3. Structure: layers/<feature>/app + layers/shared (api-client), boundaries lint on.',
+      '  4. Overlay governance: run bigin-harness-setup (CLAUDE.md, rules, bash-guard).',
+      '  5. Start: pnpm dev'
     )
   } else if (CFG.template === 'saas') {
     lines.push(
-      '  1. Copy .env.example → .env and set NUXT_SESSION_PASSWORD (openssl rand -base64 32).',
-      '  2. /api/login and /api/signup are stubbed (any valid-shaped credentials succeed, no backend call) — swap in a real backend before shipping.',
+      '  1. Copy .env.example → .env and set:',
+      '     - NUXT_SESSION_PASSWORD (openssl rand -base64 32)',
+      '     - NUXT_BACKEND_URL     (paired Go backend REST API; server-only)',
+      '  2. /api/login + /api/signup call the backend and store the token pair in the session\'s',
+      '     server-only `secure` key; browser data calls go through the /api/backend proxy.',
       '  3. Overlay governance: run bigin-harness-setup (CLAUDE.md, rules, bash-guard).',
-      '  4. Start: pnpm dev — public site at /, private area at /dashboard.'
+      '  4. Start: pnpm dev — public site at /, private area at /dashboard (needs the backend running).'
     )
   } else {
     lines.push(
-      '  1. Copy .env.example → .env and set NUXT_SESSION_PASSWORD (openssl rand -base64 32).',
+      '  1. Copy .env.example → .env and set NUXT_SESSION_PASSWORD (openssl rand -base64 32)',
+      '     and NUXT_BACKEND_URL (paired backend REST API; server-only, used by the /api/backend proxy).',
       `  2. This is the official nuxt-ui-templates/${CFG.template} starter layered with the BFF preset — see its own README for template-specific usage.`,
       '  3. Overlay governance: run bigin-harness-setup (CLAUDE.md, rules, bash-guard).',
       '  4. Start: pnpm dev'
