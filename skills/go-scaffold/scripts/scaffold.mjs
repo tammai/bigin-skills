@@ -1,24 +1,24 @@
 #!/usr/bin/env node
 /**
- * scaffold.mjs — deterministic Go REST API scaffold (contract-first).
+ * scaffold.mjs — deterministic Go modular-monolith REST API scaffold.
  *
  * Usage:
  *   node scaffold.mjs --module github.com/acme/orders-api [--dir orders-api]
  *                      [--project orders-api] [--cors https://app.example.com]
  *                      [--force] [--no-commit] [--skip-verify]
  *
- * openapi.yaml generates the server interface + models (oapi-codegen);
- * internal/store/queries/*.sql generates typed queries (sqlc). Neither
- * internal/api/ nor internal/store/ is hand-written — this script runs both
- * generators itself so the repo it leaves behind actually builds and tests
- * green, not a skeleton that needs manual fixup first.
+ * Contract-first, per-module codegen (ADR §4.1): the single api/openapi.yaml
+ * tags every operation with its module; each module's own oapi-codegen config
+ * (include-tags) generates that module's chi-server interface + models into its
+ * nested internal/gen/. sqlc generates each module's typed queries into its
+ * internal/infrastructure/db/. This script runs every generator itself so the
+ * repo it leaves behind builds and tests green, not a skeleton needing fixup.
  *
- * All decisions are pre-resolved via CLI flags — this script never prompts,
- * never reads stdin. Node stdlib only. Exit codes: 0 ok, 1 runtime failure,
- * 2 bad usage/args.
+ * All decisions are pre-resolved via CLI flags — never prompts, never stdin.
+ * Node stdlib only. Exit codes: 0 ok, 1 runtime failure, 2 bad usage/args.
  *
- * go/git/docker are native binaries on every platform (unlike npm/pnpm's
- * .cmd shims on Windows) — spawnSync needs no shell:true workaround here.
+ * go/git/docker are native binaries on every platform (unlike npm/pnpm's .cmd
+ * shims on Windows) — spawnSync needs no shell:true workaround here.
  */
 
 import fs from 'node:fs'
@@ -30,45 +30,24 @@ import { parseArgs } from 'node:util'
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url))
 const TEMPLATES = path.join(SCRIPT_DIR, 'templates', 'files')
 
-// Pinned via `go run pkg@version` — never added to the scaffolded module's
-// own go.mod (that would drag ~40 unrelated transitive deps, incl. a bumped
-// `go` directive, into go.sum just to pin a dev tool). Bump here + Makefile
-// stays in sync since the Makefile template is written from these too.
+// Pinned via `go run pkg@version` — never added to the scaffolded module's own
+// go.mod (that would drag ~40 unrelated transitive deps into go.sum just to pin
+// a dev tool). Bump here + the Makefile stays in sync (its template is written
+// from these too).
 const SQLC_VERSION = 'v1.29.0'
 const OAPI_CODEGEN_VERSION = 'v2.4.1'
+
+// Per-module oapi-codegen configs (ADR §4.1). Each writes gen.go into its own
+// nested internal/gen/ (output path is set inside each config, relative to the
+// project root this script runs generators from).
+const OAPI_MODULE_CONFIGS = [
+  'internal/users/internal/gen/oapi-codegen.yaml',
+  'internal/posts/internal/gen/oapi-codegen.yaml'
+]
 
 const NAME_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/
 const MODULE_RE = /^[A-Za-z0-9][A-Za-z0-9._~-]*(\/[A-Za-z0-9][A-Za-z0-9._~-]*)*$/
 const ORIGIN_RE = /^https?:\/\/[^\s,"]+$/
-
-const STATIC_FILES = [
-  'go.mod',
-  'openapi.yaml',
-  'oapi-codegen.yaml',
-  'sqlc.yaml',
-  'db/migrations/0001_create_users.up.sql',
-  'db/migrations/0001_create_users.down.sql',
-  'internal/store/queries/users.sql',
-  'Makefile',
-  'Dockerfile',
-  'docker-compose.yml',
-  '.env.example',
-  '.gitignore',
-  'README.md',
-  '.github/workflows/ci.yml'
-]
-
-// Written only after codegen has produced internal/api/gen.go and
-// internal/store/*.go — these import both.
-const GLUE_FILES = [
-  'cmd/server/main.go',
-  'internal/config/config.go',
-  'internal/server/server.go',
-  'internal/server/routes.go',
-  'internal/server/middleware.go',
-  'internal/server/handlers.go',
-  'internal/server/server_test.go'
-]
 
 function log(msg) {
   console.log(`[scaffold] ${msg}`)
@@ -112,7 +91,7 @@ Optional:
   --cors <origins>   Comma-separated default CORS origins (default: http://localhost:3000)
   --force            Write into a non-empty directory
   --no-commit        Skip the final git commit
-  --skip-verify      Skip go mod tidy / codegen / build / vet / test / commit (template iteration only)
+  --skip-verify      Skip codegen / tidy / build / vet / test / commit (template iteration only)
 `)
     process.exit(0)
   }
@@ -153,13 +132,26 @@ function substitute(content, cfg) {
     .replaceAll('{{OAPI_CODEGEN_VERSION}}', OAPI_CODEGEN_VERSION)
 }
 
+// Recursively collect every template file (dotfiles/dotdirs included). The old
+// STATIC/GLUE split existed because glue files needed generated code to exist
+// first; nothing is compiled until AFTER codegen runs below, so file WRITE order
+// no longer matters — everything is written in one pass, then generated.
+function walkFiles(dir, base = dir) {
+  const out = []
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name)
+    if (entry.isDirectory()) out.push(...walkFiles(full, base))
+    else out.push(path.relative(base, full))
+  }
+  return out
+}
+
 function writeFiles(relPaths, targetDir, cfg) {
   for (const rel of relPaths) {
     const src = path.join(TEMPLATES, rel)
     const dest = path.join(targetDir, rel)
     fs.mkdirSync(path.dirname(dest), { recursive: true })
-    const content = substitute(fs.readFileSync(src, 'utf8'), cfg)
-    fs.writeFileSync(dest, content, 'utf8')
+    fs.writeFileSync(dest, substitute(fs.readFileSync(src, 'utf8'), cfg), 'utf8')
     log(`wrote ${rel}`)
   }
 }
@@ -203,19 +195,18 @@ function main() {
   run('go', ['version'], targetDir)
 
   log(`scaffolding into ${targetDir} (module: ${cfg.module}, project: ${cfg.project})`)
-  writeFiles(STATIC_FILES, targetDir, cfg)
+  writeFiles(walkFiles(TEMPLATES), targetDir, cfg)
 
   if (cfg.skipVerify) {
     log('--skip-verify set: skipping codegen, build, and commit. Files written only.')
     return
   }
 
-  log('running codegen (oapi-codegen + sqlc) — first run downloads and builds both tools, can take a minute')
-  fs.mkdirSync(path.join(targetDir, 'internal', 'api'), { recursive: true }) // oapi-codegen writes gen.go here but won't create the dir itself
-  run('go', ['run', `github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@${OAPI_CODEGEN_VERSION}`, '-config', 'oapi-codegen.yaml', 'openapi.yaml'], targetDir)
+  log('running codegen (oapi-codegen per module + sqlc) — first run downloads and builds both tools, can take a minute')
+  for (const config of OAPI_MODULE_CONFIGS) {
+    run('go', ['run', `github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@${OAPI_CODEGEN_VERSION}`, '-config', config, 'api/openapi.yaml'], targetDir)
+  }
   run('go', ['run', `github.com/sqlc-dev/sqlc/cmd/sqlc@${SQLC_VERSION}`, 'generate'], targetDir)
-
-  writeFiles(GLUE_FILES, targetDir, cfg)
 
   log('go mod tidy')
   run('go', ['mod', 'tidy'], targetDir)
@@ -229,10 +220,21 @@ function main() {
   log('go build')
   run('go', ['build', '-o', 'bin/server', './cmd/server'], targetDir)
 
-  log('go test')
+  // Unit tests only — integration tests are behind `//go:build integration` and
+  // need Docker (run via `make test-integration`), never at scaffold time.
+  log('go test (unit)')
   run('go', ['test', './...'], targetDir)
 
-  const staticcheck = run('staticcheck', ['./...'], targetDir, { optional: true })
+  // Scoped to hand-written code — internal/gen (oapi-codegen) and infrastructure/db
+  // (sqlc) are DO-NOT-EDIT generated output the scaffold's own tooling regenerates,
+  // and staticcheck's generated-file heuristic doesn't recognize either marker.
+  const pkgList = run('go', ['list', './...'], targetDir, { optional: true })
+  const pkgs = pkgList.ok
+    ? pkgList.stdout.split('\n').filter(p => p.trim() && !/\/(internal\/gen|infrastructure\/db)$/.test(p.trim()))
+    : []
+  const staticcheck = pkgs.length
+    ? run('staticcheck', pkgs, targetDir, { optional: true })
+    : { missing: true }
   if (staticcheck.missing) {
     log('staticcheck not found on PATH — skipped. Install: go install honnef.co/go/tools/cmd/staticcheck@latest')
   }
@@ -243,11 +245,11 @@ function main() {
       run('git', ['init'], targetDir)
     }
     run('git', ['add', '-A'], targetDir)
-    const commit = spawnSync('git', ['commit', '-m', 'chore: scaffold Go REST API (contract-first: oapi-codegen + sqlc)'], { cwd: targetDir, encoding: 'utf8' })
+    const commit = spawnSync('git', ['commit', '-m', 'chore: scaffold Go modular-monolith REST API (per-module oapi-codegen + sqlc)'], { cwd: targetDir, encoding: 'utf8' })
     if (commit.status !== 0) {
       log(`git commit skipped: ${(commit.stderr || commit.stdout || '').trim() || 'nothing to commit or no git identity configured'}`)
     } else {
-      log('committed: chore: scaffold Go REST API (contract-first: oapi-codegen + sqlc)')
+      log('committed the scaffold')
     }
   }
 
@@ -256,14 +258,20 @@ done.
 
 Next steps:
   cd ${cfg.dir}
-  cp .env.example .env
+  cp .env.example .env          # set JWT_SECRET (openssl rand -base64 48)
   go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest   # one-time, only tool not go-run-able
-  docker compose up -d db
-  make migrate-up
+  make dev-setup                 # docker compose up -d db + migrate + seed
   make run
 
-Editable surface: openapi.yaml, internal/store/queries/, db/migrations/, internal/server/handlers.go
-Everything else regenerates via \`make generate\` — don't hand-edit internal/api/ or internal/store/.
+Editable surface: api/openapi.yaml, internal/<module>/ (domain, application,
+infrastructure, api), internal/shared/, internal/<module>/internal/infrastructure/queries/,
+db/migrations/. Everything else regenerates via \`make generate\` — don't hand-edit
+internal/<module>/internal/gen/ or internal/<module>/internal/infrastructure/db/.
+
+\`go test ./...\` runs unit tests (Docker-free). \`make test-integration\` runs the
+golden-path suite against a real Postgres via testcontainers-go (needs Docker).
+Module boundaries are compiler-enforced by Go's nested internal/ — a cross-module
+import of another module's internals fails to build.
 `)
 }
 

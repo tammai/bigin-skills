@@ -13,9 +13,19 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      # Spec↔code sync (ADR §6.2): regenerate from api/openapi.yaml + the SQL and
+      # fail if the committed generated code drifted. gofmt -s matches what
+      # scaffold.mjs applied post-codegen, so the diff reflects real drift only.
+      - run: make generate
+      - run: gofmt -s -w .
+      - run: git diff --exit-code internal/users/internal/gen internal/posts/internal/gen internal/users/internal/infrastructure/db internal/posts/internal/infrastructure/db
       - run: go vet ./...
       - run: go build -o bin/server ./cmd/server
       - run: go test ./...
-      - uses: dominikh/staticcheck-action@v1
-        with:
-          version: "latest"
+      # Integration tests use testcontainers-go — ubuntu-latest ships Docker, so
+      # no `services:` block is needed; the test starts/tears down Postgres itself.
+      - run: go test -tags integration ./...
+      # staticcheck on hand-written code only — the generated oapi-codegen/sqlc
+      # packages are DO-NOT-EDIT (see the Makefile `lint` target for why they're
+      # excluded rather than lint-clean).
+      - run: go run honnef.co/go/tools/cmd/staticcheck@2025.1.1 $(go list ./... | grep -vE '(/internal/gen|/infrastructure/db)$')

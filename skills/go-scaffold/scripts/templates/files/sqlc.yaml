@@ -1,12 +1,39 @@
 version: "2"
+# One sqlc config, one target per module. Each target reads ONLY its module's
+# `.up.sql` migration for its schema (not the shared db/migrations/ directory) —
+# two payoffs over the flat single-target layout:
+#   1. Per-module model isolation: users' generated `db` package contains only
+#      users-schema models, posts' only posts-schema — no cross-module bleed.
+#   2. Reading just the `.up.sql` (never the `.down.sql`) sidesteps the ordering
+#      fragility of pointing sqlc at a directory holding both up and down files.
+# The same `.up.sql` files golang-migrate runs remain the single source of truth
+# — sqlc parses them for typing, it does not run them.
+#
+# EVERY query is sqlc-owned — there is no hand-written pgx query path in either
+# repository. The list queries (ListUsers/ListPosts) are plain sqlc-generated
+# statements with a fixed newest-first sort (`ORDER BY created_at DESC, id DESC`)
+# and offset pagination; cursor/keyset pagination is a documented later upgrade
+# (see the header comment in each queries/*.sql). Because sqlc has this single
+# query surface, every read applies its `WHERE deleted_at IS NULL` soft-delete
+# filter in one place — there is no second path that could drift or forget it.
 sql:
   - engine: "postgresql"
-    queries: "internal/store/queries"
-    schema: "db/migrations"
+    queries: "internal/users/internal/infrastructure/queries"
+    schema: "db/migrations/0001_users.up.sql"
     gen:
       go:
-        package: "store"
-        out: "internal/store"
+        package: "db"
+        out: "internal/users/internal/infrastructure/db"
         sql_package: "pgx/v5"
-        emit_json_tags: true
+        emit_json_tags: false
+        emit_interface: true
+  - engine: "postgresql"
+    queries: "internal/posts/internal/infrastructure/queries"
+    schema: "db/migrations/0002_posts.up.sql"
+    gen:
+      go:
+        package: "db"
+        out: "internal/posts/internal/infrastructure/db"
+        sql_package: "pgx/v5"
+        emit_json_tags: false
         emit_interface: true

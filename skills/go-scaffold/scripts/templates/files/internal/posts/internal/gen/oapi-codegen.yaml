@@ -1,0 +1,13 @@
+# Per-module filtered codegen (ADR §4.1). include-tags: [posts] — only the
+# posts-tagged operations land in this module's nested internal/gen/.
+package: gen
+# Path is relative to the CWD oapi-codegen runs from (the project root, per
+# scaffold.mjs / `make generate`) — not to this config file.
+output: internal/posts/internal/gen/gen.go
+generate:
+  strict-server: true
+  chi-server: true
+  models: true
+output-options:
+  include-tags:
+    - posts

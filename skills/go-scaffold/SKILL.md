@@ -1,6 +1,6 @@
 ---
 name: go-scaffold
-description: "Scaffolds a production-ready Go REST API — non-interactive, template-driven. Contract-first: openapi.yaml generates the server interface + models (oapi-codegen), internal/store/queries/*.sql generates typed queries (sqlc); the script runs both generators itself so the repo it leaves behind builds and tests green, not a skeleton needing manual fixup. MUST use when user says: 'scaffold go api', 'create go rest api', 'new go backend', 'initialize go api', 'go rest api scaffold', 'set up go api', 'tạo go api', 'khởi tạo go api', 'cài go api', or when the repo has no go.mod. Also invoked by bigin-harness-setup Phase 0.5 for the go profile on an empty repo."
+description: "Scaffolds a production-ready Go REST API — non-interactive, template-driven. Contract-first: api/openapi.yaml (tagged per module) generates each module's server interface + models (oapi-codegen), each module's queries/*.sql generates typed queries (sqlc); the script runs both generators itself so the repo it leaves behind builds and tests green, not a skeleton needing manual fixup. MUST use when user says: 'scaffold go api', 'create go rest api', 'new go backend', 'initialize go api', 'go rest api scaffold', 'set up go api', 'tạo go api', 'khởi tạo go api', 'cài go api', or when the repo has no go.mod. Also invoked by bigin-harness-setup Phase 0.5 for the go profile on an empty repo."
 effort: low
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/scaffold.mjs *)
 ---
@@ -11,9 +11,9 @@ This skill is mechanical: gather config, run the script, relay its output. Do no
 
 Scaffolds a Go REST API from a single template. The mechanical work is done by a deterministic script — `scripts/scaffold.mjs` (Node stdlib only, cross-platform, zero prompts). This skill's only jobs: **decide the CLI flags, run the script, report the result.** Do not perform any scaffolding steps yourself.
 
-Stack: Go ≥1.24, chi router, contract-first via `oapi-codegen` (openapi.yaml → server interface + models) and `sqlc` (SQL → typed queries), `pgx/v5` + Postgres, `caarlos0/env` config, structured `log/slog`, Prometheus metrics, `go-chi/cors` + `go-chi/httprate`, `golang-migrate` for schema migrations, `testify` for assertions.
+Stack: Go ≥1.24, chi router, contract-first via `oapi-codegen` (`api/openapi.yaml` → per-module server interface + models) and `sqlc` (per-module SQL → typed queries), `pgx/v5` + Postgres, `caarlos0/env` config, structured `log/slog`, `go-chi/cors` + `go-chi/httprate`, `golang-migrate` for schema migrations.
 
-One template only — no variant menu like nuxt-scaffold's. The generated app ships a single example resource (`users`: create + get) proving the full pipeline end-to-end; everything else about the shape is fixed.
+One template only — no variant menu like nuxt-scaffold's. The generated app is a modular monolith with two modules (`users` and `posts`) plus a shared auth kernel (JWT + argon2id + RBAC): signup/login/refresh/logout, CRUD with optimistic concurrency, soft-delete erasure with a synchronous cross-module anonymize, and a batched cross-module read (no N+1) — proving the full pipeline and the module boundary end-to-end. Everything else about the shape is fixed.
 
 > Governance (CLAUDE.md, `.claude/rules/`, AI guides, `bash-guard.mjs`) is **not** this skill's job — run `bigin-harness-setup` afterward to overlay it.
 
@@ -71,9 +71,8 @@ Stream its output — the first run downloads and builds `oapi-codegen` and `sql
 - **Why not vendor `sqlc`/`oapi-codegen` in the scaffolded module's own `go.mod`?** Go 1.24's `go get -tool` would pin them reproducibly, but empirically pulls ~40 transitive packages (sqlc alone drags in a wasm runtime, a full SQL parser, grpc, zap...) into `go.sum`, and can bump the module's `go` directive higher than intended — for tools that never ship in the built binary. `go run pkg@version` avoids both: no `go.mod` pollution, versions still pinned (kept in sync between the Makefile template and `scaffold.mjs`'s own constants).
 - **Why is the Dockerfile's builder tag `golang:1-alpine` and not a pinned patch version?** `go mod tidy` bumps `go.mod`'s `go` directive as dependencies require. A pinned builder tag goes stale and eventually fails the build ("go.mod requires go >= X, running Y"); the floating major tag always tracks current.
 - **Why does `docker-compose.yml`'s `api` service override `DATABASE_URL` instead of relying on `.env` alone?** `.env.example`'s `DATABASE_URL` points at `localhost:5432`, correct for `make run` on the host against `docker compose up -d db` (which publishes that port). Inside the `api` container, `localhost` is itself, not the `db` service — the compose file overrides just that key to `db:5432` while `ADDR`/`LOG_LEVEL`/`CORS_ORIGINS` still come from `.env` via `env_file`.
-- **Why `api.HandlerWithOptions` instead of the simpler `api.HandlerFromMux`?** oapi-codegen's strict-server wrapper only covers JSON body decode errors, via `RequestErrorHandlerFunc`. Path/query param binding (e.g. a malformed UUID in `/users/{id}`) goes through a *different* error path — the underlying chi `ServerInterfaceWrapper`'s own `ErrorHandlerFunc`, which defaults to writing the raw parser error text straight to the client. `HandlerWithOptions` routes both paths through the same handler (`handleRequestError`), so neither leaks internals — verified live: hitting `/api/v1/users/not-a-uuid` returns `{"code":"bad_request","message":"invalid request"}`, not the underlying `uuid: invalid UUID length` parser error.
-- **Why is `store.Querier` used directly as `Server`'s dependency type instead of a hand-rolled interface?** sqlc already generates `Querier` (the exact method set `*store.Queries` implements) in `querier.go` — a hand-written duplicate would just be a second copy to keep in sync by hand.
-- **Why does `readyz` check `s.pool.Ping`, and why must handlers never call `pool.Ping` themselves elsewhere?** `pgxpool.New` doesn't eagerly connect — the pool is usable (and the process starts cleanly) even against an unreachable database; only `readyz` and actual queries surface connectivity failures. Verified live: with `DATABASE_URL` pointed at a closed port, the binary still starts, `/healthz` returns 200, `/readyz` returns 503, and `POST /api/v1/users` returns a generic 500 (the connect error is logged server-side, never echoed to the client).
+- **How do handler errors reach the client without leaking internals?** Each module wires its generated strict server via `gen.NewStrictHandlerWithOptions` (in the module's `Register`) with the two hooks from `apierror.StrictHandlers` — one shared implementation across modules. `ResponseErrorHandlerFunc` routes every error a handler returns through `apierror.Write`: an `*apierror.AppError` from a use-case keeps its real status + code, while a non-AppError becomes a generic 500 (`internal_error`) with the raw error logged server-side, never sent. `RequestErrorHandlerFunc` maps a request-body decode failure to a 400 validation envelope. Both render the same nested `{"error":{code,message,request_id,details}}` shape (see `internal/shared/apierror/http.go` and its `http_test.go`). `gen.HandlerFromMux(strict, r)` then mounts that module's routes onto the shared router.
+- **Why does `readyz` check `s.pool.Ping`, and why must handlers never call `pool.Ping` themselves elsewhere?** `pgxpool.New` doesn't eagerly connect — the pool is usable (and the process starts cleanly) even against an unreachable database; only `readyz` and actual queries surface connectivity failures. Verified live: with `DATABASE_URL` pointed at a closed port, the binary still starts, `/healthz` returns 200, `/readyz` returns 503, and a request that needs the DB returns a generic 500 (the connect error is logged server-side, never echoed to the client).
 
 ## Manual validation (maintainers)
 
@@ -87,11 +86,17 @@ node <skill-dir>/scripts/scaffold.mjs --module github.com/acme/scaffold-test --d
 Expect: exit 0, `go build`/`go vet`/`go test` all pass inline, a git commit created. Then actually run the binary and curl it — static checks alone don't prove runtime behavior:
 
 ```sh
-DATABASE_URL="postgres://x:x@localhost:1/x?sslmode=disable" ADDR=":18080" ./bin/server &
+JWT_SECRET="dev-only-secret" DATABASE_URL="postgres://x:x@localhost:1/x?sslmode=disable" ADDR=":18080" ./bin/server &
 curl -s -o /dev/null -w "%{http_code}\n" http://localhost:18080/healthz   # 200
-curl -s -o /dev/null -w "%{http_code}\n" http://localhost:18080/readyz   # 503, no live db
-curl -s http://localhost:18080/api/v1/users/not-a-uuid                    # {"code":"bad_request",...} — not a leaked parser error
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:18080/readyz    # 503, no live db
+curl -s http://localhost:18080/v1/users                                   # {"error":{"code":"unauthenticated",...}} 401 — auth enforced before any DB touch, nested envelope
 ```
+
+`JWT_SECRET` is required (no default) — the binary exits on boot without it. The
+`/v1/users` probe returns the 401 apierror envelope without needing a live DB
+(auth.Require runs before the handler queries anything). The full write path
+(signup → login → posts → erase) needs Postgres and is covered by
+`make test-integration`, not this no-DB smoke check.
 
 Re-run the same scaffold command again without `--force` → must fail fast ("exists and is not empty"), exit 2, no files touched.
 
@@ -100,4 +105,4 @@ For a fast file-tree-only pass while iterating on templates, add `--skip-verify`
 ## References
 
 - `scripts/scaffold.mjs` — the scaffold implementation (single file, Node stdlib only).
-- `scripts/templates/files/` — **source of truth** for every file written into the project. `STATIC_FILES` are written before codegen runs; `GLUE_FILES` (which import the generated `internal/api`/`internal/store` packages) are written after.
+- `scripts/templates/files/` — **source of truth** for every file written into the project. `walkFiles` collects the whole tree and `writeFiles` writes it in one pass; nothing is compiled until codegen runs afterward, so there is no write-order split (the old STATIC/GLUE distinction is gone). `{{MODULE}}`/`{{PROJECT_NAME}}`/`{{CORS}}`/version tokens are substituted per file.

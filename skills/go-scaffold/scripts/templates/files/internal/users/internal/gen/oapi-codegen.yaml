@@ -1,0 +1,15 @@
+# Per-module filtered codegen (ADR §4.1). include-tags: [users] makes
+# oapi-codegen emit ONLY the users-tagged operations from the single
+# api/openapi.yaml into this module's own nested internal/gen/ — no other
+# module can see or import these types.
+package: gen
+# Path is relative to the CWD oapi-codegen runs from (the project root, per
+# scaffold.mjs / `make generate`) — not to this config file.
+output: internal/users/internal/gen/gen.go
+generate:
+  strict-server: true
+  chi-server: true
+  models: true
+output-options:
+  include-tags:
+    - users

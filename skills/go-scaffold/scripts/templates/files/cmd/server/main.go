@@ -13,9 +13,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"{{MODULE}}/internal/config"
-	"{{MODULE}}/internal/server"
-	"{{MODULE}}/internal/store"
+	"{{MODULE}}/internal/app"
+	"{{MODULE}}/internal/shared/config"
 )
 
 func main() {
@@ -38,16 +37,18 @@ func main() {
 	}
 	defer pool.Close()
 
-	openapiSpec, err := os.ReadFile("openapi.yaml")
+	// Served at /openapi.yaml (+ /docs). Relative to the working dir; the
+	// Dockerfile copies api/openapi.yaml alongside the binary.
+	openapiSpec, err := os.ReadFile("api/openapi.yaml")
 	if err != nil {
-		logger.Warn("openapi.yaml not found — /openapi.yaml and /docs will 404", "error", err)
+		logger.Warn("api/openapi.yaml not found — /openapi.yaml and /docs will 404", "error", err)
 	}
 
-	srv := server.New(store.New(pool), pool, logger, cfg, openapiSpec)
+	handler := app.Build(pool, cfg, logger, openapiSpec)
 
 	httpServer := &http.Server{
 		Addr:              cfg.Addr,
-		Handler:           srv.Routes(),
+		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      30 * time.Second,

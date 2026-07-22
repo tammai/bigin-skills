@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS posts.posts;
+DROP SCHEMA IF EXISTS posts;
