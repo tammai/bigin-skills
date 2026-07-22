@@ -258,12 +258,13 @@ function preflight() {
   log(`preflight ok — Node ${process.version}, pnpm ${pnpmCheck.stdout.trim()}, target ${CFG.targetDir}`)
 }
 
-const PRESET_DEPS = ['zustand', '@tanstack/react-query', 'zod', 'iron-session']
-const PRESET_DEV_DEPS = ['vitest', '@vitejs/plugin-react', 'jsdom', '@testing-library/react', '@testing-library/jest-dom', 'simple-git-hooks', 'lint-staged']
-// Only the starter template ships an openapi.yaml stub + openapi-types script to consume it
-// (templates/starter/merge/package.json) — every other template has no backend contract to
-// describe, so this stays out of the universally-installed PRESET_DEV_DEPS above.
-const STARTER_DEV_DEPS = ['openapi-typescript']
+// openapi-fetch is the runtime typed backend client (src/shared/api-client) — universal now
+// that every template ships the BFF proxy + generated client, not just an unauthenticated sample.
+const PRESET_DEPS = ['zustand', '@tanstack/react-query', 'zod', 'iron-session', 'openapi-fetch']
+// openapi-typescript regenerates the committed client-types snapshot (pnpm openapi:generate);
+// eslint-plugin-boundaries + eslint-import-resolver-typescript enforce the feature-folder
+// boundaries in eslint.config.mjs (the resolver is load-bearing — see eslint.boundaries.mjs).
+const PRESET_DEV_DEPS = ['vitest', '@vitejs/plugin-react', 'jsdom', '@testing-library/react', '@testing-library/jest-dom', 'simple-git-hooks', 'lint-staged', 'openapi-typescript', 'eslint-plugin-boundaries', 'eslint-import-resolver-typescript']
 
 /** skipInstall-only: declare deps in package.json as the "latest" dist-tag (no registry lookup, no pnpm add) so a later `pnpm install` resolves them. */
 function declareDepsUnresolved(deps, devDeps) {
@@ -339,16 +340,15 @@ function stage1bRefresh() {
 }
 
 function stage2Preset() {
-  const devDeps = CFG.template === 'starter' ? [...PRESET_DEV_DEPS, ...STARTER_DEV_DEPS] : PRESET_DEV_DEPS
   if (CFG.skipInstall) {
     log('stage 2: skipped installing BFF preset + shadcn/ui (skipInstall) — declaring preset deps in package.json as "latest" for a later `pnpm install`; shadcn/ui itself must be initialized manually (`npx shadcn@latest init`) since it needs a real install to detect the project shape')
-    declareDepsUnresolved(PRESET_DEPS, devDeps)
+    declareDepsUnresolved(PRESET_DEPS, PRESET_DEV_DEPS)
     return
   }
   log('stage 2: installing BFF preset packages')
   pnpmAdd(PRESET_DEPS)
   // simple-git-hooks trips ERR_PNPM_IGNORED_BUILDS — expected; approved right after.
-  pnpmAdd(['-D', ...devDeps], ['simple-git-hooks'])
+  pnpmAdd(['-D', ...PRESET_DEV_DEPS], ['simple-git-hooks'])
 
   // components.json is shadcn init's own signature file — re-running init on a resume would
   // rewrite components.json/globals.css even though nothing needs it; `shadcn add` below is
@@ -374,16 +374,18 @@ function applyArtifacts() {
     const rel = path.relative(filesRoot, src)
     writeFileEnsured(path.join(CFG.targetDir, rel), substitute(fs.readFileSync(src, 'utf8'), subs))
   }
-  // Template-specific overlays (same write-fresh mechanism as `files/`, gated by CFG.template):
-  // `starter` gets the openapi stub (no backend contract to describe yet); `saas` gets the
-  // demo-auth + private dashboard wiring that a bare create-next-app + shadcn init doesn't ship.
-  // `dashboard` gets nothing bespoke — the shadcn `dashboard-01` block added in stage2Preset IS
-  // the deliverable, same as 6 of nuxt-scaffold's 8 non-starter templates getting zero extra files.
-  const templateOverlay = CFG.template === 'starter' ? 'starter' : CFG.template === 'saas' ? 'saas' : null
+  // Template-specific overlay (same write-fresh mechanism as `files/`, gated by CFG.template):
+  // `saas` gets the real-backend auth flow (login/signup/logout routes + private dashboard +
+  // route-protection middleware) that a bare create-next-app + shadcn init doesn't ship. The
+  // base `files/` template already ships the BFF proxy, generated API client, and feature-folder
+  // structure for every template — `saas` only adds the auth UI + routes on top. `starter` and
+  // `dashboard` get nothing bespoke: `dashboard`'s deliverable is the shadcn `dashboard-01` block
+  // added in stage2Preset (same as 6 of nuxt-scaffold's 8 non-starter templates getting zero
+  // extra files).
+  const templateOverlay = CFG.template === 'saas' ? 'saas' : null
   if (templateOverlay) {
     const overlayRoot = path.join(TEMPLATES, templateOverlay)
     for (const src of listFilesRecursive(overlayRoot)) {
-      if (path.relative(overlayRoot, src).startsWith(`merge${path.sep}`)) continue // handled below, JSON-merged not overwritten
       const rel = path.relative(overlayRoot, src)
       writeFileEnsured(path.join(CFG.targetDir, rel), substitute(fs.readFileSync(src, 'utf8'), subs))
     }
@@ -403,6 +405,47 @@ function applyArtifacts() {
     fs.writeFileSync(layoutPath, layout)
   }
 
+  // All templates: the BFF proxy (src/app/api/backend/[...path]) forwards paths verbatim to the
+  // backend, whose collection routes are served WITH a trailing slash (e.g. /v1/users/ — Fastify
+  // prefix + '/'). Next's default trailing-slash redirect (308) would strip that slash before the
+  // proxy handler runs, so the forwarded path would 404. `skipTrailingSlashRedirect` disables that
+  // redirect so the proxy preserves the path exactly as the generated openapi-fetch client sends
+  // it. (This is the documented Next option for exactly this proxy-preservation case.)
+  const nextConfigPath = path.join(CFG.targetDir, 'next.config.ts')
+  if (fs.existsSync(nextConfigPath)) {
+    let nextConfig = fs.readFileSync(nextConfigPath, 'utf8')
+    if (!nextConfig.includes('skipTrailingSlashRedirect')) {
+      const before = nextConfig
+      nextConfig = nextConfig.replace(
+        /(const nextConfig: NextConfig = \{\n)/,
+        `$1  // Preserve trailing slashes so the /api/backend proxy can forward e.g. /v1/users/ verbatim.\n  skipTrailingSlashRedirect: true,\n`
+      )
+      if (nextConfig === before) fail('cannot patch next.config.ts (skipTrailingSlashRedirect) — create-next-app config shape changed; re-verify artifacts.md')
+      fs.writeFileSync(nextConfigPath, nextConfig)
+    }
+  }
+
+  // All templates: wire eslint-plugin-boundaries into the generated eslint.config.mjs so the
+  // feature-folder structure (src/features/<f>, src/shared, src/lib, src/app) is a REAL boundary
+  // — the config body lives in the shipped files/eslint.boundaries.mjs (source of truth); here we
+  // just import it and spread it into the defineConfig([...]) array. Insert the array entry after
+  // `...nextTs,` (same anchor the dashboard patch below uses — both survive because the anchor is
+  // preserved by `$1`). Fails loudly if create-next-app's config shape changed.
+  const eslintConfigPath = path.join(CFG.targetDir, 'eslint.config.mjs')
+  let eslintConfig = fs.readFileSync(eslintConfigPath, 'utf8')
+  if (!eslintConfig.includes('eslint.boundaries.mjs')) {
+    const before = eslintConfig
+    eslintConfig = eslintConfig.replace(
+      /(import nextTs from "eslint-config-next\/typescript";\n)/,
+      `$1import { boundariesConfig } from "./eslint.boundaries.mjs";\n`
+    )
+    eslintConfig = eslintConfig.replace(/(\.\.\.nextTs,\n)/, `$1  boundariesConfig,\n`)
+    if (eslintConfig === before || !eslintConfig.includes('boundariesConfig,')) {
+      fail('cannot wire boundariesConfig into eslint.config.mjs — create-next-app config shape changed; re-verify the eslint imports/defineConfig array in artifacts.md')
+    }
+    fs.writeFileSync(eslintConfigPath, eslintConfig)
+  }
+
   // dashboard only: the shadcn `dashboard-01` block's own shipped source trips two react-hooks
   // rules that ship enabled-by-default in eslint-config-next 16 (React Compiler diagnostics,
   // on regardless of whether the compiler itself is enabled) — confirmed via a live scaffold run
@@ -410,8 +453,9 @@ function applyArtifacts() {
   // vendored block code, not ours to rewrite; scope an override to exactly those two files rather
   // than disabling the rules project-wide.
   if (CFG.template === 'dashboard') {
-    const eslintConfigPath = path.join(CFG.targetDir, 'eslint.config.mjs')
-    let eslintConfig = fs.readFileSync(eslintConfigPath, 'utf8')
+    // eslintConfig/eslintConfigPath already loaded (+ boundaries-patched) above; re-read from
+    // disk so this patch sees the boundaries edit, then append the dashboard-only override.
+    eslintConfig = fs.readFileSync(eslintConfigPath, 'utf8')
     if (!eslintConfig.includes('react-hooks/set-state-in-effect')) {
       const before = eslintConfig
       eslintConfig = eslintConfig.replace(
@@ -427,10 +471,6 @@ function applyArtifacts() {
   mergeJsonFile(path.join(CFG.targetDir, 'package.json'), JSON.parse(readTemplate(path.join('merge', 'package.json'), subs)))
   mergeJsonFile(path.join(CFG.targetDir, '.claude', 'settings.json'), JSON.parse(readTemplate(path.join('merge', 'claude-settings.json'), subs)))
   mergeJsonFile(path.join(CFG.targetDir, '.vscode', 'settings.json'), JSON.parse(readTemplate(path.join('merge', 'vscode-settings.json'), subs)))
-  if (CFG.template === 'starter') {
-    // openapi-types script only makes sense alongside the openapi.yaml stub (starter-only overlay above).
-    mergeJsonFile(path.join(CFG.targetDir, 'package.json'), JSON.parse(readTemplate(path.join('starter', 'merge', 'package.json'), subs)))
-  }
 
   // .env must never be committed.
   const gitignorePath = path.join(CFG.targetDir, '.gitignore')
@@ -483,26 +523,32 @@ function printNextSteps() {
   if (CFG.template === 'starter') {
     lines.push(
       '  1. Copy .env.example → .env and set:',
-      '     - SESSION_PASSWORD (openssl rand -base64 32) — unused until you add auth',
-      '     - BACKEND_URL      (backend REST API; server-only)',
-      '  2. Replace the stub openapi.yaml with the real backend contract, then:',
-      '     pnpm openapi-types',
+      '     - SESSION_PASSWORD (openssl rand -base64 32)',
+      '     - BACKEND_URL      (backend REST API; server-only — e.g. a nodejs-scaffold/Fastify app)',
+      '  2. The BFF proxy (src/app/api/backend/[...path]/route.ts) forwards browser calls to',
+      '     BACKEND_URL with the session Bearer token. The typed client + generated types live in',
+      '     src/shared/api-client (committed snapshot of the backend contract, openapi.json).',
+      '     Refresh the types after a backend change: pnpm openapi:generate (point openapi.json at',
+      '     the paired backend\'s exported src/api/openapi.json first).',
       '  3. Overlay governance: run bigin-harness-setup (CLAUDE.md, rules, bash-guard).',
       '  4. Start: pnpm dev',
       '  5. Deploy: vercel (or the Vercel GitHub integration) — zero-config for Next.js.'
     )
   } else if (CFG.template === 'saas') {
     lines.push(
-      '  1. Copy .env.example → .env and set SESSION_PASSWORD (openssl rand -base64 32).',
-      '  2. /api/login and /api/signup are stubbed (any valid-shaped credentials succeed, no backend call) — swap in a real backend before shipping.',
+      '  1. Copy .env.example → .env and set SESSION_PASSWORD (openssl rand -base64 32) and',
+      '     BACKEND_URL (the paired backend REST API — e.g. a nodejs-scaffold/Fastify app).',
+      '  2. Auth is wired to the real backend: /api/login + /api/signup call BACKEND_URL and store',
+      '     the returned token pair in the sealed session; the /api/backend/* proxy attaches the',
+      '     Bearer token and does the 401→refresh→retry flow. Start the backend before signing in.',
       '  3. Overlay governance: run bigin-harness-setup (CLAUDE.md, rules, bash-guard).',
       '  4. Start: pnpm dev — public site at /, private area at /dashboard.',
       '  5. Deploy: vercel (or the Vercel GitHub integration) — zero-config for Next.js.'
     )
   } else {
     lines.push(
-      '  1. Copy .env.example → .env and set BACKEND_URL.',
-      '  2. The shadcn `dashboard-01` block wrote a working admin shell straight to /dashboard (sidebar, charts, data table — currently on sample data, not the BFF sample route); wire it to real data or a nav entry as needed.',
+      '  1. Copy .env.example → .env and set SESSION_PASSWORD and BACKEND_URL.',
+      '  2. The shadcn `dashboard-01` block wrote a working admin shell straight to /dashboard (sidebar, charts, data table — currently on sample data). Wire it to real data via the BFF proxy (src/app/api/backend/[...path]/route.ts) + a feature hook in src/features/, as needed.',
       '  3. Overlay governance: run bigin-harness-setup (CLAUDE.md, rules, bash-guard).',
       '  4. Start: pnpm dev — admin shell at /dashboard.',
       '  5. Deploy: vercel (or the Vercel GitHub integration) — zero-config for Next.js.'

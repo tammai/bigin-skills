@@ -22,8 +22,9 @@ export default async function DashboardPage() {
           <CardContent>
             <p className="text-sm text-muted-foreground">
               This is a private area — only reachable when logged in (see src/proxy.ts).
-              Auth here is a demo stand-in with no backend wired; swap the /api/login and
-              /api/signup routes for real calls before shipping.
+              Auth is wired to a real backend: /api/login and /api/signup call
+              BACKEND_URL and store the returned token pair in the sealed session;
+              authenticated data calls go through the /api/backend/* proxy.
             </p>
           </CardContent>
         </Card>

@@ -1,6 +1,6 @@
 ---
 name: next-scaffold
-description: "Scaffolds a Next.js BFF app — non-interactive, template-driven. Default `starter` template runs `create-next-app` from scratch, then layers the BFF preset (Zustand, TanStack Query, shadcn/ui, Zod, Vitest) on top. `dashboard` adds the official shadcn `dashboard-01` admin-shell block; `saas` adds a demo-auth-gated `/dashboard` (iron-session) plus hand-authored login/signup pages. MUST use when user says: 'scaffold next', 'create next app', 'initialize next.js project', 'new next bff', 'set up next.js', 'next dashboard template', 'next saas template', 'tạo next', 'khởi tạo next.js', 'cài next', or when the repo has no next.config.ts. Also invoked by bigin-harness-setup Phase 0.5d for the next profile on an empty repo."
+description: "Scaffolds a Next.js BFF app — non-interactive, template-driven. Default `starter` template runs `create-next-app` from scratch, then layers the BFF preset (Zustand, TanStack Query, shadcn/ui, Zod, Vitest) on top. `dashboard` adds the official shadcn `dashboard-01` admin-shell block; `saas` adds a real-backend auth flow — hand-authored login/signup pages that call the paired backend, the token pair sealed into an iron-session cookie, and a private `/dashboard` gated on it. MUST use when user says: 'scaffold next', 'create next app', 'initialize next.js project', 'new next bff', 'set up next.js', 'next dashboard template', 'next saas template', 'tạo next', 'khởi tạo next.js', 'cài next', or when the repo has no next.config.ts. Also invoked by bigin-harness-setup Phase 0.5d for the next profile on an empty repo."
 effort: low
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/scaffold.mjs *)
 ---
@@ -19,7 +19,7 @@ Stack: Next.js (App Router, TypeScript), Tailwind CSS v4, shadcn/ui, Zustand, Ta
 | --- | --- | --- |
 | `starter` (default) | `create-next-app` (no clone, no block) | minimal Next + shadcn/ui base (Button/Card/Tooltip) + BFF preset, no auth wired |
 | `dashboard` | `create-next-app` + shadcn `dashboard-01` block | working admin shell straight at `/dashboard` (sidebar, charts, data table on sample data) |
-| `saas` | `create-next-app` + shadcn `input`/`label` primitives + hand-authored pages | public site **+ private `/dashboard`** gated by demo `iron-session` auth (no real backend — see `references/artifacts.md`) |
+| `saas` | `create-next-app` + shadcn `input`/`label` primitives + hand-authored pages | public site **+ private `/dashboard`** — real-backend auth: login/signup/logout call the paired backend, the returned token pair is sealed into the iron-session cookie, and `/api/backend/*` proxies all authenticated data calls (see `references/artifacts.md`) |
 
 Unlike `nuxt-scaffold`'s 9 templates (6 of which clone a whole separate GitHub repo from `nuxt-ui-templates`), shadcn/ui has no equivalent gallery of full standalone app templates — only an official **block registry** (`dashboard-01`, `login-03`, etc.) of individual compositions added into an existing app via `shadcn add`. `next-scaffold` therefore ships exactly the two templates that get real bespoke treatment in the Nuxt world (`saas`, `dashboard`) plus the default — not a 1:1 count match. See `references/bootstrap.md` for the full rationale.
 
@@ -43,7 +43,7 @@ Check the target directory:
 
 `AskUserQuestion` accepts up to 4 questions in a **single** call, rendered as one widget. **Exactly one `AskUserQuestion` tool call**, with a `questions` array holding both objects below — not two separate calls. They don't depend on each other, so array order doesn't matter.
 
-1. **Template** — options: `Starter — bare BFF, no auth` (recommended/default), `Dashboard — shadcn admin shell (dashboard-01 block)`, `SaaS — public site + private dashboard, demo auth`.
+1. **Template** — options: `Starter — bare BFF, no auth` (recommended/default), `Dashboard — shadcn admin shell (dashboard-01 block)`, `SaaS — public site + private dashboard, real-backend auth`.
 2. **Dependency freshness** — options: `capped — latest minor/patch within the shipped major (safe, default)`, `latest — newest release including a future major`.
 
 **Then, plain conversational free text** (not `AskUserQuestion`, needs regex validation, so it can't be a 3rd array entry): **Project name** — kebab-case, default = current directory name, must match `^[a-z0-9]+(-[a-z0-9]+)*$` — re-prompt if it doesn't.

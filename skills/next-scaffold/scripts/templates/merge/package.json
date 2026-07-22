@@ -4,6 +4,7 @@
     "type-check": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "openapi:generate": "openapi-typescript openapi.json -o src/shared/api-client/schema.d.ts",
     "prepare": "simple-git-hooks"
   },
   "simple-git-hooks": {

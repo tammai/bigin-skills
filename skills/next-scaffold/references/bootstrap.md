@@ -101,8 +101,8 @@ If any `pnpm add` fails, report which package and stop — do not continue with 
 ## Stage 2 — Install the BFF preset + shadcn/ui / Cài đặt bộ preset BFF + shadcn/ui
 
 ```sh
-pnpm add zustand @tanstack/react-query zod iron-session
-pnpm add -D vitest @vitejs/plugin-react jsdom @testing-library/react @testing-library/jest-dom simple-git-hooks lint-staged
+pnpm add zustand @tanstack/react-query zod iron-session openapi-fetch
+pnpm add -D vitest @vitejs/plugin-react jsdom @testing-library/react @testing-library/jest-dom simple-git-hooks lint-staged openapi-typescript eslint-plugin-boundaries eslint-import-resolver-typescript
 pnpm approve-builds simple-git-hooks || true
 
 npx shadcn@latest init -y -d
@@ -110,13 +110,9 @@ npx shadcn@latest add button card tooltip -y
 # + template-specific blocks, see TEMPLATE_BLOCKS in scaffold.mjs
 ```
 
-`starter` only, additionally:
-```sh
-pnpm add -D openapi-typescript
-```
-`openapi-typescript` only makes sense alongside `starter`'s `openapi.yaml` stub + `openapi-types` script (Stage 3) — `dashboard`/`saas` have no backend contract to describe by default, so it stays out of the universally-installed set above rather than shipping as a dead devDependency on templates that never wire up a script to run it.
+The BFF preset is universal (every template ships the backend proxy + generated API client + feature-folder boundaries now, not just an unauthenticated sample): `openapi-fetch` (runtime typed backend client, `src/shared/api-client`), `openapi-typescript` (regenerates the committed client-types snapshot via `pnpm openapi:generate`), and `eslint-plugin-boundaries` + `eslint-import-resolver-typescript` (enforce the feature-folder boundaries in `eslint.config.mjs` — the resolver is load-bearing, see `files/eslint.boundaries.mjs`). There is no longer a `starter`-only devDependency set.
 
-`zustand` (state), `@tanstack/react-query` (server-state cache — same role as Pinia Colada, and TanStack Query is what Pinia Colada is itself modeled on), `zod` (validation), and `iron-session` (stateless sealed-cookie sessions — the direct Next.js analog of `nuxt-auth-utils`, same author lineage/design) are plain packages, consumed in code — no config-file registration step exists in Next the way Nuxt modules need `nuxt.config.ts` registration. `iron-session` is installed for every template (parity with `nuxt-auth-utils` being installed even for Nuxt's `starter`), even though only `saas` actually exercises it.
+`zustand` (state), `@tanstack/react-query` (server-state cache — same role as Pinia Colada, and TanStack Query is what Pinia Colada is itself modeled on), `zod` (validation), and `iron-session` (stateless sealed-cookie sessions — the direct Next.js analog of `nuxt-auth-utils`, same author lineage/design) are plain packages, consumed in code — no config-file registration step exists in Next the way Nuxt modules need `nuxt.config.ts` registration. `iron-session` is installed and **exercised by every template**: the base BFF proxy reads the sealed session in all of them (only `saas` also ships the login/signup UI that populates it).
 
 `shadcn@latest init -y -d` (`--yes --defaults`, i.e. `--template=next --preset=nova`) is fully non-interactive. **There is no `--base-color` flag** (verified live against `ui.shadcn.com/docs/cli` on 2026-07-14 — the `init` flag list has `--template`/`--base`/`--preset`/`--css-variables`/etc. but no color flag), so `next-scaffold` does not ask a base-color question and accepts whatever the `nova` preset's default is. If a future CLI version adds a non-interactive color flag, this is the place to wire a `baseColor` config field the way `nuxt-scaffold` has `theme.primary`/`theme.neutral` — do not fabricate CSS custom-property values by hand instead; shadcn's palette values (`neutral`/`stone`/`zinc`/`mauve`/`olive`/`mist`/`taupe` per `components.json`'s `tailwind.baseColor` docs) were not independently re-derived/verified here.
 
@@ -128,7 +124,7 @@ If any `pnpm add`/`npx shadcn` command fails, report which one and stop — do n
 
 ## Stage 3 — Apply artifacts / Áp dụng các tệp mẫu
 
-Write/merge the files in `references/artifacts.md` (substitute `{PROJECT_NAME}`). `src/app/layout.tsx`, `package.json`, `.claude/settings.json`, and `.vscode/settings.json` are **merged/patched**, never overwritten wholesale. `dashboard` only: `eslint.config.mjs` also gets a scoped patch — see `artifacts.md`'s "do not touch" note for why and exactly what it disables.
+Write/merge the files in `references/artifacts.md` (substitute `{PROJECT_NAME}`). `src/app/layout.tsx`, `package.json`, `.claude/settings.json`, and `.vscode/settings.json` are **merged/patched**, never overwritten wholesale. All templates: `next.config.ts` gets `skipTrailingSlashRedirect: true` and `eslint.config.mjs` gets the `eslint-plugin-boundaries` wiring (`dashboard` additionally gets a scoped `react-hooks` override for the `dashboard-01` block) — see `artifacts.md`'s per-file notes for why and exactly what each patch does.
 
 ---
 
@@ -150,4 +146,4 @@ pnpm type-check
 pnpm test
 ```
 
-`lint`, `type-check`, and `test` must pass before the scaffold is considered complete. (`use-users.test.tsx` is written in Stage 3, so `pnpm test` validates the Vitest + React Testing Library + TanStack Query chain.) Verify the Next.js major version (`node -e "console.log(require('next/package.json').version)"` — must start with `16`). Stop and fix any errors before the initial commit.
+`lint`, `type-check`, and `test` must pass before the scaffold is considered complete. Stage 3 writes the test files (`src/features/users/hooks/use-users.test.tsx` for the Vitest + React Testing Library + TanStack Query chain, and `src/app/api/backend/[...path]/route.test.ts` for the BFF proxy; `saas` adds login/signup route tests too), so `pnpm test` validates them. Verify the Next.js major version (`node -e "console.log(require('next/package.json').version)"` — must start with `16`). Stop and fix any errors before the initial commit.
