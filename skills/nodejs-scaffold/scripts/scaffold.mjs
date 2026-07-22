@@ -1,37 +1,31 @@
 #!/usr/bin/env node
 /**
- * scaffold.mjs — deterministic Node.js REST API scaffold (contract-first).
+ * scaffold.mjs — deterministic Node.js modular-monolith REST API scaffold.
  *
  * Usage:
  *   node scaffold.mjs --project orders-api [--dir orders-api]
  *                      [--cors https://app.example.com]
  *                      [--force] [--no-commit] [--skip-verify]
  *
- * openapi.yaml generates API types (openapi-typescript); src/db/schema.ts
- * generates migration SQL (drizzle-kit) — the reverse direction of a
- * SQL-first generator like sqlc: schema.ts is hand-written, drizzle/*.sql is
- * generated from it. This script runs both generators itself so the repo it
- * leaves behind actually builds and tests green, not a skeleton needing
- * manual fixup first.
+ * Code-first OpenAPI: TypeBox route schemas ARE the spec, and
+ * `pnpm openapi:export` dumps src/api/openapi.json from the live app (no DB).
+ * src/modules/<mod>/infrastructure/*.schema.ts + src/shared/'s schema files
+ * generate migration SQL under drizzle/ via drizzle-kit. This script runs both
+ * generators itself so the repo it leaves behind builds and tests green.
  *
  * All decisions are pre-resolved via CLI flags — this script never prompts,
- * never reads stdin. Node stdlib only (no npm dependency to run the script
- * itself — the scaffolded project's own deps are installed via `pnpm add`).
- * Exit codes: 0 ok, 1 runtime failure, 2 bad usage/args.
+ * never reads stdin. Node stdlib only. Exit codes: 0 ok, 1 runtime failure,
+ * 2 bad usage/args.
  *
- * Every runtime/dev dependency here is a normal devDependency/dependency
- * resolved through pnpm's lockfile — unlike go-scaffold's `go run pkg@version`
- * trick (which exists only to avoid vendoring sqlc/oapi-codegen into go.mod),
- * there's no equivalent problem in Node, so no dependency version is
- * hardcoded in this script. `pnpm add` resolves whatever's current.
+ * Because both example modules (users, posts) are fixed named templates (not
+ * user-parameterized), string templating + fs/spawnSync is enough — this stays
+ * a single stdlib script, not an npm package.
  *
  * ── Windows notes (same problem nuxt-scaffold's scaffold.mjs solves) ──
  * pnpm/npx are .cmd shims on win32. Since Node's CVE-2024-27980 fix, spawning
  * a .cmd without a shell throws EINVAL — so run() sets `shell: true` ON
  * WINDOWS ONLY, always with an argument array (never a concatenated command
- * string), with args individually quoted for cmd.exe (winQuote). go-scaffold
- * doesn't need this (go/git are native binaries); this script shells out to
- * pnpm repeatedly, so it does.
+ * string), with args individually quoted for cmd.exe (winQuote).
  */
 
 import fs from 'node:fs'
@@ -47,48 +41,46 @@ const TEMPLATES = path.join(SCRIPT_DIR, 'templates', 'files')
 const NAME_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/
 const ORIGIN_RE = /^https?:\/\/[^\s,"]+$/
 
-const STATIC_FILES = [
-  'package.json',
-  'tsconfig.json',
-  'eslint.config.mjs',
-  'vitest.config.ts',
-  '.env.example',
-  '.gitignore',
-  'README.md',
-  'Dockerfile',
-  'docker-compose.yml',
-  '.github/workflows/ci.yml',
-  'openapi.yaml',
-  'drizzle.config.ts',
-  'src/config/env.ts',
-  'src/db/schema.ts',
-  'src/db/client.ts',
-  'src/db/migrate.ts'
+// Runtime deps. argon2 has a native/postinstall build; package.json's
+// pnpm.onlyBuiltDependencies already whitelists it so `pnpm add` builds it,
+// but the approvable-list below is a belt-and-suspenders fallback (same
+// mechanism go-/older scaffolds used for esbuild).
+const DEPS = [
+  'fastify',
+  '@fastify/cors',
+  '@fastify/rate-limit',
+  '@fastify/swagger',
+  '@fastify/swagger-ui',
+  '@fastify/type-provider-typebox',
+  '@sinclair/typebox',
+  '@fastify/jwt',
+  'argon2',
+  'drizzle-orm',
+  'postgres',
+  'zod',
+  'dotenv',
+  'uuid',
+  'graphile-worker'
 ]
 
-// Written only after `pnpm add` + codegen (openapi-typescript, drizzle-kit
-// generate) have run — these import fastify/@fastify/*/generated api types.
-const GLUE_FILES = [
-  'src/app.ts',
-  'src/server.ts',
-  'src/routes/health.ts',
-  'src/routes/health.test.ts',
-  'src/routes/users.ts',
-  'src/routes/users.test.ts',
-  'src/services/user-service.ts',
-  'src/repositories/user-repository.ts',
-  'src/middleware/error-handler.ts'
+// typescript is constrained to ^5 (a major-version constraint, not a pin):
+// bare `typescript` currently floats to a 7.x prerelease with a rewritten
+// ts.factory API that breaks tooling; ^5 is the actual compatibility bound.
+const DEV_DEPS = [
+  'typescript@^5',
+  'tsx',
+  'vitest',
+  'eslint',
+  'typescript-eslint',
+  '@eslint/js',
+  '@types/node',
+  'drizzle-kit',
+  'eslint-plugin-boundaries',
+  'eslint-import-resolver-typescript',
+  // Integration tests only (pnpm test:integration, never scaffold-time
+  // verification below — that stays Docker-free by design).
+  '@testcontainers/postgresql'
 ]
-
-const DEPS = ['fastify', '@fastify/cors', '@fastify/rate-limit', 'drizzle-orm', 'postgres', 'zod', 'dotenv']
-// typescript is constrained to ^5 (not bare) — openapi-typescript's codegen
-// uses the `typescript` package's ts.factory compiler API directly, which
-// breaks under typescript 7's rewritten API shape (confirmed via a real
-// scaffold run: bare `typescript` resolved 7.0.2 and openapi-typescript
-// crashed with "Cannot read properties of undefined (reading
-// 'createKeywordTypeNode')"). ^5 still floats freely within the major
-// version everything here is actually compatible with.
-const DEV_DEPS = ['typescript@^5', 'tsx', 'vitest', 'eslint', 'typescript-eslint', '@eslint/js', '@types/node', 'drizzle-kit', 'openapi-typescript']
 
 function log(msg) {
   console.log(`[scaffold] ${msg}`)
@@ -124,7 +116,7 @@ function parseCliArgs() {
 
 Required:
   --project <name>   kebab-case project name — package.json name, Docker
-                      image name, Postgres user/db, README title
+                      image name, Postgres user/db, README/OpenAPI title
 
 Optional:
   --dir <dir>        Target directory (default: .)
@@ -164,6 +156,20 @@ function substitute(content, cfg) {
     .replaceAll('{{CORS}}', cfg.cors)
 }
 
+// Recursively collect every template file (dotfiles/dotdirs included). The old
+// STATIC_FILES/GLUE_FILES split existed only because glue files needed a
+// generated types/api.d.ts to exist first; code-first OpenAPI removed that
+// dependency, so everything is written in one pass.
+function walkFiles(dir, base = dir) {
+  const out = []
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name)
+    if (entry.isDirectory()) out.push(...walkFiles(full, base))
+    else out.push(path.relative(base, full))
+  }
+  return out
+}
+
 function writeFiles(relPaths, targetDir, cfg) {
   for (const rel of relPaths) {
     const src = path.join(TEMPLATES, rel)
@@ -178,7 +184,6 @@ function writeFiles(relPaths, targetDir, cfg) {
 // ── subprocess ──────────────────────────────────────────────────────────
 
 function resolveBin(name) {
-  // pnpm/npx are .cmd shims on Windows; git ships as git.exe and needs no suffix.
   if (IS_WIN && ['pnpm', 'npx', 'npm'].includes(name)) return `${name}.cmd`
   return name
 }
@@ -213,10 +218,9 @@ function run(cmd, args, cwd, { optional = false, capture = false } = {}) {
 /**
  * pnpm add wrapper. `ERR_PNPM_IGNORED_BUILDS` exits 1 but the packages DO
  * install (native build scripts deferred pending approval) — treat it as
- * expected, approve the named packages, continue. Any other failure is
- * fatal. Each approve runs separately with `optional: true`: naming a
- * package that isn't actually pending fails the whole `pnpm approve-builds`
- * call.
+ * expected, approve the named packages, continue. package.json already lists
+ * argon2/esbuild in pnpm.onlyBuiltDependencies so this path usually isn't hit,
+ * but it stays as a fallback. Any other failure is fatal.
  */
 function pnpmAdd(args, targetDir, approvable = []) {
   const res = run('pnpm', ['add', ...args], targetDir, { optional: true, capture: true })
@@ -256,7 +260,8 @@ function main() {
   if (pnpmCheck.missing) fail('pnpm is required but not found on PATH. Install: corepack enable && corepack prepare pnpm@latest --activate')
 
   log(`scaffolding into ${targetDir} (project: ${cfg.project})`)
-  writeFiles(STATIC_FILES, targetDir, cfg)
+  const files = walkFiles(TEMPLATES)
+  writeFiles(files, targetDir, cfg)
 
   if (cfg.skipVerify) {
     log('--skip-verify set: skipping install, codegen, build, and commit. Files written only.')
@@ -264,18 +269,14 @@ function main() {
   }
 
   log('installing dependencies')
-  pnpmAdd(DEPS, targetDir)
-  // Native build scripts (e.g. esbuild's postinstall) commonly trip pnpm's
-  // ignored-builds gate on a fresh install — approve the ones this project's
-  // devDependency tree is known to pull in. If a future dependency bump
-  // introduces a new one, pnpmAdd's fatal-failure path names it explicitly.
+  pnpmAdd(DEPS, targetDir, ['argon2'])
   pnpmAdd(['-D', ...DEV_DEPS], targetDir, ['esbuild'])
 
-  log('generating API types (openapi-typescript) and DB migrations (drizzle-kit)')
-  run('pnpm', ['exec', 'openapi-typescript', 'openapi.yaml', '-o', 'src/types/api.d.ts'], targetDir)
+  log('generating DB migrations (drizzle-kit) and OpenAPI spec (code-first)')
   run('pnpm', ['exec', 'drizzle-kit', 'generate'], targetDir)
-
-  writeFiles(GLUE_FILES, targetDir, cfg)
+  // openapi:export boots the app (placeholder DATABASE_URL/JWT_SECRET, no DB)
+  // and writes src/api/openapi.json from the live route schemas.
+  run('pnpm', ['openapi:export'], targetDir)
 
   log('pnpm lint')
   run('pnpm', ['lint'], targetDir)
@@ -295,11 +296,11 @@ function main() {
       run('git', ['init'], targetDir)
     }
     run('git', ['add', '-A'], targetDir)
-    const commit = spawnSync('git', ['commit', '-m', 'chore: scaffold Node.js REST API (Fastify + Drizzle, contract-first)'], { cwd: targetDir, encoding: 'utf8' })
+    const commit = spawnSync('git', ['commit', '-m', 'chore: scaffold Node.js modular-monolith REST API (Fastify + Drizzle, code-first OpenAPI)'], { cwd: targetDir, encoding: 'utf8' })
     if (commit.status !== 0) {
       log(`git commit skipped: ${(commit.stderr || commit.stdout || '').trim() || 'nothing to commit or no git identity configured'}`)
     } else {
-      log('committed: chore: scaffold Node.js REST API (Fastify + Drizzle, contract-first)')
+      log('committed the scaffold')
     }
   }
 
@@ -308,13 +309,21 @@ done.
 
 Next steps:
   cd ${cfg.dir}
-  cp .env.example .env
-  docker compose up -d db
-  pnpm db:migrate
-  pnpm dev
+  cp .env.example .env          # set JWT_SECRET
+  pnpm dev:setup                 # docker compose up -d db + migrate + seed
+  pnpm dev                      # API + in-process job runner
 
-Editable surface: openapi.yaml, src/db/schema.ts, src/routes/, src/services/, src/repositories/, src/middleware/
-Everything else regenerates via \`pnpm openapi-types\` / \`pnpm db:generate\` — don't hand-edit src/types/api.d.ts or drizzle/*.sql.
+Editable surface: src/modules/<mod>/ (domain, application, infrastructure, api),
+src/shared/. Add a module = create the tree, register its api plugin (its own
+/v1/<module> prefix) in src/api/app.ts, add its infrastructure/*.schema.ts.
+
+Generated — never hand-edit: src/api/openapi.json (\`pnpm openapi:export\`),
+drizzle/*.sql (\`pnpm db:generate\`). CI diff-checks openapi.json.
+Module boundaries are enforced by \`pnpm lint\` (eslint-plugin-boundaries).
+
+\`pnpm test\` (just run, no setup) covers domain/application with mocks.
+\`pnpm test:integration\` needs Docker — it spins up Postgres via
+testcontainers itself, no docker-compose step needed first.
 `)
 }
 

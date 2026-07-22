@@ -13,8 +13,15 @@
     "lint": "eslint .",
     "type-check": "tsc --noEmit",
     "test": "vitest",
-    "openapi-types": "openapi-typescript openapi.yaml -o src/types/api.d.ts",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "openapi:export": "tsx scripts/export-openapi.ts",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx src/db/migrate.ts"
+    "db:migrate": "tsx scripts/migrate.ts",
+    "seed": "tsx scripts/seed.ts",
+    "dev:setup": "docker compose up -d db && pnpm db:migrate && pnpm seed"
+  },
+  "pnpm": {
+    "//": "argon2 and esbuild ship native/postinstall build scripts that pnpm 10 gates behind approval. Listing them here lets `pnpm install --frozen-lockfile` (Docker build stage, CI) build them non-interactively — without it argon2's binary is never built and `require('argon2')` fails at runtime. Re-verify argon2's musl-alpine prebuild coverage on any argon2 major bump (the node:22-alpine image has no C++ toolchain to compile from source).",
+    "onlyBuiltDependencies": ["argon2", "esbuild"]
   }
 }

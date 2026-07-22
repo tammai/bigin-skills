@@ -16,7 +16,17 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # `pnpm lint` also runs eslint-plugin-boundaries — module-boundary
+      # enforcement needs no separate CI step or tool.
       - run: pnpm lint
       - run: pnpm type-check
+      # Code-first OpenAPI: re-export and fail if the committed spec drifted
+      # from the route schemas. export-openapi.ts needs no DB (placeholder env).
+      - run: pnpm openapi:export
+      - run: git diff --exit-code src/api/openapi.json
       - run: pnpm build
       - run: pnpm test --run
+      # Real Postgres via testcontainers — ubuntu-latest runners ship Docker,
+      # so no `services:` block is needed; the test's own globalSetup starts
+      # and tears down the container.
+      - run: pnpm test:integration
