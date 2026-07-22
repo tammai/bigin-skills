@@ -1,13 +1,13 @@
 ---
 name: session-handoff
-description: "Session handoff and state persistence. Use when: user says 'save session', '/save-session', 'near limit', 'running out of tokens', or needs to continue work in a new session. Saves current state (tasks, decisions, uncommitted changes) to SESSION.md and loads it on session resume."
+description: "Session handoff and state persistence. Use when: user says 'save session', '/save-session', 'near limit', 'running out of tokens', or needs to continue work in a new session. Saves current state (tasks, decisions, uncommitted changes) to .claude/memory/SESSION.md and loads it on session resume."
 effort: low
-allowed-tools: Bash(git status) Bash(git diff --stat) Bash(mv SESSION.md *)
+allowed-tools: Bash(git status) Bash(git diff --stat) Bash(mv .claude/memory/SESSION.md *)
 ---
 
 # session-handoff — Session State Persistence
 
-This skill is mechanical: save state to SESSION.md or load it back. Do not deliberate — no thinking needed on any step here.
+This skill is mechanical: save state to `.claude/memory/SESSION.md` or load it back. Do not deliberate — no thinking needed on any step here.
 
 Saves and loads session state between Claude Code sessions, useful when approaching usage limits and needing to continue work later.
 
@@ -50,7 +50,7 @@ When user triggers save:
    - Call TaskList to get all tasks with status
    - Note current branch, recent commits
 
-2. **Write SESSION.md:**
+2. **Write `.claude/memory/SESSION.md`:**
 
    ```markdown
    ---
@@ -102,7 +102,7 @@ When user triggers save:
 
 3. **Return summary:**
    ```
-   Session saved to SESSION.md
+   Session saved to .claude/memory/SESSION.md
    Tasks: X total, Y in progress
    Uncommitted changes: <files modified>
    Resume: Next session will prompt to restore this session
@@ -137,8 +137,8 @@ When user triggers save:
    - Offer to restore task list via TaskCreate for each pending task
 
 4. **If user starts fresh:**
-   - Archive SESSION.md to SESSION.archive.<timestamp>.md
-   - Remove active SESSION.md
+   - Archive `.claude/memory/SESSION.md` to `.claude/memory/SESSION.archive.<timestamp>.md`
+   - Remove active `.claude/memory/SESSION.md`
    - Confirm: "Previous session archived. Starting fresh."
 
 ---
@@ -154,13 +154,13 @@ When user triggers complete:
 2. **Archive session:**
 
    ```bash
-   mv SESSION.md SESSION.archive.<timestamp>.md
+   mv .claude/memory/SESSION.md .claude/memory/SESSION.archive.<timestamp>.md
    ```
 
 3. **Confirm:**
    ```
    Session completed and archived
-   Archived to: SESSION.archive.<timestamp>.md
+   Archived to: .claude/memory/SESSION.archive.<timestamp>.md
    Ready for new session
    ```
 

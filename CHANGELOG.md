@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.46.1] - 2026-07-21
+
+### Fixed
+
+- **`bigin-harness-setup` no longer scaffolds a dangling `PreCompact` hook.** All four profile `settings.json` templates register a `PreCompact` hook pointing at `.claude/guards/precompact-snapshot.mjs` (added in 1.46.0), and `references/hook-guard.md` defines the script — but the Phase 5-2 workflow had no step to write it and the Phase 7 output checklist omitted it, so a fresh install wired the hook to a file the workflow never created. Added **§5-2g** (write `precompact-snapshot.mjs`, all profiles) to `SKILL.md`, plus the corresponding "Created"/"Enabled"/Output-Checklist entries in `references/summary-checklist.md`. The `hook-guard.md` manifest line in `SKILL.md` now also lists `bugfix-test-guard.mjs` and `precompact-snapshot.mjs` (both were already in the file). Patch-mode repos were unaffected — the 1.46.0 CHANGELOG patch block already wrote the script into already-scaffolded repos.
+- **`session-handoff` canonical path is now consistent.** The skill declared `.claude/memory/SESSION.md` as canonical (and the 1.46.0 `precompact-snapshot.mjs`/`session-resume-check.mjs` hooks key off that path), but the save/confirm/archive steps and the `allowed-tools: Bash(mv SESSION.md *)` glob all operated on a bare root-level `SESSION.md` — so the archive action was both mislocated and outside its own permission grant. All references (frontmatter description, save/confirm/archive steps, `allowed-tools`) now use `.claude/memory/SESSION.md`.
+
+### Changed
+
+- **`.claude/rules/skill-authoring.md` scope widened to `skills/**,agents/**`.** The file carries agent-authoring guidance (model tiers, read-only tool restriction, `agentType` placement) that previously didn't auto-load when editing `agents/*.md`.
+- **`bigin-harness-setup` description made concrete.** "harness" now names its deliverables up front — the `CLAUDE.md` agent brief, path-scoped rules, and commit-time enforcement gates (guard hooks + a context-budget check) — in the `SKILL.md` frontmatter/body and the `docs-manifest.json` summary that drives the generated tables. Name kept (`harness` matches the repo's consistent vocabulary); only the wording sharpened.
+- **README "Plugin Structure" tree refreshed.** Added the stale-omitted `task-workflow/references/parallelization.md` and `bigin-harness-setup/references/summary-checklist.md`, plus the previously-absent top-level `tools/`, `scripts/git-hooks/`, `.claude/rules/`, and `CLAUDE.md`. Added a caveat that `bigin-harness-setup` must be installed via the marketplace (not copied standalone — it calls sibling skills by repo path) and a contributor note for activating the pre-commit hook (`git config core.hooksPath scripts/git-hooks`).
+
 ## [1.46.0] - 2026-07-19
 
 ### Added

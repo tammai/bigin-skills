@@ -1,6 +1,6 @@
 {
   "skills": {
-    "bigin-harness-setup": { "group": "core", "summary": "Scaffolds an AI workflow harness into a repo — CLAUDE.md, path-scoped rules, and enforcement gates. Profiles: nuxt, go, nodejs, next." },
+    "bigin-harness-setup": { "group": "core", "summary": "Scaffolds an AI workflow harness — CLAUDE.md brief, path-scoped rules, and enforcement gates (commit hooks + budget check). Profiles: nuxt, go, nodejs, next." },
     "task-workflow": { "group": "core", "summary": "On-demand task workflow (/task-workflow): scope → spec → plan (approved) → implement/verify loop (capped, independent verifier) → review → cleanup." },
     "nuxt-scaffold": { "group": "core", "summary": "Scaffolds a Nuxt 4 BFF app from scratch via a deterministic Node.js script — npm create nuxt@latest + BFF preset + config/sample code. No GitHub clone." },
     "next-scaffold": { "group": "core", "summary": "Scaffolds a Next.js App Router BFF app from scratch via a deterministic Node.js script — create-next-app + BFF preset + shadcn/ui. No GitHub clone." },

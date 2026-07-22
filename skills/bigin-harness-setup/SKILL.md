@@ -1,13 +1,13 @@
 ---
 name: bigin-harness-setup
-description: "Scaffolds BigIn AI workflow harness into a repo — CLAUDE.md, governance rules, and enforcement gates. MUST use when user says: 'set up harness', 'add AI rules', 'scaffold harness', 'add CLAUDE.md', 'initialize AI workflow', 'set up claude rules', 'thiết lập harness', 'cài harness', 'thêm AI rules', or when onboarding an existing repo for structured AI-assisted development. Supports nuxt, go, nodejs, next profiles."
+description: "Scaffolds BigIn's AI workflow harness into a repo — the CLAUDE.md agent brief, path-scoped .claude/rules/, and commit-time enforcement gates (guard hooks + a context-budget check). MUST use when user says: 'set up harness', 'add AI rules', 'scaffold harness', 'add CLAUDE.md', 'initialize AI workflow', 'set up claude rules', 'thiết lập harness', 'cài harness', 'thêm AI rules', or when onboarding an existing repo for structured AI-assisted development. Supports nuxt, go, nodejs, next profiles."
 effort: medium
 allowed-tools: Bash(git init) Bash(git rev-parse *) Bash(chmod +x *) Bash(ln -sf *)
 ---
 
 # bigin-harness-setup
 
-Sets up a standardized AI workflow harness: governance files, path-scoped rules, and enforcement gates. Idempotent — re-running on an already-set-up repo is safe.
+Sets up a standardized AI workflow harness — the `CLAUDE.md` agent brief, path-scoped rules, and commit-time enforcement gates (guard hooks + a context-budget check). Idempotent — re-running on an already-set-up repo is safe.
 
 ---
 
@@ -302,6 +302,10 @@ Read from `references/hook-guard.md` → `## canary-seed.mjs`. Write to `.claude
 
 Read from `references/hook-guard.md` → `## bugfix-test-guard.mjs`. Write to `.claude/guards/bugfix-test-guard.mjs`. Applies to all profiles — enforces `debug-workflow`'s "every bug fix ships a regression test" requirement at commit time rather than relying on prose.
 
+### 5-2g. Precompact snapshot (autosaves session state before compaction)
+
+Read from `references/hook-guard.md` → `## precompact-snapshot.mjs`. Write to `.claude/guards/precompact-snapshot.mjs`. Applies to all profiles — the `PreCompact` hook in every profile's `settings.json` template points at this script, so it must be written or that hook dangles. Autosaves in-flight state to `.claude/memory/SESSION.md` (in `session-handoff`'s template shape) before a manual or automatic compaction, so `session-resume-check.mjs` can recover it.
+
 ### 5-3. .claude/settings.json
 
 For **nuxt** / **next** (same merge shape, different scaffold skill):
@@ -447,7 +451,7 @@ Read `references/summary-checklist.md` → `## Output Checklist` and verify ever
 - `skills/nodejs-scaffold/SKILL.md` — empty-repo nodejs scaffold (Phase 0.5c): contract-first (openapi-typescript + Drizzle/drizzle-kit), Fastify, Postgres
 - `references/files-shared.md` — shared files: security, architecture, AI task guide, review checklist, paths substitutions per profile
 - `references/patch-mode.md` — Phase 1a: version diffing + CHANGELOG patch-block application for `INSTALL_MODE=patch`
-- `references/hook-guard.md` — bash-guard.mjs, spec-gate-guard.mjs, injection-scan-guard.mjs, injection-gate-guard.mjs, session-resume-check.mjs, canary-seed.mjs scripts + pre-commit scripts per profile
+- `references/hook-guard.md` — bash-guard.mjs, spec-gate-guard.mjs, bugfix-test-guard.mjs, injection-scan-guard.mjs, injection-gate-guard.mjs, session-resume-check.mjs, canary-seed.mjs, precompact-snapshot.mjs scripts + pre-commit scripts per profile
 - `references/budget-gate.md` — context_budget.mjs script (context budget gate)
 - `references/knowledge-bundle.md` — optional Knowledge Bundle: rule file, spec, starter concept files, validator script
 - `references/graph.md` — optional Graphify: rule file, usage doc, install/gitignore contract

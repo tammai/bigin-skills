@@ -1,5 +1,5 @@
 ---
-paths: skills/**
+paths: skills/**,agents/**
 ---
 
 # Skill Authoring Conventions

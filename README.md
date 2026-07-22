@@ -14,18 +14,18 @@ Skills for standardized, AI-assisted development across BigIn's stacks.
 The harness itself — setup, workflow, and maintenance for a repo under standardized AI-assisted development.
 
 <!-- gen:skills-core -->
-| Skill                   | Purpose                                                                                                                                                      |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **bigin-harness-setup** | Scaffolds an AI workflow harness into a repo — CLAUDE.md, path-scoped rules, and enforcement gates. Profiles: nuxt, go, nodejs, next.                        |
-| **task-workflow**       | On-demand task workflow (/task-workflow): scope → spec → plan (approved) → implement/verify loop (capped, independent verifier) → review → cleanup.          |
-| **nuxt-scaffold**       | Scaffolds a Nuxt 4 BFF app from scratch via a deterministic Node.js script — npm create nuxt@latest + BFF preset + config/sample code. No GitHub clone.      |
-| **next-scaffold**       | Scaffolds a Next.js App Router BFF app from scratch via a deterministic Node.js script — create-next-app + BFF preset + shadcn/ui. No GitHub clone.          |
-| **go-scaffold**         | Scaffolds a production-ready Go REST API — contract-first (oapi-codegen + sqlc), chi router, Postgres. Runs codegen + build/vet/test itself.                 |
-| **nodejs-scaffold**     | Scaffolds a production-ready Node.js REST API — contract-first (openapi-typescript + Drizzle), Fastify, Postgres. Runs codegen + lint/typecheck/test itself. |
-| **sprint-distill**      | End-of-sprint distillation: merged PRs + touched knowledge/ concepts → proposal-first knowledge/ and bigin-skills updates. Compresses, never just appends.   |
-| **write-tests**         | On-demand test authoring (/write-tests): style-matches the nearest test file, lists edge cases first, TDD-orders logic, mocks only true I/O boundaries.      |
-| **debug-workflow**      | On-demand systematic debugging (/debug-workflow): triage → fast path for obvious bugs, full guarded workflow for flaky/env/repeat-failure bugs.              |
-| **model-router**        | Scores task complexity via a deterministic rubric and routes to quick-executor/standard-worker/deep-architect. Routes down as well as up.                    |
+| Skill                   | Purpose                                                                                                                                                       |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **bigin-harness-setup** | Scaffolds an AI workflow harness — CLAUDE.md brief, path-scoped rules, and enforcement gates (commit hooks + budget check). Profiles: nuxt, go, nodejs, next. |
+| **task-workflow**       | On-demand task workflow (/task-workflow): scope → spec → plan (approved) → implement/verify loop (capped, independent verifier) → review → cleanup.           |
+| **nuxt-scaffold**       | Scaffolds a Nuxt 4 BFF app from scratch via a deterministic Node.js script — npm create nuxt@latest + BFF preset + config/sample code. No GitHub clone.       |
+| **next-scaffold**       | Scaffolds a Next.js App Router BFF app from scratch via a deterministic Node.js script — create-next-app + BFF preset + shadcn/ui. No GitHub clone.           |
+| **go-scaffold**         | Scaffolds a production-ready Go REST API — contract-first (oapi-codegen + sqlc), chi router, Postgres. Runs codegen + build/vet/test itself.                  |
+| **nodejs-scaffold**     | Scaffolds a production-ready Node.js REST API — contract-first (openapi-typescript + Drizzle), Fastify, Postgres. Runs codegen + lint/typecheck/test itself.  |
+| **sprint-distill**      | End-of-sprint distillation: merged PRs + touched knowledge/ concepts → proposal-first knowledge/ and bigin-skills updates. Compresses, never just appends.    |
+| **write-tests**         | On-demand test authoring (/write-tests): style-matches the nearest test file, lists edge cases first, TDD-orders logic, mocks only true I/O boundaries.       |
+| **debug-workflow**      | On-demand systematic debugging (/debug-workflow): triage → fast path for obvious bugs, full guarded workflow for flaky/env/repeat-failure bugs.               |
+| **model-router**        | Scores task complexity via a deterministic rubric and routes to quick-executor/standard-worker/deep-architect. Routes down as well as up.                     |
 <!-- /gen:skills-core -->
 
 ### Handoff Skills
@@ -161,6 +161,8 @@ Doesn't trigger on single-PR or single-change review — use `/code-review` for 
 cp -r skills/bigin-harness-setup ~/.claude/skills/bigin-harness-setup
 ```
 
+> Note: `bigin-harness-setup` calls sibling skills by repo-relative path (e.g. `node skills/nuxt-scaffold/scripts/scaffold.mjs`), so its empty-repo scaffold branches only work inside the full plugin. Install it via the marketplace, not standalone. The other skills are self-contained and copy cleanly on their own.
+
 ---
 
 ## Plugin Structure
@@ -185,12 +187,14 @@ bigin-skills/
 │   │       ├── budget-gate.md     ← context_budget.mjs (budget gate script)
 │   │       ├── knowledge-bundle.md
 │   │       ├── graph.md           ← Phase 5.7: optional Graphify rule file + usage doc
-│   │       └── ci.md
+│   │       ├── ci.md
+│   │       └── summary-checklist.md ← Phase 7 summary print template + Output Checklist
 │   ├── task-workflow/             ← on-demand task workflow (Tier 3)
 │   │   ├── SKILL.md               ← scope → spec → plan file (approved) → implement/verify loop (capped) → review → cleanup
 │   │   ├── references/
 │   │   │   ├── full-spec-example.md ← filled example of the opt-in full-spec tier
-│   │   │   └── verify-contract.md   ← single-source verifier output schema (PASS/FAIL + issues)
+│   │   │   ├── verify-contract.md   ← single-source verifier output schema (PASS/FAIL + issues)
+│   │   │   └── parallelization.md   ← when/how to fan out implement+verify across subagents
 │   │   └── evals/evals.json
 │   ├── nuxt-scaffold/             ← Nuxt 4 BFF app scaffolder (npm create nuxt, no clone)
 │   │   ├── SKILL.md               ← decides config values; the script does the rest
@@ -259,6 +263,17 @@ bigin-skills/
 │   ├── standard-worker.md         ← sonnet/high — default tier, most feature/bug-fix work
 │   ├── deep-architect.md          ← opus/high — architectural decisions, contract/schema changes, full-spec tier
 │   └── verifier.md                ← haiku/low, read-only — independently audits a diff against PLAN.md, spawned alongside whichever of the three tiers above implements it
+├── .claude/
+│   └── rules/                     ← this repo's own path-scoped authoring rules
+│       ├── context-hygiene.md     ← always-loaded output/session discipline
+│       └── skill-authoring.md     ← paths: skills/**,agents/** — conventions for authoring skills + agents
+├── tools/                         ← repo tooling (not shipped into target repos as-is)
+│   ├── context_budget.mjs         ← always-loaded token budget gate
+│   ├── docs_sync.mjs              ← regenerates the skills/agents tables in CLAUDE.md + README
+│   └── docs-manifest.json         ← source of truth for the generated tables
+├── scripts/
+│   └── git-hooks/pre-commit       ← runs context_budget.mjs + docs_sync.mjs --check
+├── CLAUDE.md
 ├── CHANGELOG.md
 └── README.md
 ```
@@ -285,6 +300,12 @@ node tools/docs_sync.mjs --check  # diff-only; exits 1 on stale regions (pre-com
 ```
 
 A new skill or agent needs a matching entry in `tools/docs-manifest.json` (skill: `group` + `summary`; agent: `summary`) — the generator fails closed both ways, so a skill dir with no manifest entry (or vice versa) blocks the commit by name.
+
+**Pre-commit gate** — contributors activate the local hook once per clone; it runs the budget gate + docs-sync check before each commit:
+
+```
+git config core.hooksPath scripts/git-hooks
+```
 
 ---
 
