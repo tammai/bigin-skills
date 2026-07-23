@@ -37,9 +37,11 @@ interface OutboxRow {
 // silently dropped, and the DLQ table stays queryable for manual inspection
 // even after the source outbox row stops being polled.
 export async function runOutboxRelay(): Promise<void> {
-  for (const table of OUTBOXES) {
-    await relayTable(table)
-  }
+  // The registered outboxes are independent tables with no shared rows/locks
+  // between them (each relayTable runs in its own transaction, already safe
+  // across overlapping relay ticks via FOR UPDATE SKIP LOCKED) — relay them
+  // concurrently rather than paying each table's latency in series.
+  await Promise.all(OUTBOXES.map((table) => relayTable(table)))
 }
 
 async function relayTable(table: PgTable): Promise<void> {
