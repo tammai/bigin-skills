@@ -1,9 +1,31 @@
 # bigin-skills
 
 **BigIn's collection of Claude Code skills**
-_Bộ skill Claude Code của BigIn_
 
 Skills for standardized, AI-assisted development across BigIn's stacks.
+
+---
+
+## Quick Start
+
+Two things happen on a project using this harness, and they're not peers — one is a one-time setup step, the other is what you actually run every day:
+
+1. **Once, at the start** — [`bigin-harness-setup`](#bigin-harness-setup) lays down the governance layer (CLAUDE.md, path-scoped rules, guard hooks, budget gate). On an empty repo it also scaffolds the app itself, delegating to the matching stack skill (`nuxt-scaffold` / `next-scaffold` / `go-scaffold` / `nodejs-scaffold`).
+2. **Every day after that** — [`task-workflow`](#developer-workflow) is the main driver of this whole system. Every non-trivial feature or bug fix goes through it: scope → spec gate → approved `PLAN.md` → implement/verify loop → review → cleanup. You'll invoke `bigin-harness-setup` once per repo and `task-workflow` dozens of times a day on it.
+
+**A typical day, in order:**
+
+| You say | What runs |
+| --- | --- |
+| "Implement X" / "fix bug in Y" / "add a feature" | `task-workflow` — scopes the change, drafts a spec and waits for your approval, then implements with an independent verifier checking every diff against the approved plan |
+| _(automatically, inside task-workflow's Implement step)_ | `model-router` scores the task and picks the executing tier; `write-tests` and `debug-workflow` are pulled in for test-authoring and bug-fix discipline |
+| "Write tests for X" | `write-tests` directly — when you just need tests for one function/component, not a full spec'd change |
+| "Why is this flaky" / "debug this" | `debug-workflow` directly — for a bug not yet tied to a `task-workflow` plan |
+| "Sprint distill" / end of sprint | `sprint-distill` — compresses merged PRs into `knowledge/` + harness updates |
+| "Save session" / nearing a context limit | `session-handoff` |
+| Implementing a Figma handoff in a Nuxt UI app | `nuxt-ui-figma-handoff` |
+
+If the repo has never been set up, say **"set up a harness"** first — everything else assumes `CLAUDE.md`, `.claude/rules/`, and the guard hooks already exist.
 
 ---
 
@@ -20,8 +42,8 @@ The harness itself — setup, workflow, and maintenance for a repo under standar
 | **task-workflow**       | On-demand task workflow (/task-workflow): scope → spec → plan (approved) → implement/verify loop (capped, independent verifier) → review → cleanup.           |
 | **nuxt-scaffold**       | Scaffolds a Nuxt 4 BFF app from scratch via a deterministic Node.js script — npm create nuxt@latest + BFF preset + config/sample code. No GitHub clone.       |
 | **next-scaffold**       | Scaffolds a Next.js App Router BFF app from scratch via a deterministic Node.js script — create-next-app + BFF preset + shadcn/ui. No GitHub clone.           |
-| **go-scaffold**         | Scaffolds a production-ready Go REST API — contract-first (oapi-codegen + sqlc), chi router, Postgres. Runs codegen + build/vet/test itself.                  |
-| **nodejs-scaffold**     | Scaffolds a production-ready Node.js REST API — contract-first (openapi-typescript + Drizzle), Fastify, Postgres. Runs codegen + lint/typecheck/test itself.  |
+| **go-scaffold**         | Scaffolds a Go modular-monolith REST API — users/posts, oapi-codegen + sqlc, JWT+argon2id+RBAC, chi router, Postgres. Runs codegen + build/vet/test itself.   |
+| **nodejs-scaffold**     | Scaffolds a Node.js modular-monolith REST API — users/posts, code-first OpenAPI (TypeBox) + Drizzle, JWT+argon2id, outbox/inbox + job queue.                  |
 | **sprint-distill**      | End-of-sprint distillation: merged PRs + touched knowledge/ concepts → proposal-first knowledge/ and bigin-skills updates. Compresses, never just appends.    |
 | **write-tests**         | On-demand test authoring (/write-tests): style-matches the nearest test file, lists edge cases first, TDD-orders logic, mocks only true I/O boundaries.       |
 | **debug-workflow**      | On-demand systematic debugging (/debug-workflow): triage → fast path for obvious bugs, full guarded workflow for flaky/env/repeat-failure bugs.               |
@@ -41,7 +63,7 @@ Add-ons for a specific cross-role handoff (e.g. designer → developer). Not req
 
 ---
 
-## bigin-harness-setup
+## BigIn Harness Setup
 
 Sets up a consistent "harness level" on any repo so team members of mixed skill levels produce consistent, maintainable output.
 
@@ -58,17 +80,17 @@ Sets up a consistent "harness level" on any repo so team members of mixed skill 
 | Profile  | Stack                                                                                                                                                                                                                                                               |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `nuxt`   | Nuxt 4 fullstack (Cloudflare Pages), Nuxt ESLint, Pinia + Pinia Colada, VueUse, Nuxt UI, nuxt-auth-utils, Zod, Vitest — BFF proxy layer (no D1/KV/R2; backend owns data). Empty repo → scaffolded by the `nuxt-scaffold` skill (`npm create nuxt@latest`, no clone) |
-| `go`     | Go REST API — contract-first (`oapi-codegen` + `sqlc`), chi router, Postgres. Empty repo → scaffolded by the `go-scaffold` skill                                                                                                                                    |
-| `nodejs` | Node.js TypeScript REST API — contract-first (`openapi-typescript` + Drizzle/`drizzle-kit`), Fastify, Postgres. Empty repo → scaffolded by the `nodejs-scaffold` skill                                                                                              |
+| `go`     | Go modular-monolith REST API (`users`/`posts` modules, compiler-enforced boundaries) — contract-first (`oapi-codegen` + `sqlc`), JWT+argon2id auth + RBAC, chi router, Postgres. Empty repo → scaffolded by the `go-scaffold` skill                                |
+| `nodejs` | Node.js modular-monolith REST API (`users`/`posts` modules) — code-first OpenAPI (TypeBox route schemas + `@fastify/swagger`) + Drizzle/`drizzle-kit`, JWT+argon2id auth, outbox/inbox event bus + Postgres-backed job queue, Fastify, Postgres. Empty repo → scaffolded by the `nodejs-scaffold` skill |
 | `next`   | Next.js App Router fullstack (Vercel), shadcn/ui, Zustand, TanStack Query, iron-session, Zod, Vitest — BFF proxy layer (no ORM/DB driver; backend owns data). Empty repo → scaffolded by the `next-scaffold` skill (`create-next-app`, no clone)                    |
 
 ### What gets generated
 
 **nuxt on an empty repo:** the full app is first scaffolded **by the `nuxt-scaffold` skill's deterministic script** — all decisions gathered upfront into a config JSON, then `node scripts/scaffold.mjs --config <path>` runs `npm create nuxt@latest` + the BFF preset modules + config and sample code (`nuxt.config.ts`, `eslint.config.mjs`, `app/`, `server/`, `simple-git-hooks`) with zero prompts. The Nuxt app is a BFF proxy layer — no DB, the backend owns data persistence. The harness governance layer is then overlaid additively.
 
-**go on an empty repo:** scaffolded **by the `go-scaffold` skill's deterministic script** — module path + project name gathered upfront as CLI flags, then `node scripts/scaffold.mjs --module <path>` writes the project, runs `oapi-codegen` (from `openapi.yaml`) and `sqlc` (from `internal/store/queries/*.sql`) via `go run pkg@version` (no global install, no `go.mod` pollution), writes the hand-written glue (`cmd/server`, `internal/config`, `internal/server`), then `go mod tidy` + `gofmt` + `go vet` + `go build` + `go test` + `git commit` — all before reporting success. `go-scaffold` writes no `.claude/` anything; the harness governance layer is overlaid additively afterward, same as nuxt.
+**go on an empty repo:** scaffolded **by the `go-scaffold` skill's deterministic script** — module path + project name gathered upfront as CLI flags, then `node scripts/scaffold.mjs --module <path>` writes a modular monolith: `users` and `posts` modules under `internal/<mod>/internal/{domain,application,infrastructure,api}` with compiler-enforced boundaries (Go's nested `internal/`), a shared JWT + argon2id + RBAC auth kernel (signup/login/refresh/logout), CRUD with optimistic concurrency, soft-delete erasure with a synchronous cross-module anonymize, and a batched cross-module read (no N+1). Runs `oapi-codegen` and `sqlc` per module (from `api/openapi.yaml` and each module's SQL) via `go run pkg@version` (no global install, no `go.mod` pollution), writes the hand-written glue (`cmd/server`, `internal/config`, `internal/server`), then `go mod tidy` + `gofmt` + `go vet` + `go build` + `go test` + `git commit` — all before reporting success. `go-scaffold` writes no `.claude/` anything; the harness governance layer is overlaid additively afterward, same as nuxt.
 
-**nodejs on an empty repo:** scaffolded **by the `nodejs-scaffold` skill's deterministic script** — project name gathered upfront as a CLI flag, then `node scripts/scaffold.mjs --project <name>` writes the project, `pnpm add`s dependencies, runs `openapi-typescript` (from `openapi.yaml`) and `drizzle-kit generate` (from `src/db/schema.ts` — migrations are generated from the schema, the reverse direction of sqlc), writes the hand-written glue (`src/app.ts`, `src/routes`, `src/services`, `src/repositories`), then `pnpm lint` + `pnpm type-check` + `pnpm build` + `pnpm test --run` + `git commit` — all before reporting success. `nodejs-scaffold` writes no `.claude/` anything; the harness governance layer is overlaid additively afterward, same as go.
+**nodejs on an empty repo:** scaffolded **by the `nodejs-scaffold` skill's deterministic script** — project name gathered upfront as a CLI flag, then `node scripts/scaffold.mjs --project <name>` writes a modular monolith: `users` and `posts` modules under `src/modules/<mod>/{domain,application,infrastructure,api}`, each behind its own `/v1/<module>` route prefix, boundaries enforced by `eslint-plugin-boundaries`. OpenAPI is **code-first**, not contract-first: TypeBox route schemas double as the spec, and `@fastify/swagger` dumps the generated `src/api/openapi.json` (`openapi-typescript` was removed). Per-module Drizzle schemas still generate migration SQL via `drizzle-kit generate` — the reverse direction of sqlc. JWT (`@fastify/jwt`) + argon2id auth, an in-process event bus with outbox/inbox + a dead-letter table + retry backoff, a Postgres-backed job queue (Graphile Worker), idempotency-key handling, and cursor pagination round out the reference implementation. Then `pnpm lint` + `pnpm type-check` + `pnpm build` + `pnpm test --run` + `git commit` — all before reporting success. `nodejs-scaffold` writes no `.claude/` anything; the harness governance layer is overlaid additively afterward, same as go.
 
 **next on an empty repo:** the full app is first scaffolded **by the `next-scaffold` skill's deterministic script** — all decisions gathered upfront into a config JSON, then `node scripts/scaffold.mjs --config <path>` runs `create-next-app` + the BFF preset (Zustand, TanStack Query, Zod, iron-session, Vitest) + `shadcn/ui` (`npx shadcn@latest init` + `add`) + config and sample code (`next.config.ts`, `src/app/`, `src/hooks/`, `simple-git-hooks`) with zero prompts. The `dashboard` template layers the official shadcn `dashboard-01` block; `saas` adds a demo-auth-gated `/dashboard` (`iron-session`) with hand-authored login/signup pages instead of a full GitHub template clone — shadcn/ui has no equivalent gallery of standalone app templates to clone the way `nuxt-ui-templates` does. The Next app is a BFF proxy layer — no DB, the backend owns data persistence. The harness governance layer is then overlaid additively.
 
@@ -128,9 +150,32 @@ The skill detects the stack profile (or asks), confirms before overwriting anyth
 
 ---
 
-## sprint-distill
+## Developer Workflow
 
-Replaces a manual NotebookLM end-of-sprint pass with a git-native distillation step: merged PRs + log → sprint-distill → `knowledge/` + `bigin-skills` → knowledge validator gate.
+**The main driver of this whole system, day to day.** Where `bigin-harness-setup` runs once per repo, `task-workflow` is what you run for every non-trivial feature or bug fix from then on — it's the discipline that `spec-gate-guard.mjs` and `bugfix-test-guard.mjs` actually enforce, not just prose in a doc nobody reads.
+
+Trigger with natural language ("implement X", "add a feature", "fix bug in Z", "start working on", "thêm chức năng", "sửa lỗi") or explicitly with `/task-workflow`.
+
+### The six steps
+
+1. **Scope** — one sentence: what's changing and why, before touching any code.
+2. **Spec gate** — write and get approval for a spec before implementing. Skipped for bug fixes, copy changes, config tweaks, and changes ≤20 lines of logic. If the request doesn't carry enough information to fill the spec confidently, the workflow asks up to 3 targeted clarifying questions rather than filling gaps with silent assumptions. The default spec has six required fields — `What` / `Inputs-outputs` / `Edge cases` / `Security considerations` / `Testing strategy` / `Not in scope` — pasted in chat and requiring your explicit approval before any code is written.
+3. **Plan file** — the approved spec plus a tasks-tracking table, written to `PLAN.md`. This is exactly what `spec-gate-guard.mjs` checks for: it blocks `Edit`/`Write`/`MultiEdit` calls until `PLAN.md` exists with `Status: approved`.
+4. **Implement/verify loop** — `model-router` scores the task and picks the executing tier (asking for confirmation only when the tier comes back `deep-architect`); the spawned implementer self-checks lint+typecheck+tests, and delegates test-authoring to `write-tests` and bug-fix discipline to `debug-workflow`. A **fresh, read-only `verifier` subagent** is then spawned to audit the diff against `PLAN.md` directly — never against the implementer's own summary of what it did. On `FAIL`, the same implementer is resumed via `SendMessage` with the issues list verbatim, and a new, memoryless verifier re-checks the fix. Capped at **3 rounds** — past that, the workflow stops and asks you how to proceed rather than looping indefinitely.
+5. **Review** — asks whether to run `/code-review` on the diff, plus `/security-review` if the change touches auth, sessions, secrets, PII, or untrusted input. Neither runs automatically.
+6. **Cleanup** — once every task is `Done` and review is resolved (clean, or explicitly declined), `PLAN.md` is deleted. It's a working file for the task, not project documentation.
+
+### Opt-in full-spec tier
+
+Only on an explicit ask — "write a full spec" / "AI-friendly spec" / "spec-driven" — never triggered by perceived complexity. Adds User Stories & Scenarios, Functional/Non-Functional Requirements, an API Contract, a Data Model, and (frontend work only) a Component Tree, plus a `Covers` column and manual-verification rows in `PLAN.md`. See [`skills/task-workflow/references/full-spec-example.md`](skills/task-workflow/references/full-spec-example.md) for a filled example.
+
+### Running more than one instance at once
+
+[`skills/task-workflow/references/parallelization.md`](skills/task-workflow/references/parallelization.md) covers worktree-per-instance, a role split (main instance codes, forks research), a cascade pattern for 3-4 concurrent tasks, and the rule that spec-gate approval is per-worktree — approving `PLAN.md` in one instance never carries over to another's.
+
+---
+
+## Sprint Distill
 
 Determines sprint scope from the last entry in `knowledge/log.md` (asks for a start date if there's no bundle yet or no dated entry). Gathers merged PRs since that date, touched concept files, and current `.claude/rules/`, plus any pasted out-of-repo material (meeting notes, transcripts, client docs). Classifies every candidate learning with a strict rule — WHAT/WHY → `knowledge/`, HOW-we-work → `bigin-skills`, neither → dropped and reported, never both — then proposes the full set of changes and **stops** for approval before writing anything. On approval: applies the changes, runs the knowledge validator if present, appends the log entry last.
 
@@ -146,13 +191,19 @@ Doesn't trigger on single-PR or single-change review — use `/code-review` for 
 
 ---
 
-## Installation / Cài đặt
+## Installation
 
 ### Via Marketplace
 
 ```
 /plugin marketplace add tammai/bigin-skills
 /plugin install bigin-skills@bigin
+```
+
+### Via npx
+
+```bash
+npx skills add tammai/bigin-skills
 ```
 
 ### Direct (single skill)
@@ -216,13 +267,13 @@ bigin-skills/
 │   │       ├── bootstrap.md       ← rationale for the script's command sequence
 │   │       ├── modules.md         ← BFF preset + shadcn/ui block registry notes
 │   │       └── artifacts.md       ← rationale + merge semantics for the templates
-│   ├── go-scaffold/               ← Go REST API scaffolder (contract-first: oapi-codegen + sqlc)
+│   ├── go-scaffold/               ← Go modular-monolith REST API scaffolder (users/posts, oapi-codegen + sqlc, JWT+argon2id+RBAC)
 │   │   ├── SKILL.md               ← CLI flags in, design notes for maintainers, no AskUserQuestion menu
 │   │   ├── evals/evals.json
 │   │   └── scripts/
 │   │       ├── scaffold.mjs       ← deterministic scaffold (Node stdlib, --module/--dir/--project flags)
 │   │       └── templates/files/   ← source of truth; STATIC_FILES before codegen, GLUE_FILES after
-│   ├── nodejs-scaffold/           ← Node.js REST API scaffolder (contract-first: openapi-typescript + Drizzle)
+│   ├── nodejs-scaffold/           ← Node.js modular-monolith REST API scaffolder (users/posts, code-first TypeBox OpenAPI + Drizzle, outbox/inbox + job queue)
 │   │   ├── SKILL.md               ← CLI flags in, design notes for maintainers, no AskUserQuestion menu
 │   │   ├── evals/evals.json
 │   │   └── scripts/
@@ -311,4 +362,4 @@ git config core.hooksPath scripts/git-hooks
 
 ## License
 
-MIT
+[PolyForm Strict License 1.0.0](LICENSE) — licensed by BigIn. Free to use as-is for noncommercial/personal/nonprofit purposes; no modifying, no redistributing, no sublicensing. Commercial use by other companies requires a separate license from BigIn.

@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.47.2] - 2026-07-23
+
+### Added
+
+- Root `LICENSE` file — the official PolyForm Strict License 1.0.0 text, verbatim.
+- `README.md`: an npx install method (`npx skills add tammai/bigin-skills`) alongside the marketplace and direct-copy options.
+- `README.md`: a new "Quick Start" section framing `bigin-harness-setup` as the one-time setup step and `task-workflow` as the day-to-day driver, plus a dedicated "Developer Workflow" section covering task-workflow's six steps, the verifier loop, and the opt-in full-spec tier in the same depth as the harness-setup section.
+
+### Changed
+
+- **License changed from MIT to PolyForm Strict 1.0.0.** Free to use for noncommercial/personal/nonprofit purposes; no modifying, no redistributing, no sublicensing without BigIn's permission. Commercial use by other companies needs a separate license from BigIn. `marketplace.json`'s `license` field updated to `PolyForm-Strict-1.0.0` to match.
+- `README.md` section headings: `bigin-harness-setup` → "BigIn Harness Setup", `sprint-distill` → "Sprint Distill" (dropped its NotebookLM-replacement framing line). Removed the Vietnamese subtitle and the "Cài đặt" install-section suffix.
+
+### Fixed
+
+- `README.md`'s `go-scaffold`/`nodejs-scaffold` descriptions (Profiles table, "What gets generated" prose, Plugin Structure tree) still described their pre-v1.47.0 flat/contract-first shape instead of the actual modular-monolith rewrite (`users`/`posts` modules, JWT+argon2id auth — plus RBAC for Go — code-first TypeBox OpenAPI + outbox/inbox + a Postgres-backed job queue for Node.js). The same stale summaries in `tools/docs-manifest.json` are fixed and regenerated via `docs_sync.mjs`.
+
 ## [1.47.1] - 2026-07-23
 
 ### Fixed
