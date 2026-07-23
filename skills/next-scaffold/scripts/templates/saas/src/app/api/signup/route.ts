@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/session'
-import { backendSignup, backendLogin, BackendError } from '@/lib/backend'
+import { backendSignup, backendLogin } from '@/lib/backend'
+import { signupErrorResponse } from '@/lib/auth-errors'
 
 const SignupBody = z.object({
   name: z.string().min(1),
@@ -28,18 +29,6 @@ export async function POST(request: Request) {
     await session.save()
     return NextResponse.json({ id: user.id, email: user.email, name: user.name }, { status: 201 })
   } catch (err) {
-    if (err instanceof BackendError) {
-      // Map the two expected sign-up failures to clean client errors; never
-      // forward the raw backend body.
-      if (err.status === 409) {
-        return NextResponse.json({ error: { code: 'users.email_taken', message: 'That email is already registered' } }, { status: 409 })
-      }
-      if (err.status === 422) {
-        return NextResponse.json({ error: { code: 'validation_failed', message: 'Invalid sign-up details' } }, { status: 422 })
-      }
-      const status = err.status >= 400 && err.status < 500 ? err.status : 502
-      return NextResponse.json({ error: { code: err.code, message: 'Sign up failed' } }, { status })
-    }
-    return NextResponse.json({ error: { code: 'internal_error', message: 'Sign up failed, try again' } }, { status: 502 })
+    return signupErrorResponse(err)
   }
 }

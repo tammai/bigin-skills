@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { getSession } from '@/lib/session'
 import { backendUrl, backendRefresh } from '@/lib/backend'
+import { isCrossSiteMutation } from '@/lib/csrf'
 
 // ── The BFF backend proxy ────────────────────────────────────────────────
 // The single mechanism the browser uses to reach the backend. Every
@@ -18,22 +19,6 @@ import { backendUrl, backendRefresh } from '@/lib/backend'
 
 const BFF_PREFIX = '/api/backend'
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
-
-// Same-origin check for state-changing requests. A cookie-authenticated API is
-// vulnerable to CSRF unless it verifies the request originated from its own
-// site. Modern browsers send Sec-Fetch-Site on every request; fall back to an
-// Origin host comparison for the rare client that doesn't.
-function isSameOrigin(request: NextRequest): boolean {
-  const site = request.headers.get('sec-fetch-site')
-  if (site) return site === 'same-origin' || site === 'none'
-  const origin = request.headers.get('origin')
-  if (!origin) return false // a browser mutation always sends Origin; absence is suspicious
-  try {
-    return new URL(origin).host === request.nextUrl.host
-  } catch {
-    return false
-  }
-}
 
 function json(code: string, message: string, status: number): NextResponse {
   // Mirrors the backend's nested error envelope so client code sees one shape.
@@ -59,7 +44,7 @@ async function relay(res: Response): Promise<NextResponse> {
 }
 
 async function handle(request: NextRequest, method: string): Promise<NextResponse> {
-  if (!SAFE_METHODS.has(method) && !isSameOrigin(request)) {
+  if (isCrossSiteMutation(request)) {
     return json('unauthorized', 'cross-origin request rejected', 403)
   }
 

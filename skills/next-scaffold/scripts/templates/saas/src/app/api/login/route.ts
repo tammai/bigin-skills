@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/session'
-import { backendLogin, BackendError } from '@/lib/backend'
+import { backendLogin } from '@/lib/backend'
+import { loginErrorResponse } from '@/lib/auth-errors'
 
 const LoginBody = z.object({
   email: z.email(),
@@ -25,14 +26,6 @@ export async function POST(request: Request) {
     await session.save()
     return NextResponse.json({ email: parsed.data.email })
   } catch (err) {
-    if (err instanceof BackendError) {
-      // Pass through a clean status — never the raw backend body, which carries
-      // a request_id and internal phrasing not meant for the browser. A 401 is
-      // the expected "bad credentials" case.
-      const status = err.status >= 400 && err.status < 500 ? err.status : 502
-      return NextResponse.json({ error: { code: 'unauthenticated', message: 'Invalid email or password' } }, { status })
-    }
-    // fetch threw (backend unreachable / timeout)
-    return NextResponse.json({ error: { code: 'internal_error', message: 'Login failed, try again' } }, { status: 502 })
+    return loginErrorResponse(err)
   }
 }

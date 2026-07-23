@@ -176,6 +176,26 @@ function writeFileEnsured(target, content) {
   fs.writeFileSync(target, content.endsWith('\n') ? content : content + '\n')
 }
 
+// Read → check-marker (resume-safe, skip if already patched) → transform →
+// verify → write, the shared shape behind every "patch this generated config
+// file in place" step below. Always reads fresh from disk, so sequential
+// patches to the same file (e.g. the two eslint.config.mjs edits) never need
+// to pass an in-memory copy between them. `verify` defaults to "the transform
+// actually changed something"; pass one when a patch needs a stronger check
+// (e.g. a specific string must appear in the result).
+function patchFile(filePath, { marker, transform, verify, failMsg, optional = false }) {
+  if (!fs.existsSync(filePath)) {
+    if (optional) return
+    fail(`${filePath} not found — template shape changed; re-verify artifacts.md`)
+  }
+  const before = fs.readFileSync(filePath, 'utf8')
+  if (marker && before.includes(marker)) return // already patched (resume-safe)
+  const after = transform(before)
+  const ok = after !== before && (verify ? verify(after) : true)
+  if (!ok) fail(failMsg)
+  fs.writeFileSync(filePath, after)
+}
+
 function listFilesRecursive(dir) {
   const out = []
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -394,16 +414,15 @@ function applyArtifacts() {
   // src/app/layout.tsx: wrap children in <Providers> so TanStack Query's client is available
   // app-wide. Import inserted at the top, wrapper inserted around <body>'s children.
   const layoutPath = path.join(CFG.targetDir, 'src', 'app', 'layout.tsx')
-  let layout = fs.readFileSync(layoutPath, 'utf8')
-  if (!layout.includes('./providers')) {
-    const before = layout
-    layout = `import { Providers } from './providers'\n${layout}`
-    layout = layout.replace(/<body([^>]*)>([\s\S]*?)<\/body>/, (_m, attrs, inner) => `<body${attrs}>\n        <Providers>${inner}</Providers>\n      </body>`)
-    if (layout === before || !layout.includes('<Providers>')) {
-      fail('cannot wire <Providers> into src/app/layout.tsx — template shape changed; re-verify artifacts.md')
-    }
-    fs.writeFileSync(layoutPath, layout)
-  }
+  patchFile(layoutPath, {
+    marker: './providers',
+    transform: (layout) => {
+      layout = `import { Providers } from './providers'\n${layout}`
+      return layout.replace(/<body([^>]*)>([\s\S]*?)<\/body>/, (_m, attrs, inner) => `<body${attrs}>\n        <Providers>${inner}</Providers>\n      </body>`)
+    },
+    verify: (layout) => layout.includes('<Providers>'),
+    failMsg: 'cannot wire <Providers> into src/app/layout.tsx — template shape changed; re-verify artifacts.md'
+  })
 
   // All templates: the BFF proxy (src/app/api/backend/[...path]) forwards paths verbatim to the
   // backend, whose collection routes are served WITH a trailing slash (e.g. /v1/users/ — Fastify
@@ -411,19 +430,15 @@ function applyArtifacts() {
   // proxy handler runs, so the forwarded path would 404. `skipTrailingSlashRedirect` disables that
   // redirect so the proxy preserves the path exactly as the generated openapi-fetch client sends
   // it. (This is the documented Next option for exactly this proxy-preservation case.)
-  const nextConfigPath = path.join(CFG.targetDir, 'next.config.ts')
-  if (fs.existsSync(nextConfigPath)) {
-    let nextConfig = fs.readFileSync(nextConfigPath, 'utf8')
-    if (!nextConfig.includes('skipTrailingSlashRedirect')) {
-      const before = nextConfig
-      nextConfig = nextConfig.replace(
-        /(const nextConfig: NextConfig = \{\n)/,
-        `$1  // Preserve trailing slashes so the /api/backend proxy can forward e.g. /v1/users/ verbatim.\n  skipTrailingSlashRedirect: true,\n`
-      )
-      if (nextConfig === before) fail('cannot patch next.config.ts (skipTrailingSlashRedirect) — create-next-app config shape changed; re-verify artifacts.md')
-      fs.writeFileSync(nextConfigPath, nextConfig)
-    }
-  }
+  patchFile(path.join(CFG.targetDir, 'next.config.ts'), {
+    marker: 'skipTrailingSlashRedirect',
+    transform: (nextConfig) => nextConfig.replace(
+      /(const nextConfig: NextConfig = \{\n)/,
+      `$1  // Preserve trailing slashes so the /api/backend proxy can forward e.g. /v1/users/ verbatim.\n  skipTrailingSlashRedirect: true,\n`
+    ),
+    failMsg: 'cannot patch next.config.ts (skipTrailingSlashRedirect) — create-next-app config shape changed; re-verify artifacts.md',
+    optional: true
+  })
 
   // All templates: wire eslint-plugin-boundaries into the generated eslint.config.mjs so the
   // feature-folder structure (src/features/<f>, src/shared, src/lib, src/app) is a REAL boundary
@@ -432,19 +447,18 @@ function applyArtifacts() {
   // `...nextTs,` (same anchor the dashboard patch below uses — both survive because the anchor is
   // preserved by `$1`). Fails loudly if create-next-app's config shape changed.
   const eslintConfigPath = path.join(CFG.targetDir, 'eslint.config.mjs')
-  let eslintConfig = fs.readFileSync(eslintConfigPath, 'utf8')
-  if (!eslintConfig.includes('eslint.boundaries.mjs')) {
-    const before = eslintConfig
-    eslintConfig = eslintConfig.replace(
-      /(import nextTs from "eslint-config-next\/typescript";\n)/,
-      `$1import { boundariesConfig } from "./eslint.boundaries.mjs";\n`
-    )
-    eslintConfig = eslintConfig.replace(/(\.\.\.nextTs,\n)/, `$1  boundariesConfig,\n`)
-    if (eslintConfig === before || !eslintConfig.includes('boundariesConfig,')) {
-      fail('cannot wire boundariesConfig into eslint.config.mjs — create-next-app config shape changed; re-verify the eslint imports/defineConfig array in artifacts.md')
-    }
-    fs.writeFileSync(eslintConfigPath, eslintConfig)
-  }
+  patchFile(eslintConfigPath, {
+    marker: 'eslint.boundaries.mjs',
+    transform: (eslintConfig) => {
+      eslintConfig = eslintConfig.replace(
+        /(import nextTs from "eslint-config-next\/typescript";\n)/,
+        `$1import { boundariesConfig } from "./eslint.boundaries.mjs";\n`
+      )
+      return eslintConfig.replace(/(\.\.\.nextTs,\n)/, `$1  boundariesConfig,\n`)
+    },
+    verify: (eslintConfig) => eslintConfig.includes('boundariesConfig,'),
+    failMsg: 'cannot wire boundariesConfig into eslint.config.mjs — create-next-app config shape changed; re-verify the eslint imports/defineConfig array in artifacts.md'
+  })
 
   // dashboard only: the shadcn `dashboard-01` block's own shipped source trips two react-hooks
   // rules that ship enabled-by-default in eslint-config-next 16 (React Compiler diagnostics,
@@ -453,18 +467,14 @@ function applyArtifacts() {
   // vendored block code, not ours to rewrite; scope an override to exactly those two files rather
   // than disabling the rules project-wide.
   if (CFG.template === 'dashboard') {
-    // eslintConfig/eslintConfigPath already loaded (+ boundaries-patched) above; re-read from
-    // disk so this patch sees the boundaries edit, then append the dashboard-only override.
-    eslintConfig = fs.readFileSync(eslintConfigPath, 'utf8')
-    if (!eslintConfig.includes('react-hooks/set-state-in-effect')) {
-      const before = eslintConfig
-      eslintConfig = eslintConfig.replace(
+    patchFile(eslintConfigPath, {
+      marker: 'react-hooks/set-state-in-effect',
+      transform: (eslintConfig) => eslintConfig.replace(
         /(\.\.\.nextTs,\n)/,
         `$1  {\n    files: ['src/hooks/use-mobile.ts', 'src/components/chart-area-interactive.tsx'],\n    rules: { 'react-hooks/set-state-in-effect': 'off' }\n  },\n`
-      )
-      if (eslintConfig === before) fail('cannot patch eslint.config.mjs for the dashboard-01 block override — template shape changed; re-verify artifacts.md')
-      fs.writeFileSync(eslintConfigPath, eslintConfig)
-    }
+      ),
+      failMsg: 'cannot patch eslint.config.mjs for the dashboard-01 block override — template shape changed; re-verify artifacts.md'
+    })
   }
 
   // JSON merges — merge, never overwrite.
