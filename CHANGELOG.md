@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.47.0] - 2026-07-23
+
+### Added
+
+- **`nodejs-scaffold` rewritten to full ADR modular-monolith parity — the reference implementation the three profiles below were built against.** `users`/`posts` modules under `src/modules/<mod>/{domain,application,infrastructure,api}`, code-first OpenAPI (TypeBox route schemas double as the spec, `@fastify/swagger` dumps `src/api/openapi.json`), JWT+argon2id auth, an in-process event bus with outbox/inbox + a dead-letter table + retry backoff, a Postgres-backed job queue (Graphile Worker), idempotency-key handling, cursor pagination, optimistic concurrency, `eslint-plugin-boundaries`-enforced module boundaries, and a unit + testcontainers-backed integration test suite.
+- **`go-scaffold` rewritten from a flat single-resource skeleton into a modular monolith (structure + auth profile).** `users`/`posts` modules under `internal/<mod>/internal/{domain,application,infrastructure,api}` with compiler-enforced boundaries (Go's nested `internal/`), per-module `oapi-codegen`, JWT+argon2id auth, RBAC, a nested `{error:{code,message,request_id,details}}` envelope, optimistic concurrency, and soft-delete. Scoped down from full ADR parity (no event bus/job queue/idempotency middleware/cursor pagination) by explicit decision — those can be layered on later if a project needs them.
+- **`next-scaffold`'s `saas` template wired to a real paired backend.** Login/signup/logout call the actual backend endpoints and store the token pair in a sealed `iron-session` cookie; a new catch-all `src/app/api/backend/[...path]/route.ts` proxy attaches the Bearer token and implements the ADR §7.3 401→refresh→retry flow. A generated `openapi-fetch` client (committed contract snapshot) replaces the hand-written `fetch()` hook, and the base template is restructured into ADR-style feature-folder boundaries enforced by `eslint-plugin-boundaries`.
+- **`nuxt-scaffold` wired to a real paired Go backend (the ADR's default Go+Nuxt pairing) — every template, not just `saas`.** A universal catch-all `server/api/backend/[...path].ts` proxy (401→refresh→retry, CSRF-guarded) and a generated `openapi-fetch` client (wrapped in Pinia Colada composables) ship in the base preset; `saas`'s login/signup/logout now call the real backend and store tokens in `nuxt-auth-utils`' server-only session key. The `starter` template is additionally restructured into Nuxt Layers (`layers/<feature>/app` + `layers/shared`) with `imports.scan: false` and enforced cross-layer boundaries — the other 8 cloned `ui.nuxt.com` templates keep their upstream layout (documented, deliberate asymmetry).
+
+### Fixed
+
+Found by an adversarially-verified multi-dimension code review of the four rewrites above, then fixed and independently re-verified:
+
+- **`go-scaffold`: a refresh-token rotation race** that could mint two live child tokens for one parent under concurrent 401→refresh→retry requests, silently breaking the reuse-detection invariant. Closed by revoking the parent conditionally (`WHERE revoked_at IS NULL`) before minting the child, so a losing concurrent request aborts instead of proceeding.
+- **`go-scaffold`: a login timing side-channel** that let an attacker distinguish "no such account" from "wrong password" via response latency (the slow argon2id verify only ran when the account existed). Both branches now pay the same hashing cost.
+- **`go-scaffold`: a logout IDOR** — `Logout` revoked whatever refresh token hash was presented with no check that it belonged to the calling principal, letting one user revoke another's session. Now scoped to the caller's own tokens.
+- **`go-scaffold`: three unenforced RBAC permissions** (`PermUsersRead`/`PermPostsRead` wired into the role map but never checked; `PermUsersWrite` had no corresponding endpoint at all) — the two read permissions are now actually enforced on the list/get use-cases, and the dead write permission was removed.
+- **`next-scaffold` and `nuxt-scaffold`: the same concurrent-refresh race** — two requests sharing a session could both trigger a token refresh and the loser would spuriously sign the user out. Both proxies now re-check the session before treating a failed refresh as fatal, retrying with a sibling request's already-rotated token instead.
+- **`nuxt-scaffold`: a login-CSRF gap** — the CSRF middleware only guarded the backend proxy, leaving `/api/login`/`/api/signup`/`/api/logout` open to cross-site form-based login CSRF. Broadened to guard the whole `/api/` surface.
+- Plus: stale README/SKILL.md/reference docs across all four scaffolds describing pre-rewrite architecture, dead code, and ~15 test-coverage gaps on the affected auth/proxy paths (refresh-for-erased-user, malformed-token handling, fail-closed config validation, CSRF Origin-header fallback, and others).
+
+### Changed
+
+- **`next-scaffold`: closed a login-CSRF gap found in a follow-up `/simplify` pass** — the same-origin check lived only in the backend-proxy route; extracted into `src/lib/csrf.ts` and wired into `saas`'s root `proxy.ts` (Next's middleware) guarding all of `/api/**`, matching the protection `nuxt-scaffold`'s sibling middleware already provided.
+- **`go-scaffold`: deduplicated pagination clamping** (`clampLimit`/`clampOffset` were byte-identical across the `posts` and `users` modules) into `internal/shared/pagination`, and **parallelized the two independent per-module `oapi-codegen` invocations** in `scaffold.mjs` (previously sequential, doubling the cold-cache tool-download cost).
+- **`next-scaffold`: deduplicated the login/signup error-envelope mapping** into `saas/src/lib/auth-errors.ts`, and extracted a shared `patchFile()` helper in `scaffold.mjs` replacing four near-identical generated-config-patch blocks.
+- **`nodejs-scaffold`: the outbox relay now polls its independent tables concurrently** (`Promise.all`) instead of in series.
+- **`go-scaffold`/`nuxt-scaffold` `SKILL.md` frontmatter descriptions sharpened** to name their current capabilities (modular-monolith structure + auth; real backend wiring + Layers) instead of the pre-rewrite generic phrasing.
+
 ## [1.46.1] - 2026-07-21
 
 ### Fixed
