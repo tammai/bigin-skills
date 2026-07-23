@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.47.1] - 2026-07-23
+
+### Fixed
+
+- **`bigin-harness-setup`'s `profile-nodejs.md` reference was stale — missed by the 1.47.0 doc sweep.** It still described the pre-rewrite architecture (contract-first `openapi-typescript`, a flat `src/db/schema.ts`, `src/routes/`/`src/services/`/`src/repositories/`) instead of the actual `nodejs-scaffold` output: code-first TypeBox route schemas exporting `src/api/openapi.json`, per-module Drizzle schemas, and the `src/modules/<name>/{api,application,domain,infrastructure,index.ts}` modular-monolith layout with `eslint-plugin-boundaries`-enforced module boundaries. Commands, editable surface, naming, handler pattern, error handling, project layout, architecture-doc template, and the settings.json Bash allowlist are all brought current.
+
 ## [1.47.0] - 2026-07-23
 
 ### Added
