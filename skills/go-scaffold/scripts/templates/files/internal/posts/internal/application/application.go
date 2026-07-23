@@ -49,28 +49,3 @@ type Service struct {
 func NewService(posts PostsRepo, users UserDirectory) *Service {
 	return &Service{posts: posts, users: users}
 }
-
-const (
-	defaultLimit = 20
-	maxLimit     = 100
-)
-
-func clampLimit(limit *int) int {
-	if limit == nil {
-		return defaultLimit
-	}
-	if *limit < 1 {
-		return 1
-	}
-	if *limit > maxLimit {
-		return maxLimit
-	}
-	return *limit
-}
-
-func clampOffset(offset *int) int {
-	if offset == nil || *offset < 0 {
-		return 0
-	}
-	return *offset
-}

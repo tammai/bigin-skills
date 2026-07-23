@@ -6,6 +6,7 @@ import (
 	"{{MODULE}}/internal/posts/internal/domain"
 	"{{MODULE}}/internal/shared/apierror"
 	"{{MODULE}}/internal/shared/auth"
+	"{{MODULE}}/internal/shared/pagination"
 )
 
 type CreatePostInput struct {
@@ -43,8 +44,8 @@ func (s *Service) ListPosts(ctx context.Context, in ListPostsInput, actor auth.P
 	if !auth.Can(actor.Roles, auth.PermPostsRead) {
 		return ListPostsResult{}, apierror.Unauthorized(apierror.CodeUnauthorized, "not allowed to list posts")
 	}
-	limit := clampLimit(in.Limit)
-	offset := clampOffset(in.Offset)
+	limit := pagination.ClampLimit(in.Limit)
+	offset := pagination.ClampOffset(in.Offset)
 	posts, err := s.posts.List(ctx, limit, offset)
 	if err != nil {
 		return ListPostsResult{}, err

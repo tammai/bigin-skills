@@ -24,7 +24,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { spawnSync } from 'node:child_process'
+import { spawnSync, spawn } from 'node:child_process'
 import { parseArgs } from 'node:util'
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url))
@@ -177,9 +177,42 @@ function run(cmd, args, cwd, { optional = false } = {}) {
   return { ok: true, stdout: res.stdout, stderr: res.stderr }
 }
 
+// Runs several independent commands concurrently (used for the per-module
+// oapi-codegen invocations, which just filter the same api/openapi.yaml into
+// separate output dirs — no data dependency between them, so serializing them
+// only adds latency, doubly so on the first run where each may download/build
+// its own copy of the tool). Each command's own output is buffered and
+// flushed once it finishes, then any failure fails the whole scaffold.
+function runParallel(commands, cwd) {
+  return Promise.all(
+    commands.map(
+      ({ cmd, args }) =>
+        new Promise((resolve) => {
+          const child = spawn(cmd, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] })
+          let stdout = ''
+          let stderr = ''
+          child.stdout.on('data', (d) => { stdout += d })
+          child.stderr.on('data', (d) => { stderr += d })
+          child.on('error', (error) => resolve({ ok: false, cmd, args, error }))
+          child.on('close', (status) => resolve({ ok: status === 0, cmd, args, status, stdout, stderr }))
+        })
+    )
+  ).then((results) => {
+    for (const r of results) {
+      log(`$ ${r.cmd} ${r.args.join(' ')}`)
+      if (r.stdout?.trim()) process.stdout.write(r.stdout)
+      if (!r.ok) {
+        if (r.stderr?.trim()) process.stderr.write(r.stderr)
+        if (r.error?.code === 'ENOENT') fail(`${r.cmd} not found on PATH`)
+        fail(r.error ? `${r.cmd} ${r.args.join(' ')} failed to spawn: ${r.error.message}` : `${r.cmd} ${r.args.join(' ')} exited ${r.status}`)
+      }
+    }
+  })
+}
+
 // ── main ────────────────────────────────────────────────────────────────
 
-function main() {
+async function main() {
   const cfg = parseCliArgs()
   const targetDir = path.resolve(cfg.dir)
 
@@ -203,9 +236,13 @@ function main() {
   }
 
   log('running codegen (oapi-codegen per module + sqlc) — first run downloads and builds both tools, can take a minute')
-  for (const config of OAPI_MODULE_CONFIGS) {
-    run('go', ['run', `github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@${OAPI_CODEGEN_VERSION}`, '-config', config, 'api/openapi.yaml'], targetDir)
-  }
+  await runParallel(
+    OAPI_MODULE_CONFIGS.map((config) => ({
+      cmd: 'go',
+      args: ['run', `github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@${OAPI_CODEGEN_VERSION}`, '-config', config, 'api/openapi.yaml']
+    })),
+    targetDir
+  )
   run('go', ['run', `github.com/sqlc-dev/sqlc/cmd/sqlc@${SQLC_VERSION}`, 'generate'], targetDir)
 
   log('go mod tidy')
@@ -275,4 +312,4 @@ import of another module's internals fails to build.
 `)
 }
 
-main()
+main().catch((err) => fail(err?.stack || String(err)))

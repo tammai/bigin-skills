@@ -5,6 +5,7 @@ import (
 
 	"{{MODULE}}/internal/shared/apierror"
 	"{{MODULE}}/internal/shared/auth"
+	"{{MODULE}}/internal/shared/pagination"
 	"{{MODULE}}/internal/users/internal/domain"
 )
 
@@ -109,8 +110,8 @@ func (s *Service) ListUsers(ctx context.Context, in ListUsersInput, actor auth.P
 	if !auth.Can(actor.Roles, auth.PermUsersRead) {
 		return ListUsersResult{}, apierror.Unauthorized(apierror.CodeUnauthorized, "not allowed to list users")
 	}
-	limit := clampLimit(in.Limit)
-	offset := clampOffset(in.Offset)
+	limit := pagination.ClampLimit(in.Limit)
+	offset := pagination.ClampOffset(in.Offset)
 	users, err := s.users.List(ctx, limit, offset)
 	if err != nil {
 		return ListUsersResult{}, err

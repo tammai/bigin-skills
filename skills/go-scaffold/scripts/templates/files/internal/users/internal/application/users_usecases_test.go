@@ -8,6 +8,7 @@ import (
 
 	"{{MODULE}}/internal/shared/apierror"
 	"{{MODULE}}/internal/shared/auth"
+	"{{MODULE}}/internal/shared/pagination"
 	"{{MODULE}}/internal/users/internal/domain"
 )
 
@@ -173,8 +174,8 @@ func TestListUsersClampsLimit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if gotLimit != maxLimit || res.Limit != maxLimit {
-		t.Fatalf("limit not clamped: repo=%d result=%d want %d", gotLimit, res.Limit, maxLimit)
+	if gotLimit != pagination.MaxLimit || res.Limit != pagination.MaxLimit {
+		t.Fatalf("limit not clamped: repo=%d result=%d want %d", gotLimit, res.Limit, pagination.MaxLimit)
 	}
 }
 
