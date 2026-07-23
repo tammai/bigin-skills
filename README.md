@@ -1,10 +1,8 @@
-# bigin-skills
+# BigIn Skills
 
-**BigIn's collection of Claude Code skills**
+**A Claude Code plugin for AI-assisted development**
 
-Skills for standardized, AI-assisted development across BigIn's stacks.
-
----
+Spec-driven `task-workflow` with an independent verifier, mechanical enforcement gates, and governance for standardized development across BigIn's stacks.
 
 ## Quick Start
 
