@@ -16,43 +16,18 @@ tools/context_budget.mjs   ← budget gate (also templated for target repos)
 scripts/git-hooks/        ← pre-commit running the budget gate
 ```
 
-## Skills
+Every skill's `description:` frontmatter is already loaded on every turn, so there's no inventory table here — the generated skills/agents tables live in [README.md](README.md), and each `SKILL.md` covers how that skill works. Authoring conventions: `.claude/rules/skill-authoring.md` (loads when editing `skills/` or `agents/`).
 
-<!-- gen:skills-table -->
-| Skill                   | Purpose                                                                                                                                                       |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `bigin-harness-setup`   | Scaffolds an AI workflow harness — CLAUDE.md brief, path-scoped rules, and enforcement gates (commit hooks + budget check). Profiles: nuxt, go, nodejs, next. |
-| `task-workflow`         | On-demand task workflow (/task-workflow): scope → spec → plan (approved) → implement/verify loop (capped, independent verifier) → review → cleanup.           |
-| `nuxt-scaffold`         | Scaffolds a Nuxt 4 BFF app from scratch via a deterministic Node.js script — npm create nuxt@latest + BFF preset + config/sample code. No GitHub clone.       |
-| `next-scaffold`         | Scaffolds a Next.js App Router BFF app from scratch via a deterministic Node.js script — create-next-app + BFF preset + shadcn/ui. No GitHub clone.           |
-| `go-scaffold`           | Scaffolds a Go modular-monolith REST API — users/posts, oapi-codegen + sqlc, JWT+argon2id+RBAC, chi router, Postgres. Runs codegen + build/vet/test itself.   |
-| `nodejs-scaffold`       | Scaffolds a Node.js modular-monolith REST API — users/posts, code-first OpenAPI (TypeBox) + Drizzle, JWT+argon2id, outbox/inbox + job queue.                  |
-| `sprint-distill`        | End-of-sprint distillation: merged PRs + touched knowledge/ concepts → proposal-first knowledge/ and bigin-skills updates. Compresses, never just appends.    |
-| `write-tests`           | On-demand test authoring (/write-tests): style-matches the nearest test file, lists edge cases first, TDD-orders logic, mocks only true I/O boundaries.       |
-| `debug-workflow`        | On-demand systematic debugging (/debug-workflow): triage → fast path for obvious bugs, full guarded workflow for flaky/env/repeat-failure bugs.               |
-| `model-router`          | Scores task complexity and routes to quick-executor/standard-worker/deep-architect on a per-project model ladder. Routes down as well as up.                  |
-| `session-handoff`       | Saves session state (tasks, decisions, uncommitted changes) to SESSION.md and restores it on resume.                                                          |
-| `nuxt-ui-figma-handoff` | Turns a Nuxt UI Figma design handoff into code — theme tokens into main.css, component overrides into app.config.ts. Requires a Figma URL.                    |
-<!-- /gen:skills-table -->
+## Gotchas
 
-## Agents
-
-`agents/<name>.md` — plugin-level subagents spawned via the Agent tool (`bigin-skills:<name>`), not invoked as skills.
-
-<!-- gen:agents-table -->
-| Agent             | Purpose                                                                                                                                                                  |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `quick-executor`  | sonnet/low — mechanical, single-file, low-risk tasks. Routed by `model-router`.                                                                                          |
-| `standard-worker` | opus/high — default tier, most feature/bug-fix work. Routed by `model-router`.                                                                                           |
-| `deep-architect`  | fable/xhigh — architectural decisions, contract/schema changes, full-spec tier. Routed by `model-router`.                                                                |
-| `verifier`        | sonnet/low — read-only — audits a diff against `PLAN.md` independently of the implementer's own summary. Spawned fresh each round, alongside whichever tier implemented. |
-<!-- /gen:agents-table -->
-
-Details live in each skill's own `SKILL.md` — read it when working on that skill. Authoring conventions are in `.claude/rules/skill-authoring.md` (loads when editing `skills/`).
+- A `skills/*/SKILL.md` `description:` is always-loaded context for every session in every repo that installs this plugin. The budget gate caps it at 350 chars.
+- `references/*.md` under `bigin-harness-setup` is copied **verbatim** into target repos. Changing one needs a CHANGELOG `patch` block, or already-scaffolded repos never receive it.
+- Generated `AI_TASK_GUIDE.md` is deliberately just a pointer to `task-workflow`. Don't grow it back into a second copy of the workflow — that's how the two drifted before.
+- The guard scripts in `references/hook-guard.md` are load-bearing; `.claude/rules/skill-authoring.md` lists the exact cases each one must still block and allow.
 
 ## Versioning
 
-Version lives in `.claude-plugin/plugin.json`. Bump it when publishing changes and add a `CHANGELOG.md` entry. Before a **major or minor** bump, find and fix all stale docs first — the skills/agents tables in `CLAUDE.md`/`README.md` are generated (run `node tools/docs_sync.mjs`), so sweep only the remaining manual surfaces: prose, cross-references, the README tree diagram, `SKILL.md`s, `marketplace.json`. Patch bumps don't require this sweep. Pre-commit gates: activate once with `git config core.hooksPath scripts/git-hooks` (runs the budget gate + `docs_sync.mjs --check`).
+Version lives in `.claude-plugin/plugin.json`. Bump it when publishing changes and add a `CHANGELOG.md` entry. Before a **major or minor** bump, find and fix all stale docs first — the skills/agents tables in `README.md` are generated (run `node tools/docs_sync.mjs`), so sweep only the remaining manual surfaces: prose, cross-references, the README tree diagram, `SKILL.md`s, `marketplace.json`. Patch bumps don't require this sweep. Pre-commit gates: activate once with `git config core.hooksPath scripts/git-hooks` (runs the budget gate + `docs_sync.mjs --check`).
 
 ## Session Handoff
 

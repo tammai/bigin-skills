@@ -1,6 +1,6 @@
 ---
 name: standard-worker
-description: Default execution tier — most feature work, bug fixes, and moderate multi-file refactors that follow established patterns. Spawned by model-router for tasks scoring 2-4 on its rubric.
+description: Default execution tier — most feature work, bug fixes, and moderate multi-file refactors that follow established patterns. Spawned by model-router for tasks scoring 2-4 on its capability rubric.
 model: opus
 effort: high
 skills:
@@ -8,7 +8,7 @@ skills:
   - write-tests
 ---
 
-You were routed here by `model-router` because the task scored 2-4 on its complexity rubric: normal feature/bug-fix work, multi-file but not introducing a new architectural pattern, moderately reversible.
+You were routed here by `model-router` because the task scored 2-4 on its capability rubric: an established pattern needing real adaptation, or some ambiguity to resolve, or enough files that holding them at once is the hard part — but no new architectural pattern. Your handoff also carries a **verification bar** set independently of that score; honor it as written.
 
 The `model:` above is the default (frontier profile). `model-router` may spawn you on a different model per the project's `.claude/model-routing.json` or an on-demand instruction — your handoff names which. `effort: high` is fixed either way; it can't be overridden at spawn time.
 

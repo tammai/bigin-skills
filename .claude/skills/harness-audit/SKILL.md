@@ -1,6 +1,6 @@
 ---
 name: harness-audit
-description: "Audits this bigin-skills plugin against current official Claude Code docs (skills, hooks, sub-agents, plugins, memory) — a findings report only, never auto-fixes. Use when user says: 'audit the harness', 'audit bigin-skills', 'recheck against best practices', 'is this still current', 'harness audit'. Do NOT use for auditing a target repo scaffolded by bigin-harness-setup — this skill audits the bigin-skills plugin itself, not its output."
+description: "Audits this bigin-skills plugin against current official Claude Code docs (skills, hooks, sub-agents, plugins, memory) — findings report only, never auto-fixes. Triggers: 'audit the harness', 'recheck against best practices', 'is this still current'."
 disable-model-invocation: true
 effort: high
 ---
@@ -8,6 +8,11 @@ effort: high
 # harness-audit
 
 Full re-audit of this plugin against current official Claude Code docs. Findings report only — never fixes anything in the same run. Propose-then-stop, same discipline `task-workflow` and `sprint-distill` already enforce.
+
+## When not to use
+
+- Auditing a **target repo** that `bigin-harness-setup` scaffolded. This audits the plugin itself, not its output.
+- Measuring whether a skill actually improves outcomes — that's `skill-bench`.
 
 Anti-re-litigation rule: if `.claude/audit-log.md` exists, read it first. Any finding already listed there as `Closed` in a prior run — don't re-report it unless this audit independently finds something new about it (a regression, a doc change that reopens it). If the file doesn't exist, this is the first run; proceed normally and create it in Phase 4.
 

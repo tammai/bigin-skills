@@ -45,7 +45,7 @@ The harness itself — setup, workflow, and maintenance for a repo under standar
 | **sprint-distill**      | End-of-sprint distillation: merged PRs + touched knowledge/ concepts → proposal-first knowledge/ and bigin-skills updates. Compresses, never just appends.    |
 | **write-tests**         | On-demand test authoring (/write-tests): style-matches the nearest test file, lists edge cases first, TDD-orders logic, mocks only true I/O boundaries.       |
 | **debug-workflow**      | On-demand systematic debugging (/debug-workflow): triage → fast path for obvious bugs, full guarded workflow for flaky/env/repeat-failure bugs.               |
-| **model-router**        | Scores task complexity and routes to quick-executor/standard-worker/deep-architect on a per-project model ladder. Routes down as well as up.                  |
+| **model-router**        | Scores capability and verification needs separately, then routes to quick-executor/standard-worker/deep-architect on a per-project model ladder.              |
 <!-- /gen:skills-core -->
 
 ### Handoff Skills
@@ -58,6 +58,19 @@ Add-ons for a specific cross-role handoff (e.g. designer → developer). Not req
 | **session-handoff**       | Saves session state (tasks, decisions, uncommitted changes) to SESSION.md and restores it on resume.                                       |
 | **nuxt-ui-figma-handoff** | Turns a Nuxt UI Figma design handoff into code — theme tokens into main.css, component overrides into app.config.ts. Requires a Figma URL. |
 <!-- /gen:skills-handoff -->
+
+### Agents
+
+`agents/<name>.md` — plugin-level subagents spawned through the Agent tool as `bigin-skills:<name>`, not invoked as skills. `model-router` picks between the three execution tiers; `task-workflow` spawns the verifier. The `model`/`effort` pair below is each agent's frontmatter default — `model-router` overrides `model` per spawn from the project's [model ladder](#model-ladder), while `effort` is fixed in the agent file.
+
+<!-- gen:agents-table -->
+| Agent             | Purpose                                                                                                                                                                   |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `quick-executor`  | sonnet/low — mechanical, single-file, low-risk tasks. Routed by `model-router`.                                                                                           |
+| `standard-worker` | opus/high — default tier, most feature/bug-fix work. Routed by `model-router`.                                                                                            |
+| `deep-architect`  | fable/xhigh — architectural decisions, breaking contract changes, row-transforming migrations, full-spec tier. Routed by `model-router`.                                  |
+| `verifier`        | sonnet/high — read-only — audits a diff against `PLAN.md` independently of the implementer's own summary. Spawned fresh each round, alongside whichever tier implemented. |
+<!-- /gen:agents-table -->
 
 ---
 
@@ -160,13 +173,13 @@ Trigger with natural language ("implement X", "add a feature", "fix bug in Z", "
 1. **Scope** — one sentence: what's changing and why, before touching any code.
 2. **Spec gate** — write and get approval for a spec before implementing. Skipped for bug fixes, copy changes, config tweaks, and changes ≤20 lines of logic. If the request doesn't carry enough information to fill the spec confidently, the workflow asks up to 3 targeted clarifying questions rather than filling gaps with silent assumptions. The default spec has six required fields — `What` / `Inputs-outputs` / `Edge cases` / `Security considerations` / `Testing strategy` / `Not in scope` — pasted in chat and requiring your explicit approval before any code is written.
 3. **Plan file** — the approved spec plus a tasks-tracking table, written to `PLAN.md`. This is exactly what `spec-gate-guard.mjs` checks for: it blocks `Edit`/`Write`/`MultiEdit` calls until `PLAN.md` exists with `Status: approved`.
-4. **Implement/verify loop** — `model-router` scores the task and picks the executing tier (asking for confirmation only when the tier comes back `deep-architect`), resolving each tier's model from the project's [model ladder](#model-ladder); the spawned implementer self-checks lint+typecheck+tests, and delegates test-authoring to `write-tests` and bug-fix discipline to `debug-workflow`. A **fresh, read-only `verifier` subagent** is then spawned to audit the diff against `PLAN.md` directly — never against the implementer's own summary of what it did. On `FAIL`, the same implementer is resumed via `SendMessage` with the issues list verbatim, and a new, memoryless verifier re-checks the fix. Capped at **3 rounds** — past that, the workflow stops and asks you how to proceed rather than looping indefinitely.
+4. **Implement/verify loop** — `model-router` scores the task on two separate axes — **capability** (which picks the executing tier and its model from the project's [model ladder](#model-ladder), asking for confirmation only when the tier comes back `deep-architect`) and **verification** (which sets the gate discipline: mandatory verifier round on contract/migration paths, tests-first under 0.3 coverage, whole-tree gates past 5 files). The spawned implementer self-checks lint+typecheck+tests, and delegates test-authoring to `write-tests` and bug-fix discipline to `debug-workflow`. A **fresh, read-only `verifier` subagent** is then spawned to audit the diff against `PLAN.md` directly — never against the implementer's own summary of what it did. On `FAIL`, the same implementer is resumed via `SendMessage` with the issues list verbatim, and a new, memoryless verifier re-checks the fix. Capped at **3 rounds** — past that, the workflow stops and asks you how to proceed rather than looping indefinitely.
 5. **Review** — asks whether to run `/code-review` on the diff, plus `/security-review` if the change touches auth, sessions, secrets, PII, or untrusted input. Neither runs automatically.
 6. **Cleanup** — once every task is `Done` and review is resolved (clean, or explicitly declined), `PLAN.md` is deleted. It's a working file for the task, not project documentation.
 
 ### Model ladder
 
-Which model each of the three tiers runs on is a per-project choice — **effort is not** (it's pinned per tier: quick `low` · standard `high` · deep `xhigh` · verifier `low`).
+Which model each of the three tiers runs on is a per-project choice — **effort is not** (it's pinned per tier: quick `low` · standard `high` · deep `xhigh` · verifier `high`). `high` is the documented default on every model that supports effort, so the standard tier deliberately sits *at* the default; quick routes down for mechanical work, and deep is the one escalation, for changes where a wrong structural call can't be cheaply reverted. Rationale per tier: [`model-profiles.md`](skills/model-router/references/model-profiles.md).
 
 | Profile              | quick    | standard | deep    | verifier | Pick it when                                                            |
 | -------------------- | -------- | -------- | ------- | -------- | ----------------------------------------------------------------------- |
@@ -331,7 +344,7 @@ bigin-skills/
 │   ├── quick-executor.md          ← sonnet/low — mechanical, single-file, low-risk tasks
 │   ├── standard-worker.md         ← opus/high — default tier, most feature/bug-fix work
 │   ├── deep-architect.md          ← fable/xhigh — architectural decisions, contract/schema changes, full-spec tier
-│   └── verifier.md                ← sonnet/low, read-only — independently audits a diff against PLAN.md, spawned alongside whichever of the three tiers above implements it
+│   └── verifier.md                ← sonnet/high, read-only — independently audits a diff against PLAN.md, spawned alongside whichever of the three tiers above implements it
 │                                    (models above are the frontier default — per-project ladder lives in the target repo's .claude/model-routing.json; effort is fixed per tier)
 ├── .claude/
 │   └── rules/                     ← this repo's own path-scoped authoring rules

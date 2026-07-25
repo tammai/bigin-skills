@@ -1,6 +1,6 @@
 ---
 name: skill-bench
-description: "Benchmarks a target skill's outcome quality and consistency by running the same task with the skill available vs masked, k trials per arm, scored against an objective rubric (pass@k, pass^k). Project-local — audits this plugin's own skills, never ships downstream. Use when user says: 'benchmark this skill', 'run skill-bench', 'measure write-tests', 'does this skill actually help', 'bench debug-workflow'. Do NOT use for auditing hooks/frontmatter/docs staleness — that's `harness-audit`."
+description: "Benchmarks a skill's outcome quality and consistency — same task with the skill available vs masked, k trials per arm, scored on a rubric (pass@k, pass^k). Triggers: 'benchmark this skill', 'run skill-bench', 'does this skill actually help'."
 disable-model-invocation: true
 effort: high
 allowed-tools: Bash(git worktree *), Bash(git diff --stat *), Bash(node .claude/skills/skill-bench/scripts/*), Bash(git status *)
@@ -11,6 +11,11 @@ allowed-tools: Bash(git worktree *), Bash(git diff --stat *), Bash(node .claude/
 Runs the same bench task k times with a skill available and k times with it masked, in isolated git worktrees, and scores each trial against an objective rubric. Never auto-fixes or auto-commits — proposes a report, same discipline `harness-audit` and `sprint-distill` already enforce.
 
 **Trial cap:** default 2 skills × 3 tasks × k=3 × 2 arms = 36 trials per invocation. If the requested scope (skills × available tasks × k × 2) would exceed this, state the computed total and ask for explicit confirmation before running any trials.
+
+## When not to use
+
+- Project-local only — audits this plugin's own skills, never ships downstream.
+- Auditing hooks, frontmatter, or docs staleness against the official docs — that's `harness-audit`.
 
 ## Phase 0: Select scope and self-heal
 

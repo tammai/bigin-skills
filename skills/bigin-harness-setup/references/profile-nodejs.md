@@ -49,24 +49,15 @@ Node: ≥22 · pnpm only
 See `.claude/rules/` — path-scoped conventions, security, architecture.
 
 ## Hard Rules (non-negotiable)
-- Each module's `api/*.schemas.ts` (TypeBox) is BOTH the runtime request/response validator and the OpenAPI spec source — one declaration, no separate contract file. `src/api/openapi.json` is GENERATED from them via `pnpm openapi:export` — never hand-edit it; CI diff-checks it against a fresh export.
-- Each module's `infrastructure/*.schema.ts` (hand-written Drizzle table schema) is the source of truth for that module's DB tables. After changing one: `pnpm db:generate` (produces a migration under `drizzle/`), then `pnpm db:migrate` to apply. Never hand-edit a migration under `drizzle/` already applied to a shared environment — add a new one instead.
-- Business logic lives only in `application/*.use-case.ts`. Only `infrastructure/*.repository.ts` uses the Drizzle query builder — the repository function *is* the query, there's no separate generated typed-queries layer. Route handlers (`api/*.routes.ts`) declare the TypeBox schema and wire the call only.
-- A module's `index.ts` is the only file other modules may import from it — enforced by `eslint-plugin-boundaries`; `pnpm lint` fails on a cross-module import that reaches past it.
-- No `--no-verify`. No `eslint-disable` without a justifying comment. No weakening eslint config (especially `boundaries/dependencies`) to pass checks.
-- No `@ts-ignore` or `as any` without a justifying comment.
-- No unauthenticated endpoints past a stubbed auth check — replace it before production traffic.
-- Request/response validation is TypeBox route schemas, not Zod — Zod is reserved for one job only: fail-closed process-env validation at boot (`shared/config/env.ts`).
-- Never echo raw driver/internal error text into a response body — the centralized `shared/errors/error-handler.ts` owns this; respond with the fixed `{ error: { code, message, request_id, details? } }` contract. (Fastify's own schema-validation `details` are the intentional exception — that's client-actionable feedback, not an internals leak.)
-- Backend leads with additive changes. Breaking API change = version bump (`/v2/`).
+- `src/api/openapi.json` is generated from each module's `api/*.schemas.ts` (TypeBox) via `pnpm openapi:export` — never hand-edit it; CI diff-checks it. Migrations likewise: change `infrastructure/*.schema.ts`, run `pnpm db:generate`, then `pnpm db:migrate`. Never edit a migration already applied to a shared environment — add a new one.
+- A module's `index.ts` is the only file other modules may import from it — enforced by `eslint-plugin-boundaries`.
+- No `--no-verify`. No `eslint-disable` (especially `boundaries/dependencies`), `@ts-ignore`, or `as any` without a justifying comment. Never weaken eslint config to pass a check.
+- TypeBox route schemas do request/response validation, not Zod. Zod has exactly one job: fail-closed env validation at boot (`shared/config/env.ts`).
+- The stubbed auth check must be replaced before production traffic.
+- Layering, repository boundary, and the error-response contract: `.claude/rules/conventions.md`.
 
 ## Task workflow
-Non-trivial features: /task-workflow (or read AI_TASK_GUIDE.md).
-
-## Compact instructions
-Preserve: code changes, key decisions, blockers.
-Drop from context: tool output, file reads, search results.
-Run /clear between unrelated tasks. Pipe long output: `cmd | head -50`.
+Non-trivial features: /task-workflow.
 ```
 
 ---

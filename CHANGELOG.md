@@ -5,6 +5,136 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.49.0] - 2026-07-25
+
+Audit against two Anthropic articles — ["The new rules of context engineering for Claude 5 generation models"](https://claude.com/blog/the-new-rules-of-context-engineering-for-claude-5-generation-models) and ["Choosing a Claude model and effort level in Claude Code"](https://claude.com/blog/claude-model-and-effort-level-in-claude-code) — plus the `model-config` docs the second one links to. Ten findings, all acted on.
+
+### Fixed
+
+- **`model-router` was scoring the wrong git state, so every task started from a clean tree scored 0 and routed to the cheapest tier.** `classify.mjs` read `git status --porcelain`, falling back to `git diff base...HEAD`. Routing happens *before* work starts, when the tree is clean and the branch is at base — so `filesChanged: 0`, `highRiskMatches: []`, `testCoverageRatio: null`, which the rubric read as 0 pts on two of four rows and made the `highRiskMatches` auto-override unreachable. Verified against a fresh repo before the fix. Now: a new `--paths <a,b,c>` argument (repeatable, comma-separated) takes the **planned** scope from `PLAN.md` or the user's description and scores that; with no `--paths` the git fallbacks still apply, and a new `scope` field (`planned` | `uncommitted` | `branch` | `none`) says which was used. On `scope: "none"` the file-derived signals come back `null` with a `scopeNote` spelling out that they are *unknown, not zero* — `SKILL.md` Step 1 now treats that exactly like the `error` path. The old code never errored on a clean tree, so nothing caught it.
+- **`model-profiles.md` asserted that `xhigh` "is Claude Code's own default".** It isn't: per the model-config docs, `high` is the default effort on every model that supports effort, and only Opus 4.7 defaults to `xhigh`. That claim was load-bearing for the whole ladder — it made the deep tier's `xhigh` look like a no-op when it's actually the one deliberate escalation. The "Why these effort levels" section is rewritten from the docs: `high` on standard is *at* the default and deliberately untouched, `low` on quick is a deliberate route-down matching the documented use for `low`, `xhigh` on deep is the single above-default pin and now states its reason (thoroughness on changes that can't be cheaply reverted), and `max` stays out with the docs' own diminishing-returns/overthinking rationale. Adds the article's upstream-first guidance: wanting more effort on a task that shouldn't need it usually means an under-specified `PLAN.md` or a missing convention, not an under-powered tier. Also records that Fable is our ceiling: Anthropic's line-up names Mythos above it, but we don't have access, so `fable` on the deep tier is the correct top rung and `classify.mjs`'s four-model validation set is complete — not a gap to close. Noted explicitly because an unknown model name in `.claude/model-routing.json` degrades to the default with a warning, so a speculative `mythos` rung would read as a working config that silently isn't.
+
+### Changed
+
+- **`verifier` raised from `effort: low` to `high`** (model stays `sonnet`). `low` was an un-argued deviation from the model default — the same class of mistake as the `xhigh` claim above, missed on the first pass because that pass only audited the three *execution* tiers. The docs describe `low` as being for work that is "not intelligence-sensitive," and auditing a diff against a spec is: it has to check every spec section against real code and catch **omissions**, which is harder than judging what's present. The errors are asymmetric — a false `FAIL` costs one loop round, a false `PASS` silently voids the guarantee the loop exists to provide — so the one agent whose failures are invisible is the last place to shave effort. `high` needs no special pleading; it's the default. Also documents a caveat this surfaces: the `lean` profile puts the verifier on `haiku`, where the pin is inert and no effort control exists at all, so `{"profile": "lean", "models": {"verifier": "sonnet"}}` is the recommended override for projects that rely on the loop.
+- **`model-router` now scores two independent axes instead of one.** The old rubric spent effort-shaped signals on model capability: three of its four rows (files touched, test coverage, reversibility) measure thoroughness and risk, while only "architectural decision required" measures capability — and the score picked a tier that bundled both a model and a fixed effort. Per the second article's frame (model = capability, "clearly tried and still got it wrong"; effort = thoroughness, "skipped a file, didn't run the tests, bailed partway"), those are separate diagnostics. Now:
+  - **Axis 1 — capability → tier.** Four rows: pattern to follow (0/+1/+3), structural judgment (0/+2), problem understood (0/+1/+2), simultaneous context (0/+1/+2 by file count). Same 0-1/2-4/5+ buckets. Breadth is deliberately the cheapest signal — it costs context, not capability.
+  - **Axis 2 — verification bar → spawn payload, never the model.** Triggers stack: non-empty `highRiskMatches` → mandatory verifier round + full gate output + a stated revert path; coverage <0.3 → tests first per `write-tests`; 5+ files → whole-tree gates; flaky symptom → ≥5 consecutive passes. The bar goes into the payload's `definition-of-done`, so an unmet bar is a Step 6 gap rather than a footnote.
+  - Two concrete miscalls this fixes, both now worked examples in `references/scoring-rubric.md`: a subtle bug in one well-tested file in an unfamiliar subsystem scored **0 → quick-executor on sonnet/low** (the article's canonical "reach for a more capable model" case, routed to the weakest tier at the lowest effort) and now scores 2 → standard; a 30-file mechanical rename scored high on file count alone and now lands at standard with a whole-tree gate instead of buying a bigger model for routine work.
+  - Steps renumbered: 3b is the verification bar, model resolution moves to 3c.
+- **`highRiskMatches` no longer auto-overrides to `deep-architect`.** Any path match on `openapi.yaml`, `migrations/`, `Dockerfile`, `docker-compose`, `.github/workflows/`, or `.claude/(guards|rules)/` sent the task straight to fable/xhigh, no scoring — so adding one optional OpenAPI field or bumping an action version got the top model at the highest effort. "Expensive to unwind" argues for more verification, not more capability. It now raises the verification bar and prompts the capability question instead; the narrowed capability override fires only on a **breaking** contract change or a **row-transforming** migration — a property of the change, not of the path. `fullSpecDetected` still overrides, since that's an explicit user signal.
+- **`task-workflow`'s blanket refusal to use `quick-executor` is relaxed, now that the under-scoring that justified it is fixed.** It previously spawned `standard-worker` for any quick-or-standard score, which made the quick tier dead code in the main workflow and contradicted the down-routing the article endorses. Quick now spawns when the capability score is 0-1 **and** the verification bar is "normal gates"; any bar trigger escalates to standard. Loop-skipping is likewise gated on the bar, not just on the spec gate — a trivial-looking edit to a contract path goes through the verifier now.
+- **The three execution agents' definitions realigned to the capability framing.** "easily reversible" / "moderately reversible" / "hard-to-reverse" removed from `quick-executor`, `standard-worker`, and `deep-architect`; each now states that its score speaks to difficulty, not risk, and that the handoff's verification bar is set independently and must be honored as written. `quick-executor`'s hand-back trigger changes from "touches any of `openapi.yaml`/`migrations/`/schema/`.env*`/CI/`.claude/rules/`" (which now routes to it legitimately) to the substantive cases: needs a new pattern, has no test to check against, or turns out to be breaking/row-transforming.
+- **`AI_TASK_GUIDE.md` is now a ~25-line pointer to `task-workflow` instead of a second copy of it.** The generated file duplicated `task-workflow/SKILL.md` nearly verbatim and had already diverged: the skill's step 4 is the implement/verify loop (routed implementer, independent verifier, 3-round cap), while the guide's steps 4-5 were still plain "Implement" / "Verify" with none of it — and every generated `CLAUDE.md` offered both as equally authoritative ("/task-workflow (or read AI_TASK_GUIDE.md)"), so an agent following the pointer got the superseded workflow. The guide now carries a six-step summary for humans, an explicit "if this file and the skill disagree, the skill wins", and why `PLAN.md` matters to the spec gate. Spec formats and the `PLAN.md` layout live in `task-workflow` only.
+- **The generated `CLAUDE.md`'s "Hard Rules" trimmed to what isn't already in a path-scoped rule file.** nuxt went 8 bullets → 4, next 8 → 4, go 7 → 4, nodejs 10 → 6. Removed because a scoped rule already owns them: "No unauthenticated endpoints" (`security.md`), "Backend leads with additive changes / breaking = `/v2/`" (`architecture.md`), the BFF-boundary and openapi-types rules (`conventions-server.md`, plus the architecture addendum — they appeared in three layers), the go handler-pattern and error-echo detail and the nodejs layering/repository detail (`conventions.md`). What stays is what must be true *before* any file is in context: generated code is never hand-edited, run the generator first, no `--no-verify`, no unjustified suppressions, don't roll your own session store, plus a one-line pointer to the scoped file for the rest.
+- **`.claude/rules/architecture.md` and `security.md` are now scoped to the OpenAPI contract file too** (`openapi.yaml` for nuxt/next, `api/openapi.yaml` for go; nodejs's generated spec already sits under `src/**`). `architecture.md` owns the versioning rule, so it has to load when the contract itself is what's being edited — not only when source files are. This is what makes removing the duplicate from `CLAUDE.md` safe.
+- **`bigin-harness-setup/SKILL.md`: 476 → 385 lines.** Phases 0.5/0.5b/0.5c/0.5d were four ~20-line near-identical blocks, with the same four-way repetition again in Phase 1's SCAFFOLDED paragraphs and again in the idempotency list. All of it collapses into one Phase 0.5 plus a new `references/scaffold-delegation.md` holding two per-profile tables (which script, what it needs, what it leaves behind for Phase 1 to reconcile). `.claude/rules/skill-authoring.md`'s "don't rely on a rule generalizing across items" convention now says explicitly that a per-item table is explicit *and* single-source, where N copies of prose drift the moment one is edited.
+- **Root `CLAUDE.md`: 59 → 33 lines, and the generated inventory tables moved to `README.md`.** The skills table restated the `description:` frontmatter that's already injected every turn for all 12 skills, and the agents table restated what the Agent tool's own type list carries — roughly half the file was a second copy of always-loaded context. `tools/docs_sync.mjs`'s `REGIONS` now targets README only (new `gen:agents-table` region under a new "Agents" subsection; the dead `skillsFlatTable()` renderer is gone). The freed budget goes to a new `## Gotchas` section — the always-loaded description budget, the verbatim-copy-into-target-repos contract for `references/`, the `AI_TASK_GUIDE.md` pointer rule, and where the guard-script test cases live.
+- **`.claude/rules/context-hygiene.md` trimmed** — dropped "don't re-read files already in context" (the harness tracks file state and says so), "no verbose reasoning" (duplicated the first bullet), and the manual `/session-handoff`-when-near-the-limit instruction.
+
+### Added
+
+- **The context budget gate now meters skill `description:` frontmatter**, in both `tools/context_budget.mjs` and the `tools/context_budget.mjs` template written into target repos. Descriptions are always-loaded for every skill on every turn — the same surface as `CLAUDE.md`, just spread across files — and were entirely unmetered: ~3,000 chars (~750 tokens) in this repo alone, with the ≤350-char rule in `skill-authoring.md` having no gate behind it. New `SKILL_DESCRIPTION_LIMIT = 350` fails per-file, and each description's length joins the always-loaded total. Scans `skills/` and `.claude/skills/`, no-ops in repos with neither. A multi-line description is measured whole (indented continuation lines are followed), not just its first line.
+- On first run the new check caught two real violations in this repo's own `.claude/skills/`: `harness-audit` (443 chars) and `skill-bench` (492) — both authored before v1.48.1's description sweep, which only covered `skills/`. Trimmed to 249 and 245, with the "Do NOT use" prose each carried moved into a body `## When not to use` section per the existing convention.
+- Three conventions added to `.claude/rules/skill-authoring.md`, so these findings can't silently return: `high` is the documented default effort and any pin away from it needs a stated reason (don't assert a model's default from memory); model choice answers "could it do this at all" while effort answers "did it check its work", so routing signals stay on the axis they predict; and no context-management prose in a generated `CLAUDE.md` — the `PreCompact` hook handles state deterministically and the model manages its own context.
+
+### Removed
+
+- **The `## Compact instructions` block from all four generated `CLAUDE.md` templates** (nuxt, next, go, nodejs) — "Preserve: … / Drop from context: … / Run `/clear` between unrelated tasks / Pipe long output". Manual context management in always-loaded space, on a generation that compacts automatically, duplicating a mechanism the harness already ships: the `PreCompact` hook running `precompact-snapshot.mjs`. Also removed from the generated README's "Runtime hygiene" block, which keeps only the subagent-delegation bullet.
+
+```patch
+target: CLAUDE.md
+anchor: |
+  ## Task workflow
+  Non-trivial features: /task-workflow (or read AI_TASK_GUIDE.md).
+
+  ## Compact instructions
+  Preserve: code changes, key decisions, blockers.
+  Drop from context: tool output, file reads, search results.
+  Run /clear between unrelated tasks. Pipe long output: `cmd | head -50`.
+insert: replace
+---
+## Task workflow
+Non-trivial features: /task-workflow.
+```
+
+```patch
+target: .claude/rules/security.md
+anchor: must include a Security considerations section (see `AI_TASK_GUIDE.md`) naming concrete risks
+insert: replace
+---
+must include a Security considerations section (`/task-workflow` has the format) naming concrete risks
+```
+
+```patch
+target: tools/context_budget.mjs
+anchor: //   Total always-loaded chars (CLAUDE.md + unscoped rules) > 12 000 (~3 000 tokens)
+insert: replace
+---
+//   Any .claude/skills/*/SKILL.md description: > 350 chars
+//   Total always-loaded chars (CLAUDE.md + unscoped rules + skill descriptions) > 12 000 (~3 000 tokens)
+//
+// Skill `description:` frontmatter counts because it is injected for every skill on
+// every turn — the same always-loaded surface as CLAUDE.md, just spread across files.
+// The skills scan no-ops in repos that don't author their own skills.
+```
+
+```patch
+target: tools/context_budget.mjs
+anchor: const ALWAYS_LOADED_CHAR_LIMIT = 12_000
+insert: replace
+---
+const SKILL_DESCRIPTION_LIMIT = 350
+const ALWAYS_LOADED_CHAR_LIMIT = 12_000
+
+// Pulls `description:` out of YAML frontmatter, following indented continuation
+// lines so a wrapped multi-line description is measured whole, not just its first line.
+function readDescription(text) {
+  if (!text.startsWith('---\n')) return null
+  const end = text.indexOf('\n---\n', 4)
+  if (end === -1) return null
+  const lines = text.slice(4, end).split('\n')
+  const start = lines.findIndex(l => /^description:/.test(l))
+  if (start === -1) return null
+  const parts = [lines[start].replace(/^description:\s*/, '')]
+  for (let i = start + 1; i < lines.length && /^\s+\S/.test(lines[i]); i++) {
+    parts.push(lines[i].trim())
+  }
+  return parts.join(' ').trim()
+}
+```
+
+```patch
+target: tools/context_budget.mjs
+anchor: if (alwaysLoadedChars > ALWAYS_LOADED_CHAR_LIMIT) {
+insert: before
+---
+for (const root of ['skills', '.claude/skills']) {
+  if (!existsSync(root)) continue
+  const skillDirs = readdirSync(root, { withFileTypes: true })
+    .filter(d => d.isDirectory() && existsSync(join(root, d.name, 'SKILL.md')))
+    .map(d => d.name)
+    .sort()
+  for (const name of skillDirs) {
+    const skillFile = join(root, name, 'SKILL.md')
+    const description = readDescription(readFileSync(skillFile, 'utf-8'))
+    if (description === null) {
+      errors.push(`${skillFile}: no description: in frontmatter — the skill will never trigger`)
+      continue
+    }
+    alwaysLoadedChars += description.length
+    if (description.length > SKILL_DESCRIPTION_LIMIT) {
+      errors.push(
+        `${skillFile}: description is ${description.length} chars (limit: ${SKILL_DESCRIPTION_LIMIT}) — always loaded, every turn`
+      )
+    }
+  }
+}
+
+```
+
+**Not auto-patchable** — these reduce to no single clean anchor, so an already-scaffolded repo needs a `patch`-mode run followed by either a `yes` re-run or a manual pass: the `Hard Rules` rewrite in `CLAUDE.md` (per-profile, and commonly hand-edited), the wholesale `AI_TASK_GUIDE.md` replacement, and the added contract path in `.claude/rules/architecture.md` / `security.md` frontmatter.
+
 ## [1.48.2] - 2026-07-25
 
 ### Added

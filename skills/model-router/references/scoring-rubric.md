@@ -1,47 +1,104 @@
 # Scoring rubric
 
-## Auto-overrides (skip scoring entirely)
+Two independent axes, because they answer different questions and have different fixes:
+
+- **Capability** — can the model do this *at all*? Picks the tier (and therefore the model). Raise it when the model has all the context, clearly tried, and still got it wrong.
+- **Verification** — how thoroughly does the work need checking? Sets the gate discipline in the spawn payload, not the model. Raise it when the failure was skipping a file, not running tests, or bailing partway.
+
+Scoring one axis and spending the result on the other is the mistake this split exists to prevent: file count and reversibility are verification signals, and buying a more capable model with them over-provisions routine work while under-provisioning small-but-hard work.
+
+---
+
+## Axis 1: Capability → tier
+
+**Auto-override — skip scoring, go straight to Deep:**
 
 | Trigger | Why |
 |---|---|
-| `highRiskMatches` non-empty | Touches `openapi.yaml`/`.json`, `migrations/`, `schema.sql`/`.prisma`, `.env*`, `docker-compose`, `Dockerfile`, `.github/workflows/`, or `.claude/(guards\|rules)/` — contract, data, or governance surface. Wrong here is expensive to unwind. |
-| `fullSpecDetected` | A `task-workflow` full-spec-tier `PLAN.md` already exists. The user already signaled this needs deep, structured treatment (FR-IDs, API contract, data model) — honor that signal instead of re-deriving it from a diff. |
+| `fullSpecDetected` | A `task-workflow` full-spec-tier `PLAN.md` already exists. The user explicitly signalled this needs deep, structured treatment (FR-IDs, API contract, data model) — honor the signal instead of re-deriving it. |
+| A **breaking** contract change, or a **data migration that transforms existing rows** | Genuinely a design problem, not just a risky file. There's no clean revert once it ships, and the shape has to be right the first time. |
 
-Either one → `deep-architect`, no further scoring.
+Note the second one is about the *change*, not the path. `highRiskMatches` being non-empty is a prompt to ask the question — "is this breaking, or is it additive?" — not the answer. An added optional OpenAPI field or a bumped action version touches a high-risk path and is still a Quick-tier edit; it raises the verification bar (Axis 2), not the tier.
 
-## Point table
+**Otherwise, score:**
 
-| Signal | 0 pts | +1 | +2 | +3 |
-|---|---|---|---|---|
-| Files touched | 1 | 2-4 | 5+ | |
-| Test coverage ratio | ≥0.7 | 0.3-0.7 | <0.3 | |
-| Architectural decision required | No | | | Yes |
-| Reversibility | Easy | | Hard | |
+| Signal                | 0 pts                                | +1                              | +2                                              | +3                                |
+| --------------------- | ------------------------------------ | ------------------------------- | ----------------------------------------------- | --------------------------------- |
+| Pattern to follow     | An equivalent exists in this codebase | Similar, needs real adaptation  |                                                 | None — needs a new pattern/abstraction |
+| Structural judgment   | One obvious structure                |                                 | More than one reasonable structure, and the choice matters |                                   |
+| Problem understood    | Requirements and cause are clear     | Some ambiguity left to resolve  | Unfamiliar domain, or root cause still unknown  |                                   |
+| Simultaneous context  | ≤2 files                             | 3–9 files                       | 10+ files                                       |                                   |
 
 **Buckets:** 0-1 → `quick-executor` · 2-4 → `standard-worker` · 5+ → `deep-architect`.
 
-These thresholds are a starting point, not tuned against real usage yet — expect to adjust after the first several real routings.
+Only the last row is mechanical (`filesChanged` from `classify.mjs`), and it's deliberately the cheapest signal — breadth costs context, not capability. The other three are reasoned about directly; never invent them from a diff. When `scope` is `none`, `filesChanged` is unknown rather than 0 — estimate it from the stated scope.
+
+---
+
+## Axis 2: Verification bar → spawn payload
+
+Independent of tier. A Quick-tier task on a contract file still gets the full bar; a Deep-tier greenfield task with nothing risky in it doesn't need one.
+
+| Trigger (mechanical unless noted)              | Verification bar to state in the payload                                                                                 |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `highRiskMatches` non-empty                     | A verifier round is **mandatory** even where `task-workflow` would skip it; show full gate output; state the revert path in `PLAN.md` notes |
+| `testCoverageRatio` < 0.3, or null with code changes | Tests come first, per `write-tests`' TDD ordering — an untested change doesn't get validated by eye                   |
+| `filesChanged` ≥ 5                              | Run gates across the whole tree, not just the touched files                                                               |
+| Flaky/timing symptom (reasoned)                 | ≥5 consecutive passes, per `debug-workflow`'s own `race-conditions.md`                                                    |
+| None of the above                               | Normal gates: lint + typecheck + tests, with actual output shown                                                          |
+
+Triggers stack. Two matches means both bars apply.
+
+---
 
 ## Worked examples
 
 ### 1. Typo fix in README
 
-`classify.mjs` reports: `filesChanged: 1`, `highRiskMatches: []`, `testCoverageRatio: null` (no code touched, so no test to check), `fullSpecDetected: false`.
+Planned scope: `README.md`. `highRiskMatches: []`, `testCoverageRatio: null` (no code touched).
 
-Qualitative: no architectural decision, trivially reversible.
+Capability: pattern n/a → 0 · one obvious structure → 0 · clear → 0 · 1 file → 0 = **0 → quick-executor**.
+Verification: nothing triggers → normal gates.
 
-Score: files touched (1 → 0 pts) + coverage (n/a → 0 pts) + architecture (No → 0 pts) + reversibility (Easy → 0 pts) = **0 → quick-executor**.
+### 2. Subtle bug in one well-tested file, unfamiliar subsystem
 
-### 2. New CRUD endpoint following an existing pattern, tests present
+Planned scope: 1 file. `testCoverageRatio: 1.0`, `highRiskMatches: []`.
 
-`classify.mjs` reports: `filesChanged: 3` (handler, route registration, test file), `highRiskMatches: []`, `testCoverageRatio: 1.0`, `fullSpecDetected: false`.
+Capability: fixing within existing code → 0 · one obvious fix once the cause is known → 0 · **root cause unknown, unfamiliar domain → +2** · 1 file → 0 = **2 → standard-worker**.
+Verification: coverage is good, scope is small → normal gates.
 
-Qualitative: follows the codebase's existing CRUD-endpoint pattern exactly — no architectural decision. Reversible in one commit.
+This is the case the old single-axis rubric got wrong: 1 file + good coverage + easy revert scored 0 and routed to the cheapest tier at the lowest effort, which is exactly the "clearly tried and still got it wrong" case that wants a more capable model. Capability is now carried by the signal that actually predicts it.
 
-Score: files touched (3 → +1) + coverage (1.0 → 0 pts) + architecture (No → 0 pts) + reversibility (Easy → 0 pts) = **1 → quick-executor** if truly mechanical, but if the endpoint requires picking validation rules or an auth scope that isn't already established elsewhere, architecture flips to Yes: **1 + 3 = 4 → standard-worker**. This is the common case — most "new endpoint" work lands here once you account for the small judgment calls a template doesn't cover.
+### 3. Mechanical rename across 30 fully-tested files
 
-### 3. New payments integration touching `openapi.yaml`
+`filesChanged: 30`, `testCoverageRatio: 0.9`, `highRiskMatches: []`.
 
-`classify.mjs` reports: `highRiskMatches: ["openapi.yaml"]`.
+Capability: existing pattern, it's a rename → 0 · one obvious structure → 0 · fully understood → 0 · **10+ files → +2** = **2 → standard-worker**.
+Verification: **filesChanged ≥ 5 → gates across the whole tree.**
 
-Auto-override fires immediately — **deep-architect**, no scoring needed. (Would also have scored high on its own: many files, no prior pattern, hard to reverse once a contract ships.)
+Breadth buys the context to hold 30 files, and a whole-tree gate run. It does not buy the top model — on routine work at the same effort, a larger model mostly adds verification steps at a higher per-token price.
+
+### 4. Add one optional field to `openapi.yaml` + regenerate
+
+`highRiskMatches: ["openapi.yaml"]`, `filesChanged: 3` (contract, generated types, one handler).
+
+Auto-override check: additive, not breaking, no migration → **does not fire**.
+Capability: established additive-field pattern → 0 · one obvious structure → 0 · clear → 0 · 3 files → +1 = **1 → quick-executor**.
+Verification: **`highRiskMatches` non-empty → mandatory verifier round, full gate output, revert path noted.**
+
+Under the old rubric the path match alone sent this to `deep-architect` on fable/xhigh. The risk was real; the response was aimed at the wrong axis.
+
+### 5. New payments integration, breaking a published endpoint
+
+`highRiskMatches: ["openapi.yaml", "db/migrations/0007_payments.sql"]`.
+
+Auto-override fires — a breaking contract change plus a migration → **deep-architect**, no scoring. (It would have scored there anyway: no prior pattern +3, structural judgment +2, 10+ files +2 = 7.)
+Verification: `highRiskMatches` non-empty and coverage starts at 0 → mandatory verifier round, tests first, full gate output, revert path.
+
+---
+
+## Calibration
+
+These thresholds are a starting point. The capability rows are ordered by how strongly each predicts "a bigger model would get this right and a smaller one wouldn't" — pattern-novelty first, breadth last. Adjust after real routings; if a tier keeps handing back `ROUTING_MISMATCH:`, the row that drove the score is the one to re-weight.
+
+**The tier to watch is `quick-executor`.** Most 0-1 work is trivial enough that `task-workflow` skips the implement/verify loop and does it inline, so quick's realistic home is a standalone `/model-router` call plus the narrow band that reaches the loop — a feature past the spec gate's ≤20-line threshold that still follows an exact existing pattern in ≤3 files. That band is real but thin. If quick genuinely never gets selected across a stretch of real routings, that's the evidence for folding it into `standard-worker` and re-bucketing to two tiers; don't remove it on the theory that it's unused without checking.

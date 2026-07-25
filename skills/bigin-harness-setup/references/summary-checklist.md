@@ -20,13 +20,11 @@ If not present, append the following block (replace `{LINT}`, `{TYPECHECK}`, `{T
    ln -sf ../../scripts/pre-commit.sh .git/hooks/pre-commit && chmod +x scripts/pre-commit.sh
    ```
 4. Verify gates pass: `{LINT} && {TYPECHECK} && {TEST}`
-5. Read `CLAUDE.md` → use `/task-workflow` (or read `AI_TASK_GUIDE.md`) for the per-task workflow.
+5. Read `CLAUDE.md`, then `AI_TASK_GUIDE.md` for what `/task-workflow` will ask of you.
 6. Do one scoped task end-to-end through all gates to confirm the setup works.
 
 ### Runtime hygiene
-- Run `/clear` between unrelated tasks to reset context and avoid token accumulation.
-- Pipe long command output: `long-cmd | head -50` to avoid flooding context.
-- Delegate broad scans (grep across the repo, full test suites) to subagents rather than running them inline.
+- Delegate broad scans (grep across the repo, full test suites) to subagents rather than running them inline — the result comes back without the intermediate output.
 ```
 
 Also append the Context Budget table if not already present:
@@ -107,7 +105,7 @@ Next steps:
 ## Output Checklist
 
 - [ ] **nuxt + empty repo** — `nuxt-scaffold` skill executed (Phase 0.5); `nuxt.config.ts` now present
-- [ ] **next + empty repo** — `next-scaffold` skill executed (Phase 0.5d); `next.config.ts` now present
+- [ ] **next + empty repo** — `next-scaffold` skill executed (Phase 0.5); `next.config.ts` now present
 - [ ] `CLAUDE.md` — profile-specific, ≤60 lines
 - [ ] **nuxt/next only** — `.claude/rules/conventions-frontend.md` — paths: app/** (nuxt) or src/app/**,src/components/**,src/hooks/** (next) (≤40 lines)
 - [ ] **nuxt/next only** — `.claude/rules/conventions-server.md` — paths: server/** (nuxt) or src/app/api/**,src/lib/** (next) (≤40 lines)
@@ -115,7 +113,7 @@ Next steps:
 - [ ] **go/nodejs** — `.claude/rules/conventions.md` — paths: scoped to source dir
 - [ ] `.claude/rules/security.md` — shared security rules, paths: scoped per profile
 - [ ] `.claude/rules/architecture.md` — shared base + profile addendum, paths: scoped per profile
-- [ ] `AI_TASK_GUIDE.md` — spec gate + task workflow (human reference; agents use /task-workflow)
+- [ ] `AI_TASK_GUIDE.md` — human-facing pointer to /task-workflow (not a second copy of the workflow)
 - [ ] `AI_REVIEW_CHECKLIST.md` — profile commands filled in
 - [ ] `scripts/pre-commit.sh` — lint + typecheck + test + context budget check, executable
 - [ ] `.claude/guards/bash-guard.mjs` — blocks `--no-verify` and force-push to main

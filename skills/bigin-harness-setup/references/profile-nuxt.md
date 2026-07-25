@@ -44,22 +44,13 @@ Runtime: Node ≥22 · pnpm only
 See `.claude/rules/` — path-scoped conventions, security, architecture.
 
 ## Hard Rules (non-negotiable)
-- Files are auto-formatted with Nuxt ESLint on every create/edit (PostToolUse hook). Never disable the hook.
-- No `--no-verify`. No `eslint-disable` without a justifying comment. No weakening eslint config to pass checks.
-- No `@ts-ignore` or `as any` without a justifying comment.
-- No unauthenticated endpoints.
+- Nuxt ESLint auto-formats every file you create or edit (PostToolUse hook). Never disable it.
+- No `--no-verify`. No `eslint-disable`, `@ts-ignore`, or `as any` without a justifying comment. Never weaken eslint config to pass a check.
 - Auth/session via `nuxt-auth-utils` only — never roll your own session or token store.
-- `openapi.yaml` is the API contract. Types generated from it (server-side) — never hardcoded.
-- All backend calls via the Nuxt BFF layer (`server/api/`). Backend access token lives in the `nuxt-auth-utils` sealed session — never in the browser.
-- Client-side code calls same-origin `/api/*` only. Never attach auth headers or call the backend URL from the browser.
+- The browser never calls the backend directly and never holds the access token: everything goes through `server/api/`, and `openapi.yaml` generates the server types. Rules: `.claude/rules/conventions-server.md`.
 
 ## Task workflow
-Non-trivial features: /task-workflow (or read AI_TASK_GUIDE.md).
-
-## Compact instructions
-Preserve: code changes, key decisions, blockers.
-Drop from context: tool output, file reads, search results.
-Run /clear between unrelated tasks. Pipe long output: `cmd | head -50`.
+Non-trivial features: /task-workflow.
 ```
 
 ---

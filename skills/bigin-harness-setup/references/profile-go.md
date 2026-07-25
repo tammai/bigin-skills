@@ -41,21 +41,13 @@ Go: ≥1.24
 See `.claude/rules/` — path-scoped conventions, security, architecture.
 
 ## Hard Rules (non-negotiable)
-- `openapi.yaml` is the API contract, written first. `internal/api/` (server interface + models) is generated from it via `oapi-codegen` — never hand-edited.
-- `internal/store/queries/*.sql` is the source of truth for data access. `internal/store/` (typed queries) is generated from it via `sqlc` — never hand-edited.
-- After changing `openapi.yaml` or any file under `internal/store/queries/`, run `make generate` before touching `internal/server/handlers.go`.
-- Business logic lives only in `internal/server/handlers.go` (implements the generated `StrictServerInterface`). No `//nolint` suppressions without a comment explaining the exception.
-- No unauthenticated endpoints past the `authMiddleware` stub — replace it before production traffic.
-- Never echo `err.Error()` (or any generated-tool error text) directly into an HTTP response body — log it server-side, respond with a generic `{code, message}`. See `internal/server/middleware.go`'s error handlers.
-- Backend leads with additive changes. Breaking API change = version bump (`/v2/`).
+- `internal/api/` and `internal/store/` are 100% generated — never hand-edit. Change `openapi.yaml` or `internal/store/queries/*.sql`, run `make generate`, *then* touch `internal/server/`.
+- No `--no-verify`. No `//nolint` without a comment explaining the exception.
+- `authMiddleware` is a stub — replace it before production traffic.
+- Never echo `err.Error()` or generated-tool error text into a response body. Handler + error-response rules: `.claude/rules/conventions.md`.
 
 ## Task workflow
-Non-trivial features: /task-workflow (or read AI_TASK_GUIDE.md).
-
-## Compact instructions
-Preserve: code changes, key decisions, blockers.
-Drop from context: tool output, file reads, search results.
-Run /clear between unrelated tasks. Pipe long output: `cmd | head -50`.
+Non-trivial features: /task-workflow.
 ```
 
 ---

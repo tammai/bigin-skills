@@ -167,14 +167,14 @@ Read `knowledge/contracts/openapi-contract.md` and confirm the change stays addi
 Write a new migration instead. See `.claude/rules/conventions.md` for the migration pattern.
 
 ## Security-sensitive code
-Anything touching auth, secrets, or PII must have its security considerations named in the spec (see `AI_TASK_GUIDE.md`) before implementation starts, and goes through `.claude/rules/security.md` before merging.
+Anything touching auth, secrets, or PII must have its security considerations named in the spec (`/task-workflow` has the format) before implementation starts, and goes through `.claude/rules/security.md` before merging.
 
 ## Spec-before-code
-Non-trivial features need an approved spec first — see `AI_TASK_GUIDE.md`. The spec must include a Security considerations section for features touching auth, secrets, PII, or untrusted input. Don't start implementation on an unapproved spec.
+Non-trivial features need an approved spec first — run `/task-workflow`. The spec must include a Security considerations section for features touching auth, secrets, PII, or untrusted input. Don't start implementation on an unapproved spec.
 
 ## Citations
 - `.claude/rules/conventions.md`, `.claude/rules/security.md` — enforced rule files
-- `AI_TASK_GUIDE.md` — spec gate workflow
+- `/task-workflow` — the spec gate workflow itself; `AI_TASK_GUIDE.md` is the human-facing pointer to it
 ```
 
 ---

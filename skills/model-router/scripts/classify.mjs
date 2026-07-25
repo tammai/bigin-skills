@@ -1,7 +1,18 @@
 #!/usr/bin/env node
-// Computes mechanical model-router rubric signals from git state, plus the
-// project's resolved model ladder. Node stdlib only.
-// Usage: node classify.mjs [--base <ref>]
+// Computes mechanical model-router rubric signals, plus the project's resolved
+// model ladder. Node stdlib only.
+//
+// Usage: node classify.mjs [--paths <a,b,c>]... [--base <ref>]
+//
+// Routing happens BEFORE work starts, so git state is usually the wrong input:
+// on a clean tree at the tip of the base branch there is no diff to measure, and
+// reporting 0 files / no high-risk paths would score every new task as trivial.
+// So `--paths` takes the *planned* scope (from PLAN.md, or the user's description
+// of what they're about to change) and scores that instead. With no --paths, the
+// script falls back to uncommitted changes, then to the branch diff, and reports
+// `scope: "none"` with null signals when neither exists — which SKILL.md treats
+// like the error path: estimate the signals by reasoning, don't read them as zero.
+//
 // Never hard-fails: on any error, prints the same JSON shape with empty/null
 // fields plus an `error` string, so SKILL.md can fall back to pure reasoning.
 
@@ -94,10 +105,14 @@ function git(args) {
 }
 
 function parseArgs(argv) {
-  const out = { base: null };
+  const out = { base: null, paths: [] };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--base' && argv[i + 1]) {
       out.base = argv[i + 1];
+      i++;
+    } else if (argv[i] === '--paths' && argv[i + 1]) {
+      // Repeatable, and each value may itself be a comma-separated list.
+      out.paths.push(...argv[i + 1].split(',').map((s) => s.trim()).filter(Boolean));
       i++;
     }
   }
@@ -114,22 +129,31 @@ function resolveBase(explicitBase) {
   }
 }
 
-function getTouchedFiles(base) {
-  // Uncommitted changes first — this is almost always what "this task" means.
+// Returns { scope, files }. `scope` names where the file list came from, so the
+// caller can tell "nothing changed yet" apart from "a change touching 0 files".
+function getTouchedFiles(base, plannedPaths) {
+  if (plannedPaths.length > 0) return { scope: 'planned', files: plannedPaths };
+
+  // Uncommitted changes next — mid-task, this is what "this task" means.
   const statusOut = git(['status', '--porcelain']);
   if (statusOut.trim()) {
-    return statusOut
-      .split('\n')
-      .filter(Boolean)
-      .map((line) => line.slice(3))
-      .map((p) => (p.includes(' -> ') ? p.split(' -> ')[1] : p));
+    return {
+      scope: 'uncommitted',
+      files: statusOut
+        .split('\n')
+        .filter(Boolean)
+        .map((line) => line.slice(3))
+        .map((p) => (p.includes(' -> ') ? p.split(' -> ')[1] : p)),
+    };
   }
+
   // Nothing uncommitted — fall back to the diff against base.
   const diffOut = git(['diff', '--name-only', `${base}...HEAD`]);
-  return diffOut
+  const files = diffOut
     .split('\n')
     .map((s) => s.trim())
     .filter(Boolean);
+  return { scope: files.length > 0 ? 'branch' : 'none', files };
 }
 
 function hasSiblingTest(file) {
@@ -160,11 +184,27 @@ function detectFullSpec() {
 }
 
 function classify(argv) {
-  const { base: explicitBase } = parseArgs(argv);
+  const { base: explicitBase, paths: plannedPaths } = parseArgs(argv);
   const base = resolveBase(explicitBase);
 
-  const touchedFilesRaw = getTouchedFiles(base);
+  const { scope, files: touchedFilesRaw } = getTouchedFiles(base, plannedPaths);
   const touchedFiles = touchedFilesRaw.filter((f) => !LOCKFILES.has(basename(f)));
+
+  // No diff and no planned scope: every file-derived signal is unknown, not zero.
+  // Reporting 0 here is what made a clean tree score as a trivial task.
+  if (scope === 'none') {
+    return {
+      scope,
+      scopeNote:
+        'no planned scope and no diff yet — filesChanged/testCoverageRatio/highRiskMatches are UNKNOWN, not zero. Re-run with --paths <planned files>, or estimate these signals by reasoning (SKILL.md Step 2). Do not score them as 0.',
+      filesChanged: null,
+      touchedFiles: [],
+      highRiskMatches: null,
+      testCoverageRatio: null,
+      fullSpecDetected: detectFullSpec(),
+      routing: resolveRouting(),
+    };
+  }
 
   const highRiskMatches = touchedFiles.filter((f) => HIGH_RISK_RE.test(f));
 
@@ -172,14 +212,13 @@ function classify(argv) {
   const testCoverageRatio =
     nonTestFiles.length === 0 ? null : nonTestFiles.filter(hasSiblingTest).length / nonTestFiles.length;
 
-  const fullSpecDetected = detectFullSpec();
-
   return {
+    scope,
     filesChanged: touchedFiles.length,
     touchedFiles,
     highRiskMatches,
     testCoverageRatio,
-    fullSpecDetected,
+    fullSpecDetected: detectFullSpec(),
     routing: resolveRouting(),
   };
 }
@@ -192,9 +231,10 @@ function main() {
     console.log(
       JSON.stringify(
         {
+          scope: 'none',
           filesChanged: null,
           touchedFiles: [],
-          highRiskMatches: [],
+          highRiskMatches: null,
           testCoverageRatio: null,
           fullSpecDetected: false,
           routing: {

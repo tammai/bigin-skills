@@ -5,9 +5,12 @@ Script written into the target repo at `tools/context_budget.mjs`. Run by the pr
 **Fails (exit 1) when:**
 - `CLAUDE.md` exceeds 60 lines
 - Any `.claude/rules/*.md` file with **no** `paths:` frontmatter exceeds 40 lines
-- Total always-loaded content (CLAUDE.md + unscoped rule files) exceeds 12 000 chars (~3 000 tokens at 4 chars/token)
+- Any `.claude/skills/*/SKILL.md` (or `skills/*/SKILL.md`) `description:` exceeds 350 chars
+- Total always-loaded content (CLAUDE.md + unscoped rule files + skill descriptions) exceeds 12 000 chars (~3 000 tokens at 4 chars/token)
 
 Path-scoped rule files (those with `paths:` frontmatter) are not counted against the always-loaded budget — they only load when matching files are in context.
+
+A skill `description:` **is** always-loaded — it's what the model matches against on every turn, for every skill, whether or not the skill fires. So it belongs in this budget alongside `CLAUDE.md`. Keep the description to one clause of purpose plus 3–4 representative triggers; "do not use for…" caveats go in a body `## When not to use` section, where they cost nothing until the skill is actually invoked. Repos with no skills of their own: the scan no-ops.
 
 ---
 
@@ -22,13 +25,35 @@ Write to `tools/context_budget.mjs`, then `chmod +x tools/context_budget.mjs`.
 // Fails (exit 1) on:
 //   CLAUDE.md > 60 lines
 //   Any .claude/rules/*.md without paths: frontmatter AND > 40 lines
-//   Total always-loaded chars (CLAUDE.md + unscoped rules) > 12 000 (~3 000 tokens)
+//   Any .claude/skills/*/SKILL.md description: > 350 chars
+//   Total always-loaded chars (CLAUDE.md + unscoped rules + skill descriptions) > 12 000 (~3 000 tokens)
+//
+// Skill `description:` frontmatter counts because it is injected for every skill on
+// every turn — the same always-loaded surface as CLAUDE.md, just spread across files.
+// The skills scan no-ops in repos that don't author their own skills.
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 
 const CLAUDE_MD_LIMIT = 60
 const UNSCOPED_RULE_LIMIT = 40
+const SKILL_DESCRIPTION_LIMIT = 350
 const ALWAYS_LOADED_CHAR_LIMIT = 12_000
+
+// Pulls `description:` out of YAML frontmatter, following indented continuation
+// lines so a wrapped multi-line description is measured whole, not just its first line.
+function readDescription(text) {
+  if (!text.startsWith('---\n')) return null
+  const end = text.indexOf('\n---\n', 4)
+  if (end === -1) return null
+  const lines = text.slice(4, end).split('\n')
+  const start = lines.findIndex(l => /^description:/.test(l))
+  if (start === -1) return null
+  const parts = [lines[start].replace(/^description:\s*/, '')]
+  for (let i = start + 1; i < lines.length && /^\s+\S/.test(lines[i]); i++) {
+    parts.push(lines[i].trim())
+  }
+  return parts.join(' ').trim()
+}
 
 function hasPathsFrontmatter(text) {
   if (!text.startsWith('---\n')) return false
@@ -71,6 +96,28 @@ if (existsSync(rulesDir)) {
   }
 } else {
   console.log('WARN .claude/rules/ not found — skipping rule checks')
+}
+
+for (const root of ['skills', '.claude/skills']) {
+  if (!existsSync(root)) continue
+  const skillDirs = readdirSync(root, { withFileTypes: true })
+    .filter(d => d.isDirectory() && existsSync(join(root, d.name, 'SKILL.md')))
+    .map(d => d.name)
+    .sort()
+  for (const name of skillDirs) {
+    const skillFile = join(root, name, 'SKILL.md')
+    const description = readDescription(readFileSync(skillFile, 'utf-8'))
+    if (description === null) {
+      errors.push(`${skillFile}: no description: in frontmatter — the skill will never trigger`)
+      continue
+    }
+    alwaysLoadedChars += description.length
+    if (description.length > SKILL_DESCRIPTION_LIMIT) {
+      errors.push(
+        `${skillFile}: description is ${description.length} chars (limit: ${SKILL_DESCRIPTION_LIMIT}) — always loaded, every turn`
+      )
+    }
+  }
 }
 
 if (alwaysLoadedChars > ALWAYS_LOADED_CHAR_LIMIT) {

@@ -9,14 +9,14 @@
     "sprint-distill": { "group": "core", "summary": "End-of-sprint distillation: merged PRs + touched knowledge/ concepts → proposal-first knowledge/ and bigin-skills updates. Compresses, never just appends." },
     "write-tests": { "group": "core", "summary": "On-demand test authoring (/write-tests): style-matches the nearest test file, lists edge cases first, TDD-orders logic, mocks only true I/O boundaries." },
     "debug-workflow": { "group": "core", "summary": "On-demand systematic debugging (/debug-workflow): triage → fast path for obvious bugs, full guarded workflow for flaky/env/repeat-failure bugs." },
-    "model-router": { "group": "core", "summary": "Scores task complexity and routes to quick-executor/standard-worker/deep-architect on a per-project model ladder. Routes down as well as up." },
+    "model-router": { "group": "core", "summary": "Scores capability and verification needs separately, then routes to quick-executor/standard-worker/deep-architect on a per-project model ladder." },
     "session-handoff": { "group": "handoff", "summary": "Saves session state (tasks, decisions, uncommitted changes) to SESSION.md and restores it on resume." },
     "nuxt-ui-figma-handoff": { "group": "handoff", "summary": "Turns a Nuxt UI Figma design handoff into code — theme tokens into main.css, component overrides into app.config.ts. Requires a Figma URL." }
   },
   "agents": {
     "quick-executor": { "summary": "mechanical, single-file, low-risk tasks. Routed by `model-router`." },
     "standard-worker": { "summary": "default tier, most feature/bug-fix work. Routed by `model-router`." },
-    "deep-architect": { "summary": "architectural decisions, contract/schema changes, full-spec tier. Routed by `model-router`." },
+    "deep-architect": { "summary": "architectural decisions, breaking contract changes, row-transforming migrations, full-spec tier. Routed by `model-router`." },
     "verifier": { "summary": "read-only — audits a diff against `PLAN.md` independently of the implementer's own summary. Spawned fresh each round, alongside whichever tier implemented." }
   },
   "groups": { "core": "Core Skills", "handoff": "Handoff Skills" }

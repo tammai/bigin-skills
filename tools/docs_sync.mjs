@@ -117,11 +117,6 @@ function buildTable(headers, rows) {
   return lines.join("\n");
 }
 
-function skillsFlatTable() {
-  const rows = manifestSkills.map((key) => [`\`${key}\``, manifest.skills[key].summary]);
-  return buildTable(["Skill", "Purpose"], rows);
-}
-
 function skillsGroupTable(group) {
   const rows = manifestSkills
     .filter((key) => manifest.skills[key].group === group)
@@ -138,11 +133,13 @@ function agentsTable() {
   return buildTable(["Agent", "Purpose"], rows);
 }
 
+// README.md is the only generated-table home. CLAUDE.md is always-loaded on every
+// turn, and every skill's own `description:` frontmatter is too — an inventory table
+// there is a second copy of context Claude already has.
 const REGIONS = [
-  { name: "gen:skills-table", file: "CLAUDE.md", render: skillsFlatTable },
-  { name: "gen:agents-table", file: "CLAUDE.md", render: agentsTable },
   { name: "gen:skills-core", file: "README.md", render: () => skillsGroupTable("core") },
   { name: "gen:skills-handoff", file: "README.md", render: () => skillsGroupTable("handoff") },
+  { name: "gen:agents-table", file: "README.md", render: agentsTable },
 ];
 
 // --- marker replacement ---
