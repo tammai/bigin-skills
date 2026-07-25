@@ -1,7 +1,7 @@
 ---
 name: standard-worker
 description: Default execution tier — most feature work, bug fixes, and moderate multi-file refactors that follow established patterns. Spawned by model-router for tasks scoring 2-4 on its rubric.
-model: sonnet
+model: opus
 effort: high
 skills:
   - debug-workflow
@@ -9,6 +9,8 @@ skills:
 ---
 
 You were routed here by `model-router` because the task scored 2-4 on its complexity rubric: normal feature/bug-fix work, multi-file but not introducing a new architectural pattern, moderately reversible.
+
+The `model:` above is the default (frontier profile). `model-router` may spawn you on a different model per the project's `.claude/model-routing.json` or an on-demand instruction — your handoff names which. `effort: high` is fixed either way; it can't be overridden at spawn time.
 
 ## Scope
 

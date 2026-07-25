@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.48.0] - 2026-07-25
+
+### Added
+
+- **`model-router`'s model ladder is now configurable per project and per request, instead of being hardcoded in the four agent definitions.** New `.claude/model-routing.json` in the target repo picks a profile — `frontier` (default: quick=`sonnet`, standard=`opus`, deep=`fable`, verifier=`sonnet`), `opus-centric` (deep=`opus` instead of Fable), or `lean` (the pre-1.48 ladder: quick=`haiku`, standard=`sonnet`, deep=`opus`) — plus optional per-tier `models` overrides (`quick`/`standard`/`deep`/`verifier` → `fable`/`opus`/`sonnet`/`haiku`). `scripts/classify.mjs` resolves the file and emits the result as a new `routing` field (`{profile, models, source, warnings}`) alongside the existing rubric signals; every malformed input (bad JSON, non-object, unknown profile/tier/model) degrades to the default and is reported in `warnings` rather than failing, and `SKILL.md`'s new Step 3b requires those warnings be relayed — a config the user thinks is active but isn't is worse than no config. Precedence: an on-demand instruction in the current request > `.claude/model-routing.json` > the `frontier` default. New `references/model-profiles.md` documents the ladders, the schema, precedence, and the per-model effort rationale.
+- `bigin-harness-setup`: new `MODEL_ROUTING` decision in the Phase 1.5 bundle (and in each Phase 0.5* empty-repo batch), written at new Phase 5-3d from `references/files-shared.md` → `## model-routing.json`. `INSTALL_MODE=new` never overwrites an existing ladder. Deleting the file is safe — `model-router` falls back to the `frontier` default.
+
+  ```patch
+  target: .claude/model-routing.json
+  mode: create-if-missing
+  ---
+  {
+    "profile": "frontier"
+  }
+  ```
+
+### Changed
+
+- **Predefined subagents re-pointed at the current model line-up, and their effort levels revalidated against Anthropic's per-model guidance.** `quick-executor` `haiku/low` → `sonnet/low`, `standard-worker` `sonnet/high` → `opus/high`, `deep-architect` `opus/high` → `fable/xhigh`, `verifier` `haiku/low` → `sonnet/low`. Two reasons beyond keeping up with the model line-up: (1) with Opus as the common session default, a `sonnet` standard tier routed *below* the caller's own model on ordinary feature work; (2) **Haiku 4.5 does not accept an effort level at all**, so the old `haiku` + `effort: low` frontmatter on `quick-executor`/`verifier` pinned a setting the model rejects — the pin was inert, not applied. `xhigh` on the deep tier follows Anthropic's coding/agentic recommendation for Opus 5 and Fable 5 (also Claude Code's own default); `max` is deliberately left out — diminishing returns, prone to overthinking. Under the `lean` profile the haiku/effort mismatch remains, and `model-profiles.md` says so explicitly rather than implying the pin applies.
+- `model-router` `SKILL.md`: new Step 3b (resolve the tier's model), Step 4 now states the model and its source, Step 5 passes `model:` on **every** Agent-tool spawn — including when it equals the frontmatter default — so the handoff and the actual run can't disagree. `references/agent-invocation.md` documents the `model` argument and, explicitly, that **there is no effort override at the call site**: effort comes from agent frontmatter and a request for a different effort level must be refused out loud, not silently dropped.
+- `task-workflow`: the implement step now runs `model-router`'s model resolution alongside its scoring, the verifier dispatch passes `routing.models.verifier`, and the deep-tier confirmation prompt names the actual cost (`fable/xhigh`) instead of the stale "Opus/high".
+- `.claude/rules/skill-authoring.md`: the model-convention line now separates plugin-level `agents/*.md` (frontmatter is the `frontier` default, overridden per spawn — keep it in sync with `model-profiles.md`; `effort` has no call-site override) from agents generated into target repos (unchanged `architect` → `opus` rule), and states the Haiku-effort constraint.
+
 ## [1.47.3] - 2026-07-23
 
 ### Changed

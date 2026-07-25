@@ -30,7 +30,7 @@ scripts/git-hooks/        ← pre-commit running the budget gate
 | `sprint-distill`        | End-of-sprint distillation: merged PRs + touched knowledge/ concepts → proposal-first knowledge/ and bigin-skills updates. Compresses, never just appends.    |
 | `write-tests`           | On-demand test authoring (/write-tests): style-matches the nearest test file, lists edge cases first, TDD-orders logic, mocks only true I/O boundaries.       |
 | `debug-workflow`        | On-demand systematic debugging (/debug-workflow): triage → fast path for obvious bugs, full guarded workflow for flaky/env/repeat-failure bugs.               |
-| `model-router`          | Scores task complexity via a deterministic rubric and routes to quick-executor/standard-worker/deep-architect. Routes down as well as up.                     |
+| `model-router`          | Scores task complexity and routes to quick-executor/standard-worker/deep-architect on a per-project model ladder. Routes down as well as up.                  |
 | `session-handoff`       | Saves session state (tasks, decisions, uncommitted changes) to SESSION.md and restores it on resume.                                                          |
 | `nuxt-ui-figma-handoff` | Turns a Nuxt UI Figma design handoff into code — theme tokens into main.css, component overrides into app.config.ts. Requires a Figma URL.                    |
 <!-- /gen:skills-table -->
@@ -40,12 +40,12 @@ scripts/git-hooks/        ← pre-commit running the budget gate
 `agents/<name>.md` — plugin-level subagents spawned via the Agent tool (`bigin-skills:<name>`), not invoked as skills.
 
 <!-- gen:agents-table -->
-| Agent             | Purpose                                                                                                                                                                 |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `quick-executor`  | haiku/low — mechanical, single-file, low-risk tasks. Routed by `model-router`.                                                                                          |
-| `standard-worker` | sonnet/high — default tier, most feature/bug-fix work. Routed by `model-router`.                                                                                        |
-| `deep-architect`  | opus/high — architectural decisions, contract/schema changes, full-spec tier. Routed by `model-router`.                                                                 |
-| `verifier`        | haiku/low — read-only — audits a diff against `PLAN.md` independently of the implementer's own summary. Spawned fresh each round, alongside whichever tier implemented. |
+| Agent             | Purpose                                                                                                                                                                  |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `quick-executor`  | sonnet/low — mechanical, single-file, low-risk tasks. Routed by `model-router`.                                                                                          |
+| `standard-worker` | opus/high — default tier, most feature/bug-fix work. Routed by `model-router`.                                                                                           |
+| `deep-architect`  | fable/xhigh — architectural decisions, contract/schema changes, full-spec tier. Routed by `model-router`.                                                                |
+| `verifier`        | sonnet/low — read-only — audits a diff against `PLAN.md` independently of the implementer's own summary. Spawned fresh each round, alongside whichever tier implemented. |
 <!-- /gen:agents-table -->
 
 Details live in each skill's own `SKILL.md` — read it when working on that skill. Authoring conventions are in `.claude/rules/skill-authoring.md` (loads when editing `skills/`).

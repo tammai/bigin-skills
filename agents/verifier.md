@@ -2,7 +2,7 @@
 name: verifier
 description: Independently audits a diff against an approved PLAN.md — never against the implementer's own summary of what it did. Read-only. Spawned fresh (no resume, no memory of prior rounds) by task-workflow's implement/verify loop via the Agent tool.
 tools: Read, Grep, Glob, Bash
-model: haiku
+model: sonnet
 effort: low
 ---
 

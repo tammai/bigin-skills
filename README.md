@@ -45,7 +45,7 @@ The harness itself — setup, workflow, and maintenance for a repo under standar
 | **sprint-distill**      | End-of-sprint distillation: merged PRs + touched knowledge/ concepts → proposal-first knowledge/ and bigin-skills updates. Compresses, never just appends.    |
 | **write-tests**         | On-demand test authoring (/write-tests): style-matches the nearest test file, lists edge cases first, TDD-orders logic, mocks only true I/O boundaries.       |
 | **debug-workflow**      | On-demand systematic debugging (/debug-workflow): triage → fast path for obvious bugs, full guarded workflow for flaky/env/repeat-failure bugs.               |
-| **model-router**        | Scores task complexity via a deterministic rubric and routes to quick-executor/standard-worker/deep-architect. Routes down as well as up.                     |
+| **model-router**        | Scores task complexity and routes to quick-executor/standard-worker/deep-architect on a per-project model ladder. Routes down as well as up.                  |
 <!-- /gen:skills-core -->
 
 ### Handoff Skills
@@ -113,7 +113,8 @@ your-repo/
 │   │   ├── session-resume-check.mjs     ← SessionStart hook: prompts to resume an in-progress SESSION.md
 │   │   ├── canary-seed.mjs              ← SessionStart hook: seeds a per-session exfiltration canary token
 │   │   └── precompact-snapshot.mjs      ← PreCompact hook: autosaves SESSION.md before context compaction
-│   └── settings.json                   ← pre-approved commands + hook wiring
+│   ├── settings.json                   ← pre-approved commands + hook wiring
+│   └── model-routing.json              ← subagent model ladder (frontier/opus-centric/lean + per-tier overrides)
 ├── tools/
 │   └── context_budget.mjs               ← budget gate: CLAUDE.md ≤60, unscoped rules ≤40
 ├── scripts/
@@ -290,12 +291,13 @@ bigin-skills/
 │   │   │   └── defense-in-depth.md  ← add validation at the layer that should've caught it
 │   │   └── evals/evals.json
 │   ├── model-router/               ← task-complexity scoring → subagent routing
-│   │   ├── SKILL.md                ← gather signals → score → pick tier → spawn via Agent tool
+│   │   ├── SKILL.md                ← gather signals → score → pick tier → resolve model → spawn via Agent tool
 │   │   ├── evals/evals.json
 │   │   ├── scripts/
-│   │   │   └── classify.mjs        ← mechanical signals only (files, high-risk paths, test coverage, full-spec PLAN.md)
+│   │   │   └── classify.mjs        ← mechanical signals (files, high-risk paths, test coverage, full-spec PLAN.md) + resolved model ladder
 │   │   └── references/
 │   │       ├── scoring-rubric.md   ← point table + 3 worked examples
+│   │       ├── model-profiles.md   ← frontier/opus-centric/lean ladders, .claude/model-routing.json schema, effort rationale
 │   │       └── agent-invocation.md ← Agent tool call shape, handback protocol
 │   ├── session-handoff/           ← Handoff Skills (add-ons, opt in per project)
 │   │   ├── SKILL.md               ← session state persistence
@@ -308,10 +310,11 @@ bigin-skills/
 │       │   └── generate_color_scale.mjs ← fills in a 50-950 ramp from one brand swatch
 │       └── evals/evals.json
 ├── agents/                        ← plugin-level subagents, spawned via Agent tool (not invoked as skills)
-│   ├── quick-executor.md          ← haiku/low — mechanical, single-file, low-risk tasks
-│   ├── standard-worker.md         ← sonnet/high — default tier, most feature/bug-fix work
-│   ├── deep-architect.md          ← opus/high — architectural decisions, contract/schema changes, full-spec tier
-│   └── verifier.md                ← haiku/low, read-only — independently audits a diff against PLAN.md, spawned alongside whichever of the three tiers above implements it
+│   ├── quick-executor.md          ← sonnet/low — mechanical, single-file, low-risk tasks
+│   ├── standard-worker.md         ← opus/high — default tier, most feature/bug-fix work
+│   ├── deep-architect.md          ← fable/xhigh — architectural decisions, contract/schema changes, full-spec tier
+│   └── verifier.md                ← sonnet/low, read-only — independently audits a diff against PLAN.md, spawned alongside whichever of the three tiers above implements it
+│                                    (models above are the frontier default — per-project ladder lives in the target repo's .claude/model-routing.json; effort is fixed per tier)
 ├── .claude/
 │   └── rules/                     ← this repo's own path-scoped authoring rules
 │       ├── context-hygiene.md     ← always-loaded output/session discipline

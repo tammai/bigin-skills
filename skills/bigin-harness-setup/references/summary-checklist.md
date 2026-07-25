@@ -74,6 +74,7 @@ Created:
   .claude/settings.json [created/merged]
   tools/context_budget.mjs
   .claude/harness-version [current version stamp]
+  .claude/model-routing.json [subagent model ladder: {MODEL_ROUTING}]
   CLAUDE.md [created]
   scripts/pre-commit.sh [skipped if a hook manager already exists]
   [Knowledge Bundle: .claude/rules/knowledge.md, knowledge/*, tools/knowledge_validate.mjs] (if opted in)
@@ -87,6 +88,7 @@ Enabled:
   session resume prompt (SessionStart hook — deterministic, replaces CLAUDE.md prose)
   canary exfiltration gate (SessionStart seeds a per-session token; injection-gate-guard.mjs denies any tool call whose input contains it)
   precompact autosave (PreCompact hook writes in-flight state to .claude/memory/SESSION.md before manual/auto compaction)
+  subagent model routing ({MODEL_ROUTING} ladder — model-router/task-workflow read .claude/model-routing.json; edit it to change tiers)
   [knowledge bundle validation wired into the pre-commit gate] (if opted in)
   [knowledge bundle validation wired into generated CI] (if opted in and CI_PROVIDER != no)
   [sprint-distill available — run it at sprint end to fold merged work into knowledge/ and bigin-skills] (if opted in)
@@ -128,6 +130,7 @@ Next steps:
 - [ ] `.claude/settings.json` — guards wired + profile permissions
 - [ ] `tools/context_budget.mjs` — budget gate, executable
 - [ ] `.claude/harness-version` — current version stamp (written fresh/overwrite; baseline for patch mode)
+- [ ] `.claude/model-routing.json` — subagent model ladder set to the Phase 1.5 `MODEL_ROUTING` profile (`new` mode: existing file left untouched)
 - [ ] **patch mode only** — only changelog `patch`-tagged changes since `FROM_VERSION` applied; `.claude/harness-version` advanced to `TO_VERSION`; summary lists applied vs skipped
 - [ ] **nuxt/next only** — `.vscode/settings.json` with ESLint format-on-save (Prettier disabled), merged if it existed
 - [ ] git repo initialized (if it wasn't one) and `.git/hooks/pre-commit` installed (or foreign hook left untouched with confirmation)

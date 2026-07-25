@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// Computes mechanical model-router rubric signals from git state. Node stdlib only.
+// Computes mechanical model-router rubric signals from git state, plus the
+// project's resolved model ladder. Node stdlib only.
 // Usage: node classify.mjs [--base <ref>]
 // Never hard-fails: on any error, prints the same JSON shape with empty/null
 // fields plus an `error` string, so SKILL.md can fall back to pure reasoning.
@@ -9,6 +10,77 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, basename, join, extname } from 'node:path';
 
 const LOCKFILES = new Set(['package-lock.json', 'pnpm-lock.yaml', 'yarn.lock', 'bun.lock', 'bun.lockb']);
+
+// --- Model ladder resolution (see references/model-profiles.md) ---
+
+const ROUTING_CONFIG = '.claude/model-routing.json';
+const DEFAULT_PROFILE = 'frontier';
+const PROFILES = {
+  frontier: { quick: 'sonnet', standard: 'opus', deep: 'fable', verifier: 'sonnet' },
+  'opus-centric': { quick: 'sonnet', standard: 'opus', deep: 'opus', verifier: 'sonnet' },
+  lean: { quick: 'haiku', standard: 'sonnet', deep: 'opus', verifier: 'haiku' },
+};
+const TIERS = ['quick', 'standard', 'deep', 'verifier'];
+const MODELS = new Set(['fable', 'opus', 'sonnet', 'haiku']);
+
+// Resolves profile + per-tier overrides into one model-per-tier map. Every
+// invalid input degrades to the default and is reported in `warnings` — the
+// router must never be blocked by a malformed config file.
+function resolveRouting() {
+  const routing = {
+    profile: DEFAULT_PROFILE,
+    models: { ...PROFILES[DEFAULT_PROFILE] },
+    source: 'default',
+    warnings: [],
+  };
+
+  if (!existsSync(ROUTING_CONFIG)) return routing;
+
+  let config;
+  try {
+    config = JSON.parse(readFileSync(ROUTING_CONFIG, 'utf8'));
+  } catch (err) {
+    routing.warnings.push(`${ROUTING_CONFIG} is not valid JSON (${err.message}) — using the ${DEFAULT_PROFILE} default`);
+    return routing;
+  }
+  if (config === null || typeof config !== 'object' || Array.isArray(config)) {
+    routing.warnings.push(`${ROUTING_CONFIG} must be a JSON object — using the ${DEFAULT_PROFILE} default`);
+    return routing;
+  }
+
+  routing.source = 'config';
+
+  if (config.profile !== undefined) {
+    if (Object.hasOwn(PROFILES, config.profile)) {
+      routing.profile = config.profile;
+      routing.models = { ...PROFILES[config.profile] };
+    } else {
+      routing.warnings.push(
+        `unknown profile "${config.profile}" in ${ROUTING_CONFIG} (known: ${Object.keys(PROFILES).join(', ')}) — using ${DEFAULT_PROFILE}`
+      );
+    }
+  }
+
+  if (config.models !== undefined) {
+    if (config.models === null || typeof config.models !== 'object' || Array.isArray(config.models)) {
+      routing.warnings.push(`"models" in ${ROUTING_CONFIG} must be an object of tier → model — ignored`);
+    } else {
+      for (const [tier, model] of Object.entries(config.models)) {
+        if (!TIERS.includes(tier)) {
+          routing.warnings.push(`unknown tier "${tier}" in ${ROUTING_CONFIG} (known: ${TIERS.join(', ')}) — ignored`);
+        } else if (!MODELS.has(model)) {
+          routing.warnings.push(
+            `unknown model "${model}" for tier "${tier}" in ${ROUTING_CONFIG} (known: ${[...MODELS].join(', ')}) — keeping ${routing.models[tier]}`
+          );
+        } else {
+          routing.models[tier] = model;
+        }
+      }
+    }
+  }
+
+  return routing;
+}
 
 const HIGH_RISK_RE = /openapi\.ya?ml$|openapi\.json$|(^|\/)migrations?\/|schema\.(sql|prisma)$|\.env(\.|$)|docker-compose|Dockerfile|\.github\/workflows\/|\.claude\/(guards|rules)\//i;
 
@@ -108,6 +180,7 @@ function classify(argv) {
     highRiskMatches,
     testCoverageRatio,
     fullSpecDetected,
+    routing: resolveRouting(),
   };
 }
 
@@ -124,6 +197,12 @@ function main() {
           highRiskMatches: [],
           testCoverageRatio: null,
           fullSpecDetected: false,
+          routing: {
+            profile: DEFAULT_PROFILE,
+            models: { ...PROFILES[DEFAULT_PROFILE] },
+            source: 'default',
+            warnings: [`routing not resolved (${err.message}) — using the ${DEFAULT_PROFILE} default`],
+          },
           error: err.message,
         },
         null,

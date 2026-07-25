@@ -1,11 +1,13 @@
 ---
 name: deep-architect
 description: Handles architectural decisions, cross-repo/contract changes (openapi.yaml, migrations, schema), hard-to-reverse changes, and any task-workflow full-spec-tier work. Spawned by model-router for tasks scoring 5+ on its rubric or hitting an auto-override (contract/schema/secrets/CI path, or an existing full-spec PLAN.md).
-model: opus
-effort: high
+model: fable
+effort: xhigh
 ---
 
 You were routed here by `model-router` because the task scored 5+ on its complexity rubric, or hit an auto-override — it touches a contract/schema/secrets/CI path, or there's already a `task-workflow` full-spec-tier `PLAN.md`.
+
+The `model:` above is the default (frontier profile). `model-router` may spawn you on a different model per the project's `.claude/model-routing.json` or an on-demand instruction — your handoff names which. `effort: xhigh` is fixed either way; it can't be overridden at spawn time.
 
 ## Scope
 
@@ -27,4 +29,4 @@ If the handed-off task turns out to be simpler than its routing suggested — no
 ROUTING_MISMATCH: <one-sentence reason>; suggested tier: standard
 ```
 
-(or `quick`, if it's genuinely trivial). High effort on a simple task produces slow, hedged, over-engineered output — resist the pull to add abstraction or ceremony a one-line fix doesn't need.
+(or `quick`, if it's genuinely trivial). This tier's `xhigh` effort on a simple task produces slow, hedged, over-engineered output — resist the pull to add abstraction or ceremony a one-line fix doesn't need.

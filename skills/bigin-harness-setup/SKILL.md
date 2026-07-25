@@ -40,7 +40,7 @@ Store result as `PROFILE`. Load `references/profile-{PROFILE}.md` for all templa
 
 Scaffolding is done by the `nuxt-scaffold` skill's deterministic script — **not** conversationally. Three steps, and **all questions happen up front, in one batch; zero prompts once scaffolding starts**:
 
-1. **Gather every scaffold decision now**, in the same turn, back-to-back with this skill's own remaining decisions: ask `skills/nuxt-scaffold/SKILL.md` → Step 2 (project name, primary/neutral theme colors, version policy), then immediately ask Phase 1.5's bundle below (Knowledge Bundle/Graphify + CI config — an empty repo can't hit Phase 1's conflict path, so only those two apply here). Confirm the scaffold summary once. Store `KNOWLEDGE_BUNDLE` / `GRAPH` / `CI_PROVIDER` now — Phase 1.5 is a no-op later in this branch since they're already decided.
+1. **Gather every scaffold decision now**, in the same turn, back-to-back with this skill's own remaining decisions: ask `skills/nuxt-scaffold/SKILL.md` → Step 2 (project name, primary/neutral theme colors, version policy), then immediately ask Phase 1.5's bundle below (Knowledge Bundle/Graphify + CI config + model routing profile — an empty repo can't hit Phase 1's conflict path, so only those three apply here). Confirm the scaffold summary once. Store `KNOWLEDGE_BUNDLE` / `GRAPH` / `CI_PROVIDER` / `MODEL_ROUTING` now — Phase 1.5 is a no-op later in this branch since they're already decided.
 2. **Write the config JSON** (schema in `skills/nuxt-scaffold/SKILL.md` → Step 3) to a temp file outside the repo, with `"packageManager": "pnpm"`.
 3. **Run the script and stream its output** (several minutes — installs + verify gates):
    ```sh
@@ -62,7 +62,7 @@ Skip this phase entirely if `nuxt.config.ts` already exists (onboarding an exist
 
 Scaffolding is done by the `go-scaffold` skill's deterministic script — **not** conversationally. All questions happen up front, in one batch; zero prompts once scaffolding starts:
 
-1. **Gather every scaffold decision now**, in the same turn, back-to-back with this skill's own remaining decisions: ask `skills/go-scaffold/SKILL.md` → Step 2 (module path, project name), then immediately ask Phase 1.5's bundle below (Knowledge Bundle/Graphify + CI config — an empty repo can't hit Phase 1's conflict path, so only those two apply here). Confirm the scaffold summary once. Store `KNOWLEDGE_BUNDLE` / `GRAPH` / `CI_PROVIDER` now — Phase 1.5 is a no-op later in this branch since they're already decided.
+1. **Gather every scaffold decision now**, in the same turn, back-to-back with this skill's own remaining decisions: ask `skills/go-scaffold/SKILL.md` → Step 2 (module path, project name), then immediately ask Phase 1.5's bundle below (Knowledge Bundle/Graphify + CI config + model routing profile — an empty repo can't hit Phase 1's conflict path, so only those three apply here). Confirm the scaffold summary once. Store `KNOWLEDGE_BUNDLE` / `GRAPH` / `CI_PROVIDER` / `MODEL_ROUTING` now — Phase 1.5 is a no-op later in this branch since they're already decided.
 2. **Run the script and stream its output** (roughly a minute — first run downloads/builds `oapi-codegen` + `sqlc`, then `go mod tidy`, `go vet`, `go build`, `go test`):
    ```sh
    node skills/go-scaffold/scripts/scaffold.mjs --module <module-path> --dir . [--project <name>]
@@ -85,7 +85,7 @@ Skip this phase entirely if `go.mod` already exists (onboarding an existing repo
 
 Scaffolding is done by the `nodejs-scaffold` skill's deterministic script — **not** conversationally. All questions happen up front, in one batch; zero prompts once scaffolding starts:
 
-1. **Gather every scaffold decision now**, in the same turn, back-to-back with this skill's own remaining decisions: ask `skills/nodejs-scaffold/SKILL.md` → Step 2 (project name), then immediately ask Phase 1.5's bundle below (Knowledge Bundle/Graphify + CI config — an empty repo can't hit Phase 1's conflict path, so only those two apply here). Confirm the scaffold summary once. Store `KNOWLEDGE_BUNDLE` / `GRAPH` / `CI_PROVIDER` now — Phase 1.5 is a no-op later in this branch since they're already decided.
+1. **Gather every scaffold decision now**, in the same turn, back-to-back with this skill's own remaining decisions: ask `skills/nodejs-scaffold/SKILL.md` → Step 2 (project name), then immediately ask Phase 1.5's bundle below (Knowledge Bundle/Graphify + CI config + model routing profile — an empty repo can't hit Phase 1's conflict path, so only those three apply here). Confirm the scaffold summary once. Store `KNOWLEDGE_BUNDLE` / `GRAPH` / `CI_PROVIDER` / `MODEL_ROUTING` now — Phase 1.5 is a no-op later in this branch since they're already decided.
 2. **Run the script and stream its output** (a couple of minutes — `pnpm add` for deps then devDeps, then `openapi-typescript` + `drizzle-kit generate`, then lint/typecheck/build/test):
    ```sh
    node skills/nodejs-scaffold/scripts/scaffold.mjs --project <name> --dir .
@@ -108,7 +108,7 @@ Skip this phase entirely if `package.json` already exists (onboarding an existin
 
 Scaffolding is done by the `next-scaffold` skill's deterministic script — **not** conversationally. Three steps, and **all questions happen up front, in one batch; zero prompts once scaffolding starts** (same config-JSON shape as Phase 0.5's nuxt branch, since `next-scaffold` has multiple decisions like `nuxt-scaffold` does — not the single-flag CLI style of the go/nodejs branches):
 
-1. **Gather every scaffold decision now**, in the same turn, back-to-back with this skill's own remaining decisions: ask `skills/next-scaffold/SKILL.md` → Step 2 (project name, template, version policy), then immediately ask Phase 1.5's bundle below (Knowledge Bundle/Graphify + CI config — an empty repo can't hit Phase 1's conflict path, so only those two apply here). Confirm the scaffold summary once. Store `KNOWLEDGE_BUNDLE` / `GRAPH` / `CI_PROVIDER` now — Phase 1.5 is a no-op later in this branch since they're already decided.
+1. **Gather every scaffold decision now**, in the same turn, back-to-back with this skill's own remaining decisions: ask `skills/next-scaffold/SKILL.md` → Step 2 (project name, template, version policy), then immediately ask Phase 1.5's bundle below (Knowledge Bundle/Graphify + CI config + model routing profile — an empty repo can't hit Phase 1's conflict path, so only those three apply here). Confirm the scaffold summary once. Store `KNOWLEDGE_BUNDLE` / `GRAPH` / `CI_PROVIDER` / `MODEL_ROUTING` now — Phase 1.5 is a no-op later in this branch since they're already decided.
 2. **Write the config JSON** (schema in `skills/next-scaffold/SKILL.md` → Step 3) to a temp file outside the repo, with `"packageManager": "pnpm"`.
 3. **Run the script and stream its output** (several minutes — installs + shadcn/ui + verify gates):
    ```sh
@@ -163,7 +163,7 @@ Self-contained — skip Phases 1.5 through 8 entirely when this runs; it ends wi
 
 ## Phase 1.5: Gather Remaining Decisions
 
-Skip this phase entirely if `KNOWLEDGE_BUNDLE`, `GRAPH`, and `CI_PROVIDER` are already set (Phase 0.5/0.5b asked them alongside the nuxt-scaffold/go-scaffold batch for the empty-repo branch).
+Skip this phase entirely if `KNOWLEDGE_BUNDLE`, `GRAPH`, `CI_PROVIDER`, and `MODEL_ROUTING` are already set (Phase 0.5/0.5b asked them alongside the nuxt-scaffold/go-scaffold batch for the empty-repo branch).
 
 Otherwise, ask **one bundled `AskUserQuestion` call**, before writing any files, combining:
 
@@ -182,9 +182,18 @@ Otherwise, ask **one bundled `AskUserQuestion` call**, before writing any files,
    Add CI config? (github/gitlab/both/no)
    Generates a workflow that runs {LINT} && {TYPECHECK} && {TEST} on push to main and on merge/pull requests.
    ```
-3. **Install mode** — only if Phase 1 detected an existing-harness conflict in this run: the overwrite/new/cancel question from Phase 1 above.
+3. **Model routing profile** (frontier/opus-centric/lean) — which model ladder `model-router` and `task-workflow` spawn subagents on. Written to `.claude/model-routing.json` at Phase 5-3d:
+   ```
+   Which model ladder should subagents use? (frontier/opus-centric/lean)
+   1. frontier (default) — quick=sonnet, standard=opus, deep=fable. Matches an Opus-default session; deep tier gets the top model.
+   2. opus-centric — quick=sonnet, standard=opus, deep=opus. Same ladder without Fable's price tag.
+   3. lean — quick=haiku, standard=sonnet, deep=opus. Cost-first (note: Haiku 4.5 ignores the tier's pinned effort).
+   Per-tier overrides and the full schema: bigin-skills skills/model-router/references/model-profiles.md.
+   ```
+   Store `MODEL_ROUTING` (the profile name).
+4. **Install mode** — only if Phase 1 detected an existing-harness conflict in this run: the overwrite/new/cancel question from Phase 1 above.
 
-Store `KNOWLEDGE_BUNDLE`, `GRAPH`, `CI_PROVIDER` (and `INSTALL_MODE` if included). Code and security review are not scaffolded as project-local agents — point the user at the `/code-review` and `/security-review` skills instead (see Phase 7 summary).
+Store `KNOWLEDGE_BUNDLE`, `GRAPH`, `CI_PROVIDER`, `MODEL_ROUTING` (and `INSTALL_MODE` if included). Code and security review are not scaffolded as project-local agents — point the user at the `/code-review` and `/security-review` skills instead (see Phase 7 summary).
 
 ---
 
@@ -330,6 +339,13 @@ Write `.claude/harness-version` containing the current version from this plugin'
 - `INSTALL_MODE=yes` (or a fresh install) → always write/overwrite; every generated file now matches current templates.
 - `INSTALL_MODE=new` → only write if the marker doesn't already exist. Files skipped as pre-existing may still be older than the recorded version — a later patch run reports those as "anchor not found" rather than corrupting them, so this is a safe degradation, not a correctness bug.
 
+### 5-3d. Model routing config
+
+Write `.claude/model-routing.json` from `references/files-shared.md` → `## model-routing.json`, substituting `{MODEL_ROUTING}` with the profile decided in Phase 1.5. This is what `model-router`'s `classify.mjs` reads to pick the model for each subagent tier.
+
+- `INSTALL_MODE=yes` (or a fresh install) → write/overwrite.
+- `INSTALL_MODE=new` → skip if the file exists — a hand-tuned ladder (including per-tier `models` overrides) is the user's, not ours to reset.
+
 ---
 
 ## Phase 5.5: Knowledge Bundle (optional)
@@ -387,7 +403,7 @@ Check for `README.md`. If found, check whether it already contains `## AI Onboar
 
 ## Phase 7: Summary
 
-Read `references/summary-checklist.md` → `## Phase 7 Summary Template`. Substitute `{PROFILE}`/`{LINT}`/`{TYPECHECK}`/`{TEST}` and the bracketed conditional lines, then print verbatim.
+Read `references/summary-checklist.md` → `## Phase 7 Summary Template`. Substitute `{PROFILE}`/`{LINT}`/`{TYPECHECK}`/`{TEST}`/`{MODEL_ROUTING}` and the bracketed conditional lines, then print verbatim.
 
 ---
 
@@ -427,7 +443,8 @@ the always-loaded budget unless you're editing those paths.
 - Knowledge Bundle (Phase 5.5) — opt-in only, decided once in Phase 1.5 (`KNOWLEDGE_BUNDLE`); skip entirely if declined. Never edit unknown CI config automatically — only note it's needed.
 - CI Config (Phase 5.6) — opt-in only, decided once in Phase 1.5 (`CI_PROVIDER`, auto-detected default); skip entirely if `no`. Only ever writes/overwrites CI files this skill generated; never edits pre-existing, hand-written CI config.
 - Graphify (Phase 5.7) — opt-in only, decided once in Phase 1.5 (`GRAPH`); skip entirely if declined. Never auto-runs the initial index — always proposed. Install prompting happens here only, never in a consuming skill.
-- All user-facing questions (profile ambiguity, harness conflicts, Knowledge Bundle, CI, foreign pre-commit hook) resolve before any file is written — see Phase 1.5.
+- `.claude/model-routing.json` (Phase 5-3d) — decided once in Phase 1.5 (`MODEL_ROUTING`); `new` mode never overwrites an existing ladder. Deleting the file is safe: `model-router` falls back to the `frontier` default.
+- All user-facing questions (profile ambiguity, harness conflicts, Knowledge Bundle, CI, model routing profile, foreign pre-commit hook) resolve before any file is written — see Phase 1.5.
 - Never delete files not part of the harness.
 - `.claude/harness-version` — written on every fresh/overwrite setup (Phase 5-3c) as a baseline for future patch runs; `new` mode only writes it if absent, since skipped pre-existing files may be older than the recorded version.
 - Patch mode (Phase 1a) — only touches files/lines named in a changelog entry's `patch` block; never guesses at an anchor match; always advances `.claude/harness-version` even on partial application, logging what still needs manual review.

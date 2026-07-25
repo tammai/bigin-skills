@@ -47,6 +47,29 @@ paths:
 
 ---
 
+## model-routing.json
+
+Written to `.claude/model-routing.json` (Phase 5-3d). `{MODEL_ROUTING}` is the profile chosen in Phase 1.5 — `frontier` | `opus-centric` | `lean`.
+
+```json
+{
+  "profile": "{MODEL_ROUTING}"
+}
+```
+
+To pin an individual tier against the profile, add a `models` object — `quick` | `standard` | `deep` | `verifier` → `fable` | `opus` | `sonnet` | `haiku`:
+
+```json
+{
+  "profile": "frontier",
+  "models": { "deep": "opus" }
+}
+```
+
+Effort per tier is fixed in the plugin's own agent definitions (quick `low`, standard `high`, deep `xhigh`, verifier `low`) and is **not** settable here. Ladders, precedence, and the effort rationale: `bigin-skills` → `skills/model-router/references/model-profiles.md`.
+
+---
+
 ## security.md
 
 ```markdown
