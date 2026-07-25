@@ -75,6 +75,7 @@ Created:
   tools/context_budget.mjs
   .claude/harness-version [current version stamp]
   .claude/model-routing.json [subagent model ladder: {MODEL_ROUTING}]
+  [.claude/guards/task-plan-gate.mjs + task-verify-gate.mjs, .claude/rules/agent-teams.md, .claude/task-plans/] (if AGENT_TEAMS = yes)
   CLAUDE.md [created]
   scripts/pre-commit.sh [skipped if a hook manager already exists]
   [Knowledge Bundle: .claude/rules/knowledge.md, knowledge/*, tools/knowledge_validate.mjs] (if opted in)
@@ -89,6 +90,7 @@ Enabled:
   canary exfiltration gate (SessionStart seeds a per-session token; injection-gate-guard.mjs denies any tool call whose input contains it)
   precompact autosave (PreCompact hook writes in-flight state to .claude/memory/SESSION.md before manual/auto compaction)
   subagent model routing ({MODEL_ROUTING} ladder — model-router/task-workflow read .claude/model-routing.json; edit it to change tiers)
+  [agent teams ENABLED — experimental, higher token use; ownership gates active once .claude/task-plans/ has plans. See the agent-teams skill] (if AGENT_TEAMS = yes)
   [knowledge bundle validation wired into the pre-commit gate] (if opted in)
   [knowledge bundle validation wired into generated CI] (if opted in and CI_PROVIDER != no)
   [sprint-distill available — run it at sprint end to fold merged work into knowledge/ and bigin-skills] (if opted in)
@@ -131,6 +133,7 @@ Next steps:
 - [ ] `tools/context_budget.mjs` — budget gate, executable
 - [ ] `.claude/harness-version` — current version stamp (written fresh/overwrite; baseline for patch mode)
 - [ ] `.claude/model-routing.json` — subagent model ladder set to the Phase 1.5 `MODEL_ROUTING` profile (`new` mode: existing file left untouched)
+- [ ] **if `AGENT_TEAMS` = yes** — `.claude/guards/task-plan-gate.mjs` + `.claude/guards/task-verify-gate.mjs` written, both wired on `TaskCreated`/`TaskCompleted`; `env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` merged; `.claude/rules/agent-teams.md` (≤40 lines, unscoped); **`.claude/task-plans/` NOT created** (the lead creates it with the first plan — creating it early arms the task gates for ordinary solo sessions); `.gitignore` has `.claude/task-plans/*.md`, `*.lock`, `*.tmp-*`
 - [ ] **patch mode only** — only changelog `patch`-tagged changes since `FROM_VERSION` applied; `.claude/harness-version` advanced to `TO_VERSION`; summary lists applied vs skipped
 - [ ] **nuxt/next only** — `.vscode/settings.json` with ESLint format-on-save (Prettier disabled), merged if it existed
 - [ ] git repo initialized (if it wasn't one) and `.git/hooks/pre-commit` installed (or foreign hook left untouched with confirmation)

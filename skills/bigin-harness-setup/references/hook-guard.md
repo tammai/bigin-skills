@@ -44,17 +44,37 @@ for (const [pattern, message] of BLOCKED) {
 
 Write to `.claude/guards/spec-gate-guard.mjs`.
 
+Two modes, chosen by what's in the repo. **Legacy** (no plan declares `Owns:`) is byte-identical to the pre-teams behavior, which is the compatibility contract for every already-scaffolded repo. **Scoped** (at least one plan declares `Owns:`) resolves ownership by path instead, because a single global `Status: approved` would authorize every agent sharing the tree.
+
 ```javascript
 #!/usr/bin/env node
-// Blocks non-trivial Edit/Write/MultiEdit before PLAN.md is approved.
+// Blocks non-trivial Edit/Write/MultiEdit before a plan authorizes them.
 // Claude Code PreToolUse hook — reads tool input from stdin, exits 2 to block.
-import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
+//
+// Two modes, chosen by what's in the repo:
+//
+//   LEGACY  — no plan file declares `Owns:`. One repo-root PLAN.md, one global
+//             `Status: approved`, the ≤20-line escape hatch. Byte-identical to
+//             how this guard behaved before agent teams existed, so every
+//             already-scaffolded repo is unaffected.
+//
+//   SCOPED  — at least one plan declares `Owns:`. Several agents may be writing
+//             into this one tree, so a single global approval would authorize all
+//             of them. Every decision becomes ownership-based instead: exactly
+//             one approved plan must claim the path. No size threshold applies —
+//             a 5-line edit to a file nobody owns is precisely the silent
+//             overwrite this mode exists to stop.
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { join, relative, sep } from 'node:path'
 
 const data = JSON.parse(readFileSync(0, 'utf-8'))
 const toolName = data?.tool_name ?? ''
 const toolInput = data?.tool_input ?? {}
 const filePath = toolInput.file_path ?? ''
+// Teammate name on a teammate's PreToolUse; the definition name for a plain
+// subagent; absent on the main thread. Used for the message only — never for
+// authorization, because names are silently de-duplicated (alpha -> alpha-2).
+const actor = data?.agent_type ?? null
 
 if (!filePath) process.exit(0)
 
@@ -67,6 +87,131 @@ const TRIVIAL_PATTERNS = [
 ]
 
 if (TRIVIAL_PATTERNS.some(p => p.test(filePath))) process.exit(0)
+
+function block(message) {
+  console.error(`Error: ${message}`)
+  process.exit(2)
+}
+
+// --- Plan registry ---
+
+function readPlans() {
+  const files = []
+  if (existsSync('PLAN.md')) files.push('PLAN.md')
+  const dir = join('.claude', 'task-plans')
+  if (existsSync(dir)) {
+    try {
+      for (const name of readdirSync(dir).sort()) if (name.endsWith('.md')) files.push(join(dir, name))
+    } catch { /* unreadable dir — treat as empty */ }
+  }
+
+  const plans = []
+  for (const file of files) {
+    let text
+    try {
+      text = readFileSync(file, 'utf-8')
+    } catch (err) {
+      // Only matters once we're in scoped mode; recorded so it can fail closed.
+      plans.push({ file, globs: [], approved: false, error: err.code ?? 'unreadable' })
+      continue
+    }
+    // Only the header region (everything before the first `##`) is scanned for
+    // Owns:/Verified:. A legacy PLAN.md whose spec BODY happens to start a line
+    // with "Owns:" must not be mistaken for an ownership declaration — that would
+    // flip an existing repo into scoped mode and block every unowned path.
+    const header = text.split(/^##\s/m)[0]
+    const owns = header.match(/^Owns:\s*(.+)$/m)
+    if (!owns) continue
+    const globs = owns[1].split(',').map(s => s.trim()).filter(Boolean)
+    // Status keeps scanning the whole file: that is the legacy behavior and
+    // changing it would alter how existing repos are gated.
+    const status = text.match(/^Status:\s*(\S+)/m)
+    plans.push({
+      file,
+      globs,
+      approved: !!status && status[1].toLowerCase() === 'approved',
+      error: globs.length === 0 ? 'declares Owns: with no globs' : null
+    })
+  }
+  return plans
+}
+
+// Single pass rather than sentinel substitution: a sentinel character breaks on
+// any glob that legitimately contains it (paths may contain spaces).
+function globToRe(glob) {
+  let body = ''
+  for (let i = 0; i < glob.length; i++) {
+    const char = glob[i]
+    if (char === '*') {
+      if (glob[i + 1] === '*') { body += '.*'; i++ }   // ** crosses separators
+      else body += '[^/]*'                            // * stops at a separator
+    } else if (char === '?') body += '[^/]'
+    else if ('.+^${}()|[]\\/'.includes(char)) body += `\\${char}`
+    else body += char
+  }
+  return new RegExp(`^${body}$`)
+}
+
+// Literal characters before the first wildcard. `**` scores 0, so a catch-all
+// always loses to a specific glob.
+const specificity = glob => (glob.split(/[*?]/)[0] ?? '').length
+
+const plans = readPlans()
+
+// --- SCOPED mode ---
+
+if (plans.length > 0) {
+  const broken = plans.filter(p => p.error)
+  if (broken.length > 0) {
+    block(
+      `plan file ${broken[0].file} ${broken[0].error}. A corrupt ownership map under concurrency is exactly when this gate matters, so nothing is authorized until it parses.`
+    )
+  }
+
+  const rel = relative(process.cwd(), filePath)
+  if (!rel || rel.startsWith('..')) {
+    block(`${filePath} is outside this repo, so no plan can own it. Edit files inside the project.`)
+  }
+  const repoPath = rel.split(sep).join('/')
+
+  const matches = []
+  for (const plan of plans) {
+    for (const glob of plan.globs) {
+      if (globToRe(glob).test(repoPath)) matches.push({ plan, glob, spec: specificity(glob) })
+    }
+  }
+
+  const who = actor ? `${actor} ` : ''
+  if (matches.length === 0) {
+    const inventory = plans.map(p => `  ${p.file} owns: ${p.globs.join(', ')}`).join('\n')
+    block(
+      `no plan owns ${repoPath}, so ${who}must not write it — in a shared working tree an unowned file is how two agents silently overwrite each other.\nCurrent ownership:\n${inventory}\nAdd the path to the owning plan's Owns: line, or take a task that owns it.`
+    )
+  }
+
+  const best = Math.max(...matches.map(m => m.spec))
+  const seen = new Set()
+  const winners = matches
+    .filter(m => m.spec === best)
+    .filter(m => (seen.has(m.plan.file) ? false : seen.add(m.plan.file)))
+
+  if (winners.length > 1) {
+    block(
+      `${repoPath} is claimed by ${winners.map(w => w.plan.file).join(' and ')} at equal specificity. Two tasks cannot own one file — narrow one plan's Owns: globs, or sequence the tasks.`
+    )
+  }
+
+  const winner = winners[0]
+  if (!winner.plan.approved) {
+    block(
+      `${repoPath} is owned by ${winner.plan.file}, which is not "Status: approved". Get spec approval before implementing (see the agent-teams skill).`
+    )
+  }
+
+  process.exit(0)
+}
+
+// --- LEGACY mode (unchanged) ---
 
 function isPlanApproved() {
   const planPath = join(process.cwd(), 'PLAN.md')
@@ -608,6 +753,218 @@ function main() {
 }
 
 main()
+```
+
+---
+
+## task-plan-gate.mjs (agent teams only)
+
+Write to `.claude/guards/task-plan-gate.mjs`. Registered on `TaskCreated` (no matcher — the event has none). Only scaffolded when `AGENT_TEAMS = true`.
+
+**Both team gates open with an existence check on `.claude/task-plans/` and exit 0 when it's absent.** The task tools are used constantly outside agent teams, so without that line this guard would block `TaskCreate` in every ordinary session in the repo. That directory existing is the opt-in signal.
+
+```javascript
+#!/usr/bin/env node
+// Blocks creating a task that no approved plan backs.
+// Claude Code TaskCreated hook — reads the payload from stdin, exits 2 to block.
+//
+// Why at task-creation time: in a shared working tree, file ownership comes from
+// an approved plan. If a task is created without one, the teammate that picks it
+// up gets blocked on its first edit and cannot fix that itself — it can neither
+// approve a plan nor ask the human. Failing here puts the problem in front of the
+// lead before any teammate is spawned.
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
+
+// The task tools are used constantly OUTSIDE agent teams. Without this line,
+// scaffolding this guard would break TaskCreate for every ordinary session in the
+// repo. `.claude/task-plans/` existing is the opt-in signal.
+if (!existsSync(join('.claude', 'task-plans'))) process.exit(0)
+
+let data = {}
+try {
+  data = JSON.parse(readFileSync(0, 'utf-8'))
+} catch {
+  process.exit(0) // Unreadable payload is not the task's fault.
+}
+
+const subject = data?.task_subject ?? ''
+const description = data?.task_description ?? ''
+const teammate = data?.teammate_name ?? null // optional in the payload schema
+const haystack = `${subject}\n${description}`
+
+// Tasks with no file surface — review, verification, coordination — need no plan.
+if (/\[coordination\]/i.test(haystack)) process.exit(0)
+
+function block(lines) {
+  console.error(`Error: ${lines.join('\n')}`)
+  process.exit(2)
+}
+
+const label = `"${subject || '(no subject)'}"${teammate ? ` (for ${teammate})` : ''}`
+
+const planRef = haystack.match(/(?:^|\s)Plan:\s*(\S+)/)
+if (!planRef) {
+  block([
+    `task ${label} has no plan reference.`,
+    'In a shared working tree file ownership comes from an approved plan, so the plan must exist before the task does.',
+    'Add `Plan: .claude/task-plans/<slug>.md` to the task description, pointing at a file with `Status: approved` and a non-empty `Owns:` glob list.',
+    'For a task with no file surface (review, verification, coordination), put [coordination] in the description instead.',
+    'A teammate cannot do this itself — it can neither approve a plan nor ask the user. Ask the lead.'
+  ])
+}
+
+const planPath = planRef[1]
+if (!existsSync(planPath)) {
+  block([`task ${label} references ${planPath}, which does not exist.`, 'Write the approved plan first, then create the task.'])
+}
+
+let text
+try {
+  text = readFileSync(planPath, 'utf-8')
+} catch (err) {
+  block([`task ${label} references ${planPath}, which could not be read (${err.code ?? 'unreadable'}).`])
+}
+
+const status = text.match(/^Status:\s*(\S+)/m)
+if (!status || status[1].toLowerCase() !== 'approved') {
+  block([
+    `${planPath} is not "Status: approved" (found: ${status ? status[1] : 'no Status line'}).`,
+    'Get the spec approved by the user before creating the task it implements.'
+  ])
+}
+
+const header = text.split(/^##\s/m)[0] // header region only — see spec-gate-guard.mjs
+const owns = header.match(/^Owns:\s*(.+)$/m)
+const globs = owns ? owns[1].split(',').map(s => s.trim()).filter(Boolean) : []
+if (globs.length === 0) {
+  block([
+    `${planPath} has no non-empty \`Owns:\` line, so nothing grants this task write access.`,
+    'Add `Owns: <comma-separated globs>` naming the paths this task exclusively owns.'
+  ])
+}
+
+// Duplicate-glob check against every other plan in the registry — catching it
+// here is cheaper than letting two teammates start and collide on their first
+// edits. Only *identical* globs are detected: deciding whether two arbitrary
+// globs intersect is not worth doing here, and spec-gate-guard.mjs catches the
+// real collision at write time via equal specificity on a concrete path.
+const others = []
+if (existsSync('PLAN.md') && planPath !== 'PLAN.md') others.push('PLAN.md')
+const dir = join('.claude', 'task-plans')
+try {
+  for (const name of readdirSync(dir).sort()) {
+    const file = join(dir, name)
+    if (name.endsWith('.md') && file !== planPath) others.push(file)
+  }
+} catch { /* ignore */ }
+
+for (const file of others) {
+  let otherText
+  try {
+    otherText = readFileSync(file, 'utf-8')
+  } catch {
+    continue
+  }
+  const otherOwns = otherText.split(/^##\s/m)[0].match(/^Owns:\s*(.+)$/m)
+  if (!otherOwns) continue
+  const otherGlobs = otherOwns[1].split(',').map(s => s.trim()).filter(Boolean)
+  for (const mine of globs) {
+    for (const theirs of otherGlobs) {
+      if (mine === theirs) {
+        block([
+          `${planPath} and ${file} both claim \`${mine}\`.`,
+          'Two tasks cannot own the same paths — narrow one plan\'s Owns: globs, or sequence the tasks with blockedBy.'
+        ])
+      }
+    }
+  }
+}
+
+process.exit(0)
+```
+
+---
+
+## task-verify-gate.mjs (agent teams only)
+
+Write to `.claude/guards/task-verify-gate.mjs`. Registered on `TaskCompleted` (no matcher). Only scaffolded when `AGENT_TEAMS = true`.
+
+Note the deliberate asymmetry: a **missing** plan file fails **open**. Cleanup-then-complete is legitimate, and a task that can never be completed deadlocks every task that depends on it.
+
+```javascript
+#!/usr/bin/env node
+// Blocks marking a task complete before its plan records a verifier PASS.
+// Claude Code TaskCompleted hook — reads the payload from stdin, exits 2 to block.
+//
+// Completion is the one moment the lead can be forced to close the loop it opened:
+// a teammate marking its task done releases the lead to move on, and in a shared
+// working tree "moved on with an unverified diff still in the tree" is how one
+// teammate's drift becomes everyone's baseline.
+import { existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
+
+// The task tools are used constantly OUTSIDE agent teams. Without this line,
+// scaffolding this guard would break TaskUpdate for every ordinary session.
+if (!existsSync(join('.claude', 'task-plans'))) process.exit(0)
+
+let data = {}
+try {
+  data = JSON.parse(readFileSync(0, 'utf-8'))
+} catch {
+  process.exit(0)
+}
+
+const subject = data?.task_subject ?? ''
+const description = data?.task_description ?? ''
+const teammate = data?.teammate_name ?? null
+const haystack = `${subject}\n${description}`
+
+// No file surface, nothing to verify.
+if (/\[coordination\]/i.test(haystack)) process.exit(0)
+
+const planRef = haystack.match(/(?:^|\s)Plan:\s*(\S+)/)
+if (!planRef) process.exit(0) // task-plan-gate.mjs owns that complaint, at creation time.
+
+const planPath = planRef[1]
+
+// FAIL OPEN when the plan is gone. Cleanup-then-complete is legitimate, and a
+// task that can never be completed deadlocks every task depending on it.
+if (!existsSync(planPath)) process.exit(0)
+
+let text
+try {
+  text = readFileSync(planPath, 'utf-8')
+} catch {
+  process.exit(0)
+}
+
+const header = text.split(/^##\s/m)[0] // header region only — see spec-gate-guard.mjs
+const verified = header.match(/^Verified:\s*(\S+)/m)
+if (verified && verified[1].toUpperCase() === 'PASS') process.exit(0)
+
+const label = `"${subject || '(no subject)'}"${teammate ? ` by ${teammate}` : ''}`
+const owns = header.match(/^Owns:\s*(.+)$/m)
+const pathspec = owns
+  ? owns[1]
+      .split(',')
+      .map(s => `':(glob)${s.trim()}'`)
+      .filter(s => s !== "':(glob)'")
+      .join(' ')
+  : "':(glob)<owned globs>'"
+
+console.error(
+  [
+    `Error: cannot complete ${label} — ${planPath} has no \`Verified: PASS\` line.`,
+    `The implement/verify loop hasn't closed for this task${verified ? ` (found: Verified: ${verified[1]})` : ''}.`,
+    'Hand the scoped diff to a fresh verifier:',
+    `  git diff -- ${pathspec}`,
+    `  git diff --cached -- ${pathspec}`,
+    `then record \`Verified: PASS <iso8601>\` in ${planPath} once it returns PASS.`,
+    'If this task has no file surface, mark it [coordination] instead.'
+  ].join('\n')
+)
+process.exit(2)
 ```
 
 ---

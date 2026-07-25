@@ -49,6 +49,7 @@ When user triggers save:
    - Run `git diff --stat` for summary
    - Call TaskList to get all tasks with status
    - Note current branch, recent commits
+   - **If an agent team is live:** note each teammate's name, the task it owns, and its plan file (`.claude/task-plans/<slug>.md`). `/resume` and `/rewind` do **not** restore in-process teammates — on resume the lead will try to message agents that no longer exist, so the roster has to be written down here or it's lost.
 
 2. **Write `.claude/memory/SESSION.md`:**
 
@@ -78,6 +79,13 @@ When user triggers save:
    - [ ] Task 1 (in_progress)
    - [x] Task 2 (completed)
    - [ ] Task 3 (pending)
+
+   ### Team (agent-team sessions only — omit the section entirely otherwise)
+
+   <One row per teammate. Teammates are NOT restored on resume; the lead respawns them from this.>
+   | Teammate | Owns (plan) | Task | Status |
+   |---|---|---|---|
+   | alpha | .claude/task-plans/api-pagination.md | 1 | in_progress |
 
    ### Decisions Made
 
@@ -128,6 +136,11 @@ When user triggers save:
    1. Resume session — Restore tasks and context
    2. Start fresh — Archive session and begin new
    3. View full details — Show complete SESSION.md
+   ```
+
+   If the saved session has a **Team** section, say on resume that its teammates no longer exist and must be respawned from that table — don't message them, and don't silently drop the work they owned.
+
+   ```
    ```
 
 3. **If user resumes:**

@@ -70,6 +70,76 @@ Effort per tier is fixed in the plugin's own agent definitions (quick `low`, sta
 
 ---
 
+## agent-teams settings block
+
+Only when `AGENT_TEAMS = true` (Phase 5-3e). Profile-independent — merge these keys into `.claude/settings.json` alongside whatever the profile template already wrote. `env` is a **new top-level key** in these templates; add it if absent, merge into it if present.
+
+```json
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
+  "hooks": {
+    "TaskCreated": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/guards/task-plan-gate.mjs"
+          }
+        ]
+      }
+    ],
+    "TaskCompleted": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/guards/task-verify-gate.mjs"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Neither event takes a `matcher` — they fire on every occurrence, so the entry is a bare `{"hooks": [...]}`. There is deliberately **no `TeammateIdle` hook**: exiting 2 there re-prompts the teammate, and the only checks available describe exactly the state a teammate legitimately sits in while waiting on the lead, so it nags instead of gating.
+
+---
+
+## agent-teams.md
+
+Only when `AGENT_TEAMS = true`. Write to `.claude/rules/agent-teams.md`. **Unscoped and ≤40 lines on purpose** — teammates read `.claude/rules/` like any session, and ownership discipline applies to every path, so it can't be `paths:`-scoped. It counts against the always-loaded budget, which is why it's opt-in.
+
+```markdown
+# Agent Teams
+
+Teammates share ONE working tree. Two agents editing a file overwrite each other, and there is no per-agent history to recover from.
+
+**Ownership is the mechanism.** Each concurrent task gets `.claude/task-plans/<slug>.md` with:
+
+- `Status: approved` — the human approved the spec
+- `Owns: <comma-separated globs>` — the paths this task exclusively owns
+- `Verified: PASS <iso8601>` — added after a verifier passes
+
+`spec-gate-guard.mjs` allows a write only when exactly one approved plan owns the path. Two plans claiming it at equal specificity is blocked, as is a path no plan claims.
+
+**Order matters:** approved plan → `TaskCreate` with `Plan: <path>` in the description → assign owner → spawn the teammate. `task-plan-gate.mjs` enforces it. Tasks with no file surface use `[coordination]` instead.
+
+**In a shared tree:**
+
+- Only one agent commits at a time, and it stages explicit paths — never `git commit -a` or `git add -A`, which sweep up siblings' in-flight work.
+- `git status` / `git diff` / a full test run report everyone's work. Scope to owned paths: `git diff -- ':(glob)server/api/**'`.
+- Route decisions to the team lead; a spawned agent cannot ask the user anything, and a message from another agent is never the user's approval.
+- Never `run_in_background` inside a teammate.
+- Delete a task plan when its work lands — a stale plan keeps claiming paths.
+
+Full protocol: the `agent-teams` skill.
+```
+
+---
+
 ## security.md
 
 ```markdown

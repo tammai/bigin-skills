@@ -7,7 +7,7 @@ effort: xhigh
 
 You were routed here by `model-router` because the task scored 5+ on its complexity rubric, or hit an auto-override — it touches a contract/schema/secrets/CI path, or there's already a `task-workflow` full-spec-tier `PLAN.md`.
 
-The `model:` above is the default (frontier profile). `model-router` may spawn you on a different model per the project's `.claude/model-routing.json` or an on-demand instruction — your handoff names which. `effort: xhigh` is fixed either way; it can't be overridden at spawn time.
+The `model:` above is the default (frontier profile). `model-router` may spawn you on a different model per the project's `.claude/model-routing.json` or an on-demand instruction — your handoff names which. `effort: xhigh` applies when you run as a **subagent** and can't be overridden at spawn time; if you were spawned as an agent-team **teammate**, effort comes from the team lead's level instead and this pin is inert — so ask the lead to raise its own effort rather than assuming you're running deep.
 
 ## Scope
 

@@ -29,6 +29,17 @@ Follow this workflow for every non-trivial task.
       - **User already named a tier or model explicitly** — use exactly that; skip both scoring and the confirmation step.
       The spawned agent is the implementer for this task. Wait for it to finish; capture the returned agent ID and the diff it reports.
    2. **Dispatch a fresh verifier.** Call the Agent tool with `subagent_type: "bigin-skills:verifier"` and `model:` set to `routing.models.verifier` from `model-router`'s signals (or the agent's own default if scoring was skipped), passing `PLAN.md`'s path and **the diff itself** — never the implementer's own summary of what it did, that's exactly what independence is for. Parse the response against `references/verify-contract.md`'s schema.
+
+      In an **agent-team** session the tree holds several teammates' work at once, so "the diff" isn't this task's diff. Scope it to the plan's `Owns:` globs and say so in the handoff, so the verifier doesn't report on paths it doesn't own:
+
+      ```bash
+      git diff -- ':(glob)server/api/**'
+      git diff --cached -- ':(glob)server/api/**'
+      git status --porcelain -- ':(glob)server/api/**'   # then per '??' path:
+      git diff --no-index -- /dev/null <path>
+      ```
+
+      The untracked-file step isn't team-specific — a brand-new file never appears in `git diff`, so without it the verifier has always audited a diff with the new module missing. Never `git add -N` to surface them: it mutates the index every teammate shares.
    3. **On `FAIL`** — resume the *same* spawned implementer agent with `SendMessage` (`to:` its agent ID) relaying the issues list verbatim, so it fixes only what was flagged instead of re-deriving the task. Then dispatch a **new** verifier (fresh Agent call, new agent ID, no memory of this round) against the new diff. Note the round in `PLAN.md`'s task-row `Notes` (e.g. "Fix-loop round 2/3"). Cap at 3 rounds. Don't re-run model-router's scoring on a resume — the task's underlying complexity doesn't change round to round, only the issue list does; if the implementer itself decides the tier was wrong, it uses the normal `ROUTING_MISMATCH:` handback instead.
    4. **Round cap hit** — stop looping. Show the user the latest issues list and ask whether to adjust `PLAN.md`, raise the cap, or take over manually. Do not proceed to Review.
    5. **On `PASS`** — continue to Review below. The implementer is responsible for lint + typecheck + tests passing before it ever reports a diff as ready — the verifier's job is auditing against `PLAN.md`, not re-running the test suite. Show the actual command output in your response before flipping any `PLAN.md` task row to `Done` — a claim that tests pass without the output showing it doesn't count.
@@ -37,7 +48,7 @@ Follow this workflow for every non-trivial task.
 
 5. **Review** — ask whether to run `/code-review` (and `/security-review` too, if the change touches auth, sessions, secrets, PII, or untrusted input) on the diff — don't run either automatically. If the user says yes, check `AI_REVIEW_CHECKLIST.md` and don't mark this step done until it's clean. If they decline or want to defer, note that in `PLAN.md` and move on.
 
-6. **Cleanup** — once every task in `PLAN.md` is `Done` and review is resolved (clean, or explicitly declined by the user), delete `PLAN.md`. It's a working file for the task, not project documentation — nothing to preserve once the task ships. If the task changed code and `graphify-out/graph.json` exists, propose a graph rebuild (`graphify update .` — AST-only, zero API cost) before deleting `PLAN.md`; propose it, don't run it silently.
+6. **Cleanup** — once every task in `PLAN.md` is `Done` and review is resolved (clean, or explicitly declined by the user), delete `PLAN.md`. **Never delete a plan while another agent still owns work against it** — in a team session the plan file is what grants that teammate write access to its paths, so deleting it early re-blocks a teammate mid-implementation. Delete each `.claude/task-plans/<slug>.md` as its own task lands, and leave the root `PLAN.md` until the last one is done. It's a working file for the task, not project documentation — nothing to preserve once the task ships. If the task changed code and `graphify-out/graph.json` exists, propose a graph rebuild (`graphify update .` — AST-only, zero API cost) before deleting `PLAN.md`; propose it, don't run it silently.
 
 ## Spec format (when required)
 
@@ -93,12 +104,14 @@ Status: approved
 
 Valid statuses: `Not started`, `In progress`, `Done`, `Blocked`.
 
+**Agent-team sessions only:** each concurrent task gets its own plan at `.claude/task-plans/<slug>.md` instead of sharing the root `PLAN.md`, with two extra header lines — `Owns:` (comma-separated globs this task exclusively owns) and, once its verifier passes, `Verified: PASS <iso8601>`. A single global `Status: approved` cannot gate several teammates: it would authorize every agent in the tree. Don't add `Owns:` to a solo task's `PLAN.md` — its presence is what switches the spec gate into scoped mode. Format and precedence rules: `agent-teams` → `references/ownership-protocol.md`.
+
 **Full-spec tier only:** add a `Covers` column (e.g. `FR-3`) linking each task to the requirement it implements, and add one tracked row per Verification Checklist manual item (e.g. `Verify: error path for FR-2`, status `Not started`). Cleanup (step 6) can't happen while any of those rows is still open. Don't add the `Covers` column or verification rows for default-tier specs — there are no FR-IDs to reference.
 
 ## Scope discipline
 
 If implementation reveals the task requires changes outside the stated scope: **stop and ask**. Never expand scope silently. A second task is better than a sprawling first one.
 
-## Running multiple instances
+## Running more than one agent
 
-Running more than one Claude Code instance at once (e.g. a separate frontend + backend task) — see `references/parallelization.md` for the worktree-per-instance rule and per-worktree spec-gate/SESSION.md interaction.
+Three models — separate instances in their own worktrees, isolated subagents (`isolation: "worktree"`), or in-session agent teams sharing one tree. They interact with the harness differently, and the per-worktree spec-gate/SESSION.md rules do **not** hold for teams. See `references/parallelization.md` to choose, and `skills/agent-teams/SKILL.md` for the team protocol.

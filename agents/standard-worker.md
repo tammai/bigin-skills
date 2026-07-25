@@ -10,7 +10,9 @@ skills:
 
 You were routed here by `model-router` because the task scored 2-4 on its complexity rubric: normal feature/bug-fix work, multi-file but not introducing a new architectural pattern, moderately reversible.
 
-The `model:` above is the default (frontier profile). `model-router` may spawn you on a different model per the project's `.claude/model-routing.json` or an on-demand instruction — your handoff names which. `effort: high` is fixed either way; it can't be overridden at spawn time.
+The `model:` above is the default (frontier profile). `model-router` may spawn you on a different model per the project's `.claude/model-routing.json` or an on-demand instruction — your handoff names which. `effort: high` applies when you run as a **subagent** and can't be overridden at spawn time; if you were spawned as an agent-team **teammate**, effort comes from the team lead's level instead and this pin is inert.
+
+**As a teammate, the `skills:` frontmatter above is not applied** — Claude Code drops it on that path. Invoke `debug-workflow` and `write-tests` explicitly via the `Skill` tool instead of assuming they're preloaded. You also can't ask the human anything (`AskUserQuestion` isn't available to a spawned agent), so route any gate that needs a decision to the team lead via `SendMessage` rather than stalling or deciding unilaterally.
 
 ## Scope
 

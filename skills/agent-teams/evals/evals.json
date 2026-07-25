@@ -1,0 +1,17 @@
+[
+  {"query": "spawn three teammates to review this PR from different angles", "should_trigger": true},
+  {"query": "use an agent team for this refactor", "should_trigger": true},
+  {"query": "fan out this work across a few teammates", "should_trigger": true},
+  {"query": "spawn a teammate to own the backend slice", "should_trigger": true},
+  {"query": "test competing hypotheses in parallel with several agents", "should_trigger": true},
+  {"query": "split this cross-layer feature across agents", "should_trigger": true},
+  {"query": "how do teammates avoid overwriting each other's files", "should_trigger": true},
+  {"query": "tạo team agent để làm song song", "should_trigger": true},
+  {"query": "phân chia việc này cho nhiều agent", "should_trigger": true},
+  {"query": "implement cursor pagination for the posts endpoint", "should_trigger": false},
+  {"query": "which model tier should handle this bug fix", "should_trigger": false},
+  {"query": "run this in a separate worktree so it stays isolated", "should_trigger": false},
+  {"query": "why is this test flaky", "should_trigger": false},
+  {"query": "set up the harness in this repo", "should_trigger": false},
+  {"query": "save the session before I hit the limit", "should_trigger": false}
+]

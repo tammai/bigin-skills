@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Computes mechanical model-router rubric signals from git state, plus the
 // project's resolved model ladder. Node stdlib only.
-// Usage: node classify.mjs [--base <ref>]
+// Usage: node classify.mjs [--base <ref>] [--paths <glob,glob>] [--plan <path>]
 // Never hard-fails: on any error, prints the same JSON shape with empty/null
 // fields plus an `error` string, so SKILL.md can fall back to pure reasoning.
 
@@ -94,14 +94,72 @@ function git(args) {
 }
 
 function parseArgs(argv) {
-  const out = { base: null };
+  const out = { base: null, paths: [], plan: null };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--base' && argv[i + 1]) {
       out.base = argv[i + 1];
       i++;
+    } else if (argv[i] === '--paths' && argv[i + 1]) {
+      // Comma-separated, and repeatable.
+      out.paths.push(...argv[i + 1].split(',').map((s) => s.trim()).filter(Boolean));
+      i++;
+    } else if (argv[i] === '--plan' && argv[i + 1]) {
+      out.plan = argv[i + 1];
+      i++;
     }
   }
   return out;
+}
+
+// --- Scoping (agent teams) ---
+//
+// In a team session every teammate's work sits in one working tree, so
+// `git status` over the whole tree attributes everyone's changes to "this task"
+// — inflating filesChanged/testCoverageRatio and firing the highRiskMatches
+// auto-override on work this agent never touched. `--paths` (or `--plan`, which
+// reads the plan's `Owns:` globs) narrows the signals to what this agent owns.
+// With neither flag, behavior is exactly what it was before scoping existed.
+
+// Single pass rather than sentinel substitution: a sentinel character breaks on
+// any glob that legitimately contains it, and a literal control character in
+// source is invisible to review.
+function globToRe(glob) {
+  let body = '';
+  for (let i = 0; i < glob.length; i++) {
+    const char = glob[i];
+    if (char === '*') {
+      if (glob[i + 1] === '*') {
+        body += '.*'; // ** crosses directory separators
+        i++;
+      } else {
+        body += '[^/]*'; // * stops at a separator
+      }
+    } else if (char === '?') {
+      body += '[^/]';
+    } else if ('.+^${}()|[]\\/'.includes(char)) {
+      body += '\\' + char;
+    } else {
+      body += char;
+    }
+  }
+  return new RegExp(`^${body}$`);
+}
+
+// Reads `Owns:` from a plan file. Returns [] when the file is missing or has no
+// such line — an unscoped run is the correct degradation here, since this script
+// only reports signals and never gates anything.
+function ownsFromPlan(planPath) {
+  try {
+    if (!existsSync(planPath)) return [];
+    // Header region only (before the first `##`), matching the guards: a spec
+    // body that happens to start a line with "Owns:" is not a declaration.
+    const header = readFileSync(planPath, 'utf8').split(/^##\s/m)[0];
+    const match = header.match(/^Owns:\s*(.+)$/m);
+    if (!match) return [];
+    return match[1].split(',').map((s) => s.trim()).filter(Boolean);
+  } catch {
+    return [];
+  }
 }
 
 function resolveBase(explicitBase) {
@@ -116,7 +174,10 @@ function resolveBase(explicitBase) {
 
 function getTouchedFiles(base) {
   // Uncommitted changes first — this is almost always what "this task" means.
-  const statusOut = git(['status', '--porcelain']);
+  // `-uall` matters: without it git collapses an untracked directory into one
+  // entry ("skills/foo/"), which both undercounts filesChanged and makes those
+  // files invisible to a `--paths` glob that names anything below the directory.
+  const statusOut = git(['status', '--porcelain', '-uall']);
   if (statusOut.trim()) {
     return statusOut
       .split('\n')
@@ -153,18 +214,28 @@ function hasSiblingTest(file) {
   return false;
 }
 
-function detectFullSpec() {
-  if (!existsSync('PLAN.md')) return false;
-  const content = readFileSync('PLAN.md', 'utf8');
+// Scoped runs check the task's own plan (`--plan`), not the repo-root PLAN.md —
+// otherwise any one teammate's full-spec plan auto-routes every sibling's
+// unrelated task to the deep tier.
+function detectFullSpec(planPath = 'PLAN.md') {
+  if (!existsSync(planPath)) return false;
+  const content = readFileSync(planPath, 'utf8');
   return /\[full-spec\]/.test(content) || /\bCovers\b/.test(content) || /FR-\d+/.test(content);
 }
 
 function classify(argv) {
-  const { base: explicitBase } = parseArgs(argv);
+  const { base: explicitBase, paths, plan } = parseArgs(argv);
   const base = resolveBase(explicitBase);
 
+  const planGlobs = plan ? ownsFromPlan(plan) : [];
+  const globs = [...paths, ...planGlobs];
+  const scopeSource = paths.length > 0 ? (planGlobs.length > 0 ? 'paths+plan' : 'paths') : planGlobs.length > 0 ? 'plan' : null;
+
   const touchedFilesRaw = getTouchedFiles(base);
-  const touchedFiles = touchedFilesRaw.filter((f) => !LOCKFILES.has(basename(f)));
+  const unscoped = touchedFilesRaw.filter((f) => !LOCKFILES.has(basename(f)));
+
+  const matchers = globs.map(globToRe);
+  const touchedFiles = matchers.length === 0 ? unscoped : unscoped.filter((f) => matchers.some((re) => re.test(f)));
 
   const highRiskMatches = touchedFiles.filter((f) => HIGH_RISK_RE.test(f));
 
@@ -172,14 +243,31 @@ function classify(argv) {
   const testCoverageRatio =
     nonTestFiles.length === 0 ? null : nonTestFiles.filter(hasSiblingTest).length / nonTestFiles.length;
 
-  const fullSpecDetected = detectFullSpec();
+  const fullSpecDetected = detectFullSpec(plan ?? 'PLAN.md');
+
+  // `filesChanged` stays the true count; the LIST is capped because it gets
+  // pasted into a subagent's payload. Since the rubric's top band is "5+", a
+  // count of 60 and 600 route identically — but 600 paths in a handoff is pure
+  // context bloat, and it usually means untracked junk that belongs in
+  // .gitignore rather than 600 files of real work.
+  const LIST_CAP = 50;
+  const listTruncated = touchedFiles.length > LIST_CAP;
 
   return {
     filesChanged: touchedFiles.length,
-    touchedFiles,
+    touchedFiles: listTruncated ? touchedFiles.slice(0, LIST_CAP) : touchedFiles,
+    ...(listTruncated
+      ? { touchedFilesTruncated: `showing ${LIST_CAP} of ${touchedFiles.length} — if most are untracked junk, gitignore it; the count is inflating your routing signal` }
+      : {}),
     highRiskMatches,
     testCoverageRatio,
     fullSpecDetected,
+    // null on an unscoped run. `excluded` is the count of dirty files attributed
+    // to somebody else — a non-zero value on a solo task means the scope is wrong.
+    scopedTo:
+      scopeSource === null
+        ? null
+        : { source: scopeSource, globs, plan: plan ?? null, excluded: unscoped.length - touchedFiles.length },
     routing: resolveRouting(),
   };
 }
@@ -197,6 +285,7 @@ function main() {
           highRiskMatches: [],
           testCoverageRatio: null,
           fullSpecDetected: false,
+          scopedTo: null,
           routing: {
             profile: DEFAULT_PROFILE,
             models: { ...PROFILES[DEFAULT_PROFILE] },

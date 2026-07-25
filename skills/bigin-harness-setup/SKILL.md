@@ -40,7 +40,7 @@ Store result as `PROFILE`. Load `references/profile-{PROFILE}.md` for all templa
 
 Scaffolding is done by the `nuxt-scaffold` skill's deterministic script — **not** conversationally. Three steps, and **all questions happen up front, in one batch; zero prompts once scaffolding starts**:
 
-1. **Gather every scaffold decision now**, in the same turn, back-to-back with this skill's own remaining decisions: ask `skills/nuxt-scaffold/SKILL.md` → Step 2 (project name, primary/neutral theme colors, version policy), then immediately ask Phase 1.5's bundle below (Knowledge Bundle/Graphify + CI config + model routing profile — an empty repo can't hit Phase 1's conflict path, so only those three apply here). Confirm the scaffold summary once. Store `KNOWLEDGE_BUNDLE` / `GRAPH` / `CI_PROVIDER` / `MODEL_ROUTING` now — Phase 1.5 is a no-op later in this branch since they're already decided.
+1. **Gather every scaffold decision now**, in the same turn, back-to-back with this skill's own remaining decisions: ask `skills/nuxt-scaffold/SKILL.md` → Step 2 (project name, primary/neutral theme colors, version policy), then immediately ask Phase 1.5's bundle below (Knowledge Bundle/Graphify + CI config + model routing profile + agent teams — an empty repo can't hit Phase 1's conflict path, so only those four apply here). Confirm the scaffold summary once. Store `KNOWLEDGE_BUNDLE` / `GRAPH` / `CI_PROVIDER` / `MODEL_ROUTING` / `AGENT_TEAMS` now — Phase 1.5 is a no-op later in this branch since they're already decided.
 2. **Write the config JSON** (schema in `skills/nuxt-scaffold/SKILL.md` → Step 3) to a temp file outside the repo, with `"packageManager": "pnpm"`.
 3. **Run the script and stream its output** (several minutes — installs + verify gates):
    ```sh
@@ -62,7 +62,7 @@ Skip this phase entirely if `nuxt.config.ts` already exists (onboarding an exist
 
 Scaffolding is done by the `go-scaffold` skill's deterministic script — **not** conversationally. All questions happen up front, in one batch; zero prompts once scaffolding starts:
 
-1. **Gather every scaffold decision now**, in the same turn, back-to-back with this skill's own remaining decisions: ask `skills/go-scaffold/SKILL.md` → Step 2 (module path, project name), then immediately ask Phase 1.5's bundle below (Knowledge Bundle/Graphify + CI config + model routing profile — an empty repo can't hit Phase 1's conflict path, so only those three apply here). Confirm the scaffold summary once. Store `KNOWLEDGE_BUNDLE` / `GRAPH` / `CI_PROVIDER` / `MODEL_ROUTING` now — Phase 1.5 is a no-op later in this branch since they're already decided.
+1. **Gather every scaffold decision now**, in the same turn, back-to-back with this skill's own remaining decisions: ask `skills/go-scaffold/SKILL.md` → Step 2 (module path, project name), then immediately ask Phase 1.5's bundle below (Knowledge Bundle/Graphify + CI config + model routing profile + agent teams — an empty repo can't hit Phase 1's conflict path, so only those four apply here). Confirm the scaffold summary once. Store `KNOWLEDGE_BUNDLE` / `GRAPH` / `CI_PROVIDER` / `MODEL_ROUTING` / `AGENT_TEAMS` now — Phase 1.5 is a no-op later in this branch since they're already decided.
 2. **Run the script and stream its output** (roughly a minute — first run downloads/builds `oapi-codegen` + `sqlc`, then `go mod tidy`, `go vet`, `go build`, `go test`):
    ```sh
    node skills/go-scaffold/scripts/scaffold.mjs --module <module-path> --dir . [--project <name>]
@@ -85,7 +85,7 @@ Skip this phase entirely if `go.mod` already exists (onboarding an existing repo
 
 Scaffolding is done by the `nodejs-scaffold` skill's deterministic script — **not** conversationally. All questions happen up front, in one batch; zero prompts once scaffolding starts:
 
-1. **Gather every scaffold decision now**, in the same turn, back-to-back with this skill's own remaining decisions: ask `skills/nodejs-scaffold/SKILL.md` → Step 2 (project name), then immediately ask Phase 1.5's bundle below (Knowledge Bundle/Graphify + CI config + model routing profile — an empty repo can't hit Phase 1's conflict path, so only those three apply here). Confirm the scaffold summary once. Store `KNOWLEDGE_BUNDLE` / `GRAPH` / `CI_PROVIDER` / `MODEL_ROUTING` now — Phase 1.5 is a no-op later in this branch since they're already decided.
+1. **Gather every scaffold decision now**, in the same turn, back-to-back with this skill's own remaining decisions: ask `skills/nodejs-scaffold/SKILL.md` → Step 2 (project name), then immediately ask Phase 1.5's bundle below (Knowledge Bundle/Graphify + CI config + model routing profile + agent teams — an empty repo can't hit Phase 1's conflict path, so only those four apply here). Confirm the scaffold summary once. Store `KNOWLEDGE_BUNDLE` / `GRAPH` / `CI_PROVIDER` / `MODEL_ROUTING` / `AGENT_TEAMS` now — Phase 1.5 is a no-op later in this branch since they're already decided.
 2. **Run the script and stream its output** (a couple of minutes — `pnpm add` for deps then devDeps, then `openapi-typescript` + `drizzle-kit generate`, then lint/typecheck/build/test):
    ```sh
    node skills/nodejs-scaffold/scripts/scaffold.mjs --project <name> --dir .
@@ -108,7 +108,7 @@ Skip this phase entirely if `package.json` already exists (onboarding an existin
 
 Scaffolding is done by the `next-scaffold` skill's deterministic script — **not** conversationally. Three steps, and **all questions happen up front, in one batch; zero prompts once scaffolding starts** (same config-JSON shape as Phase 0.5's nuxt branch, since `next-scaffold` has multiple decisions like `nuxt-scaffold` does — not the single-flag CLI style of the go/nodejs branches):
 
-1. **Gather every scaffold decision now**, in the same turn, back-to-back with this skill's own remaining decisions: ask `skills/next-scaffold/SKILL.md` → Step 2 (project name, template, version policy), then immediately ask Phase 1.5's bundle below (Knowledge Bundle/Graphify + CI config + model routing profile — an empty repo can't hit Phase 1's conflict path, so only those three apply here). Confirm the scaffold summary once. Store `KNOWLEDGE_BUNDLE` / `GRAPH` / `CI_PROVIDER` / `MODEL_ROUTING` now — Phase 1.5 is a no-op later in this branch since they're already decided.
+1. **Gather every scaffold decision now**, in the same turn, back-to-back with this skill's own remaining decisions: ask `skills/next-scaffold/SKILL.md` → Step 2 (project name, template, version policy), then immediately ask Phase 1.5's bundle below (Knowledge Bundle/Graphify + CI config + model routing profile + agent teams — an empty repo can't hit Phase 1's conflict path, so only those four apply here). Confirm the scaffold summary once. Store `KNOWLEDGE_BUNDLE` / `GRAPH` / `CI_PROVIDER` / `MODEL_ROUTING` / `AGENT_TEAMS` now — Phase 1.5 is a no-op later in this branch since they're already decided.
 2. **Write the config JSON** (schema in `skills/next-scaffold/SKILL.md` → Step 3) to a temp file outside the repo, with `"packageManager": "pnpm"`.
 3. **Run the script and stream its output** (several minutes — installs + shadcn/ui + verify gates):
    ```sh
@@ -163,7 +163,7 @@ Self-contained — skip Phases 1.5 through 8 entirely when this runs; it ends wi
 
 ## Phase 1.5: Gather Remaining Decisions
 
-Skip this phase entirely if `KNOWLEDGE_BUNDLE`, `GRAPH`, `CI_PROVIDER`, and `MODEL_ROUTING` are already set (Phase 0.5/0.5b asked them alongside the nuxt-scaffold/go-scaffold batch for the empty-repo branch).
+Skip this phase entirely if `KNOWLEDGE_BUNDLE`, `GRAPH`, `CI_PROVIDER`, `MODEL_ROUTING`, and `AGENT_TEAMS` are already set (Phase 0.5/0.5b asked them alongside the nuxt-scaffold/go-scaffold batch for the empty-repo branch).
 
 Otherwise, ask **one bundled `AskUserQuestion` call**, before writing any files, combining:
 
@@ -191,9 +191,18 @@ Otherwise, ask **one bundled `AskUserQuestion` call**, before writing any files,
    Per-tier overrides and the full schema: bigin-skills skills/model-router/references/model-profiles.md.
    ```
    Store `MODEL_ROUTING` (the profile name).
-4. **Install mode** — only if Phase 1 detected an existing-harness conflict in this run: the overwrite/new/cancel question from Phase 1 above.
+4. **Agent teams** (no/yes, default **no**):
+   ```
+   Enable Claude Code agent teams? (no/yes)
+   1. no (default) — nothing added. Teams stay off; parallel work uses subagents or separate worktrees.
+   2. yes — sets CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1, adds two task gates + a .claude/rules/agent-teams.md ownership rule.
+   Experimental, uses significantly more tokens (scales with live teammates), and /resume does not restore teammates.
+   Only worth it when several agents must coordinate through a shared task list — see the agent-teams skill.
+   ```
+   Store `AGENT_TEAMS`.
+5. **Install mode** — only if Phase 1 detected an existing-harness conflict in this run: the overwrite/new/cancel question from Phase 1 above.
 
-Store `KNOWLEDGE_BUNDLE`, `GRAPH`, `CI_PROVIDER`, `MODEL_ROUTING` (and `INSTALL_MODE` if included). Code and security review are not scaffolded as project-local agents — point the user at the `/code-review` and `/security-review` skills instead (see Phase 7 summary).
+Store `KNOWLEDGE_BUNDLE`, `GRAPH`, `CI_PROVIDER`, `MODEL_ROUTING`, `AGENT_TEAMS` (and `INSTALL_MODE` if included). Code and security review are not scaffolded as project-local agents — point the user at the `/code-review` and `/security-review` skills instead (see Phase 7 summary).
 
 ---
 
@@ -315,6 +324,19 @@ Read from `references/hook-guard.md` → `## bugfix-test-guard.mjs`. Write to `.
 
 Read from `references/hook-guard.md` → `## precompact-snapshot.mjs`. Write to `.claude/guards/precompact-snapshot.mjs`. Applies to all profiles — the `PreCompact` hook in every profile's `settings.json` template points at this script, so it must be written or that hook dangles. Autosaves in-flight state to `.claude/memory/SESSION.md` (in `session-handoff`'s template shape) before a manual or automatic compaction, so `session-resume-check.mjs` can recover it.
 
+### 5-2h. Agent-team task gates (`AGENT_TEAMS = true` only)
+
+Skip this entirely if `AGENT_TEAMS = false`. Otherwise write both from `references/hook-guard.md`:
+
+- `.claude/guards/task-plan-gate.mjs` — `TaskCreated`: a task must reference a plan that is `Status: approved` with a non-empty `Owns:`.
+- `.claude/guards/task-verify-gate.mjs` — `TaskCompleted`: the plan must carry `Verified: PASS`.
+
+Both no-op when `.claude/task-plans/` doesn't exist, so they stay inert until a team actually runs.
+
+**Do not create `.claude/task-plans/` here.** Its existence is what arms both gates, so creating it at scaffold time would make every ordinary `TaskCreate` in this repo demand a `Plan:` reference — including in plain single-agent sessions that will never form a team. The directory is created by the lead when it writes the first task plan (`agent-teams` skill, Step 2). `spec-gate-guard.mjs`'s scoped mode is independent of the directory: it keys on any plan file declaring `Owns:`.
+
+`spec-gate-guard.mjs` (5-2b) is unchanged by this decision: it ships in every profile and picks its own mode from whether any plan declares `Owns:`.
+
 ### 5-3. .claude/settings.json
 
 For **nuxt** / **next** (same merge shape, different scaffold skill):
@@ -338,6 +360,16 @@ Write `.claude/harness-version` containing the current version from this plugin'
 
 - `INSTALL_MODE=yes` (or a fresh install) → always write/overwrite; every generated file now matches current templates.
 - `INSTALL_MODE=new` → only write if the marker doesn't already exist. Files skipped as pre-existing may still be older than the recorded version — a later patch run reports those as "anchor not found" rather than corrupting them, so this is a safe degradation, not a correctness bug.
+
+### 5-3e. Agent-team settings + rule (`AGENT_TEAMS = true` only)
+
+Skip if `AGENT_TEAMS = false`. Otherwise:
+
+1. Merge `references/files-shared.md` → `## agent-teams settings block` into `.claude/settings.json` — the `env` key (new top-level key in these templates) plus the `TaskCreated`/`TaskCompleted` hook arrays. Merge per-event; never drop existing entries.
+2. Write `.claude/rules/agent-teams.md` from `references/files-shared.md` → `## agent-teams.md` (skip if `INSTALL_MODE=new` and it exists).
+3. Add `.claude/task-plans/`, `*.lock` and `*.tmp-*` to `.gitignore` if absent — task plans are per-task working files, and the guards' temp/lock artifacts should never be committed.
+
+The rule file is unscoped and counts against the always-loaded budget (Phase 8), which is the main reason this is opt-in rather than default.
 
 ### 5-3d. Model routing config
 
@@ -444,7 +476,8 @@ the always-loaded budget unless you're editing those paths.
 - CI Config (Phase 5.6) — opt-in only, decided once in Phase 1.5 (`CI_PROVIDER`, auto-detected default); skip entirely if `no`. Only ever writes/overwrites CI files this skill generated; never edits pre-existing, hand-written CI config.
 - Graphify (Phase 5.7) — opt-in only, decided once in Phase 1.5 (`GRAPH`); skip entirely if declined. Never auto-runs the initial index — always proposed. Install prompting happens here only, never in a consuming skill.
 - `.claude/model-routing.json` (Phase 5-3d) — decided once in Phase 1.5 (`MODEL_ROUTING`); `new` mode never overwrites an existing ladder. Deleting the file is safe: `model-router` falls back to the `frontier` default.
-- All user-facing questions (profile ambiguity, harness conflicts, Knowledge Bundle, CI, model routing profile, foreign pre-commit hook) resolve before any file is written — see Phase 1.5.
+- Agent teams (Phases 5-2h, 5-3e) — opt-in only, decided once in Phase 1.5 (`AGENT_TEAMS`), default off; skip both phases entirely if declined. The two task gates are inert until `.claude/task-plans/` exists, and `spec-gate-guard.mjs` stays in legacy mode until some plan declares `Owns:` — so scaffolding them never changes existing behavior on its own.
+- All user-facing questions (profile ambiguity, harness conflicts, Knowledge Bundle, CI, model routing profile, agent teams, foreign pre-commit hook) resolve before any file is written — see Phase 1.5.
 - Never delete files not part of the harness.
 - `.claude/harness-version` — written on every fresh/overwrite setup (Phase 5-3c) as a baseline for future patch runs; `new` mode only writes it if absent, since skipped pre-existing files may be older than the recorded version.
 - Patch mode (Phase 1a) — only touches files/lines named in a changelog entry's `patch` block; never guesses at an anchor match; always advances `.claude/harness-version` even on partial application, logging what still needs manual review.
@@ -459,6 +492,7 @@ Read `references/summary-checklist.md` → `## Output Checklist` and verify ever
 
 ## References
 
+- `skills/agent-teams/SKILL.md` — the team protocol the `AGENT_TEAMS` gates enforce (ownership, task-list bridging, scoped verification)
 - `references/profile-nuxt.md` — templates for nuxt profile (CLAUDE.md, conventions-frontend, conventions-server, testing, architecture addendum, settings.json, .vscode/settings.json)
 - `references/profile-next.md` — templates for next profile (same shape as profile-nuxt.md)
 - `skills/next-scaffold/SKILL.md` — empty-repo next scaffold (Phase 0.5d): create-next-app + BFF preset (Zustand, TanStack Query, shadcn/ui, iron-session)

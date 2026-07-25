@@ -4,7 +4,9 @@
 
 Use the Agent tool. `subagent_type` is the plugin-namespaced agent name — `bigin-skills:quick-executor`, `bigin-skills:standard-worker`, or `bigin-skills:deep-architect`, per the Step 3 tier decision. `model` is the Step 3b resolved model (`fable` | `opus` | `sonnet` | `haiku`) — pass it on every spawn, including when it equals the agent's frontmatter default.
 
-There is no effort option on the Agent tool: effort comes from the agent's own frontmatter (quick `low`, standard `high`, deep `xhigh`) and cannot be changed at the call site. If the user asks for a different effort level, say so plainly rather than accepting the request and dropping it.
+There is no effort option on the Agent tool: for a **subagent**, effort comes from the agent's own frontmatter (quick `low`, standard `high`, deep `xhigh`) and cannot be changed at the call site. If the user asks for a different effort level, say so plainly rather than accepting the request and dropping it.
+
+**Spawning the same definition as an agent-team teammate is different**: the frontmatter's `effort:` is not applied at all — teammates inherit the *lead's* effort level — and `skills:`/`mcpServers:` are dropped too, while `tools:` and `model:` still apply and the body is appended to the teammate's system prompt. So a deep-tier teammate is not running at `xhigh` unless the lead itself is. Routing a task into a team is `agent-teams`' decision, not this skill's; see `skills/agent-teams/references/platform-facts.md`.
 
 The prompt is self-contained — the spawned agent has no memory of this conversation. Include:
 

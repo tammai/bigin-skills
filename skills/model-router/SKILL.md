@@ -9,6 +9,8 @@ allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/classify.mjs *), Bash(git s
 
 Scores a task, then hands it off to the matching subagent. Three tiers, one each — effort is fixed per tier, the model is whatever the project's profile resolves to.
 
+This skill routes **subagents**. Whether a task should fan out into an agent *team* instead is `agent-teams`' call — and on that path a definition's `effort:` no longer applies (teammates inherit the lead's).
+
 | Tier     | Subagent                       | Effort (fixed) | Model — `frontier` (default) | `opus-centric` | `lean` |
 | -------- | ------------------------------ | -------------- | ---------------------------- | -------------- | ------ |
 | Quick    | `bigin-skills:quick-executor`  | low            | sonnet                       | sonnet         | haiku  |
@@ -19,9 +21,20 @@ Mechanical signals come from `scripts/classify.mjs`; two signals are not mechani
 
 ## Step 1: Gather mechanical signals
 
-Run `node ${CLAUDE_SKILL_DIR}/scripts/classify.mjs`. Relay the JSON. Fields: `filesChanged`, `touchedFiles`, `highRiskMatches`, `testCoverageRatio`, `fullSpecDetected`, `routing`.
+Run `node ${CLAUDE_SKILL_DIR}/scripts/classify.mjs`. Relay the JSON. Fields: `filesChanged`, `touchedFiles`, `highRiskMatches`, `testCoverageRatio`, `fullSpecDetected`, `scopedTo`, `routing`.
 
 If the script errors (non-git-repo, no `git` on `PATH`, etc.) it still returns valid JSON with an `error` field — fall back to Step 2 for every signal, estimating `filesChanged` from the user's own description of scope. `routing` is still populated (with the default profile) even on that path.
+
+**In an agent-team session, scope the signals or they're wrong.** All teammates share one working tree, so an unscoped run attributes every sibling's dirty file to this task — inflating `filesChanged`/`testCoverageRatio` and firing the `highRiskMatches` auto-override on work this agent never touched. Pass either:
+
+- `--paths 'server/api/**,server/repo/x.ts'` — comma-separated globs (`**` crosses directories, `*` doesn't), repeatable.
+- `--plan .claude/task-plans/<slug>.md` — reads that plan's `Owns:` globs, and checks *that* file for the full-spec signal instead of the repo-root `PLAN.md` (otherwise one teammate's full-spec plan auto-routes every sibling to Deep).
+
+`scopedTo` reports `{source, globs, plan, excluded}` and is `null` on an unscoped run.
+
+**A non-zero `excluded` on what should be a solo task means the scope is wrong** — say so instead of routing on it.
+
+`filesChanged` counts new files individually (a new 12-file module is 12, not 1). If `touchedFilesTruncated` appears, the list was capped at 50 for the payload while `filesChanged` kept the true count — that usually means untracked files which belong in `.gitignore` are inflating the signal, so name that rather than routing on it.
 
 ## Step 2: Assess qualitative signals (reason directly, no tool)
 
@@ -86,7 +99,7 @@ A `ROUTING_MISMATCH:` reply at any point during this loop short-circuits straigh
 
 ## Step 7: Handback protocol
 
-If the spawned subagent reports a routing mismatch (a reply starting `ROUTING_MISMATCH:` — see `references/agent-invocation.md`), re-score with the new information and respawn the correct tier (re-running Step 3b for the new tier's model). Don't try to change the running subagent's model or effort mid-session — both are fixed once it's spawned, not mutable in place.
+If the spawned subagent reports a routing mismatch (a reply starting `ROUTING_MISMATCH:` — see `references/agent-invocation.md`), re-score with the new information and respawn the correct tier (re-running Step 3b for the new tier's model). Don't try to change the running subagent's model or effort mid-session — both are fixed once it's spawned, not mutable in place. (A *teammate* is the same for `model`, but its effort tracks the lead's, so `/effort` on the lead does reach it on later turns.)
 
 ## References
 

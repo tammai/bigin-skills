@@ -10,4 +10,5 @@ Thumbs.db
 
 # Claude Code local state (not part of the plugin)
 .claude/settings.local.json
+.claude/team-probe.jsonl
 _workspace/

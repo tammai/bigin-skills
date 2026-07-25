@@ -30,6 +30,7 @@ scripts/git-hooks/        ← pre-commit running the budget gate
 | `sprint-distill`        | End-of-sprint distillation: merged PRs + touched knowledge/ concepts → proposal-first knowledge/ and bigin-skills updates. Compresses, never just appends.    |
 | `write-tests`           | On-demand test authoring (/write-tests): style-matches the nearest test file, lists edge cases first, TDD-orders logic, mocks only true I/O boundaries.       |
 | `debug-workflow`        | On-demand systematic debugging (/debug-workflow): triage → fast path for obvious bugs, full guarded workflow for flaky/env/repeat-failure bugs.               |
+| `agent-teams`           | Runs Claude Code agent teams safely: fan-out decision, per-task plan files with explicit file ownership, scoped verification, shutdown.                       |
 | `model-router`          | Scores task complexity and routes to quick-executor/standard-worker/deep-architect on a per-project model ladder. Routes down as well as up.                  |
 | `session-handoff`       | Saves session state (tasks, decisions, uncommitted changes) to SESSION.md and restores it on resume.                                                          |
 | `nuxt-ui-figma-handoff` | Turns a Nuxt UI Figma design handoff into code — theme tokens into main.css, component overrides into app.config.ts. Requires a Figma URL.                    |

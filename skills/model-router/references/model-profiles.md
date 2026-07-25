@@ -2,6 +2,8 @@
 
 Which model each tier runs on is configurable; **effort is not** — it's pinned in each agent's frontmatter and the Agent tool has no effort override (only `model`). Changing a tier's effort means editing `agents/<name>.md` in this plugin, not the project config.
 
+This whole ladder describes **subagents**. Spawned as an agent-team teammate, the same definition keeps its `model:` but ignores its `effort:` — teammates inherit the team lead's effort level. Set the lead's `/effort` to the level the fan-out needs; see `skills/agent-teams/references/platform-facts.md`.
+
 ## Profiles
 
 | Profile              | quick    | standard | deep    | verifier | Use when                                                                                 |

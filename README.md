@@ -45,6 +45,7 @@ The harness itself — setup, workflow, and maintenance for a repo under standar
 | **sprint-distill**      | End-of-sprint distillation: merged PRs + touched knowledge/ concepts → proposal-first knowledge/ and bigin-skills updates. Compresses, never just appends.    |
 | **write-tests**         | On-demand test authoring (/write-tests): style-matches the nearest test file, lists edge cases first, TDD-orders logic, mocks only true I/O boundaries.       |
 | **debug-workflow**      | On-demand systematic debugging (/debug-workflow): triage → fast path for obvious bugs, full guarded workflow for flaky/env/repeat-failure bugs.               |
+| **agent-teams**         | Runs Claude Code agent teams safely: fan-out decision, per-task plan files with explicit file ownership, scoped verification, shutdown.                       |
 | **model-router**        | Scores task complexity and routes to quick-executor/standard-worker/deep-architect on a per-project model ladder. Routes down as well as up.                  |
 <!-- /gen:skills-core -->
 
@@ -104,6 +105,7 @@ your-repo/
 │   │   ├── conventions.md              ← Tier 2: paths: src/** or **/*.go (go/nodejs)
 │   │   ├── security.md                 ← Tier 2: paths: scoped per profile
 │   │   └── architecture.md             ← Tier 2: paths: scoped per profile
+│   │   └── agent-teams.md              ← opt-in, unscoped ≤40 lines — file-ownership rules for teammates
 │   ├── guards/
 │   │   ├── bash-guard.mjs               ← blocks --no-verify and force-push to main
 │   │   ├── spec-gate-guard.mjs          ← blocks non-trivial edits before PLAN.md is approved
@@ -112,9 +114,12 @@ your-repo/
 │   │   ├── injection-gate-guard.mjs     ← asks for confirmation after a flag; denies outright on a canary-token match
 │   │   ├── session-resume-check.mjs     ← SessionStart hook: prompts to resume an in-progress SESSION.md
 │   │   ├── canary-seed.mjs              ← SessionStart hook: seeds a per-session exfiltration canary token
-│   │   └── precompact-snapshot.mjs      ← PreCompact hook: autosaves SESSION.md before context compaction
+│   │   ├── precompact-snapshot.mjs      ← PreCompact hook: autosaves SESSION.md before context compaction
+│   │   ├── task-plan-gate.mjs           ← opt-in: TaskCreated — a task needs an approved plan with Owns: globs
+│   │   └── task-verify-gate.mjs         ← opt-in: TaskCompleted — that plan needs Verified: PASS
 │   ├── settings.json                   ← pre-approved commands + hook wiring
-│   └── model-routing.json              ← subagent model ladder (frontier/opus-centric/lean + per-tier overrides)
+│   ├── model-routing.json              ← subagent model ladder (frontier/opus-centric/lean + per-tier overrides)
+│   └── task-plans/                     ← opt-in: one plan per concurrent task, each with Owns: globs
 ├── tools/
 │   └── context_budget.mjs               ← budget gate: CLAUDE.md ≤60, unscoped rules ≤40
 ├── scripts/
@@ -138,7 +143,8 @@ The skill detects the stack profile (or asks), confirms before overwriting anyth
 
 - **`scripts/pre-commit.sh`** — runs lint + typecheck + tests; fails closed. The skill installs it as a git hook (and `git init`s the repo if needed).
 - **`.claude/guards/bash-guard.mjs`** — a `PreToolUse` hook that blocks the agent from weakening its own gates (`--no-verify`, `git commit -n`, force-push to main). `--force-with-lease` on a feature branch is allowed.
-- **`.claude/guards/spec-gate-guard.mjs`** — a `PreToolUse` hook that blocks non-trivial `Edit`/`Write`/`MultiEdit` calls until `PLAN.md` exists with `Status: approved`. Trivial paths (`tests/**`, `*.md`, `.env.example`, common config files) and edits ≤20 lines are exempt.
+- **`.claude/guards/spec-gate-guard.mjs`** — a `PreToolUse` hook that blocks non-trivial `Edit`/`Write`/`MultiEdit` calls until `PLAN.md` exists with `Status: approved`. Trivial paths (`tests/**`, `*.md`, `.env.example`, common config files) and edits ≤20 lines are exempt. In an agent-team repo (any plan declaring `Owns:`) it switches to **scoped mode**: exactly one approved plan must own the path, an unowned path is blocked at any size, and two plans claiming it at equal specificity is blocked — a single global approval can't authorize every agent sharing the tree.
+- **`.claude/guards/task-plan-gate.mjs` + `.claude/guards/task-verify-gate.mjs`** (opt-in, agent teams) — `TaskCreated` requires the task to reference a plan that is `Status: approved` with a non-empty `Owns:` glob list; `TaskCompleted` requires that plan to carry `Verified: PASS`. Both exit 0 when `.claude/task-plans/` is absent, so they stay inert outside team work — the task tools fire in ordinary sessions too.
 - **`.claude/guards/bugfix-test-guard.mjs`** — a `PreToolUse` hook that blocks fix-shaped `git commit`s (conventional `fix:`, or `bugfix`/`hotfix`) unless a staged file matches a test pattern, all staged files are docs/config, or the message contains `[no-test]`. Enforces `debug-workflow`'s regression-test requirement deterministically instead of by prose.
 - **`.claude/guards/injection-scan-guard.mjs` + `.claude/guards/injection-gate-guard.mjs`** — a three-stage prompt-injection defense (inspired by Lasso Security's PostToolUse Defender). The scan guard (`PostToolUse`, stage 1) heuristically checks `WebFetch`/`mcp__*` responses and `curl`/`wget` Bash output for injected instructions and flags a session-scoped marker; the gate guard (`PreToolUse`, stage 2) asks for confirmation on the next risky `Bash`/`Write`/`Edit`/`WebFetch`/`mcp__*` call if that flag is still fresh (5-minute window), then clears it.
 - **`.claude/guards/canary-seed.mjs`** — a `SessionStart` hook that seeds a per-session random token and instructs the model never to reproduce it. `injection-gate-guard.mjs`'s stage 3 denies (not asks) any tool call whose input contains that token — a per-session UUID has zero legitimate reason to appear anywhere, so this is a hard block rather than a confirmation.
@@ -170,7 +176,7 @@ Only on an explicit ask — "write a full spec" / "AI-friendly spec" / "spec-dri
 
 ### Running more than one instance at once
 
-[`skills/task-workflow/references/parallelization.md`](skills/task-workflow/references/parallelization.md) covers worktree-per-instance, a role split (main instance codes, forks research), a cascade pattern for 3-4 concurrent tasks, and the rule that spec-gate approval is per-worktree — approving `PLAN.md` in one instance never carries over to another's.
+[`skills/task-workflow/references/parallelization.md`](skills/task-workflow/references/parallelization.md) covers the three concurrency models and how to choose: worktree-per-instance (separate `claude` processes), isolated subagents (`isolation: "worktree"`), and in-session **agent teams** (shared tree). For the first two, spec-gate approval is per-worktree — approving `PLAN.md` in one instance never carries over. For teams it is not: they share one tree, so ownership comes from per-task plans instead. See [`skills/agent-teams/SKILL.md`](skills/agent-teams/SKILL.md).
 
 ---
 
@@ -290,6 +296,13 @@ bigin-skills/
 │   │   │   ├── race-conditions.md   ← condition-based waiting vs arbitrary timeouts
 │   │   │   └── defense-in-depth.md  ← add validation at the layer that should've caught it
 │   │   └── evals/evals.json
+│   ├── agent-teams/                ← agent-team protocol: fan-out decision, file ownership, scoped verification
+│   │   ├── SKILL.md                ← isolation vs coordination → shard by ownership → plan/task/spawn → verify → shut down
+│   │   ├── references/
+│   │   │   ├── platform-facts.md   ← the verified contract (measured on real team runs) + open questions + probe runbook
+│   │   │   ├── ownership-protocol.md ← Owns: format, glob precedence, gate outcomes, worked example
+│   │   │   └── roster.md           ← our four agents as teammates, and what changes on that path
+│   │   └── evals/evals.json
 │   ├── model-router/               ← task-complexity scoring → subagent routing
 │   │   ├── SKILL.md                ← gather signals → score → pick tier → resolve model → spawn via Agent tool
 │   │   ├── evals/evals.json
@@ -322,6 +335,8 @@ bigin-skills/
 ├── tools/                         ← repo tooling (not shipped into target repos as-is)
 │   ├── context_budget.mjs         ← always-loaded token budget gate
 │   ├── docs_sync.mjs              ← regenerates the skills/agents tables in CLAUDE.md + README
+│   ├── team-probe.mjs             ← measures the agent-teams hook contract (payload fields, actor identity); --settings/--report
+│   ├── guard-tests/               ← runnable guard suites: extract.mjs pulls templates from hook-guard.md, run.mjs runs both
 │   └── docs-manifest.json         ← source of truth for the generated tables
 ├── scripts/
 │   └── git-hooks/pre-commit       ← runs context_budget.mjs + docs_sync.mjs --check
