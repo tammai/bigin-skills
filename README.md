@@ -160,9 +160,27 @@ Trigger with natural language ("implement X", "add a feature", "fix bug in Z", "
 1. **Scope** — one sentence: what's changing and why, before touching any code.
 2. **Spec gate** — write and get approval for a spec before implementing. Skipped for bug fixes, copy changes, config tweaks, and changes ≤20 lines of logic. If the request doesn't carry enough information to fill the spec confidently, the workflow asks up to 3 targeted clarifying questions rather than filling gaps with silent assumptions. The default spec has six required fields — `What` / `Inputs-outputs` / `Edge cases` / `Security considerations` / `Testing strategy` / `Not in scope` — pasted in chat and requiring your explicit approval before any code is written.
 3. **Plan file** — the approved spec plus a tasks-tracking table, written to `PLAN.md`. This is exactly what `spec-gate-guard.mjs` checks for: it blocks `Edit`/`Write`/`MultiEdit` calls until `PLAN.md` exists with `Status: approved`.
-4. **Implement/verify loop** — `model-router` scores the task and picks the executing tier (asking for confirmation only when the tier comes back `deep-architect`); the spawned implementer self-checks lint+typecheck+tests, and delegates test-authoring to `write-tests` and bug-fix discipline to `debug-workflow`. A **fresh, read-only `verifier` subagent** is then spawned to audit the diff against `PLAN.md` directly — never against the implementer's own summary of what it did. On `FAIL`, the same implementer is resumed via `SendMessage` with the issues list verbatim, and a new, memoryless verifier re-checks the fix. Capped at **3 rounds** — past that, the workflow stops and asks you how to proceed rather than looping indefinitely.
+4. **Implement/verify loop** — `model-router` scores the task and picks the executing tier (asking for confirmation only when the tier comes back `deep-architect`), resolving each tier's model from the project's [model ladder](#model-ladder); the spawned implementer self-checks lint+typecheck+tests, and delegates test-authoring to `write-tests` and bug-fix discipline to `debug-workflow`. A **fresh, read-only `verifier` subagent** is then spawned to audit the diff against `PLAN.md` directly — never against the implementer's own summary of what it did. On `FAIL`, the same implementer is resumed via `SendMessage` with the issues list verbatim, and a new, memoryless verifier re-checks the fix. Capped at **3 rounds** — past that, the workflow stops and asks you how to proceed rather than looping indefinitely.
 5. **Review** — asks whether to run `/code-review` on the diff, plus `/security-review` if the change touches auth, sessions, secrets, PII, or untrusted input. Neither runs automatically.
 6. **Cleanup** — once every task is `Done` and review is resolved (clean, or explicitly declined), `PLAN.md` is deleted. It's a working file for the task, not project documentation.
+
+### Model ladder
+
+Which model each of the three tiers runs on is a per-project choice — **effort is not** (it's pinned per tier: quick `low` · standard `high` · deep `xhigh` · verifier `low`).
+
+| Profile              | quick    | standard | deep    | verifier | Pick it when                                                            |
+| -------------------- | -------- | -------- | ------- | -------- | ----------------------------------------------------------------------- |
+| `frontier` (default) | `sonnet` | `opus`   | `fable` | `sonnet` | Default — standard tier matches an Opus-default session, deep gets the top model |
+| `opus-centric`       | `sonnet` | `opus`   | `opus`  | `sonnet` | Same ladder without Fable's price tag                                    |
+| `lean`               | `haiku`  | `sonnet` | `opus`  | `haiku`  | Cost-first (note: Haiku 4.5 takes no effort level, so the pin is inert there) |
+
+Set it in the target repo's `.claude/model-routing.json` — `bigin-harness-setup` writes it, both keys are optional, and per-tier overrides layer on top of the chosen profile:
+
+```json
+{ "profile": "frontier", "models": { "deep": "opus" } }
+```
+
+Precedence: an instruction in the current request ("run this one on fable") > `.claude/model-routing.json` > the `frontier` default. A malformed config never blocks routing — it degrades to the default and the warning is relayed to you. Deleting the file is safe. Full details in [`skills/model-router/references/model-profiles.md`](skills/model-router/references/model-profiles.md).
 
 ### Opt-in full-spec tier
 

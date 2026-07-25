@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.48.2] - 2026-07-25
+
+### Added
+
+- `README.md`: a **Model ladder** subsection under Developer Workflow — the three profiles as a table with what each is for, the `.claude/model-routing.json` shape (profile + per-tier overrides), the precedence chain (in-request instruction > config file > `frontier` default), the degrade-to-default-with-a-warning behavior, and a link to `references/model-profiles.md`. v1.48.0 shipped the configurable ladder but only documented it in the two tree diagrams and one generated table cell, so a README-only reader could learn the file exists without learning how to pick a profile. Step 4 of the six steps now links to it.
+
 ## [1.48.1] - 2026-07-25
 
 ### Removed
