@@ -7,8 +7,9 @@ paths: skills/**,agents/**
 **SKILL.md files:**
 
 - Body ≤500 lines; move supporting detail into `references/`
-- `description:` frontmatter is the trigger — specific and "pushy" (list exact activating phrases)
-- Section headers English only; Vietnamese trigger phrases in `description:` frontmatter only
+- `description:` frontmatter is the trigger — and it is **always loaded**, for every skill, on every turn. Budget: **≤350 chars, aim ~250.** One clause on what the skill does, then 3–4 representative triggers. Matching is semantic, not literal string lookup — fourteen phrasings match no better than four.
+- **English only, everywhere** — descriptions, trigger phrases, eval fixtures, headers, body prose. No bilingual pairs.
+- "Do NOT use for…" prose belongs in a body `## When not to use` section, where it costs nothing until the skill is invoked — never in `description:`.
 - All `references/` paths in a SKILL.md are relative to that skill's own `references/` directory
 - Sonnet 5 doesn't generalize instructions across items — if a rule should apply
   to every profile/file/case, say so explicitly rather than stating it once.

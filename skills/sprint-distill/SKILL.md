@@ -1,6 +1,6 @@
 ---
 name: sprint-distill
-description: "Distills merged PRs and touched knowledge/ concepts since the last sprint-log entry into knowledge/ updates and bigin-skills convention updates, proposal-first — replaces a manual NotebookLM end-of-sprint pass. MUST use when user says: 'sprint distill', 'distill this sprint', 'distill the sprint', 'run sprint distill', 'end of sprint', 'end-of-sprint review', 'chưng cất sprint', 'tổng kết sprint', 'compile sprint knowledge'. Do NOT use for a single PR, single change, or one-off code review — use /code-review or /review instead; this skill only operates on a sprint-scale date range."
+description: "End-of-sprint distillation: merged PRs + touched knowledge/ concepts → proposal-first knowledge/ and bigin-skills updates. Compresses, never appends. Triggers: 'sprint distill', 'end of sprint', 'end-of-sprint review'."
 effort: high
 allowed-tools: Bash(git log *) Bash(git diff *) Bash(node tools/knowledge_validate.mjs)
 ---
@@ -8,6 +8,8 @@ allowed-tools: Bash(git log *) Bash(git diff *) Bash(node tools/knowledge_valida
 # sprint-distill
 
 Turns a sprint's worth of merged work into `knowledge/` updates and `bigin-skills` convention updates — proposal-first, nothing writes until you approve it. Classifies every candidate learning as WHAT/WHY (→ `knowledge/`), HOW-we-work (→ `bigin-skills`), or neither (dropped, but reported). Never both.
+
+Not this skill: a single PR, a single change, or a one-off code review — use `/code-review` or `/review`. This one only operates on a sprint-scale date range.
 
 **Distillation compresses, never just appends.** Net line delta for `CLAUDE.md` and `.claude/rules/` should be ≤0 across a sprint unless there is explicit budget headroom. Every addition must name what it replaces or compresses.
 

@@ -129,7 +129,7 @@ Trigger in Claude Code with:
 ```
 Set up a harness
 Add AI rules to this repo
-Thiết lập harness
+Scaffold the harness for this repo
 ```
 
 The skill detects the stack profile (or asks), confirms before overwriting anything, and prints onboarding next steps. Re-running on an already-set-up repo is safe (idempotent).
@@ -153,7 +153,7 @@ The skill detects the stack profile (or asks), confirms before overwriting anyth
 
 **The main driver of this whole system, day to day.** Where `bigin-harness-setup` runs once per repo, `task-workflow` is what you run for every non-trivial feature or bug fix from then on — it's the discipline that `spec-gate-guard.mjs` and `bugfix-test-guard.mjs` actually enforce, not just prose in a doc nobody reads.
 
-Trigger with natural language ("implement X", "add a feature", "fix bug in Z", "start working on", "thêm chức năng", "sửa lỗi") or explicitly with `/task-workflow`.
+Trigger with natural language ("implement X", "add a feature", "fix bug in Z", "start working on", "create a new endpoint") or explicitly with `/task-workflow`.
 
 ### The six steps
 
@@ -183,7 +183,7 @@ Trigger with:
 ```
 Sprint distill
 Distill this sprint
-Chưng cất sprint
+End-of-sprint review
 ```
 
 Doesn't trigger on single-PR or single-change review — use `/code-review` for that.

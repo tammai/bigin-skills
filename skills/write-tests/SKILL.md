@@ -1,10 +1,13 @@
 ---
 name: write-tests
-description: "Writes scoped, style-matched tests for a specific file or function. MUST use when user says: 'write tests for X', 'add tests for Y', 'test this function', 'generate unit tests', 'write a test case for', 'viết test cho', 'thêm test cho', 'viết unit test'. Do NOT use for running an existing test suite ('run the tests') or for general testing-strategy questions — only for authoring new test code."
+description: "Writes scoped, style-matched tests for a specific file or function. Triggers: 'write tests for X', 'test this function', 'generate unit tests'."
 effort: medium
 ---
 
 # write-tests
+
+Authoring new test code only — not running an existing suite ("run the tests"), and not general
+testing-strategy questions.
 
 Write tests for the unit named in the request. Before writing any test code:
 

@@ -1,6 +1,6 @@
 ---
 name: harness-audit
-description: "Audits this bigin-skills plugin against current official Claude Code docs (skills, hooks, sub-agents, plugins, memory) — a findings report only, never auto-fixes. Use when user says: 'audit the harness', 'audit bigin-skills', 'recheck against best practices', 'is this still current', 'harness audit', 'kiểm tra lại harness', 'soát lại theo best practice'. Do NOT use for auditing a target repo scaffolded by bigin-harness-setup — this skill audits the bigin-skills plugin itself, not its output."
+description: "Audits this bigin-skills plugin against current official Claude Code docs (skills, hooks, sub-agents, plugins, memory) — a findings report only, never auto-fixes. Use when user says: 'audit the harness', 'audit bigin-skills', 'recheck against best practices', 'is this still current', 'harness audit'. Do NOT use for auditing a target repo scaffolded by bigin-harness-setup — this skill audits the bigin-skills plugin itself, not its output."
 disable-model-invocation: true
 effort: high
 ---
@@ -32,7 +32,7 @@ Skip the generated table regions in `CLAUDE.md`/`README.md` (between `<!-- gen:*
 
 ### Skill frontmatter (all skills under `skills/*/SKILL.md`)
 
-- `description:` follows the "specific and pushy" rule (`.claude/rules/skill-authoring.md`) with real trigger phrases, EN + VI where the skill has Vietnamese triggers.
+- `description:` stays within the always-loaded budget in `.claude/rules/skill-authoring.md` (≤350 chars, ~250 target): one clause of purpose, 3–4 representative triggers, English only, no "Do NOT use" prose (that belongs in a body `## When not to use`).
 - Any skill whose side effects or timing sensitivity argue for `disable-model-invocation: true`.
 - Any skill that should scope activation with frontmatter `paths:` (skill-level — distinct from the `paths:` already used in generated `.claude/rules/*.md` templates).
 - `allowed-tools` used anywhere it should be, to pre-approve safe repeated tool calls.

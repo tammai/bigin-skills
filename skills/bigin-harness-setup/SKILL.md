@@ -1,6 +1,6 @@
 ---
 name: bigin-harness-setup
-description: "Scaffolds BigIn's AI workflow harness into a repo — the CLAUDE.md agent brief, path-scoped .claude/rules/, and commit-time enforcement gates (guard hooks + a context-budget check). MUST use when user says: 'set up harness', 'add AI rules', 'scaffold harness', 'add CLAUDE.md', 'initialize AI workflow', 'set up claude rules', 'thiết lập harness', 'cài harness', 'thêm AI rules', or when onboarding an existing repo for structured AI-assisted development. Supports nuxt, go, nodejs, next profiles."
+description: "Scaffolds BigIn's AI workflow harness into a repo — CLAUDE.md brief, path-scoped .claude/rules/, commit-time gates (guard hooks + context-budget check). Profiles: nuxt, go, nodejs, next. Triggers: 'set up harness', 'add AI rules', 'add CLAUDE.md'."
 effort: medium
 allowed-tools: Bash(git init) Bash(git rev-parse *) Bash(chmod +x *) Bash(ln -sf *)
 ---

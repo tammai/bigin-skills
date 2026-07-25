@@ -1,6 +1,6 @@
 ---
 name: model-router
-description: "Evaluates task complexity against a deterministic rubric (files touched, contract/schema risk, test coverage, reversibility, architectural-decision judgment) and routes execution to one of three pre-defined subagents — quick-executor (low effort), standard-worker (high effort), deep-architect (xhigh effort) — spawned via the Agent tool. The model each tier runs on is configurable per project (.claude/model-routing.json: frontier = sonnet/opus/fable, opus-centric, or lean = haiku/sonnet/opus) and overridable on demand. Routes down as well as up: high effort on a trivial task overthinks (slow, hedged, verbose), so a one-line fix gets the fast/cheap tier, not the default. MUST use when user says: 'route this task', 'which model should handle this', 'pick the right model tier for this', 'assess task complexity and route it', 'spawn the right agent for this change', 'should this be quick or deep', 'delegate this to the appropriate tier', 'set the model profile for this project', 'change the model ladder', 'use the lean profile', 'which models do the tiers use', 'định tuyến task này', 'chọn model phù hợp cho việc này', 'giao việc này cho agent nào', 'đánh giá độ phức tạp và định tuyến', 'đổi profile model cho project này'. Do NOT use when the user has already named both the tier and the model for a task they want done right now (e.g. 'use opus for this') — honor that directly instead of re-scoring it; setting the project's standing ladder in .claude/model-routing.json IS this skill's job. Do NOT use for the spec-format decision itself — task-workflow's full-spec tier triggers only on an explicit request, never on perceived complexity; model-router only picks the executing tier once work is about to start (it does treat an already-produced full-spec PLAN.md as an automatic high-tier signal)."
+description: "Scores task complexity and routes execution to the quick-executor, standard-worker, or deep-architect subagent; also sets the project's model ladder. Triggers: 'route this task', 'which model should handle this', 'quick or deep', 'change the model ladder'."
 effort: medium
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/classify.mjs *), Bash(git status *), Bash(git diff *)
 ---
@@ -16,6 +16,13 @@ Scores a task, then hands it off to the matching subagent. Three tiers, one each
 | Deep     | `bigin-skills:deep-architect`  | xhigh          | fable                        | opus           | opus   |
 
 Mechanical signals come from `scripts/classify.mjs`; two signals are not mechanically detectable and must be reasoned about directly — never invent a score for them from the diff alone.
+
+Routes down as well as up: high effort on a trivial task overthinks (slow, hedged, verbose), so a one-line fix gets the fast/cheap tier, not the default.
+
+## When not to use
+
+- The user already named **both** the tier and the model for work they want done right now ("use opus for this") — honor that directly instead of re-scoring. Setting the project's standing ladder in `.claude/model-routing.json` *is* this skill's job, so that request does belong here.
+- The spec-format decision — `task-workflow`'s full-spec tier fires only on an explicit request, never on perceived complexity. This skill only picks the executing tier once work is about to start (an already-produced full-spec `PLAN.md` is an automatic high-tier signal).
 
 ## Step 1: Gather mechanical signals
 

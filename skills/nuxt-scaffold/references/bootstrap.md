@@ -26,7 +26,7 @@ pnpm --version >/dev/null 2>&1 || { echo "pnpm is required but not installed. In
 
 ---
 
-## Stage 1 — Non-interactive init / Khởi tạo không tương tác
+## Stage 1 — Non-interactive init
 
 ```sh
 npm create nuxt@latest . -- --template ui --packageManager pnpm --gitInit --force --modules pinia,auth-utils,vueuse
@@ -83,7 +83,7 @@ Shape verified during authoring (fetched live from GitHub): only `nuxt-ui-templa
 
 ---
 
-## Stage 1b — Refresh template-installed packages / Làm mới gói do template cài
+## Stage 1b — Refresh template-installed packages
 
 `create-nuxt@latest`'s `--template ui` and `--modules` flags install whatever `@nuxt/ui` / `@nuxt/eslint` / `eslint` / `tailwindcss` / `vue-tsc` / `typescript` / `@pinia/nuxt` / `nuxt-auth-utils` / `@vueuse/nuxt` / `nuxt` versions were current when that `create-nuxt` release was published — not necessarily current *now* (this is how a scaffolded app can end up on a Tailwind release that predates newer palettes like `mauve`/`olive`/`mist`/`taupe`). This stage re-pins all of them to fresh releases, per `VERSION_POLICY` (set in `SKILL.md` Step 2; default `capped`):
 
@@ -122,7 +122,7 @@ If any `pnpm add` fails, report which package and stop — do not continue with 
 
 ---
 
-## Stage 2 — Install the BFF preset / Cài đặt bộ module BFF
+## Stage 2 — Install the BFF preset
 
 The `--template ui` init already installed `@nuxt/ui`, `@nuxt/eslint`, `vue-tsc`, and `tailwindcss`. The `--modules pinia,auth-utils,vueuse` flag in Stage 1 already installed and registered `@pinia/nuxt`, `nuxt-auth-utils`, and `@vueuse/nuxt` in `nuxt.config.ts`. Stage 2 adds the rest:
 
@@ -146,7 +146,7 @@ If any `pnpm add` fails, report which package failed and stop — do not continu
 
 ---
 
-## Stage 3 — Apply artifacts / Áp dụng các tệp mẫu
+## Stage 3 — Apply artifacts
 
 Write/merge the files in `references/artifacts.md` (substitute `{PROJECT_NAME}`, `{PRIMARY}`, `{NEUTRAL}`). `nuxt.config.ts`, `package.json`, `.claude/settings.json`, and `.vscode/settings.json` are **merged**, never overwritten.
 
@@ -162,7 +162,7 @@ Wires the `pre-commit` → `pnpm exec lint-staged` hook declared in `package.jso
 
 ---
 
-## Stage 5 — Verify / Kiểm tra
+## Stage 5 — Verify
 
 ```sh
 pnpm lint

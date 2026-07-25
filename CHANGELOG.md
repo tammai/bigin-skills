@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.48.1] - 2026-07-25
+
+### Removed
+
+- **Vietnamese removed from the whole codebase — the plugin is English-only now.** 13 skill `description:` trigger anchors (11 in `skills/`, plus `harness-audit` and `skill-bench`), 24 Vietnamese eval-fixture queries across 11 `evals/evals.json` files (every one had an English counterpart already, so no trigger case lost coverage — each file keeps ≥4 positives and ≥5 negatives), 10 bilingual `## Stage N — English / Vietnamese` headers in `nuxt-scaffold`/`next-scaffold` `references/bootstrap.md`, the Vietnamese half of `plugin.json`'s description, and 3 Vietnamese trigger examples in `README.md`. `.claude/rules/skill-authoring.md` now says English only, everywhere — descriptions, triggers, eval fixtures, headers, prose — replacing the old "Vietnamese trigger phrases in `description:` frontmatter only" carve-out; `harness-audit` checks against that. Past CHANGELOG entries keep their Vietnamese verbatim — they're a historical record, not a live surface.
+
+### Changed
+
+- **Every skill `description:` trimmed to the always-loaded budget — 10,137 chars → 3,042 (~1.77k tokens saved on every turn, in every project the plugin is installed in).** A downstream-project audit found the plugin's skill descriptions were ~60% of its whole always-loaded footprint, dominated by exhaustive bilingual trigger-phrase lists (`model-router` alone was 1,817 chars — longer than most skills' actual instructions). Skill matching is semantic, not literal string lookup, so 3–4 representative triggers match as well as fourteen. Per-skill (including the Vietnamese removal below): `model-router` 1817→258, `nuxt-ui-figma-handoff` 1212→245, `nodejs-scaffold` 1175→273, `go-scaffold` 1057→259, `nuxt-scaffold` 1012→313, `next-scaffold` 822→297, `debug-workflow` 670→244, `sprint-distill` 590→220, `task-workflow` 589→242, `bigin-harness-setup` 498→249, `write-tests` 398→145. No behavior change — the routing rubrics, template lists, and stack details dropped from the descriptions were already documented in each skill's body.
+- "Do NOT use for…" prose moved out of `description:` into a body `## When not to use` section (`model-router`, `nuxt-ui-figma-handoff`) or an existing body section (`debug-workflow`, `sprint-distill`, `write-tests`) — same guidance, but it costs nothing until the skill is actually invoked.
+- `.claude/rules/skill-authoring.md`: the `description:` convention is now budgeted — ≤350 chars, ~250 target, one purpose clause + 3–4 triggers, at most one Vietnamese anchor, exclusions in the body. Replaces the old "specific and pushy / list exact activating phrases" rule, which is what produced the bloat. `.claude/skills/harness-audit/SKILL.md` audits against the new rule.
+
 ## [1.48.0] - 2026-07-25
 
 ### Added

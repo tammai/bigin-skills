@@ -1,6 +1,6 @@
 ---
 name: next-scaffold
-description: "Scaffolds a Next.js BFF app — non-interactive, template-driven. Default `starter` template runs `create-next-app` from scratch, then layers the BFF preset (Zustand, TanStack Query, shadcn/ui, Zod, Vitest) on top. `dashboard` adds the official shadcn `dashboard-01` admin-shell block; `saas` adds a real-backend auth flow — hand-authored login/signup pages that call the paired backend, the token pair sealed into an iron-session cookie, and a private `/dashboard` gated on it. MUST use when user says: 'scaffold next', 'create next app', 'initialize next.js project', 'new next bff', 'set up next.js', 'next dashboard template', 'next saas template', 'tạo next', 'khởi tạo next.js', 'cài next', or when the repo has no next.config.ts. Also invoked by bigin-harness-setup Phase 0.5d for the next profile on an empty repo."
+description: "Scaffolds a Next.js App Router BFF app — create-next-app plus the BFF preset (Zustand, TanStack Query, shadcn/ui, Zod, Vitest); `dashboard` adds an admin shell, `saas` a real-backend auth flow. Triggers: 'scaffold next', 'create next app', 'next saas template', or a repo with no next.config.ts."
 effort: low
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/scaffold.mjs *)
 ---

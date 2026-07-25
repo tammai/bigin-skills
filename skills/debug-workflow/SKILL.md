@@ -1,6 +1,6 @@
 ---
 name: debug-workflow
-description: "Systematic debugging with triage — fast path for obvious bugs, full guarded workflow (repro → evidence → hypothesis → fix → prevention) for hard ones. MUST use when user says: 'why is this failing', 'debug this', 'this test is flaky', 'why is this test flaky', 'this works in staging but not in prod', 'production incident', 'performance regression', 'investigate this stack trace', 'gỡ lỗi giúp tôi', 'tại sao lỗi này xảy ra', 'debug giúp tôi cái này' — whenever the failure isn't yet tied to a tracked task. Do NOT use for new feature implementation or a tracked bug fix already going through PLAN.md (see task-workflow) or for authoring new tests (see write-tests)."
+description: "Systematic debugging with triage — fast path for obvious bugs, full guarded workflow (repro → evidence → hypothesis → fix → prevention) for hard ones. Triggers: 'why is this failing', 'debug this', 'this test is flaky', 'production incident'."
 effort: medium
 ---
 
@@ -11,6 +11,8 @@ Triage first, then the smallest process that fits the bug. Every path ends with 
 ## When this applies vs task-workflow
 
 `task-workflow` owns any bug fix tracked through `PLAN.md`; its Implement step points here for the actual debugging work. Use `debug-workflow` directly, standalone, when the failure isn't yet tied to a ticket/PLAN.md: a flaky test, a stack trace, "works in staging not prod," a live incident.
+
+Not this skill: new feature implementation or a tracked bug fix already going through `PLAN.md` (→ `task-workflow`), and authoring new tests (→ `write-tests`).
 
 ## Triage
 

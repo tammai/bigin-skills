@@ -1,6 +1,6 @@
 ---
 name: skill-bench
-description: "Benchmarks a target skill's outcome quality and consistency by running the same task with the skill available vs masked, k trials per arm, scored against an objective rubric (pass@k, pass^k). Project-local — audits this plugin's own skills, never ships downstream. Use when user says: 'benchmark this skill', 'run skill-bench', 'measure write-tests', 'does this skill actually help', 'bench debug-workflow', 'so sánh có/không có skill'. Do NOT use for auditing hooks/frontmatter/docs staleness — that's `harness-audit`."
+description: "Benchmarks a target skill's outcome quality and consistency by running the same task with the skill available vs masked, k trials per arm, scored against an objective rubric (pass@k, pass^k). Project-local — audits this plugin's own skills, never ships downstream. Use when user says: 'benchmark this skill', 'run skill-bench', 'measure write-tests', 'does this skill actually help', 'bench debug-workflow'. Do NOT use for auditing hooks/frontmatter/docs staleness — that's `harness-audit`."
 disable-model-invocation: true
 effort: high
 allowed-tools: Bash(git worktree *), Bash(git diff --stat *), Bash(node .claude/skills/skill-bench/scripts/*), Bash(git status *)

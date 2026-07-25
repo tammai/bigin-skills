@@ -1,6 +1,6 @@
 ---
 name: nuxt-ui-figma-handoff
-description: "Extracts a Nuxt UI Figma design handoff into the right code changes — main.css (Tailwind @theme tokens, base radius) and app.config.ts (semantic ui.colors mapping + per-component Tailwind Variants overrides). Requires a Figma file/frame URL from the user — ask for one before doing anything else if it wasn't given, since the skill reads the actual design variables and component variants through that link rather than guessing from a description. MUST use when user says: 'implement this Figma design in our Nuxt UI app', 'wire this Figma redesign into app.config.ts', 'apply these Nuxt UI design tokens from Figma', 'sync our theme with the new Figma handoff', 'match this Figma design', 'get this Figma theme into the codebase', 'chuyển giao thiết kế Figma vào code', 'đồng bộ theme Nuxt UI theo Figma', 'cập nhật app.config.ts theo design Figma', or whenever a designer has cloned/customized the official Nuxt UI Figma kit and handed off a design for implementation. Do NOT use for Figma-to-code work unrelated to Nuxt UI theming (a different component library, or building a screen from scratch — that's a plain design-to-code task, not this skill), and don't use when there's no Nuxt UI project in scope."
+description: "Turns a Nuxt UI Figma handoff into code — theme tokens into main.css, component overrides into app.config.ts. Requires a Figma file/frame URL. Triggers: 'implement this Figma design in our Nuxt UI app', 'sync our theme with the Figma handoff'."
 effort: medium
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/generate_color_scale.mjs *)
 ---
@@ -12,6 +12,12 @@ color roles, same radius/spacing scale, same component variants. A designer's tw
 Figma map to a specific, small edit in one of two files, never a rewrite. The job here is
 finding that mapping precisely instead of guessing at pixel values or dumping a giant
 theme object where a three-line diff would do.
+
+## When not to use
+
+Figma-to-code work unrelated to Nuxt UI theming — a different component library, or building a
+screen from scratch — is a plain design-to-code task, not this skill. Same if there's no Nuxt UI
+project in scope.
 
 ## Step 1: Get the Figma link
 

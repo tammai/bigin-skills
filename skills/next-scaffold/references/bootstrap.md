@@ -26,7 +26,7 @@ pnpm --version >/dev/null 2>&1 || { echo "pnpm is required but not installed. In
 
 ---
 
-## Stage 1 — Non-interactive init / Khởi tạo không tương tác
+## Stage 1 — Non-interactive init
 
 ```sh
 npx create-next-app@latest . --ts --tailwind --eslint --app --src-dir --import-alias "@/*" --use-pnpm --turbopack --no-agents-md
@@ -63,7 +63,7 @@ Block names verified live against `ui.shadcn.com/blocks` on 2026-07-14: `dashboa
 
 ---
 
-## Stage 1b — Refresh template-installed packages / Làm mới gói do template cài
+## Stage 1b — Refresh template-installed packages
 
 `create-next-app@latest`'s flags install whatever `next` / `react` / `tailwindcss` / `eslint-config-next` / etc. versions were current when that release was published — not necessarily current *now*. This stage re-pins all of them to fresh releases, per `VERSION_POLICY` (set in `SKILL.md` Step 2; default `capped`), using the same `execFileSync`-with-argument-array approach as `nuxt-scaffold` (avoids shell word-splitting and `exports`-map read failures — see that skill's `bootstrap.md` for the full rationale, identical here):
 
@@ -98,7 +98,7 @@ If any `pnpm add` fails, report which package and stop — do not continue with 
 
 ---
 
-## Stage 2 — Install the BFF preset + shadcn/ui / Cài đặt bộ preset BFF + shadcn/ui
+## Stage 2 — Install the BFF preset + shadcn/ui
 
 ```sh
 pnpm add zustand @tanstack/react-query zod iron-session openapi-fetch
@@ -122,7 +122,7 @@ If any `pnpm add`/`npx shadcn` command fails, report which one and stop — do n
 
 ---
 
-## Stage 3 — Apply artifacts / Áp dụng các tệp mẫu
+## Stage 3 — Apply artifacts
 
 Write/merge the files in `references/artifacts.md` (substitute `{PROJECT_NAME}`). `src/app/layout.tsx`, `package.json`, `.claude/settings.json`, and `.vscode/settings.json` are **merged/patched**, never overwritten wholesale. All templates: `next.config.ts` gets `skipTrailingSlashRedirect: true` and `eslint.config.mjs` gets the `eslint-plugin-boundaries` wiring (`dashboard` additionally gets a scoped `react-hooks` override for the `dashboard-01` block) — see `artifacts.md`'s per-file notes for why and exactly what each patch does.
 
@@ -138,7 +138,7 @@ Wires the `pre-commit` → `pnpm exec lint-staged` hook declared in `package.jso
 
 ---
 
-## Stage 5 — Verify / Kiểm tra
+## Stage 5 — Verify
 
 ```sh
 pnpm lint
