@@ -34,18 +34,18 @@ If the repo has never been set up, say **"set up a harness"** first — everythi
 The harness itself — setup, workflow, and maintenance for a repo under standardized AI-assisted development.
 
 <!-- gen:skills-core -->
-| Skill                   | Purpose                                                                                                                                                       |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **bigin-harness-setup** | Scaffolds an AI workflow harness — CLAUDE.md brief, path-scoped rules, and enforcement gates (commit hooks + budget check). Profiles: nuxt, go, nodejs, next. |
-| **task-workflow**       | On-demand task workflow (/task-workflow): scope → spec → plan (approved) → implement/verify loop (capped, independent verifier) → review → cleanup.           |
-| **nuxt-scaffold**       | Scaffolds a Nuxt 4 BFF app from scratch via a deterministic Node.js script — npm create nuxt@latest + BFF preset + config/sample code. No GitHub clone.       |
-| **next-scaffold**       | Scaffolds a Next.js App Router BFF app from scratch via a deterministic Node.js script — create-next-app + BFF preset + shadcn/ui. No GitHub clone.           |
-| **go-scaffold**         | Scaffolds a Go modular-monolith REST API — users/posts, oapi-codegen + sqlc, JWT+argon2id+RBAC, chi router, Postgres. Runs codegen + build/vet/test itself.   |
-| **nodejs-scaffold**     | Scaffolds a Node.js modular-monolith REST API — users/posts, code-first OpenAPI (TypeBox) + Drizzle, JWT+argon2id, outbox/inbox + job queue.                  |
-| **sprint-distill**      | End-of-sprint distillation: merged PRs + touched knowledge/ concepts → proposal-first knowledge/ and bigin-skills updates. Compresses, never just appends.    |
-| **write-tests**         | On-demand test authoring (/write-tests): style-matches the nearest test file, lists edge cases first, TDD-orders logic, mocks only true I/O boundaries.       |
-| **debug-workflow**      | On-demand systematic debugging (/debug-workflow): triage → fast path for obvious bugs, full guarded workflow for flaky/env/repeat-failure bugs.               |
-| **model-router**        | Scores capability and verification needs separately, then routes to quick-executor/standard-worker/deep-architect on a per-project model ladder.              |
+| Skill                   | Purpose                                                                                                                                                     |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **bigin-harness-setup** | Scaffolds an AI workflow harness — CLAUDE.md brief, path-scoped rules, gates (commit hooks + budget check). Profiles: nuxt, go, nodejs, next, generic.      |
+| **task-workflow**       | On-demand task workflow (/task-workflow): scope → spec → plan (approved) → implement/verify loop (capped, independent verifier) → review → cleanup.         |
+| **nuxt-scaffold**       | Scaffolds a Nuxt 4 BFF app from scratch via a deterministic Node.js script — npm create nuxt@latest + BFF preset + config/sample code. No GitHub clone.     |
+| **next-scaffold**       | Scaffolds a Next.js App Router BFF app from scratch via a deterministic Node.js script — create-next-app + BFF preset + shadcn/ui. No GitHub clone.         |
+| **go-scaffold**         | Scaffolds a Go modular-monolith REST API — users/posts, oapi-codegen + sqlc, JWT+argon2id+RBAC, chi router, Postgres. Runs codegen + build/vet/test itself. |
+| **nodejs-scaffold**     | Scaffolds a Node.js modular-monolith REST API — users/posts, code-first OpenAPI (TypeBox) + Drizzle, JWT+argon2id, outbox/inbox + job queue.                |
+| **sprint-distill**      | End-of-sprint distillation: merged PRs + touched knowledge/ concepts → proposal-first knowledge/ and bigin-skills updates. Compresses, never just appends.  |
+| **write-tests**         | On-demand test authoring (/write-tests): style-matches the nearest test file, lists edge cases first, TDD-orders logic, mocks only true I/O boundaries.     |
+| **debug-workflow**      | On-demand systematic debugging (/debug-workflow): triage → fast path for obvious bugs, full guarded workflow for flaky/env/repeat-failure bugs.             |
+| **model-router**        | Scores capability and verification needs separately, then routes to quick-executor/standard-worker/deep-architect on a per-project model ladder.            |
 <!-- /gen:skills-core -->
 
 ### Handoff Skills
@@ -94,6 +94,7 @@ Sets up a consistent "harness level" on any repo so team members of mixed skill 
 | `go`     | Go modular-monolith REST API (`users`/`posts` modules, compiler-enforced boundaries) — contract-first (`oapi-codegen` + `sqlc`), JWT+argon2id auth + RBAC, chi router, Postgres. Empty repo → scaffolded by the `go-scaffold` skill                                |
 | `nodejs` | Node.js modular-monolith REST API (`users`/`posts` modules) — code-first OpenAPI (TypeBox route schemas + `@fastify/swagger`) + Drizzle/`drizzle-kit`, JWT+argon2id auth, outbox/inbox event bus + Postgres-backed job queue, Fastify, Postgres. Empty repo → scaffolded by the `nodejs-scaffold` skill |
 | `next`   | Next.js App Router fullstack (Vercel), shadcn/ui, Zustand, TanStack Query, iron-session, Zod, Vitest — BFF proxy layer (no ORM/DB driver; backend owns data). Empty repo → scaffolded by the `next-scaffold` skill (`create-next-app`, no clone)                    |
+| `generic` | Fallback for an existing repo matching none of the four — no question is asked. Installs `CLAUDE.md` (stack line + detected lint/typecheck/test commands), `security.md` + `architecture.md` scoped by source-file extension, all eight guards, budget gate, pre-commit, and every opt-in phase. Skips scaffolding, conventions/testing rules, `.vscode/settings.json`, and CI generation |
 
 ### What gets generated
 
@@ -105,6 +106,8 @@ Sets up a consistent "harness level" on any repo so team members of mixed skill 
 
 **next on an empty repo:** the full app is first scaffolded **by the `next-scaffold` skill's deterministic script** — all decisions gathered upfront into a config JSON, then `node scripts/scaffold.mjs --config <path>` runs `create-next-app` + the BFF preset (Zustand, TanStack Query, Zod, iron-session, Vitest) + `shadcn/ui` (`npx shadcn@latest init` + `add`) + config and sample code (`next.config.ts`, `src/app/`, `src/hooks/`, `simple-git-hooks`) with zero prompts. The `dashboard` template layers the official shadcn `dashboard-01` block; `saas` adds a demo-auth-gated `/dashboard` (`iron-session`) with hand-authored login/signup pages instead of a full GitHub template clone — shadcn/ui has no equivalent gallery of standalone app templates to clone the way `nuxt-ui-templates` does. The Next app is a BFF proxy layer — no DB, the backend owns data persistence. The harness governance layer is then overlaid additively.
 
+**an existing repo matching no profile:** setup does not stop to ask which of the four it is — it sets `generic` and keeps going. Lint/typecheck/test commands are detected from `package.json` scripts, a `Makefile`/`justfile`/`Taskfile`, or the language's conventional defaults (`pyproject.toml`, `Cargo.toml`, `Gemfile`, …); anything undetected stays a visible `TODO` in `CLAUDE.md`, `AI_REVIEW_CHECKLIST.md`, and `scripts/pre-commit.sh` rather than a guess. `.claude/settings.json` pre-approves git commands only. No conventions or testing rules are written (the existing code is the convention), and no CI workflow is generated — the summary names the commands a CI job needs instead.
+
 ```
 your-repo/
 ├── CLAUDE.md                           ← Tier 1: always loaded, ≤60 lines
@@ -114,7 +117,7 @@ your-repo/
 │   ├── rules/
 │   │   ├── conventions-frontend.md     ← Tier 2: paths: app/** (nuxt) or src/app/**,src/components/**,src/hooks/** (next) — nuxt/next only
 │   │   ├── conventions-server.md       ← Tier 2: paths: server/** (nuxt) or src/app/api/**,src/lib/** (next) — nuxt/next only
-│   │   ├── conventions.md              ← Tier 2: paths: src/** or **/*.go (go/nodejs)
+│   │   ├── conventions.md              ← Tier 2: paths: src/** or **/*.go (go/nodejs; none for generic)
 │   │   ├── security.md                 ← Tier 2: paths: scoped per profile
 │   │   └── architecture.md             ← Tier 2: paths: scoped per profile
 │   ├── guards/

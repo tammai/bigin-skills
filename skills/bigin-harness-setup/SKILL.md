@@ -1,6 +1,6 @@
 ---
 name: bigin-harness-setup
-description: "Scaffolds BigIn's AI workflow harness into a repo — CLAUDE.md brief, path-scoped .claude/rules/, commit-time gates (guard hooks + context-budget check). Profiles: nuxt, go, nodejs, next. Triggers: 'set up harness', 'add AI rules', 'add CLAUDE.md', 'migrate off Spec Kit'."
+description: "Scaffolds BigIn's AI workflow harness into a repo — CLAUDE.md brief, path-scoped .claude/rules/, commit-time gates (guard hooks + context-budget check). Profiles: nuxt, go, nodejs, next, generic. Triggers: 'set up harness', 'add AI rules', 'add CLAUDE.md', 'migrate off Spec Kit'."
 effort: medium
 allowed-tools: Bash(git init) Bash(git rev-parse *) Bash(chmod +x *) Bash(ln -sf *)
 ---
@@ -13,12 +13,12 @@ Sets up a standardized AI workflow harness — the `CLAUDE.md` agent brief, path
 
 ## Phase 0: Detect Stack Profile
 
-Check for stack indicators:
+Check for stack indicators, first match wins:
 1. `nuxt.config.ts` or `nuxt.config.js` → profile = `nuxt`
 2. `go.mod` → profile = `go`
 3. `package.json` with express/fastify/hono/koa in dependencies → profile = `nodejs`
 4. `next.config.ts`, `next.config.js`, or `next.config.mjs` → profile = `next`
-5. None found or ambiguous → ask:
+5. **Empty repo** (no source files, no manifest of any kind) → ask, since the answer picks the scaffold Phase 0.5 runs:
 
 ```
 Which stack profile?
@@ -30,13 +30,15 @@ Which stack profile?
 Type 1, 2, 3, or 4.
 ```
 
-Store result as `PROFILE`. Load `references/profile-{PROFILE}.md` for all template content.
+6. **Existing code, no marker matched** → `PROFILE = generic`. Do **not** ask and do not offer the four above — an existing repo that isn't one of them won't become one, and forcing a pick writes conventions for a stack that isn't there. Say one line ("no matching stack profile — installing the stack-neutral harness") and continue to the next phase.
+
+Store result as `PROFILE`. Load `references/profile-{PROFILE}.md` for all template content — `references/profile-generic.md` for `generic`, which states up front what that profile installs and skips.
 
 ---
 
 ## Phase 0.5: Project Scaffold (empty repo only)
 
-Runs when the repo lacks the marker file for `PROFILE` — `nuxt.config.ts` (nuxt), `next.config.*` (next), `go.mod` (go), `package.json` (nodejs). Skip the phase entirely otherwise; that's onboarding an existing repo.
+Runs when the repo lacks the marker file for `PROFILE` — `nuxt.config.ts` (nuxt), `next.config.*` (next), `go.mod` (go), `package.json` (nodejs). Skip the phase entirely otherwise; that's onboarding an existing repo. Also skip it entirely for `PROFILE = generic` — there's no scaffold skill for an unknown stack, and generic is only ever reached from a repo that already has code.
 
 Scaffolding is delegated to that profile's own skill and its deterministic script — **not** done conversationally. All questions happen up front, in one batch; zero prompts once scaffolding starts. Per-profile invocation, decisions to gather, and the full procedure: `references/scaffold-delegation.md`.
 
@@ -99,7 +101,7 @@ Otherwise, ask **one bundled `AskUserQuestion` call**, before writing any files,
    See references/knowledge-bundle.md and references/graph.md for what each writes.
    ```
    Store `KNOWLEDGE_BUNDLE` (true for options 1/2) and `GRAPH` (true for options 1/3) — `KNOWLEDGE_BUNDLE` semantics are unchanged from the old yes/no ask.
-2. **CI config** (github/gitlab/both/no) — auto-detect a default first: run `git remote get-url origin 2>/dev/null`; if it matches `github.com` preselect `github`, if `gitlab.com` preselect `gitlab`; if undetermined (no remote, unrecognized host, or ambiguous) preselect `both`. Present the preselected option first/labeled as detected, but let the user override:
+2. **CI config** (github/gitlab/both/no) — **omit this question entirely if `PROFILE = generic`**; set `CI_PROVIDER = no` and say in the Phase 7 summary that CI wasn't generated (`references/profile-generic.md` → `## CI` has the reason and what to put in a job by hand). Otherwise auto-detect a default first: run `git remote get-url origin 2>/dev/null`; if it matches `github.com` preselect `github`, if `gitlab.com` preselect `gitlab`; if undetermined (no remote, unrecognized host, or ambiguous) preselect `both`. Present the preselected option first/labeled as detected, but let the user override:
    ```
    Add CI config? (github/gitlab/both/no)
    Generates a workflow that runs {LINT} && {TYPECHECK} && {TEST} on push to main and on merge/pull requests.
@@ -123,6 +125,8 @@ Store `KNOWLEDGE_BUNDLE`, `GRAPH`, `CI_PROVIDER`, `MODEL_ROUTING` (and `INSTALL_
 ## Phase 2: Generate CLAUDE.md
 
 Read the content from `references/profile-{PROFILE}.md` → `## CLAUDE.md Template` section.
+
+For `generic`, that template needs `{STACK}` plus the `{LINT}`/`{TYPECHECK}`/`{TEST}` commands detected per `references/profile-generic.md` → `## Commands`; detect them once here and reuse the same values in Phases 4, 5-1 and 7.
 
 Write to `CLAUDE.md` in the project root.
 Skip if `INSTALL_MODE=new` and `CLAUDE.md` already exists.
@@ -157,13 +161,18 @@ Create `.claude/rules/` if it doesn't exist.
 - **security.md** — from `references/files-shared.md` → `## security.md`. **Prepend** the profile-specific paths frontmatter from `## paths substitutions` in `references/files-shared.md`.
 - **architecture.md** — from `references/files-shared.md` → `## architecture.md`, then append the profile block from `references/profile-{PROFILE}.md` → `## architecture addendum`. **Prepend** the profile-specific paths frontmatter.
 
+**For generic** — generate two files only, no conventions and no testing rule (there is no known stack to write conventions for; `CLAUDE.md`'s "match the surrounding code" rule stands in for them). Each: skip if `INSTALL_MODE=new` and already exists:
+
+- **security.md** — from `references/files-shared.md` → `## security.md`. **Prepend** the `generic` paths frontmatter from `## paths substitutions`.
+- **architecture.md** — from `references/files-shared.md` → `## architecture.md` with **no** addendum appended (`references/profile-generic.md` → `## architecture addendum` explains why). **Prepend** the `generic` paths frontmatter.
+
 ---
 
 ## Phase 4: Generate AI Files
 
 **AI_TASK_GUIDE.md** — from `references/files-shared.md` → `## AI_TASK_GUIDE.md`. Write to project root. Human orientation only — a pointer to `/task-workflow`, which owns the actual steps and formats. Never expand it back into a second copy of the workflow; the two drift the moment `task-workflow` changes.
 
-**AI_REVIEW_CHECKLIST.md** — from `references/files-shared.md` → `## AI_REVIEW_CHECKLIST.md`. Replace `{COMMANDS}` with the profile's lint/typecheck/test commands (from `references/profile-{PROFILE}.md` → `## Commands`).
+**AI_REVIEW_CHECKLIST.md** — from `references/files-shared.md` → `## AI_REVIEW_CHECKLIST.md`. Replace `{COMMANDS}` with the profile's lint/typecheck/test commands (from `references/profile-{PROFILE}.md` → `## Commands`). For `generic`, use the commands detected in Phase 2 and keep any undetected one as its literal `TODO: <lint|typecheck|test> command` placeholder — visible gap, not a guess.
 
 Skip each if `INSTALL_MODE=new` and file already exists.
 
@@ -175,7 +184,7 @@ Skip each if `INSTALL_MODE=new` and file already exists.
 
 **First check for an existing git-hook manager.** If the repo already gates commits via `simple-git-hooks` or `husky` (key in `package.json`), a `.husky/` dir, or an existing `.git/hooks/pre-commit` → **do NOT create `scripts/pre-commit.sh`**. The existing mechanism is the gate; skip to 5-2. (This is the case for `SCAFFOLDED = true` nuxt/next repos — the template uses `simple-git-hooks` → `pnpm lint-staged`.)
 
-Otherwise (go / nodejs, or a nuxt/next repo without a hook manager): read `references/hook-guard.md` → `## pre-commit: {PROFILE}`. Write to `scripts/pre-commit.sh`, then `chmod +x scripts/pre-commit.sh`, and continue to 5-1b.
+Otherwise (go / nodejs / generic, or a nuxt/next repo without a hook manager): read `references/hook-guard.md` → `## pre-commit: {PROFILE}`. Write to `scripts/pre-commit.sh`, then `chmod +x scripts/pre-commit.sh`, and continue to 5-1b. The `generic` template carries the Phase 2 commands, with each undetected one degraded to a no-op `echo` per that section's note.
 
 ### 5-1b. Initialize git + install the hook
 
@@ -246,7 +255,7 @@ For **nuxt** / **next** (same merge shape, different scaffold skill):
 - **If `SCAFFOLDED = true`**: the `nuxt-scaffold`/`next-scaffold` skill already wrote `.claude/settings.json` with `permissions.allow` + a `PostToolUse` `lint-fix-file.mjs` hook (and the script itself). Merge the `PreToolUse` `bash-guard.mjs` + `spec-gate-guard.mjs` + `injection-gate-guard.mjs` hooks (matcher `Bash|Write|Edit|WebFetch|mcp__.*`), a `PreToolUse` `bugfix-test-guard.mjs` hook (matcher `Bash`, alongside `bash-guard.mjs`), a `SessionStart` block with both `canary-seed.mjs` and `session-resume-check.mjs` hooks, any missing `permissions.allow` entries, **and** a second `PostToolUse` entry for `injection-scan-guard.mjs` alongside the existing `lint-fix-file.mjs` one — do not replace or duplicate the existing `lint-fix-file.mjs` entry. Merge per-event; show additions before writing.
 - **Otherwise** (onboarding an existing nuxt or next repo): write `.claude/guards/lint-fix-file.mjs` per 5-2's note above if missing, then read the full settings.json template from `references/profile-nuxt.md` or `references/profile-next.md` → `## settings.json Template`. If `.claude/settings.json` exists, merge the `hooks` block + missing `permissions.allow` entries (per-event, never drop the user's); if not, write fresh.
 
-For **go** / **nodejs**: read the template from `references/profile-{PROFILE}.md` → `## settings.json Template`. If the file exists, merge the `hooks` block + missing `permissions.allow` entries (per-event); otherwise write fresh.
+For **go** / **nodejs** / **generic**: read the template from `references/profile-{PROFILE}.md` → `## settings.json Template`. If the file exists, merge the `hooks` block + missing `permissions.allow` entries (per-event); otherwise write fresh. The `generic` template pre-approves git commands only — an unknown toolchain gets no blanket allowlist; let the user approve its commands as they come up.
 
 ### 5-3b. .vscode/settings.json (nuxt / next only)
 
@@ -255,7 +264,7 @@ Editor format-on-save via ESLint. Read `references/profile-nuxt.md` or `referenc
 - If `.vscode/settings.json` exists: **merge** the keys in (never overwrite; show additions first).
 - If not: write fresh.
 
-Other profiles (go, nodejs — backend-only, no editor-format concern): skip.
+Other profiles (go, nodejs — backend-only, no editor-format concern; generic — formatter unknown): skip.
 
 ### 5-3c. Harness version marker
 
@@ -297,7 +306,7 @@ If false, skip everything above — no other phase depends on it.
 
 ## Phase 5.6: CI Config (optional)
 
-Decided in Phase 1.5 (`CI_PROVIDER`, auto-detected default from `git remote get-url origin`). Skip everything below if `no`.
+Decided in Phase 1.5 (`CI_PROVIDER`, auto-detected default from `git remote get-url origin`). Skip everything below if `no` — which includes every `PROFILE = generic` run, since `references/ci.md` has no generic template and an inferred workflow for an unknown stack would be wrong more often than right.
 
 Read templates from `references/ci.md`.
 
@@ -367,7 +376,8 @@ the always-loaded budget unless you're editing those paths.
 - Graphify (Phase 5.7) — opt-in only, decided once in Phase 1.5 (`GRAPH`); skip entirely if declined. Never auto-runs the initial index — always proposed. Install prompting happens here only, never in a consuming skill.
 - `.claude/model-routing.json` (Phase 5-3d) — decided once in Phase 1.5 (`MODEL_ROUTING`); `new` mode never overwrites an existing ladder. Deleting the file is safe: `model-router` falls back to the `frontier` default.
 - Spec Kit (Phase 0.7) — detection only; `none` is the common case and skips the phase. On `migrate`, nothing is deleted until the user has seen the triage table, `git tag pre-harness-migration` is set first, and contract fragments are reconciled before `specs/` goes. On `coexist`, the spec-gate hook is left unregistered rather than the guard left unwritten. Never migrate a repo that didn't ask.
-- All user-facing questions (profile ambiguity, harness conflicts, Knowledge Bundle, CI, model routing profile, Spec Kit handling, foreign pre-commit hook) resolve before any file is written — see Phase 1.5.
+- Profile detection (Phase 0) — the four-way question is asked **only** for an empty repo, where it picks the scaffold. Existing code that matches no marker is `PROFILE = generic`, never a question: it skips Phase 0.5, the conventions/testing rules, `.vscode/settings.json`, and Phase 5.6 CI, and installs everything else. Commands are detected, and an undetected one stays a visible `TODO` rather than a guess.
+- All user-facing questions (empty-repo profile choice, harness conflicts, Knowledge Bundle, CI, model routing profile, Spec Kit handling, foreign pre-commit hook) resolve before any file is written — see Phase 1.5.
 - Never delete files not part of the harness.
 - `.claude/harness-version` — written on every fresh/overwrite setup (Phase 5-3c) as a baseline for future patch runs; `new` mode only writes it if absent, since skipped pre-existing files may be older than the recorded version.
 - Patch mode (Phase 1a) — only touches files/lines named in a changelog entry's `patch` block; never guesses at an anchor match; always advances `.claude/harness-version` even on partial application, logging what still needs manual review.
@@ -388,6 +398,7 @@ Read `references/summary-checklist.md` → `## Output Checklist` and verify ever
 - `references/profile-next.md` — templates for next profile (same shape as profile-nuxt.md)
 - `references/profile-go.md` — templates for go profile
 - `references/profile-nodejs.md` — templates for nodejs profile
+- `references/profile-generic.md` — fallback profile for a stack that matches none of the four: what it installs and skips, command detection, CLAUDE.md + settings.json templates, why no CI
 - `references/files-shared.md` — shared files: security, architecture, AI task guide pointer, review checklist, paths substitutions per profile
 - `references/patch-mode.md` — Phase 1a: version diffing + CHANGELOG patch-block application for `INSTALL_MODE=patch`
 - `references/hook-guard.md` — bash-guard.mjs, spec-gate-guard.mjs, bugfix-test-guard.mjs, injection-scan-guard.mjs, injection-gate-guard.mjs, session-resume-check.mjs, canary-seed.mjs, precompact-snapshot.mjs scripts + pre-commit scripts per profile

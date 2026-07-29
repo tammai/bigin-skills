@@ -50,6 +50,15 @@ paths:
 ---
 ```
 
+**generic:** the stack is unknown, so scope by source-file extension rather than by directory — plus whatever contract file the repo actually has (`openapi.yaml` / `openapi.json` / `schema.graphql`; include only the ones present, drop the line entirely if none):
+```yaml
+---
+paths:
+  - "**/*.{ts,tsx,js,jsx,mjs,cjs,vue,svelte,go,py,rb,rs,java,kt,cs,php,swift,scala,ex,exs}"
+  - "openapi.yaml"
+---
+```
+
 ---
 
 ## model-routing.json

@@ -729,6 +729,34 @@ echo "All gates passed."
 
 ---
 
+## pre-commit: generic
+
+Write to `scripts/pre-commit.sh`. Substitute `{LINT}` / `{TYPECHECK}` / `{TEST}` with the commands detected per `profile-generic.md` → `## Commands`. For each one that came back `TODO`, keep its `echo` line but replace the command with `echo "    not configured — add it to scripts/pre-commit.sh"`, so the gate stays green and the gap stays visible. The context-budget step always runs.
+
+```bash
+#!/bin/sh
+# Pre-commit quality gates — generic profile
+set -e
+
+echo "Running pre-commit gates..."
+
+echo "  lint..."
+{LINT}
+
+echo "  typecheck..."
+{TYPECHECK}
+
+echo "  tests..."
+{TEST}
+
+echo "  context budget..."
+if [ -f tools/context_budget.mjs ]; then node tools/context_budget.mjs; fi
+
+echo "All gates passed."
+```
+
+---
+
 ## pre-commit: nodejs
 
 Write to `scripts/pre-commit.sh`.

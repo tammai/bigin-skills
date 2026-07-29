@@ -49,13 +49,15 @@ Print a short summary of what was created and what's next:
 ```
 BigIn harness setup complete for profile: {PROFILE}
 
+[if PROFILE=generic] No stack profile matched (not nuxt/go/nodejs/next), so the stack-neutral harness was installed: no conventions/testing rules, no .vscode settings, no CI generated. Commands detected: lint={LINT}, typecheck={TYPECHECK}, test={TEST} — any shown as TODO need filling in, in CLAUDE.md, AI_REVIEW_CHECKLIST.md, and scripts/pre-commit.sh. For CI, run those commands plus `node tools/context_budget.mjs` in your own workflow.
+
 [if SCAFFOLDED] Scaffolded the Nuxt 4 BFF app via the `nuxt-scaffold` skill. / Scaffolded the Next.js BFF app via the `next-scaffold` skill.
 
 Created:
   AI_TASK_GUIDE.md
   AI_REVIEW_CHECKLIST.md
-  .claude/rules/security.md       (paths: server/**,app/** — nuxt | src/app/**,src/components/**,src/hooks/** — next | **/*.go — go | src/** — nodejs)
-  .claude/rules/architecture.md   (paths: same as security)
+  .claude/rules/security.md       (paths: server/**,app/** — nuxt | src/app/**,src/components/**,src/hooks/** — next | **/*.go — go | src/** — nodejs | source-extension glob — generic)
+  .claude/rules/architecture.md   (paths: same as security; no profile addendum for generic)
   .claude/rules/conventions-frontend.md  [nuxt/next only] (paths: app/** — nuxt | src/app/**,src/components/**,src/hooks/** — next)
   .claude/rules/conventions-server.md    [nuxt/next only] (paths: server/** — nuxt | src/app/api/**,src/lib/** — next)
   .claude/rules/testing.md        [nuxt/next only] (paths: tests/**, vitest.config.ts — nuxt | src/**/*.test.ts(x), vitest.config.ts — next)
@@ -106,7 +108,8 @@ Next steps:
 
 - [ ] **nuxt + empty repo** — `nuxt-scaffold` skill executed (Phase 0.5); `nuxt.config.ts` now present
 - [ ] **next + empty repo** — `next-scaffold` skill executed (Phase 0.5); `next.config.ts` now present
-- [ ] `CLAUDE.md` — profile-specific, ≤60 lines
+- [ ] **existing repo matching no profile** — `PROFILE = generic`, no profile question asked; Phase 0.5, conventions/testing rules, `.vscode/settings.json` and CI all skipped
+- [ ] `CLAUDE.md` — profile-specific, ≤60 lines (generic: `{STACK}` line + detected commands, undetected ones dropped from the table)
 - [ ] **nuxt/next only** — `.claude/rules/conventions-frontend.md` — paths: app/** (nuxt) or src/app/**,src/components/**,src/hooks/** (next) (≤40 lines)
 - [ ] **nuxt/next only** — `.claude/rules/conventions-server.md` — paths: server/** (nuxt) or src/app/api/**,src/lib/** (next) (≤40 lines)
 - [ ] **nuxt/next only** — `.claude/rules/testing.md` — paths: tests/**, vitest.config.ts (nuxt) or src/**/*.test.ts(x), vitest.config.ts (next) (≤40 lines)
