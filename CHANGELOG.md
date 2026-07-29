@@ -5,6 +5,115 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.50.0] - 2026-07-29
+
+A migration path off GitHub Spec Kit, plus two gaps that path exposed. Both are consequences of the same design choice — `PLAN.md` is singular and disposable, where Spec Kit keeps one durable `plan.md` per feature under `specs/`. That choice is deliberate (a gate that resolves "which plan governs this edit?" with `existsSync` plus a regex can't desync, where a stored active-feature pointer can), but it was paying for itself in two places it shouldn't.
+
+### Added
+
+- **`bigin-harness-setup` Phase 0.7 — GitHub Spec Kit detection and migration** (`references/speckit-migration.md`). Onboarding a Spec Kit repo previously meant discovering the collisions by hand, one repo at a time. Verified against a real install (`spec-kit` at `be33d2a`, `--integration claude`) in a throwaway repo, then re-verified after installing the harness over it.
+  - **Detection covers both layouts**, because they differ in the one way that matters: the current release ships ~10 skills under `.claude/skills/speckit-*/` and never touches `CLAUDE.md`; the older one ships slash commands under `.claude/commands/` **and** maintains a block in `CLAUDE.md` via `.specify/scripts/*/update-agent-context.sh`, which rewrites the harness brief on every plan run. Only the older layout needs `INSTALL_MODE=new` to survive.
+  - **Three outcomes**, folded into Phase 1.5's existing bundled question rather than asked standalone: `migrate` (triage, salvage, remove, install), `coexist` (governance only), `leave`.
+  - **`coexist` leaves `spec-gate-guard.mjs`'s hook unregistered.** The guard resolves the governing plan as root `PLAN.md` only, so under Spec Kit it blocks every implementation edit over 20 lines while `specs/<feature>/plan.md` goes unread — confirmed by test, including that marking Spec Kit's own plan `Status: approved` changes nothing. The script is still written; only the hook registration is skipped, and the omission is stated in the Phase 7 summary.
+  - **`migrate` never deletes before the user has seen the triage.** `git tag pre-harness-migration` first, then a read-only `tools/speckit-triage.mjs` classifies every `specs/<feature>/` as shipped / in-flight / never-planned with progress, contract-fragment count, and last-touch date. Contract reconciliation comes before anything is removed: a `specs/*/contracts/` file is either already merged into the real contract or it's silent drift, and it's the only category whose loss isn't reconstructible from code and git history. Shipped features distill into `knowledge/` in **one** pass — concepts are per-invariant, not per-feature, and a bundle mirroring `specs/` one-to-one makes the index-first read protocol useless.
+  - **In-flight features are where volume bites.** `PLAN.md` is singular; N in-flight features means one conversion plus a worktree or a queue for the rest. The triage prints this explicitly rather than letting it surface as a blocked edit later — more in-flight features than worktrees you'll run is a WIP problem the migration reveals, not one it causes.
+  - **Workflow mapping is stated, including the gap.** Nine of Spec Kit's ten skills map onto `task-workflow`, the verifier loop, `AI_REVIEW_CHECKLIST.md`, or `CLAUDE.md` + rules. `speckit-taskstoissues` maps onto nothing — the reference says so plainly so a team that depends on it finds out before deleting, not after.
+- **`PLAN.md` now carries a `Branch:` line, and `spec-gate-guard.mjs` enforces it.** Nothing previously detected a `PLAN.md` left behind by an earlier task: step 3 catches "exists with open tasks" and offers to resume, but an approved plan for task X sitting in a tree now on branch Y read as authoritative and unblocked every non-trivial edit. The guard now compares the plan's declared branch against `HEAD` and blocks on a mismatch with a message naming both. Deliberately conservative about what it will block on: no `Branch:` line (every plan written before this version) passes, and a detached `HEAD` or missing git passes too — the check is skipped whenever git can't answer, never failed. Trivial paths and the ≤20-line threshold are unaffected. This is also the cheap half of what per-feature spec directories buy, without the second lookup path in the gate or the archive of shipped plans that reads as current intent.
+
+  ```patch
+  target: .claude/guards/spec-gate-guard.mjs
+  anchor: // Blocks non-trivial Edit/Write/MultiEdit before PLAN.md is approved.
+  insert: replace
+  ---
+  // Blocks non-trivial Edit/Write/MultiEdit before PLAN.md is approved, and blocks
+  // edits governed by a PLAN.md left over from a different branch.
+  ```
+
+  ```patch
+  target: .claude/guards/spec-gate-guard.mjs
+  anchor: import { existsSync, readFileSync } from 'node:fs'
+  insert: after
+  ---
+  import { execSync } from 'node:child_process'
+  ```
+
+  ```patch
+  target: .claude/guards/spec-gate-guard.mjs
+  anchor: function isPlanApproved() {
+    const planPath = join(process.cwd(), 'PLAN.md')
+    if (!existsSync(planPath)) return false
+    const match = readFileSync(planPath, 'utf-8').match(/^Status:\s*(\S+)/m)
+    return !!match && match[1].toLowerCase() === 'approved'
+  }
+
+  if (isPlanApproved()) process.exit(0)
+  insert: replace
+  ---
+  function currentBranch() {
+    try {
+      const b = execSync('git rev-parse --abbrev-ref HEAD', {
+        encoding: 'utf-8',
+        stdio: ['ignore', 'pipe', 'ignore']
+      }).trim()
+      return b === 'HEAD' ? null : b // detached HEAD — nothing to compare against
+    } catch {
+      return null // not a git repo, or git unavailable
+    }
+  }
+
+  // { ok: true } | { ok: false } | { ok: false, declared, actual } for a branch mismatch.
+  function planVerdict() {
+    const planPath = join(process.cwd(), 'PLAN.md')
+    if (!existsSync(planPath)) return { ok: false }
+    const plan = readFileSync(planPath, 'utf-8')
+    const status = plan.match(/^Status:\s*(\S+)/m)
+    if (!status || status[1].toLowerCase() !== 'approved') return { ok: false }
+
+    // `Branch:` is optional — plans written before it existed, or on a detached HEAD,
+    // simply skip the check. Never block on something git can't answer.
+    const declared = plan.match(/^Branch:\s*(\S+)/m)?.[1]
+    if (!declared) return { ok: true }
+    const actual = currentBranch()
+    if (!actual || declared === actual) return { ok: true }
+    return { ok: false, declared, actual }
+  }
+
+  const verdict = planVerdict()
+  if (verdict.ok) process.exit(0)
+  ```
+
+  ```patch
+  target: .claude/guards/spec-gate-guard.mjs
+  anchor: console.error('Error: PLAN.md missing or not approved. Get spec approval (see task-workflow skill) before non-trivial edits, or keep the change ≤20 lines.')
+  insert: replace
+  ---
+  console.error(
+    verdict.declared
+      ? `Error: PLAN.md is for branch '${verdict.declared}' but HEAD is '${verdict.actual}' — a leftover plan from another task. Finish it, update its Branch: line, or delete it (see task-workflow skill) before non-trivial edits here.`
+      : 'Error: PLAN.md missing or not approved. Get spec approval (see task-workflow skill) before non-trivial edits, or keep the change ≤20 lines.'
+  )
+  ```
+
+### Changed
+
+- **`task-workflow` step 3 now ends with a coverage check, and step 2 can route to the full-spec tier on a score rather than a phrase.** Both come from reading Spec Kit's [published workflow](https://github.github.io/spec-kit/quickstart.html) against ours. Nine of their steps already mapped onto our six — including `clarify`, which step 2's up-to-3 targeted questions covers — but two differences were real:
+  - **Their `analyze` runs before implementation; our verifier runs after.** Same subagent cost, very different economics: a spec/plan incoherence caught pre-code is a sentence, caught by the verifier it's a re-implementation round. We already had the ingredient (the full-spec tier's `Covers` column) with nothing checking the mapping was complete. Step 3 now reads the finished `PLAN.md` back once — every requirement has a task, every task has a requirement or is declared scaffolding in `Notes`, every named edge case lands in a task or the testing strategy. Explicitly *not* a subagent; it's a read of a file just written.
+  - **Their spec tier keys off feature size; ours keyed off the user knowing a phrase.** "Never switch formats based on perceived complexity" is the right instinct and stays — but it meant a genuinely large feature got the light spec unless someone said "full spec". `model-router` already scores capability; it was just running one step too late, in step 4. Step 2 now scores the *described* scope via `--paths` and, only on a `deep-architect` result, offers the full format once with the rubric's rationale. The user still chooses, and step 4 reuses the score instead of re-running it. A lower score raises nothing — the model's own sense that a task feels big is still not a trigger.
+
+  Two things from their design deliberately **not** adopted: nine separate commands (nine invocations and nine context loads per feature — that ceremony is exactly what our full-spec tier gates behind an explicit ask), and `converge`'s iterate-until-converged with no stated cap (our 3 rounds then hand back to the human is the better failure mode). Worth noting in the other direction: their nine steps contain no security step, where ours requires one at spec time for auth, sessions, secrets, PII, and untrusted input.
+- **`task-workflow` step 6 proposes a `knowledge/` distillation before deleting `PLAN.md`.** The skill never mentioned `knowledge/` at all — zero hits — so the entire justification for disposable plans ("the durable *why* lives in the bundle") rested on one checklist line in a different file, `AI_REVIEW_CHECKLIST.md`. Cleanup now asks whether the task established or changed a decision, invariant, contract, or constraint, and proposes the specific concept edit if so. Three guards against ritual: concepts are per-invariant rather than per-task (amend before adding), "nothing durable" is named as the common case for routine work, and the step is skipped entirely when the repo has no bundle.
+- `AI_TASK_GUIDE.md` and the Phase 7 output checklist mention the branch check; `parallelization.md` notes what it does and doesn't catch across worktrees (it catches a plan copied between them, not two worktrees each legitimately naming their own branch — approval stays per worktree).
+
+```patch
+target: AI_TASK_GUIDE.md
+anchor: implementation. Layout, task statuses, and the opt-in full-spec tier: `/task-workflow`.
+insert: replace
+---
+implementation. It also checks `PLAN.md`'s `Branch:` line against the branch you're on, so a plan
+left over from an earlier task can't quietly approve edits for a new one.
+Layout, task statuses, and the opt-in full-spec tier: `/task-workflow`.
+```
+
 ## [1.49.0] - 2026-07-25
 
 Audit against two Anthropic articles — ["The new rules of context engineering for Claude 5 generation models"](https://claude.com/blog/the-new-rules-of-context-engineering-for-claude-5-generation-models) and ["Choosing a Claude model and effort level in Claude Code"](https://claude.com/blog/claude-model-and-effort-level-in-claude-code) — plus the `model-config` docs the second one links to. Ten findings, all acted on.

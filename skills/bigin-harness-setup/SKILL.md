@@ -1,6 +1,6 @@
 ---
 name: bigin-harness-setup
-description: "Scaffolds BigIn's AI workflow harness into a repo — CLAUDE.md brief, path-scoped .claude/rules/, commit-time gates (guard hooks + context-budget check). Profiles: nuxt, go, nodejs, next. Triggers: 'set up harness', 'add AI rules', 'add CLAUDE.md'."
+description: "Scaffolds BigIn's AI workflow harness into a repo — CLAUDE.md brief, path-scoped .claude/rules/, commit-time gates (guard hooks + context-budget check). Profiles: nuxt, go, nodejs, next. Triggers: 'set up harness', 'add AI rules', 'add CLAUDE.md', 'migrate off Spec Kit'."
 effort: medium
 allowed-tools: Bash(git init) Bash(git rev-parse *) Bash(chmod +x *) Bash(ln -sf *)
 ---
@@ -41,6 +41,14 @@ Runs when the repo lacks the marker file for `PROFILE` — `nuxt.config.ts` (nux
 Scaffolding is delegated to that profile's own skill and its deterministic script — **not** done conversationally. All questions happen up front, in one batch; zero prompts once scaffolding starts. Per-profile invocation, decisions to gather, and the full procedure: `references/scaffold-delegation.md`.
 
 Set `SCAFFOLDED = true` when the script exits 0; the governance overlay then reconciles with what it provided (Phases 1 and 5).
+
+---
+
+## Phase 0.7: Detect Spec Kit
+
+Runs before Phase 1 — the outcome changes what Phase 1 finds. Check for [GitHub Spec Kit](https://github.com/github/spec-kit) markers (`.specify/`, `.claude/skills/speckit[-.]*`, `.claude/commands/speckit[-.]*`, `specs/<nnn>-<slug>/spec.md`). None present → set `SPECKIT = none` and skip this phase entirely; it's the common case.
+
+Present → read `references/speckit-migration.md` for the layout table, the `migrate | coexist | leave` decision (folded into Phase 1.5's bundle, never asked standalone), the ordered migration procedure, the workflow mapping, and the read-only `tools/speckit-triage.mjs` classifier. Never delete anything before the user has seen the triage table.
 
 ---
 
@@ -106,8 +114,9 @@ Otherwise, ask **one bundled `AskUserQuestion` call**, before writing any files,
    ```
    Store `MODEL_ROUTING` (the profile name).
 4. **Install mode** — only if Phase 1 detected an existing-harness conflict in this run: the overwrite/new/cancel question from Phase 1 above.
+5. **Spec Kit handling** — only if Phase 0.7 found Spec Kit: the `migrate | coexist | leave` question, worded in `references/speckit-migration.md` → "The decision". On `migrate`, `KNOWLEDGE_BUNDLE` stops being a free choice — it's where the `specs/` rationale lands, so if the user declines both, say the "why" has nowhere to go before accepting it.
 
-Store `KNOWLEDGE_BUNDLE`, `GRAPH`, `CI_PROVIDER`, `MODEL_ROUTING` (and `INSTALL_MODE` if included). Code and security review are not scaffolded as project-local agents — point the user at the `/code-review` and `/security-review` skills instead (see Phase 7 summary).
+Store `KNOWLEDGE_BUNDLE`, `GRAPH`, `CI_PROVIDER`, `MODEL_ROUTING` (and `INSTALL_MODE` / `SPECKIT` if included). Run the chosen Spec Kit path immediately after this phase resolves and before Phase 2 — `migrate` must finish removing Spec Kit before any harness file is written, and `leave` stops the run here. Code and security review are not scaffolded as project-local agents — point the user at the `/code-review` and `/security-review` skills instead (see Phase 7 summary).
 
 ---
 
@@ -208,6 +217,8 @@ Read from `references/hook-guard.md` → `## bash-guard.mjs`. Write to `.claude/
 ### 5-2b. Spec gate guard (blocks non-trivial edits before plan approval)
 
 Read from `references/hook-guard.md` → `## spec-gate-guard.mjs`. Write to `.claude/guards/spec-gate-guard.mjs`. Applies to all profiles.
+
+If `SPECKIT = coexist`, still write the script but **don't register its hook** in 5-3's `settings.json` — it reads root `PLAN.md` only and would block every Spec Kit implementation edit. Note the omission in the Phase 7 summary.
 
 ### 5-2c. Prompt-injection gate (stage 1: flags; stage 2 lives in injection-gate-guard.mjs, extended by 5-2e's canary)
 
@@ -355,7 +366,8 @@ the always-loaded budget unless you're editing those paths.
 - CI Config (Phase 5.6) — opt-in only, decided once in Phase 1.5 (`CI_PROVIDER`, auto-detected default); skip entirely if `no`. Only ever writes/overwrites CI files this skill generated; never edits pre-existing, hand-written CI config.
 - Graphify (Phase 5.7) — opt-in only, decided once in Phase 1.5 (`GRAPH`); skip entirely if declined. Never auto-runs the initial index — always proposed. Install prompting happens here only, never in a consuming skill.
 - `.claude/model-routing.json` (Phase 5-3d) — decided once in Phase 1.5 (`MODEL_ROUTING`); `new` mode never overwrites an existing ladder. Deleting the file is safe: `model-router` falls back to the `frontier` default.
-- All user-facing questions (profile ambiguity, harness conflicts, Knowledge Bundle, CI, model routing profile, foreign pre-commit hook) resolve before any file is written — see Phase 1.5.
+- Spec Kit (Phase 0.7) — detection only; `none` is the common case and skips the phase. On `migrate`, nothing is deleted until the user has seen the triage table, `git tag pre-harness-migration` is set first, and contract fragments are reconciled before `specs/` goes. On `coexist`, the spec-gate hook is left unregistered rather than the guard left unwritten. Never migrate a repo that didn't ask.
+- All user-facing questions (profile ambiguity, harness conflicts, Knowledge Bundle, CI, model routing profile, Spec Kit handling, foreign pre-commit hook) resolve before any file is written — see Phase 1.5.
 - Never delete files not part of the harness.
 - `.claude/harness-version` — written on every fresh/overwrite setup (Phase 5-3c) as a baseline for future patch runs; `new` mode only writes it if absent, since skipped pre-existing files may be older than the recorded version.
 - Patch mode (Phase 1a) — only touches files/lines named in a changelog entry's `patch` block; never guesses at an anchor match; always advances `.claude/harness-version` even on partial application, logging what still needs manual review.
@@ -371,6 +383,7 @@ Read `references/summary-checklist.md` → `## Output Checklist` and verify ever
 ## References
 
 - `references/scaffold-delegation.md` — Phase 0.5: per-profile scaffold script, decisions to gather, and what each one leaves behind for Phase 1 to reconcile
+- `references/speckit-migration.md` — Phase 0.7: GitHub Spec Kit detection (both layouts), the migrate/coexist/leave decision, the ordered migration procedure, workflow mapping, and the `speckit-triage.mjs` classifier
 - `references/profile-nuxt.md` — templates for nuxt profile (CLAUDE.md, conventions-frontend, conventions-server, testing, architecture addendum, settings.json, .vscode/settings.json)
 - `references/profile-next.md` — templates for next profile (same shape as profile-nuxt.md)
 - `references/profile-go.md` — templates for go profile

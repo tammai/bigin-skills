@@ -144,7 +144,9 @@ ever disagree, the skill wins.
 
 `.claude/guards/spec-gate-guard.mjs` blocks `Edit`/`Write` on non-trivial changes until `PLAN.md`
 exists and contains `Status: approved`. That's the gate — approving the spec is what unblocks
-implementation. Layout, task statuses, and the opt-in full-spec tier: `/task-workflow`.
+implementation. It also checks `PLAN.md`'s `Branch:` line against the branch you're on, so a plan
+left over from an earlier task can't quietly approve edits for a new one.
+Layout, task statuses, and the opt-in full-spec tier: `/task-workflow`.
 
 ## Scope discipline
 

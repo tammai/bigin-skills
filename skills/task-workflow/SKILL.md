@@ -15,15 +15,22 @@ Follow this workflow for every non-trivial task.
 2. **Spec gate** (non-trivial features only) — write and get approval for a spec before implementing.
    Skip for: bug fixes, copy changes, config tweaks, changes ≤20 lines of logic.
    If the request doesn't contain enough information to fill the spec's required sections (What / Inputs-outputs / Edge cases / Security considerations / Testing strategy) with confidence, ask up to 3 targeted clarifying questions before drafting the spec — never fill the gaps with silent assumptions and present an approved-looking spec built on them.
-   Use the default format below unless the user explicitly asks for a "full spec" / "AI-friendly spec" / "spec-driven" spec — then use the full spec format instead. Never switch formats based on perceived complexity; the trigger is the explicit request only.
+   Use the default format below unless the user explicitly asks for a "full spec" / "AI-friendly spec" / "spec-driven" spec — then use the full spec format instead. There is exactly one other way the full format gets used: run `model-router`'s capability scoring (its Steps 1–2 only) against the *described* scope before drafting — the files the request implies, passed via `--paths`, since no `PLAN.md` exists yet — and if it scores `deep-architect`, offer the full format once with the rubric's rationale and use whichever the user picks. A `standard-worker` or `quick-executor` score is not a reason to raise formats at all. That score is the rubric's judgment, not yours: never upgrade the format because a task *feels* big. Step 4 reuses this score rather than re-running it, unless the approved spec changed the scope you fed it.
    If the feature touches auth, sessions, secrets, PII, or untrusted input (user-controlled data, URLs, redirects, file paths), the spec's Security considerations must name the concrete risks — see `.claude/rules/security.md`. Don't defer security to the post-implementation review; a threat found at spec time is a sentence, the same one found after code review is a rewrite.
 
 3. **Plan file** — once the spec/plan is approved, write it to `PLAN.md`: the approved spec followed by a tasks tracking table (see format below).
    If `PLAN.md` already exists with tasks not marked `Done`, stop and ask the user how to proceed (resume, discard, or replace) before writing — never overwrite silently. If it doesn't exist, or every task in it is `Done`, write the new plan over it.
 
+   **Coverage check** — before step 4, read the finished `PLAN.md` back once and confirm three things hold:
+   - every requirement in the spec maps to at least one task
+   - every task maps to a requirement, or says in `Notes` that it's setup/scaffolding
+   - every edge case the spec names is covered by a task or by the Testing strategy
+
+   Fix any gap in `PLAN.md` now. This is the same economics as the security rule in step 2: a missing task costs one line here and a whole verify round once code exists. At full-spec tier it's mechanical — check the `Covers` column against the FR list. Don't spawn a subagent for this; it's a read of a file you just wrote.
+
 4. **Implement/verify loop** — an independent verifier subagent, not just tests, checks every diff against `PLAN.md` before it reaches review. Skip the whole loop (implement inline, then just run lint+typecheck+tests yourself) only when the spec gate itself was skipped **and** `model-router`'s verification bar came back "normal gates" — a trivial-looking change that touches a contract, migration, or CI path still goes through the loop. The loop guards against spec drift on non-trivial work; it isn't there to gate copy fixes.
 
-   1. **Implement.** Run `model-router`'s scoring and model resolution only (its Steps 1 through 4: gather signals with the *planned* file list via `--paths`, score capability, set the verification bar, resolve the tier's model, state all of it) — skip straight to spawning if the tier is obvious or the user already named a model/tier. Don't let `model-router` auto-spawn (its own Step 5); which tier actually implements is the user's call, not a silent one:
+   1. **Implement.** Run `model-router`'s scoring and model resolution only (its Steps 1 through 4: gather signals with the *planned* file list via `--paths`, score capability, set the verification bar, resolve the tier's model, state all of it) — skip straight to spawning if the tier is obvious or the user already named a model/tier. If step 2 already scored capability, reuse that result and run only the verification bar and model resolution here; re-score just the capability axis when the approved spec moved the scope out from under it. Don't let `model-router` auto-spawn (its own Step 5); which tier actually implements is the user's call, not a silent one:
       - **Scored tier is `deep-architect`** — state the rationale and ask the user to confirm before spawning it. It's the most expensive tier (fable/xhigh by default) and the biggest behavior swing, so it's the one case worth a pause. If the user declines, ask which tier/model they want instead and spawn that.
       - **Scored tier is `standard-worker`** — spawn it directly, no confirmation needed.
       - **Scored tier is `quick-executor`** — spawn it directly *if* the verification bar is "normal gates". If any bar trigger fired (high-risk path, coverage under 0.3, 5+ files, flaky symptom), spawn `standard-worker` instead: the capability score can be genuinely low while the change still needs more checking than the quick tier's `low` effort gives it.
@@ -38,7 +45,12 @@ Follow this workflow for every non-trivial task.
 
 5. **Review** — ask whether to run `/code-review` (and `/security-review` too, if the change touches auth, sessions, secrets, PII, or untrusted input) on the diff — don't run either automatically. If the user says yes, check `AI_REVIEW_CHECKLIST.md` and don't mark this step done until it's clean. If they decline or want to defer, note that in `PLAN.md` and move on.
 
-6. **Cleanup** — once every task in `PLAN.md` is `Done` and review is resolved (clean, or explicitly declined by the user), delete `PLAN.md`. It's a working file for the task, not project documentation — nothing to preserve once the task ships. If the task changed code and `graphify-out/graph.json` exists, propose a graph rebuild (`graphify update .` — AST-only, zero API cost) before deleting `PLAN.md`; propose it, don't run it silently.
+6. **Cleanup** — once every task in `PLAN.md` is `Done` and review is resolved (clean, or explicitly declined by the user), delete `PLAN.md`. It's a working file for the task, not project documentation — nothing to preserve once the task ships.
+
+   Two things happen before the delete, both proposed rather than run silently:
+
+   - **Distill, if there's anything durable.** `PLAN.md` is the only written record of *why* this task took the shape it did, and deleting it is the last chance to keep any of that. If the task established or changed a decision, invariant, contract, or constraint — not merely "added a feature" — say so and propose the specific `knowledge/` edit (which concept file, what line). Concepts are per-invariant, not per-task: prefer amending an existing file to adding one, and every new file needs a summary line in `knowledge/index.md` or the validator flags it unreachable. Nothing durable is the common case for routine work — say that and move on rather than inventing a concept to justify the step. Skip entirely if the repo has no `knowledge/` bundle.
+   - **Rebuild the graph, if the task changed code** and `graphify-out/graph.json` exists: propose `graphify update .` (AST-only, zero API cost).
 
 ## Spec format (when required)
 
@@ -80,6 +92,7 @@ Single file — the approved spec followed by a tracking table, kept in one plac
 # Plan: {feature name}
 
 Status: approved
+Branch: {git branch --show-current}
 
 ## Spec
 
@@ -93,6 +106,8 @@ Status: approved
 ```
 
 Valid statuses: `Not started`, `In progress`, `Done`, `Blocked`.
+
+`Branch:` records the branch the plan was written on, so a plan left behind by an earlier task can't silently govern a later one — `spec-gate-guard.mjs` blocks non-trivial edits when it disagrees with `HEAD`. Omit the line when there's no branch to name (detached HEAD, or not a git repo); the guard skips the check rather than blocking on what it can't verify. On a deliberate rename or rebase onto a new branch, update the line rather than deleting it.
 
 **Full-spec tier only:** add a `Covers` column (e.g. `FR-3`) linking each task to the requirement it implements, and add one tracked row per Verification Checklist manual item (e.g. `Verify: error path for FR-2`, status `Not started`). Cleanup (step 6) can't happen while any of those rows is still open. Don't add the `Covers` column or verification rows for default-tier specs — there are no FR-IDs to reference.
 
