@@ -5,6 +5,88 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.52.0] - 2026-07-30
+
+The gap this closes: agents confidently write APIs that don't exist for libraries newer than
+their training data, or that moved between majors. `llms.txt` is unstructured and unpinned;
+runtime doc retrieval is a network dependency, a community-maintained index, and has nowhere
+to put team conventions. What was missing is a repeatable way to turn a library's docs and
+source **at a pinned version** into an in-repo artifact we own and have verified.
+
+### Added
+
+- **New `knowledge-distill` skill** — distills an external library's docs and source at a pinned
+  version into `knowledge/libraries/<lib>/` concept files, in the repo that invoked it. Manual
+  invocation only; it does not fire on coding tasks or documentation questions.
+  - **Output is the existing bundle format, not a new one.** The distilled bundle is ordinary
+    concept files: `index.md` (`type: Index` — the pin, provenance, mental model, decision
+    tables, anti-patterns, deltas from the previous major), one `type: Domain` file per topic,
+    and a `type: Playbook` source-path map. `tools/knowledge_validate.mjs` — already in every
+    scaffolded repo's pre-commit and CI — validates it unchanged, and `.claude/rules/knowledge.md`'s
+    index-first read protocol already governs loading. No second format, no second validator, no
+    second loading rule, and nothing added to any always-loaded file.
+  - **Provenance frontmatter is flat** (`library`, `version`, `source_repo`, `source_commit`,
+    `docs_path`, `distilled`, `verified`, `conventions_blended`). The validator's frontmatter
+    parser handles top-level scalars, inline arrays, and block lists only — a nested
+    `source: {repo, commit}` map is an `unparseable frontmatter line` **error**, not a warning.
+    The commit SHA is recorded alongside the tag because tags move.
+  - **"latest" is refused.** No version, or "latest"/"current"/"newest", stops and asks. A bundle
+    pinned to whatever `HEAD` happened to be is worse than no bundle: it looks pinned and isn't.
+  - **The topic list is a gate.** Preflight proposes topics from the docs tree and writes nothing
+    until the user confirms them and the budgets — topics decide the bundle's whole shape and are
+    cheap to change before Phase 1, expensive after.
+  - **Verification is mandatory and runs in a clean context.** A fresh `knowledge-auditor` is
+    spawned per round with the bundle and the clone, never with the distiller's account of its
+    own work. Capped at 3 rounds, then it stops and asks. A bundle that hasn't passed a clean
+    audit is not committed, and `verified:` records the date of the pass. The failure being
+    guarded is specific: a hallucinated API in a committed bundle is worse than no bundle,
+    because every later session in the repo reads it as established fact.
+  - **Re-distill on a version bump** diffs the docs tree between tags and rewrites only the topic
+    files the diff touches — but re-verifies in full regardless of diff size, since a three-line
+    docs diff can invalidate a claim three files away.
+  - **Team conventions are blended visibly**, prefixed `Team convention:` at the point of
+    relevance, so a house rule never reads as library behavior. The auditor fails a bundle that
+    confuses the two in either direction.
+  - `scripts/count_budget.mjs` enforces per-file budgets before the audit: 60 lines for
+    `index.md` (it's the routinely-read file feeding the index-first protocol), 100 for topic
+    files. The 100 is a deliberate deviation from the bundle spec's ~60-line guidance, reasoned
+    in `references/bundle-format.md`: a topic file is one on-demand read of a contiguous API
+    surface, and sharding it costs more in file-opens than the shorter files save. Budgets are
+    chars with the same `/4` estimate `tools/context_budget.mjs` uses — nothing here counts real
+    tokens, so nothing claims to.
+- **New `agents/knowledge-auditor.md`** (sonnet/high, read-only) — audits a distilled bundle
+  against the library's cloned source at the pinned commit. `tools:` is restricted to
+  `Read, Grep, Glob, Bash` so read-only is structural rather than prose. The clone at that commit
+  is the only authority: the auditor's own knowledge of the library may be from another version
+  and is explicitly not evidence. It has no memory of prior rounds, and a claim it cannot confirm
+  anywhere in the clone is a finding rather than a pass.
+- **`tools/knowledge_drift.mjs`** (template in `references/drift-guard.md`, installed into the
+  target repo by Phase 3) — compares each bundle's pinned `version` against the version the
+  project **declares** in `package.json` or `go.mod`, failing on minor-or-above divergence.
+  Declared, not locked: four lockfile formats would need four parsers and a YAML dependency for a
+  signal the declared range already carries, and a patch move doesn't change an API surface.
+  Escape hatch is `drift_ack: <declared-version>` in the bundle's own frontmatter — it suppresses
+  exactly that version, shows up in the diff, and a re-distill deletes it. Without one the only
+  way past a failing hook is `--no-verify`, which `bash-guard.mjs` blocks outright.
+
+### Changed
+
+- **`bigin-harness-setup` Phase 5.5 gained one suggest-only step** (step 7): when the knowledge
+  bundle is opted into, it names the core dependencies an agent is most likely to get wrong and
+  points at `/knowledge-distill`. It asks nothing, writes nothing, and creates no `libraries/`
+  directory — a bundle needs a clone, a topic decision, and a verification pass, so it belongs in
+  its own invocation. Declining the knowledge bundle still produces zero knowledge artifacts.
+- `sprint-distill` gained a negative trigger eval for library distillation, keeping the boundary
+  sharp: `sprint-distill` handles knowledge about **our** code, `knowledge-distill` about
+  libraries we depend on. Structural facts about our repo remain graphify's, not either one's.
+- Docs-sync prose corrected in `README.md` and `tools/docs_sync.mjs`'s header — both still said
+  it regenerates inventory tables in `CLAUDE.md`, which it deliberately stopped doing.
+
+No `patch` block in this entry. The only file destined for target repos is
+`tools/knowledge_drift.mjs`, and it's meaningless until a library bundle exists —
+`knowledge-distill` is the only thing that creates one, so it installs the script and wires the
+hook itself. Shipping it through patch mode would put an unwired script in every scaffolded repo.
+
 ## [1.51.0] - 2026-07-29
 
 ### Added

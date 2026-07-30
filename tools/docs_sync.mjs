@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Docs-sync generator — regenerates the skills/agents inventory tables in
-// CLAUDE.md and README.md from the filesystem (skills/*/SKILL.md dirs,
+// README.md from the filesystem (skills/*/SKILL.md dirs,
 // agents/*.md frontmatter) plus tools/docs-manifest.json (presentation-only:
 // group + one-line summary per skill/agent). Fails closed (exit 1) on any
 // skill<->manifest or agent<->manifest mismatch so a new skill/agent can't

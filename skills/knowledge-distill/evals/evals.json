@@ -1,0 +1,17 @@
+[
+  {"query":"distill knowledge for nuxt@4.0.3","should_trigger":true},
+  {"query":"create a knowledge bundle for phaser","should_trigger":true},
+  {"query":"update the nuxt bundle to 4.1.0","should_trigger":true},
+  {"query":"pull pinia colada's docs into knowledge/ pinned to the version we use","should_trigger":true},
+  {"query":"our agents keep hallucinating pgx APIs — build a pinned knowledge bundle from its repo","should_trigger":true},
+  {"query":"how do I use useFetch in nuxt 4","should_trigger":false},
+  {"query":"what's the difference between useAsyncData and useFetch","should_trigger":false},
+  {"query":"add pagination to the posts endpoint using pgx","should_trigger":false},
+  {"query":"upgrade nuxt to 4.1.0 in package.json","should_trigger":false},
+  {"query":"look up the phaser docs for me","should_trigger":false},
+  {"query":"distill what we learned this sprint into knowledge/ and bigin-skills","should_trigger":false},
+  {"query":"document the decisions behind our auth module in knowledge/","should_trigger":false},
+  {"query":"write an llms.txt for our API","should_trigger":false},
+  {"query":"index this repo's call graph so agents can navigate it","should_trigger":false},
+  {"query":"set up the AI harness for this repo","should_trigger":false}
+]

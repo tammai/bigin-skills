@@ -20,6 +20,7 @@ Two things happen on a project using this harness, and they're not peers — one
 | "Write tests for X" | `write-tests` directly — when you just need tests for one function/component, not a full spec'd change |
 | "Why is this flaky" / "debug this" | `debug-workflow` directly — for a bug not yet tied to a `task-workflow` plan |
 | "Sprint distill" / end of sprint | `sprint-distill` — compresses merged PRs into `knowledge/` + harness updates |
+| "Distill knowledge for nuxt@4.0.3" | `knowledge-distill` — an external library's docs/source at a pinned version → audited `knowledge/libraries/<lib>/` concept files, for libraries newer or faster-moving than model training data |
 | "Save session" / nearing a context limit | `session-handoff` |
 | Implementing a Figma handoff in a Nuxt UI app | `nuxt-ui-figma-handoff` |
 
@@ -43,6 +44,7 @@ The harness itself — setup, workflow, and maintenance for a repo under standar
 | **go-scaffold**         | Scaffolds a Go modular-monolith REST API — users/posts, oapi-codegen + sqlc, JWT+argon2id+RBAC, chi router, Postgres. Runs codegen + build/vet/test itself. |
 | **nodejs-scaffold**     | Scaffolds a Node.js modular-monolith REST API — users/posts, code-first OpenAPI (TypeBox) + Drizzle, JWT+argon2id, outbox/inbox + job queue.                |
 | **sprint-distill**      | End-of-sprint distillation: merged PRs + touched knowledge/ concepts → proposal-first knowledge/ and bigin-skills updates. Compresses, never just appends.  |
+| **knowledge-distill**   | Distills a library's docs/source at a pinned version into audited knowledge/libraries/<lib>/ concept files, plus a version-drift commit guard.              |
 | **write-tests**         | On-demand test authoring (/write-tests): style-matches the nearest test file, lists edge cases first, TDD-orders logic, mocks only true I/O boundaries.     |
 | **debug-workflow**      | On-demand systematic debugging (/debug-workflow): triage → fast path for obvious bugs, full guarded workflow for flaky/env/repeat-failure bugs.             |
 | **model-router**        | Scores capability and verification needs separately, then routes to quick-executor/standard-worker/deep-architect on a per-project model ladder.            |
@@ -61,15 +63,16 @@ Add-ons for a specific cross-role handoff (e.g. designer → developer). Not req
 
 ### Agents
 
-`agents/<name>.md` — plugin-level subagents spawned through the Agent tool as `bigin-skills:<name>`, not invoked as skills. `model-router` picks between the three execution tiers; `task-workflow` spawns the verifier. The `model`/`effort` pair below is each agent's frontmatter default — `model-router` overrides `model` per spawn from the project's [model ladder](#model-ladder), while `effort` is fixed in the agent file.
+`agents/<name>.md` — plugin-level subagents spawned through the Agent tool as `bigin-skills:<name>`, not invoked as skills. `model-router` picks between the three execution tiers; `task-workflow` spawns the verifier, and `knowledge-distill` the auditor. The `model`/`effort` pair below is each agent's frontmatter default — `model-router` overrides `model` per spawn from the project's [model ladder](#model-ladder), while `effort` is fixed in the agent file.
 
 <!-- gen:agents-table -->
-| Agent             | Purpose                                                                                                                                                                   |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `quick-executor`  | sonnet/low — mechanical, single-file, low-risk tasks. Routed by `model-router`.                                                                                           |
-| `standard-worker` | opus/high — default tier, most feature/bug-fix work. Routed by `model-router`.                                                                                            |
-| `deep-architect`  | fable/xhigh — architectural decisions, breaking contract changes, row-transforming migrations, full-spec tier. Routed by `model-router`.                                  |
-| `verifier`        | sonnet/high — read-only — audits a diff against `PLAN.md` independently of the implementer's own summary. Spawned fresh each round, alongside whichever tier implemented. |
+| Agent               | Purpose                                                                                                                                                                   |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `quick-executor`    | sonnet/low — mechanical, single-file, low-risk tasks. Routed by `model-router`.                                                                                           |
+| `standard-worker`   | opus/high — default tier, most feature/bug-fix work. Routed by `model-router`.                                                                                            |
+| `deep-architect`    | fable/xhigh — architectural decisions, breaking contract changes, row-transforming migrations, full-spec tier. Routed by `model-router`.                                  |
+| `verifier`          | sonnet/high — read-only — audits a diff against `PLAN.md` independently of the implementer's own summary. Spawned fresh each round, alongside whichever tier implemented. |
+| `knowledge-auditor` | sonnet/high — read-only — audits a distilled library bundle against the library's cloned source at the pinned commit. Spawned fresh each round by `knowledge-distill`.    |
 <!-- /gen:agents-table -->
 
 ---
@@ -317,6 +320,16 @@ bigin-skills/
 │   ├── sprint-distill/            ← end-of-sprint distillation (compresses, never appends)
 │   │   ├── SKILL.md
 │   │   └── evals/evals.json
+│   ├── knowledge-distill/         ← external library docs/source at a pinned version → knowledge/libraries/<lib>/
+│   │   ├── SKILL.md               ← preflight (refuses "latest") → distill → clean-context audit (capped) → commit
+│   │   ├── evals/evals.json
+│   │   ├── scripts/
+│   │   │   └── count_budget.mjs   ← per-file line/char budgets, run before the audit phase
+│   │   └── references/
+│   │       ├── bundle-format.md   ← knowledge/libraries/ layout + flat frontmatter (the validator has no nested-map support)
+│   │       ├── distill-prompts.md ← distillation guidance + the auditor's verbatim audit prompt
+│   │       ├── audit-contract.md  ← single-source auditor output schema (PASS/FAIL + issues)
+│   │       └── drift-guard.md     ← tools/knowledge_drift.mjs template — bundle version vs. declared dependency
 │   ├── write-tests/               ← on-demand test authoring
 │   │   ├── SKILL.md               ← style-match, scope, edge cases, TDD ordering, no over-mocking
 │   │   └── evals/evals.json
@@ -349,7 +362,8 @@ bigin-skills/
 │   ├── quick-executor.md          ← sonnet/low — mechanical, single-file, low-risk tasks
 │   ├── standard-worker.md         ← opus/high — default tier, most feature/bug-fix work
 │   ├── deep-architect.md          ← fable/xhigh — architectural decisions, contract/schema changes, full-spec tier
-│   └── verifier.md                ← sonnet/high, read-only — independently audits a diff against PLAN.md, spawned alongside whichever of the three tiers above implements it
+│   ├── verifier.md                ← sonnet/high, read-only — independently audits a diff against PLAN.md, spawned alongside whichever of the three tiers above implements it
+│   └── knowledge-auditor.md       ← sonnet/high, read-only — audits a distilled library bundle against the library's cloned source at the pinned commit
 │                                    (models above are the frontier default — per-project ladder lives in the target repo's .claude/model-routing.json; effort is fixed per tier)
 ├── .claude/
 │   └── rules/                     ← this repo's own path-scoped authoring rules
@@ -380,7 +394,7 @@ Run it with:
 
 It fetches the live docs, checks skill frontmatter / hooks / sub-agents / context budget / plugin structure / eval coverage / permissions against them, then **stops** with a findings table and asks whether to act on anything or just log the report. Closed findings are tracked in `.claude/audit-log.md` (created on first run) so re-runs don't re-litigate what's already been fixed.
 
-**Docs sync** — the skills/agents tables in `CLAUDE.md` and `README.md` (between `<!-- gen:* -->` markers) are generated from `skills/*/SKILL.md`, `agents/*.md` frontmatter, and `tools/docs-manifest.json`, not hand-maintained.
+**Docs sync** — the skills/agents tables in `README.md` (between `<!-- gen:* -->` markers) are generated from `skills/*/SKILL.md`, `agents/*.md` frontmatter, and `tools/docs-manifest.json`, not hand-maintained.
 
 ```
 node tools/docs_sync.mjs          # regenerate the tables in place

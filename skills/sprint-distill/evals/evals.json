@@ -8,5 +8,6 @@
   {"query":"can you review my latest change for bugs","should_trigger":false},
   {"query":"what changed in the last commit","should_trigger":false},
   {"query":"set up the AI harness for this repo","should_trigger":false},
-  {"query":"scaffold a new nuxt app from scratch","should_trigger":false}
+  {"query":"scaffold a new nuxt app from scratch","should_trigger":false},
+  {"query":"distill knowledge for nuxt@4.0.3 from its repo","should_trigger":false}
 ]

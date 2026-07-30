@@ -7,6 +7,7 @@
     "go-scaffold": { "group": "core", "summary": "Scaffolds a Go modular-monolith REST API — users/posts, oapi-codegen + sqlc, JWT+argon2id+RBAC, chi router, Postgres. Runs codegen + build/vet/test itself." },
     "nodejs-scaffold": { "group": "core", "summary": "Scaffolds a Node.js modular-monolith REST API — users/posts, code-first OpenAPI (TypeBox) + Drizzle, JWT+argon2id, outbox/inbox + job queue." },
     "sprint-distill": { "group": "core", "summary": "End-of-sprint distillation: merged PRs + touched knowledge/ concepts → proposal-first knowledge/ and bigin-skills updates. Compresses, never just appends." },
+    "knowledge-distill": { "group": "core", "summary": "Distills a library's docs/source at a pinned version into audited knowledge/libraries/<lib>/ concept files, plus a version-drift commit guard." },
     "write-tests": { "group": "core", "summary": "On-demand test authoring (/write-tests): style-matches the nearest test file, lists edge cases first, TDD-orders logic, mocks only true I/O boundaries." },
     "debug-workflow": { "group": "core", "summary": "On-demand systematic debugging (/debug-workflow): triage → fast path for obvious bugs, full guarded workflow for flaky/env/repeat-failure bugs." },
     "model-router": { "group": "core", "summary": "Scores capability and verification needs separately, then routes to quick-executor/standard-worker/deep-architect on a per-project model ladder." },
@@ -17,7 +18,8 @@
     "quick-executor": { "summary": "mechanical, single-file, low-risk tasks. Routed by `model-router`." },
     "standard-worker": { "summary": "default tier, most feature/bug-fix work. Routed by `model-router`." },
     "deep-architect": { "summary": "architectural decisions, breaking contract changes, row-transforming migrations, full-spec tier. Routed by `model-router`." },
-    "verifier": { "summary": "read-only — audits a diff against `PLAN.md` independently of the implementer's own summary. Spawned fresh each round, alongside whichever tier implemented." }
+    "verifier": { "summary": "read-only — audits a diff against `PLAN.md` independently of the implementer's own summary. Spawned fresh each round, alongside whichever tier implemented." },
+    "knowledge-auditor": { "summary": "read-only — audits a distilled library bundle against the library's cloned source at the pinned commit. Spawned fresh each round by `knowledge-distill`." }
   },
   "groups": { "core": "Core Skills", "handoff": "Handoff Skills" }
 }
