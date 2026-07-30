@@ -8,5 +8,8 @@
   {"query":"fix the staticcheck warnings in this go project","should_trigger":false},
   {"query":"explain how oapi-codegen's strict server works","should_trigger":false},
   {"query":"distill this sprint's learnings","should_trigger":false},
-  {"query":"run the go server and check the healthz endpoint","should_trigger":false}
+  {"query":"run the go server and check the healthz endpoint","should_trigger":false},
+  {"query":"add pagination to the posts endpoint using pgx","should_trigger":false},
+  {"query":"add an argon2id password reset flow to our go api","should_trigger":false},
+  {"query":"regenerate the sqlc queries after my schema change","should_trigger":false}
 ]

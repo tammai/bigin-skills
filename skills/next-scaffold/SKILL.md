@@ -1,6 +1,6 @@
 ---
 name: next-scaffold
-description: "Scaffolds a Next.js App Router BFF app — create-next-app plus the BFF preset (Zustand, TanStack Query, shadcn/ui, Zod, Vitest); `dashboard` adds an admin shell, `saas` a real-backend auth flow. Triggers: 'scaffold next', 'create next app', 'next saas template', or a repo with no next.config.ts."
+description: "Scaffolds a new Next.js App Router BFF app from scratch — empty repo or no next.config.ts. BFF preset (Zustand, TanStack Query, shadcn/ui, Zod, Vitest), plus dashboard and saas variants. Triggers: 'scaffold next', 'create next app', 'next saas template'."
 effort: low
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/scaffold.mjs *)
 ---
@@ -26,6 +26,17 @@ Unlike `nuxt-scaffold`'s 9 templates (6 of which clone a whole separate GitHub r
 > Governance (CLAUDE.md, `.claude/rules/`, AI guides, `bash-guard.mjs`) is **not** this skill's job — run `bigin-harness-setup` afterward to overlay it.
 
 Prerequisites: Node.js 20+, pnpm. Scaffolding is **in-place** into the target directory (for a brand-new project: `mkdir my-app` first).
+
+---
+
+## When not to use
+
+This skill only ever creates a **new** project. A request about a Next app that already exists belongs elsewhere — even when it names this exact stack. Zustand, TanStack Query, shadcn/ui, Zod and Vitest are what this scaffold *generates*; they are not topics it owns.
+
+- Add a page, component, store, or route handler to an existing Next app → `task-workflow`
+- Fix a bug or a failing check → `debug-workflow`
+- Explain how a library in the stack works → answer directly, no skill
+- Add governance files to an already-scaffolded repo → `bigin-harness-setup`
 
 ---
 

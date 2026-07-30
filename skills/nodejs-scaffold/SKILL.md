@@ -1,6 +1,6 @@
 ---
 name: nodejs-scaffold
-description: "Scaffolds a production-ready Node.js modular-monolith REST API — Fastify, TypeBox code-first OpenAPI, Drizzle + Postgres, JWT+argon2id, outbox/inbox, job queue. Triggers: 'scaffold node api', 'create a fastify backend', 'new node backend', or a repo with no package.json."
+description: "Scaffolds a new Node.js modular-monolith REST API from scratch — empty repo or no package.json. Fastify, code-first OpenAPI via TypeBox, Drizzle + Postgres, JWT auth. Triggers: 'scaffold node api', 'create a fastify backend', 'new node backend'."
 effort: low
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/scaffold.mjs *)
 ---
@@ -18,6 +18,17 @@ One template only — no variant menu like nuxt-scaffold's. The generated app sh
 > Governance (CLAUDE.md, `.claude/rules/`, AI guides, `bash-guard.mjs`) is **not** this skill's job — run `bigin-harness-setup` afterward to overlay it.
 
 Prerequisites: Node.js ≥22 on PATH, pnpm on PATH (`corepack enable && corepack prepare pnpm@latest --activate` if missing), git. Docker isn't touched by the script (compose/Dockerfile are written but never invoked). Scaffolding is **in-place** into the target directory (for a brand-new project: `mkdir my-api` first, or pass `--dir`).
+
+---
+
+## When not to use
+
+This skill only ever creates a **new** project. A request about a Node app that already exists belongs elsewhere — even when it names this exact stack. Fastify, Drizzle, TypeBox, the outbox/inbox and the job queue are what this scaffold *generates*; they are not topics it owns.
+
+- Add a feature, endpoint, migration, or worker to an existing Node API → `task-workflow`
+- Fix a bug or a failing check → `debug-workflow`
+- Explain how a library in the stack works → answer directly, no skill
+- Add governance files to an already-scaffolded repo → `bigin-harness-setup`
 
 ---
 

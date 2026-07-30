@@ -1,6 +1,6 @@
 ---
 name: go-scaffold
-description: "Scaffolds a production-ready Go modular-monolith REST API — chi, contract-first oapi-codegen + sqlc, Postgres/pgx, JWT+argon2id+RBAC, users/posts example modules. Triggers: 'scaffold go api', 'create go rest api', 'new go backend', or a repo with no go.mod."
+description: "Scaffolds a new Go modular-monolith REST API from scratch — empty repo or no go.mod. chi, contract-first oapi-codegen + sqlc, Postgres, JWT auth. Triggers: 'scaffold go api', 'create go rest api', 'new go backend'."
 effort: low
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/scaffold.mjs *)
 ---
@@ -18,6 +18,17 @@ One template only — no variant menu like nuxt-scaffold's. The generated app is
 > Governance (CLAUDE.md, `.claude/rules/`, AI guides, `bash-guard.mjs`) is **not** this skill's job — run `bigin-harness-setup` afterward to overlay it.
 
 Prerequisites: Go ≥1.24 on PATH, git. Docker/staticcheck are optional — staticcheck runs if found on PATH and is skipped with a note otherwise; Docker isn't touched by the script at all (compose/Dockerfile are written but never invoked). Scaffolding is **in-place** into the target directory (for a brand-new project: `mkdir my-api` first, or pass `--dir`).
+
+---
+
+## When not to use
+
+This skill only ever creates a **new** project. A request about a Go app that already exists belongs elsewhere — even when it names this exact stack. `pgx`, `sqlc`, `oapi-codegen`, `users`/`posts` are what this scaffold *generates*; they are not topics it owns.
+
+- Add a feature, endpoint, or query to an existing Go API → `task-workflow`
+- Fix a bug or a failing check → `debug-workflow`
+- Explain how a library in the stack works → answer directly, no skill
+- Add governance files to an already-scaffolded repo → `bigin-harness-setup`
 
 ---
 

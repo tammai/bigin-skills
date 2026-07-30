@@ -5,6 +5,50 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.52.1] - 2026-07-30
+
+Trigger-precision pass on the four scaffold skills, found by running `knowledge-distill`'s
+trigger eval: a blind judge picked `go-scaffold` for "add pagination to the posts endpoint using
+pgx", reasoning that the request named this skill's stack. All four descriptions enumerated their
+full stack, and those nouns read as topical relevance to feature work on an existing repo — while
+the explicit trigger lists were scaffolding-only. `go-scaffold`'s eval file already carried "add a
+new endpoint to this existing go api" as a negative, so this was a stated intent that didn't hold
+once the phrasing carried stack nouns.
+
+### Changed
+
+- **All four scaffold descriptions now lead with the from-scratch scope**, and drop the
+  collision-prone feature/domain nouns that were pulling false positives — `pgx`,
+  `users/posts example modules`, `argon2id+RBAC`, `outbox/inbox`, `job queue`, and the
+  `npm create nuxt@latest` / `ui.nuxt.com` mechanics. The stack signature that identifies each
+  scaffold stays. Side effect: **177 chars off the always-loaded budget** (7065 → 6888), since
+  every `description:` is loaded on every turn in every repo that installs this plugin.
+- **`## When not to use` sections added** to all four, per the authoring rule that negatives cost
+  nothing in the body and must never sit in `description:`. Each one names its own stack nouns
+  explicitly — "`pgx`, `sqlc`, `oapi-codegen`, `users`/`posts` are what this scaffold *generates*;
+  they are not topics it owns" — and routes feature work to `task-workflow`, bugs to
+  `debug-workflow`, and governance to `bigin-harness-setup`.
+- **11 stack-flavored negative eval cases added** across the four skills, e.g. "write a drizzle
+  migration for the orders table", "add a zustand store for the cart in our next app",
+  "regenerate the sqlc queries after my schema change".
+
+### Known limitation
+
+**The `go-scaffold` case that started this is not fixed.** Verified by blind re-test: `nodejs`,
+`nuxt` and `next` stack-flavored negatives now return NONE, and all four positives still fire, but
+"add pagination to the posts endpoint using pgx" still selects `go-scaffold` — 9 out of 9 runs
+across two different rewordings. The three that now pass all contain "our service"/"our app"; the
+go query has no explicit existing-app marker, so there is nothing lexical for the description to
+contradict. Description text appears to be at its floor here; removing the remaining stack
+signature would cost real discoverability for genuine scaffold requests.
+
+Scope of the measurement: judges were forced to a single token with no reasoning, which is harsher
+than real selection — given room to reason, the same case did conclude "no skill fits." And the
+backstop holds either way: `go-scaffold` Step 1 confirms before writing anything, and the new
+`## When not to use` section (which loads on invocation, unlike `description:`) routes the request
+onward. Worst case is one wasted skill load, not a scaffold written over an existing repo. The
+eval case stays `should_trigger: false` — it records intended behavior, and it currently fails.
+
 ## [1.52.0] - 2026-07-30
 
 The gap this closes: agents confidently write APIs that don't exist for libraries newer than

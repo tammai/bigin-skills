@@ -8,5 +8,8 @@
   {"query":"fix the eslint warnings in this node project","should_trigger":false},
   {"query":"explain how drizzle migrations work","should_trigger":false},
   {"query":"distill this sprint's learnings","should_trigger":false},
-  {"query":"run the node server and check the healthz endpoint","should_trigger":false}
+  {"query":"run the node server and check the healthz endpoint","should_trigger":false},
+  {"query":"add a job queue worker to our fastify service","should_trigger":false},
+  {"query":"write a drizzle migration for the orders table","should_trigger":false},
+  {"query":"add a typebox schema for the new request body","should_trigger":false}
 ]

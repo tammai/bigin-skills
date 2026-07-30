@@ -8,5 +8,8 @@
   {"query":"fix the eslint config in this next.js project","should_trigger":false},
   {"query":"explain how iron-session works","should_trigger":false},
   {"query":"distill this sprint's learnings","should_trigger":false},
-  {"query":"run the next.js dev server and check the homepage","should_trigger":false}
+  {"query":"run the next.js dev server and check the homepage","should_trigger":false},
+  {"query":"add a zustand store for the cart in our next app","should_trigger":false},
+  {"query":"add a shadcn dialog to the settings page","should_trigger":false},
+  {"query":"add a tanstack query hook for the orders list","should_trigger":false}
 ]

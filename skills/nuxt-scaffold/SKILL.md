@@ -1,6 +1,6 @@
 ---
 name: nuxt-scaffold
-description: "Scaffolds a Nuxt 4 BFF app with a backend-wired proxy + typed API client — `starter` runs npm create nuxt@latest, other templates (saas, dashboard, landing, docs, chat…) clone the matching ui.nuxt.com starter. Triggers: 'scaffold nuxt', 'create nuxt app', 'nuxt saas template', or a repo with no nuxt.config.ts."
+description: "Scaffolds a new Nuxt 4 BFF app from scratch — empty repo or no nuxt.config.ts. Backend-wired proxy + typed API client; templates: starter, saas, dashboard, landing, docs, chat. Triggers: 'scaffold nuxt', 'create nuxt app', 'nuxt saas template'."
 effort: low
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/scaffold.mjs *)
 ---
@@ -40,6 +40,18 @@ The **`starter`** template is the only one restructured into Nuxt **Layers** (`l
 > Governance (CLAUDE.md, `.claude/rules/`, AI guides, `bash-guard.mjs`) is **not** this skill's job — run `bigin-harness-setup` afterward to overlay it.
 
 Prerequisites: Node.js 22+, pnpm. Scaffolding is **in-place** into the target directory (for a brand-new project: `mkdir my-app` first).
+
+---
+
+## When not to use
+
+This skill only ever creates a **new** project. A request about a Nuxt app that already exists belongs elsewhere — even when it names this exact stack. The proxy, the typed API client and the templates are what this scaffold *generates*; they are not topics it owns.
+
+- Add a page, component, or proxy route to an existing Nuxt app → `task-workflow`
+- Fix a bug or a failing check → `debug-workflow`
+- Explain how a library in the stack works → answer directly, no skill
+- Implement a Figma handoff in an existing app → `nuxt-ui-figma-handoff`
+- Add governance files to an already-scaffolded repo → `bigin-harness-setup`
 
 ---
 

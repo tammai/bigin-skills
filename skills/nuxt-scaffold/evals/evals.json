@@ -8,5 +8,7 @@
   {"query":"fix the eslint config in this nuxt project","should_trigger":false},
   {"query":"explain how nuxt-auth-utils works","should_trigger":false},
   {"query":"distill this sprint's learnings","should_trigger":false},
-  {"query":"run the nuxt dev server and check the homepage","should_trigger":false}
+  {"query":"run the nuxt dev server and check the homepage","should_trigger":false},
+  {"query":"add a proxy route to our nuxt app for the reports service","should_trigger":false},
+  {"query":"wire the typed api client into the dashboard page","should_trigger":false}
 ]
