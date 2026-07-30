@@ -20,11 +20,38 @@ rule in that reference is there because the validator enforces it.
 
 ## Preconditions
 
-- The repo has a `knowledge/` bundle (`knowledge/index.md` exists). If not, say so and offer
-  `bigin-harness-setup` — its Phase 5.5 creates the bundle and the validator. Don't hand-roll
-  a partial bundle here; that's the other skill's job.
 - `git` is available and the library's repo is public. Private repos and non-git doc sources
   are out of scope.
+- The repo has a `knowledge/` bundle. If `knowledge/index.md` is missing, do Phase 0a first.
+
+## Phase 0a — Bootstrap the bundle (only when it's absent)
+
+A distilled bundle is self-validating without a repo-level bundle — its own `index.md` is
+`type: Index`, which seeds the validator's reachability walk. So what's missing isn't
+correctness. It's that nothing would ever *read* the bundle (discovery runs through
+`.claude/rules/knowledge.md`'s index-first protocol), and Phase 3's validator step would have
+no validator to run. Distilling into a repo with neither is paying a clone plus up to three
+audit rounds for files no session opens.
+
+Offer two paths and **wait** — writing rule files and a commit-time validator into someone's
+repo is a bigger change than "distill a bundle," and it isn't yours to assume:
+
+- **Full harness** (`bigin-harness-setup`) — pick this if the repo has no `CLAUDE.md` or
+  `.claude/rules/` either. The knowledge bundle is one phase of a harness such a repo wants
+  anyway, and that skill also wires the commit gates and CI.
+- **Bundle only** — bootstrap here, then continue into Phase 0.
+
+On "bundle only": do exactly what `bigin-harness-setup` **Phase 5.5 steps 1–3** do, reading its
+templates from `bigin-skills skills/bigin-harness-setup/references/knowledge-bundle.md` and
+replacing `{DATE}` with today's date in ISO 8601. That phase holds the canonical file list —
+**do not restate it here**, or the two drift the first time one is edited. Skip any file that
+already exists.
+
+Stop at step 3. Steps 4–6 are enforcement wiring — pre-commit, `AI_REVIEW_CHECKLIST.md`, CI —
+and they belong to the harness, not here. Say so when you report, so nobody reads a bootstrapped
+repo as a fully gated one: the bundle is validated when *you* run the validator in Phase 3, but
+nothing yet runs it on commit. Phase 3 still installs the drift guard and wires it if the repo
+turns out to have a pre-commit script.
 
 ## Phase 0 — Preflight
 

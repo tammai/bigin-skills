@@ -301,6 +301,8 @@ Decided in Phase 1.5 (`KNOWLEDGE_BUNDLE`). If true, read all templates from `ref
 
 The knowledge.md rule file uses the index-first read protocol: agents read the index summary and only open a concept file when the summary is insufficient. This keeps per-session context load low even as the bundle grows.
 
+**Steps 1–3 are the canonical bundle-install list.** `knowledge-distill`'s Phase 0a reuses them verbatim to bootstrap a repo that has no bundle, and deliberately does not restate the file list. If you add or remove a starter file here, that bootstrap follows automatically — but note the index template links to the other starter files, so a file dropped from step 2 without also editing `## knowledge/index.md` becomes a broken link and a validator error.
+
 If false, skip everything above — no other phase depends on it.
 
 ---

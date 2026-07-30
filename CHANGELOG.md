@@ -30,6 +30,19 @@ source **at a pinned version** into an in-repo artifact we own and have verified
     parser handles top-level scalars, inline arrays, and block lists only — a nested
     `source: {repo, commit}` map is an `unparseable frontmatter line` **error**, not a warning.
     The commit SHA is recorded alongside the tag because tags move.
+  - **It bootstraps the bundle when the repo has none** (Phase 0a), rather than dead-ending. A
+    distilled bundle is self-validating without a repo-level one — its own `index.md` is
+    `type: Index`, which seeds the validator's reachability walk — so the missing piece was never
+    correctness. It's that nothing would *read* the bundle (discovery runs through
+    `.claude/rules/knowledge.md`'s index-first protocol) and Phase 3 would have no validator to
+    run. Phase 0a offers the full harness or a bundle-only bootstrap and waits: writing rule files
+    and a commit-time validator into a repo is a bigger change than "distill a bundle." The
+    bootstrap runs `bigin-harness-setup` Phase 5.5 steps 1–3 and **does not restate that file
+    list**, so the two can't drift; it stops before steps 4–6 (pre-commit, review checklist, CI),
+    which are the harness's business, and says so on report rather than letting a bootstrapped
+    repo read as a fully gated one. Writing only the three files the skill strictly needs was the
+    obvious-looking design and is wrong: the `knowledge/index.md` template links to the other
+    starter files, so a partial write is a broken link and a validator error.
   - **"latest" is refused.** No version, or "latest"/"current"/"newest", stops and asks. A bundle
     pinned to whatever `HEAD` happened to be is worse than no bundle: it looks pinned and isn't.
   - **The topic list is a gate.** Preflight proposes topics from the docs tree and writes nothing
