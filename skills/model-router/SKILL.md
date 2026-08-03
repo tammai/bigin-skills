@@ -9,11 +9,14 @@ allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/classify.mjs *), Bash(git s
 
 Scores a task, then hands it off to the matching subagent. Three tiers, one each — effort is fixed per tier, the model is whatever the project's profile resolves to.
 
-| Tier     | Subagent                       | Effort (fixed) | Model — `frontier` (default) | `opus-centric` | `lean` |
-| -------- | ------------------------------ | -------------- | ---------------------------- | -------------- | ------ |
-| Quick    | `bigin-skills:quick-executor`  | low            | sonnet                       | sonnet         | haiku  |
-| Standard | `bigin-skills:standard-worker` | high           | opus                         | opus           | sonnet |
-| Deep     | `bigin-skills:deep-architect`  | xhigh          | fable                        | opus           | opus   |
+| Tier     | `opus-centric` (default)          | `frontier`                            | `lean`                                 |
+| -------- | --------------------------------- | ------------------------------------- | -------------------------------------- |
+| Quick    | `quick-executor` — sonnet/low     | `quick-executor` — sonnet/low         | `quick-executor` — sonnet/low          |
+| Standard | `standard-worker` — opus/medium   | `standard-worker-high` — opus/high    | `standard-worker-high` — sonnet/high   |
+| Deep     | `deep-architect` — opus/high      | `deep-architect` — fable/high         | `deep-architect` — opus/high           |
+| Verifier | `verifier` — sonnet/high          | `verifier` — sonnet/high              | `verifier-medium` — sonnet/medium      |
+
+The **agent** varies by profile, not just the model: effort comes only from an agent file's frontmatter (the Agent tool has no effort parameter), so a profile pinning a tier at a different effort routes to a variant agent. Read both off `routing.agents[tier]` and `routing.models[tier]` — never assume the agent from the tier name.
 
 Two axes, scored separately, because they answer different questions:
 
@@ -89,25 +92,29 @@ From the mechanical signals — this changes what the payload demands, never whi
 
 Triggers stack.
 
-## Step 3c: Resolve the model for that tier
+## Step 3c: Resolve the model **and the agent** for that tier
 
-The tier decides the agent and its effort; this step decides only which model it runs on. Precedence:
+The tier decides *which* rung; the profile decides both the model and the effort on it. Take both from Step 1's `routing`:
 
-1. **On-demand instruction in this request** ("run it on fable", "use the lean ladder here") — this spawn only. Don't edit the project config for a one-off.
-2. **`routing.models[tier]`** from Step 1 (resolved from `.claude/model-routing.json`).
-3. The `frontier` default, which is what `routing` already reports when no config exists.
+- **Model** — `routing.models[tier]`. Precedence:
+  1. **On-demand instruction in this request** ("run it on fable", "use the lean ladder here") — this spawn only. Don't edit the project config for a one-off.
+  2. **`routing.models[tier]`** from Step 1 (resolved from `.claude/model-routing.json`).
+  3. The `opus-centric` default, which is what `routing` already reports when no config exists.
+- **Agent** — `routing.agents[tier]`, which is the `subagent_type` for Step 5. **Don't derive it from the tier name.** Effort can't be passed at spawn time, so a profile that pins a tier at a non-default effort routes to a variant agent instead: the standard tier is `standard-worker-high` under both `frontier` and `lean` (only `opus-centric` uses `standard-worker`), and the verifier is `verifier-medium` under `lean`. Spawning the base agent there would silently run the task at the wrong effort.
 
-Relay any non-empty `routing.warnings` to the user — a malformed config degrades silently to the default otherwise, and a config the user thinks is active but isn't is worse than no config.
+`routing.efforts[tier]` reports the effort that agent carries; it's informational (state it in Step 4), never something you pass. If a user asks for a different effort level, say so plainly — there is no way to honor it at the call site.
+
+Relay any non-empty `routing.warnings` to the user — a malformed config degrades silently to the default otherwise, and a config the user thinks is active but isn't is worse than no config. Setting `effort` in `.claude/model-routing.json` is one of those warnings: it isn't a supported key.
 
 Profiles, config schema, and the effort rationale per model: `references/model-profiles.md`.
 
-## Step 4: State tier + model + verification bar + rationale
+## Step 4: State tier + agent + model/effort + verification bar + rationale
 
-One line: the chosen tier, the model it will run on (and where that model came from if it wasn't the default), the verification bar from Step 3b, and the deciding signal(s). Only ask the user (single yes/no) if the capability score sits exactly on a bucket boundary **and** the Step 2 signals were ambiguous — don't ask by default, that reintroduces the triage overhead this skill exists to remove.
+One line: the chosen tier, the agent that will run it, its model and effort (and where they came from if not the default), the verification bar from Step 3b, and the deciding signal(s). Name the agent whenever it isn't the tier's base — "Standard tier → `standard-worker-high` on sonnet/high (lean ladder)" tells the user what they're actually paying for; "Standard tier" alone doesn't. Only ask the user (single yes/no) if the capability score sits exactly on a bucket boundary **and** the Step 2 signals were ambiguous — don't ask by default, that reintroduces the triage overhead this skill exists to remove.
 
 ## Step 5: Spawn
 
-Call the Agent tool with `subagent_type: bigin-skills:<tier-agent-name>` (see the table above) and `model: <resolved model from Step 3c>` — pass `model` explicitly on every spawn, even when it matches the agent's frontmatter default, so the handoff and the actual run can't disagree. Pass: one-line task scope, `PLAN.md` path if one exists, the touched-file list, the chosen tier + rationale, **the Step 3b verification bar**, and — if `graphify-out/graph.json` exists in the repo — a note of its presence plus a `docs/graph-usage.md` pointer, so the subagent knows why it was picked, can flag a mismatch, and navigates structurally before grepping. Also pass **objective**, **constraints**, and **definition-of-done** — a fixed payload template, not prose advice, so Step 6 has something concrete to check the return against. The verification bar belongs in `definition-of-done`, so an unmet bar is a Step 6 gap rather than a footnote.
+Call the Agent tool with `subagent_type: bigin-skills:<routing.agents[tier]>` and `model: <resolved model from Step 3c>` — both from Step 3c, and pass `model` explicitly on every spawn, even when it matches the agent's frontmatter default, so the handoff and the actual run can't disagree. Pass: one-line task scope, `PLAN.md` path if one exists, the touched-file list, the chosen tier + rationale, **the Step 3b verification bar**, and — if `graphify-out/graph.json` exists in the repo — a note of its presence plus a `docs/graph-usage.md` pointer, so the subagent knows why it was picked, can flag a mismatch, and navigates structurally before grepping. Also pass **objective**, **constraints**, and **definition-of-done** — a fixed payload template, not prose advice, so Step 6 has something concrete to check the return against. The verification bar belongs in `definition-of-done`, so an unmet bar is a Step 6 gap rather than a footnote.
 
 Exact call shape and payload fields: `references/agent-invocation.md`.
 

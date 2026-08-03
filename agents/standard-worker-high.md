@@ -1,8 +1,8 @@
 ---
-name: standard-worker
+name: standard-worker-high
 description: Default execution tier — most feature work, bug fixes, and moderate multi-file refactors that follow established patterns. Spawned by model-router for tasks scoring 2-4 on its capability rubric.
 model: opus
-effort: medium
+effort: high
 skills:
   - debug-workflow
   - write-tests

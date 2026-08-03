@@ -74,7 +74,7 @@ Created:
   .claude/settings.json [created/merged]
   tools/context_budget.mjs
   .claude/harness-version [current version stamp]
-  .claude/model-routing.json [subagent model ladder: {MODEL_ROUTING}]
+  .claude/model-routing.json [subagent model + effort ladder: {MODEL_ROUTING}]
   CLAUDE.md [created]
   scripts/pre-commit.sh [skipped if a hook manager already exists]
   [Knowledge Bundle: .claude/rules/knowledge.md, knowledge/*, tools/knowledge_validate.mjs] (if opted in)
@@ -88,7 +88,7 @@ Enabled:
   session resume prompt (SessionStart hook — deterministic, replaces CLAUDE.md prose)
   canary exfiltration gate (SessionStart seeds a per-session token; injection-gate-guard.mjs denies any tool call whose input contains it)
   precompact autosave (PreCompact hook writes in-flight state to .claude/memory/SESSION.md before manual/auto compaction)
-  subagent model routing ({MODEL_ROUTING} ladder — model-router/task-workflow read .claude/model-routing.json; edit it to change tiers)
+  subagent model routing ({MODEL_ROUTING} ladder — sets each tier's model and effort; model-router/task-workflow read .claude/model-routing.json, edit it to change tiers)
   [knowledge bundle validation wired into the pre-commit gate] (if opted in)
   [knowledge bundle validation wired into generated CI] (if opted in and CI_PROVIDER != no)
   [sprint-distill available — run it at sprint end to fold merged work into knowledge/ and bigin-skills] (if opted in)

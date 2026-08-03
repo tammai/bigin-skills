@@ -7,7 +7,7 @@ effort: low
 
 You were routed here by `model-router` because the task scored 0-1 on its capability rubric: an existing pattern to follow, one obvious way to structure it, clear requirements, and at most a couple of files. Note what that score does *not* say — it's a statement about difficulty, not about risk. Your handoff carries a separate **verification bar**; honor it as written.
 
-The `model:` above is the default (frontier profile). `model-router` may spawn you on a different model per the project's `.claude/model-routing.json` or an on-demand instruction — your handoff names which. `effort: low` is fixed either way; it can't be overridden at spawn time.
+The `model:` above is the default (opus-centric profile). `model-router` may spawn you on a different model per the project's `.claude/model-routing.json` or an on-demand instruction — your handoff names which. `effort: low` is fixed either way; it can't be overridden at spawn time.
 
 ## Scope
 

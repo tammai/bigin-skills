@@ -4,6 +4,8 @@
 
 Spec-driven `task-workflow` with an independent verifier, mechanical enforcement gates, and governance for standardized development across BigIn's stacks.
 
+> **New here?** Read the [User Guide](docs/USER_GUIDE.md) — a task-oriented walkthrough of setting up a repo, the daily workflow, what each gate blocks and how to unblock it, and troubleshooting. This README is the full reference.
+
 ## Quick Start
 
 Two things happen on a project using this harness, and they're not peers — one is a one-time setup step, the other is what you actually run every day:
@@ -47,7 +49,7 @@ The harness itself — setup, workflow, and maintenance for a repo under standar
 | **knowledge-distill**   | Distills a library's docs/source at a pinned version into audited knowledge/libraries/<lib>/ concept files, plus a version-drift commit guard.              |
 | **write-tests**         | On-demand test authoring (/write-tests): style-matches the nearest test file, lists edge cases first, TDD-orders logic, mocks only true I/O boundaries.     |
 | **debug-workflow**      | On-demand systematic debugging (/debug-workflow): triage → fast path for obvious bugs, full guarded workflow for flaky/env/repeat-failure bugs.             |
-| **model-router**        | Scores capability and verification needs separately, then routes to quick-executor/standard-worker/deep-architect on a per-project model ladder.            |
+| **model-router**        | Scores capability and verification needs separately, then routes to the quick/standard/deep tier on a per-project model + effort ladder.                    |
 <!-- /gen:skills-core -->
 
 ### Handoff Skills
@@ -63,16 +65,18 @@ Add-ons for a specific cross-role handoff (e.g. designer → developer). Not req
 
 ### Agents
 
-`agents/<name>.md` — plugin-level subagents spawned through the Agent tool as `bigin-skills:<name>`, not invoked as skills. `model-router` picks between the three execution tiers; `task-workflow` spawns the verifier, and `knowledge-distill` the auditor. The `model`/`effort` pair below is each agent's frontmatter default — `model-router` overrides `model` per spawn from the project's [model ladder](#model-ladder), while `effort` is fixed in the agent file.
+`agents/<name>.md` — plugin-level subagents spawned through the Agent tool as `bigin-skills:<name>`, not invoked as skills. `model-router` picks between the three execution tiers; `task-workflow` spawns the verifier, and `knowledge-distill` the auditor. The `model`/`effort` pair below comes from each agent's frontmatter — `model-router` overrides `model` per spawn from the project's [model ladder](#model-ladder), while `effort` is fixed by the file itself. That's why two tiers have a second entry: an *effort variant* is the same role at a different pin, and picking one is the only way a ladder can set a tier's effort.
 
 <!-- gen:agents-table -->
-| Agent               | Purpose                                                                                                                                                                   |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `quick-executor`    | sonnet/low — mechanical, single-file, low-risk tasks. Routed by `model-router`.                                                                                           |
-| `standard-worker`   | opus/high — default tier, most feature/bug-fix work. Routed by `model-router`.                                                                                            |
-| `deep-architect`    | fable/xhigh — architectural decisions, breaking contract changes, row-transforming migrations, full-spec tier. Routed by `model-router`.                                  |
-| `verifier`          | sonnet/high — read-only — audits a diff against `PLAN.md` independently of the implementer's own summary. Spawned fresh each round, alongside whichever tier implemented. |
-| `knowledge-auditor` | sonnet/high — read-only — audits a distilled library bundle against the library's cloned source at the pinned commit. Spawned fresh each round by `knowledge-distill`.    |
+| Agent                  | Purpose                                                                                                                                                                   |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `quick-executor`       | sonnet/low — mechanical, single-file, low-risk tasks. Routed by `model-router`.                                                                                           |
+| `standard-worker`      | opus/medium — default tier, most feature/bug-fix work. Routed by `model-router`.                                                                                          |
+| `standard-worker-high` | opus/high — same role as `standard-worker`, pinned higher. Spawned instead of it under the `frontier` and `lean` ladders.                                                 |
+| `deep-architect`       | opus/high — architectural decisions, breaking contract changes, row-transforming migrations, full-spec tier. Routed by `model-router`.                                    |
+| `verifier`             | sonnet/high — read-only — audits a diff against `PLAN.md` independently of the implementer's own summary. Spawned fresh each round, alongside whichever tier implemented. |
+| `verifier-medium`      | sonnet/medium — same role as `verifier`, pinned lower. Spawned instead of it under the `lean` ladder.                                                                     |
+| `knowledge-auditor`    | sonnet/high — read-only — audits a distilled library bundle against the library's cloned source at the pinned commit. Spawned fresh each round by `knowledge-distill`.    |
 <!-- /gen:agents-table -->
 
 ---
@@ -133,7 +137,7 @@ your-repo/
 │   │   ├── canary-seed.mjs              ← SessionStart hook: seeds a per-session exfiltration canary token
 │   │   └── precompact-snapshot.mjs      ← PreCompact hook: autosaves SESSION.md before context compaction
 │   ├── settings.json                   ← pre-approved commands + hook wiring
-│   └── model-routing.json              ← subagent model ladder (frontier/opus-centric/lean + per-tier overrides)
+│   └── model-routing.json              ← subagent model + effort ladder (opus-centric/frontier/lean + per-tier model overrides)
 ├── tools/
 │   └── context_budget.mjs               ← budget gate: CLAUDE.md ≤60, unscoped rules ≤40
 ├── scripts/
@@ -187,21 +191,25 @@ Trigger with natural language ("implement X", "add a feature", "fix bug in Z", "
 
 ### Model ladder
 
-Which model each of the three tiers runs on is a per-project choice — **effort is not** (it's pinned per tier: quick `low` · standard `high` · deep `xhigh` · verifier `high`). `high` is the documented default on every model that supports effort, so the standard tier deliberately sits *at* the default; quick routes down for mechanical work, and deep is the one escalation, for changes where a wrong structural call can't be cheaply reverted. Rationale per tier: [`model-profiles.md`](skills/model-router/references/model-profiles.md).
+A profile sets each tier's **model and effort** — both are a per-project choice, but only the model is settable directly. `high` is the documented default on every model that supports effort, and **no tier pins above it**, on any profile: the checking an above-default pin would buy is already supplied structurally by the implement/verify loop. Rationale per tier: [`model-profiles.md`](skills/model-router/references/model-profiles.md).
 
-| Profile              | quick    | standard | deep    | verifier | Pick it when                                                            |
-| -------------------- | -------- | -------- | ------- | -------- | ----------------------------------------------------------------------- |
-| `frontier` (default) | `sonnet` | `opus`   | `fable` | `sonnet` | Default — standard tier matches an Opus-default session, deep gets the top model |
-| `opus-centric`       | `sonnet` | `opus`   | `opus`  | `sonnet` | Same ladder without Fable's price tag                                    |
-| `lean`               | `haiku`  | `sonnet` | `opus`  | `haiku`  | Cost-first (note: Haiku 4.5 takes no effort level, so the pin is inert there) |
+| Profile                  | quick        | standard      | deep         | verifier        | Pick it when                                    |
+| ------------------------ | ------------ | ------------- | ------------ | --------------- | ------------------------------------------------- |
+| `opus-centric` (default) | `sonnet`/low | `opus`/medium | `opus`/high  | `sonnet`/high   | The cost-aware default — standard runs at `medium` and leans on the verifier round; the deep tier escalates on effort, not on model |
+| `frontier`               | `sonnet`/low | `opus`/high   | `fable`/high | `sonnet`/high   | Everything above quick at full effort, deep on the top model — pay up front instead of per verifier round |
+| `lean`                   | `sonnet`/low | `sonnet`/high | `opus`/high  | `sonnet`/medium | Cost-first, trading the other way — a cheaper standard tier at fuller effort; deep still escalates to opus |
 
-Set it in the target repo's `.claude/model-routing.json` — `bigin-harness-setup` writes it, both keys are optional, and per-tier overrides layer on top of the chosen profile:
+`opus-centric` is the only ladder running the standard tier below `high`; the other two differ from each other on model, not effort.
+
+**Effort can't be passed at spawn time** — the Agent tool has no effort parameter, so it comes only from the spawned agent file's frontmatter. A profile that pins a tier at a different effort therefore routes to an *effort variant* of that tier's agent: `standard-worker-high` under `frontier` and `lean`, `verifier-medium` under `lean`. `model-router` resolves the agent alongside the model and spawns what `routing.agents[tier]` names — the variant fixes only the effort, so `standard-worker-high` still runs on `opus` under `frontier` and `sonnet` under `lean`. Variants are byte-identical to their base except for `name` and `effort`, enforced by `docs_sync.mjs --check` at commit time.
+
+Set the profile in the target repo's `.claude/model-routing.json` — `bigin-harness-setup` writes it, both keys are optional, and per-tier **model** overrides layer on top of the chosen profile (there is no `effort` key):
 
 ```json
-{ "profile": "frontier", "models": { "deep": "opus" } }
+{ "profile": "opus-centric", "models": { "deep": "fable" } }
 ```
 
-Precedence: an instruction in the current request ("run this one on fable") > `.claude/model-routing.json` > the `frontier` default. A malformed config never blocks routing — it degrades to the default and the warning is relayed to you. Deleting the file is safe. Full details in [`skills/model-router/references/model-profiles.md`](skills/model-router/references/model-profiles.md).
+Precedence: an instruction in the current request ("run this one on fable") > `.claude/model-routing.json` > the `opus-centric` default. A malformed config never blocks routing — it degrades to the default and the warning is relayed to you. Deleting the file is safe. Full details in [`skills/model-router/references/model-profiles.md`](skills/model-router/references/model-profiles.md).
 
 ### Opt-in full-spec tier
 
@@ -346,7 +354,7 @@ bigin-skills/
 │   │   │   └── classify.mjs        ← mechanical signals (files, high-risk paths, test coverage, full-spec PLAN.md) + resolved model ladder
 │   │   └── references/
 │   │       ├── scoring-rubric.md   ← point table + 3 worked examples
-│   │       ├── model-profiles.md   ← frontier/opus-centric/lean ladders, .claude/model-routing.json schema, effort rationale
+│   │       ├── model-profiles.md   ← opus-centric/frontier/lean ladders, .claude/model-routing.json schema, effort rationale
 │   │       └── agent-invocation.md ← Agent tool call shape, handback protocol
 │   ├── session-handoff/           ← Handoff Skills (add-ons, opt in per project)
 │   │   ├── SKILL.md               ← session state persistence
@@ -360,11 +368,14 @@ bigin-skills/
 │       └── evals/evals.json
 ├── agents/                        ← plugin-level subagents, spawned via Agent tool (not invoked as skills)
 │   ├── quick-executor.md          ← sonnet/low — mechanical, single-file, low-risk tasks
-│   ├── standard-worker.md         ← opus/high — default tier, most feature/bug-fix work
-│   ├── deep-architect.md          ← fable/xhigh — architectural decisions, contract/schema changes, full-spec tier
+│   ├── standard-worker.md         ← opus/medium — default tier, most feature/bug-fix work
+│   ├── standard-worker-high.md    ← opus/high — effort variant of standard-worker, spawned under the frontier and lean ladders
+│   ├── deep-architect.md          ← opus/high — architectural decisions, contract/schema changes, full-spec tier
 │   ├── verifier.md                ← sonnet/high, read-only — independently audits a diff against PLAN.md, spawned alongside whichever of the three tiers above implements it
+│   ├── verifier-medium.md         ← sonnet/medium — effort variant of verifier, spawned under the lean ladder
 │   └── knowledge-auditor.md       ← sonnet/high, read-only — audits a distilled library bundle against the library's cloned source at the pinned commit
-│                                    (models above are the frontier default — per-project ladder lives in the target repo's .claude/model-routing.json; effort is fixed per tier)
+│                                    (models above are the opus-centric default — per-project ladder lives in the target repo's .claude/model-routing.json;
+│                                     effort comes only from the spawned file, so a differing pin means a *-high/-medium variant, body-locked to its base)
 ├── .claude/
 │   └── rules/                     ← this repo's own path-scoped authoring rules
 │       ├── context-hygiene.md     ← always-loaded output/session discipline
@@ -375,6 +386,8 @@ bigin-skills/
 │   └── docs-manifest.json         ← source of truth for the generated tables
 ├── scripts/
 │   └── git-hooks/pre-commit       ← runs context_budget.mjs + docs_sync.mjs --check
+├── docs/
+│   └── USER_GUIDE.md              ← task-oriented guide for people using the plugin (this README is the reference)
 ├── CLAUDE.md
 ├── CHANGELOG.md
 └── README.md

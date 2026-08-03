@@ -106,12 +106,12 @@ Otherwise, ask **one bundled `AskUserQuestion` call**, before writing any files,
    Add CI config? (github/gitlab/both/no)
    Generates a workflow that runs {LINT} && {TYPECHECK} && {TEST} on push to main and on merge/pull requests.
    ```
-3. **Model routing profile** (frontier/opus-centric/lean) — which model ladder `model-router` and `task-workflow` spawn subagents on. Written to `.claude/model-routing.json` at Phase 5-3d:
+3. **Model routing profile** (opus-centric/frontier/lean) — which model ladder `model-router` and `task-workflow` spawn subagents on. Written to `.claude/model-routing.json` at Phase 5-3d:
    ```
-   Which model ladder should subagents use? (frontier/opus-centric/lean)
-   1. frontier (default) — quick=sonnet, standard=opus, deep=fable. Matches an Opus-default session; deep tier gets the top model.
-   2. opus-centric — quick=sonnet, standard=opus, deep=opus. Same ladder without Fable's price tag.
-   3. lean — quick=haiku, standard=sonnet, deep=opus. Cost-first (note: Haiku 4.5 ignores the tier's pinned effort).
+   Which model ladder should subagents use? (opus-centric/frontier/lean)
+   1. opus-centric (default) — quick=sonnet/low, standard=opus/medium, deep=opus/high, verifier=sonnet/high. Matches an Opus-default session; the deep tier escalates on effort, not on model.
+   2. frontier — quick=sonnet/low, standard=opus/high, deep=fable/high, verifier=sonnet/high. Everything above quick at full effort, deep on the top model.
+   3. lean — quick=sonnet/low, standard=sonnet/high, deep=opus/high, verifier=sonnet/medium. Cost-first, trading model capability for effort on the standard tier; deep still escalates to opus.
    Per-tier overrides and the full schema: bigin-skills skills/model-router/references/model-profiles.md.
    ```
    Store `MODEL_ROUTING` (the profile name).
@@ -275,7 +275,7 @@ Write `.claude/harness-version` containing the current version from this plugin'
 
 ### 5-3d. Model routing config
 
-Write `.claude/model-routing.json` from `references/files-shared.md` → `## model-routing.json`, substituting `{MODEL_ROUTING}` with the profile decided in Phase 1.5. This is what `model-router`'s `classify.mjs` reads to pick the model for each subagent tier.
+Write `.claude/model-routing.json` from `references/files-shared.md` → `## model-routing.json`, substituting `{MODEL_ROUTING}` with the profile decided in Phase 1.5. This is what `model-router`'s `classify.mjs` reads to resolve each subagent tier's model, effort, and which agent file carries that effort.
 
 - `INSTALL_MODE=yes` (or a fresh install) → write/overwrite.
 - `INSTALL_MODE=new` → skip if the file exists — a hand-tuned ladder (including per-tier `models` overrides) is the user's, not ours to reset.
@@ -377,7 +377,7 @@ the always-loaded budget unless you're editing those paths.
 - Knowledge Bundle (Phase 5.5) — opt-in only, decided once in Phase 1.5 (`KNOWLEDGE_BUNDLE`); skip entirely if declined. Never edit unknown CI config automatically — only note it's needed.
 - CI Config (Phase 5.6) — opt-in only, decided once in Phase 1.5 (`CI_PROVIDER`, auto-detected default); skip entirely if `no`. Only ever writes/overwrites CI files this skill generated; never edits pre-existing, hand-written CI config.
 - Graphify (Phase 5.7) — opt-in only, decided once in Phase 1.5 (`GRAPH`); skip entirely if declined. Never auto-runs the initial index — always proposed. Install prompting happens here only, never in a consuming skill.
-- `.claude/model-routing.json` (Phase 5-3d) — decided once in Phase 1.5 (`MODEL_ROUTING`); `new` mode never overwrites an existing ladder. Deleting the file is safe: `model-router` falls back to the `frontier` default.
+- `.claude/model-routing.json` (Phase 5-3d) — decided once in Phase 1.5 (`MODEL_ROUTING`); `new` mode never overwrites an existing ladder. Deleting the file is safe: `model-router` falls back to the `opus-centric` default.
 - Spec Kit (Phase 0.7) — detection only; `none` is the common case and skips the phase. On `migrate`, nothing is deleted until the user has seen the triage table, `git tag pre-harness-migration` is set first, and contract fragments are reconciled before `specs/` goes. On `coexist`, the spec-gate hook is left unregistered rather than the guard left unwritten. Never migrate a repo that didn't ask.
 - Profile detection (Phase 0) — the four-way question is asked **only** for an empty repo, where it picks the scaffold. Existing code that matches no marker is `PROFILE = generic`, never a question: it skips Phase 0.5, the conventions/testing rules, `.vscode/settings.json`, and Phase 5.6 CI, and installs everything else. Commands are detected, and an undetected one stays a visible `TODO` rather than a guess.
 - All user-facing questions (empty-repo profile choice, harness conflicts, Knowledge Bundle, CI, model routing profile, Spec Kit handling, foreign pre-commit hook) resolve before any file is written — see Phase 1.5.

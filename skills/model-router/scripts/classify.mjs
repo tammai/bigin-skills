@@ -19,20 +19,41 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, basename, join, extname } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const LOCKFILES = new Set(['package-lock.json', 'pnpm-lock.yaml', 'yarn.lock', 'bun.lock', 'bun.lockb']);
 
 // --- Model ladder resolution (see references/model-profiles.md) ---
 
 const ROUTING_CONFIG = '.claude/model-routing.json';
-const DEFAULT_PROFILE = 'frontier';
+const DEFAULT_PROFILE = 'opus-centric';
 const PROFILES = {
-  frontier: { quick: 'sonnet', standard: 'opus', deep: 'fable', verifier: 'sonnet' },
   'opus-centric': { quick: 'sonnet', standard: 'opus', deep: 'opus', verifier: 'sonnet' },
-  lean: { quick: 'haiku', standard: 'sonnet', deep: 'opus', verifier: 'haiku' },
+  frontier: { quick: 'sonnet', standard: 'opus', deep: 'fable', verifier: 'sonnet' },
+  lean: { quick: 'sonnet', standard: 'sonnet', deep: 'opus', verifier: 'sonnet' },
 };
 const TIERS = ['quick', 'standard', 'deep', 'verifier'];
 const MODELS = new Set(['fable', 'opus', 'sonnet', 'haiku']);
+
+// Effort is NOT settable in .claude/model-routing.json and is not overridable at
+// spawn time — the Agent tool has no effort parameter, so it can only come from an
+// agent file's frontmatter. A profile that wants a different effort for a tier
+// therefore has to name a different *agent*; AGENTS below maps (tier, effort) to the
+// file that carries it, and every pair used in EFFORTS must exist there.
+// These three tables are the single source of truth: tools/docs_sync.mjs imports them
+// and fails the commit on an EFFORTS pair with no AGENTS entry, an AGENTS entry with no
+// file, or a variant that has drifted from its base.
+const EFFORTS = {
+  'opus-centric': { quick: 'low', standard: 'medium', deep: 'high', verifier: 'high' },
+  frontier: { quick: 'low', standard: 'high', deep: 'high', verifier: 'high' },
+  lean: { quick: 'low', standard: 'high', deep: 'high', verifier: 'medium' },
+};
+const AGENTS = {
+  quick: { low: 'quick-executor' },
+  standard: { medium: 'standard-worker', high: 'standard-worker-high' },
+  deep: { high: 'deep-architect' },
+  verifier: { high: 'verifier', medium: 'verifier-medium' },
+};
 
 // Resolves profile + per-tier overrides into one model-per-tier map. Every
 // invalid input degrades to the default and is reported in `warnings` — the
@@ -41,22 +62,24 @@ function resolveRouting() {
   const routing = {
     profile: DEFAULT_PROFILE,
     models: { ...PROFILES[DEFAULT_PROFILE] },
+    efforts: { ...EFFORTS[DEFAULT_PROFILE] },
+    agents: {},
     source: 'default',
     warnings: [],
   };
 
-  if (!existsSync(ROUTING_CONFIG)) return routing;
+  if (!existsSync(ROUTING_CONFIG)) return withAgents(routing);
 
   let config;
   try {
     config = JSON.parse(readFileSync(ROUTING_CONFIG, 'utf8'));
   } catch (err) {
     routing.warnings.push(`${ROUTING_CONFIG} is not valid JSON (${err.message}) — using the ${DEFAULT_PROFILE} default`);
-    return routing;
+    return withAgents(routing);
   }
   if (config === null || typeof config !== 'object' || Array.isArray(config)) {
     routing.warnings.push(`${ROUTING_CONFIG} must be a JSON object — using the ${DEFAULT_PROFILE} default`);
-    return routing;
+    return withAgents(routing);
   }
 
   routing.source = 'config';
@@ -65,6 +88,7 @@ function resolveRouting() {
     if (Object.hasOwn(PROFILES, config.profile)) {
       routing.profile = config.profile;
       routing.models = { ...PROFILES[config.profile] };
+      routing.efforts = { ...EFFORTS[config.profile] };
     } else {
       routing.warnings.push(
         `unknown profile "${config.profile}" in ${ROUTING_CONFIG} (known: ${Object.keys(PROFILES).join(', ')}) — using ${DEFAULT_PROFILE}`
@@ -90,6 +114,21 @@ function resolveRouting() {
     }
   }
 
+  if (config.effort !== undefined || config.efforts !== undefined) {
+    routing.warnings.push(
+      `effort is not settable in ${ROUTING_CONFIG} — it comes from the spawned agent's frontmatter and the Agent tool has no effort parameter. Pick a profile whose effort ladder you want, or the pins stay as they are.`
+    );
+  }
+
+  return withAgents(routing);
+}
+
+// Derives the subagent to spawn per tier from the resolved effort. Kept separate so
+// every return path above goes through it and `agents` is never left empty.
+function withAgents(routing) {
+  routing.agents = Object.fromEntries(
+    TIERS.map((tier) => [tier, AGENTS[tier]?.[routing.efforts[tier]] ?? null])
+  );
   return routing;
 }
 
@@ -237,12 +276,17 @@ function main() {
           highRiskMatches: null,
           testCoverageRatio: null,
           fullSpecDetected: false,
-          routing: {
+          // withAgents, not a literal — the router reads routing.agents[tier] to pick
+          // a subagent_type, so a fallback missing `agents` degrades into spawning
+          // `bigin-skills:undefined` on exactly the path meant to fail soft.
+          routing: withAgents({
             profile: DEFAULT_PROFILE,
             models: { ...PROFILES[DEFAULT_PROFILE] },
+            efforts: { ...EFFORTS[DEFAULT_PROFILE] },
+            agents: {},
             source: 'default',
             warnings: [`routing not resolved (${err.message}) — using the ${DEFAULT_PROFILE} default`],
-          },
+          }),
           error: err.message,
         },
         null,
@@ -252,4 +296,8 @@ function main() {
   }
 }
 
-main();
+// Only run when executed directly — tools/docs_sync.mjs imports the ladder tables
+// below to gate them, and importing must not emit JSON or read the filesystem.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();
+
+export { DEFAULT_PROFILE, PROFILES, EFFORTS, AGENTS, TIERS, MODELS };

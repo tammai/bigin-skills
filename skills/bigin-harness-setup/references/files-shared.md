@@ -63,7 +63,7 @@ paths:
 
 ## model-routing.json
 
-Written to `.claude/model-routing.json` (Phase 5-3d). `{MODEL_ROUTING}` is the profile chosen in Phase 1.5 — `frontier` | `opus-centric` | `lean`.
+Written to `.claude/model-routing.json` (Phase 5-3d). `{MODEL_ROUTING}` is the profile chosen in Phase 1.5 — `opus-centric` (default) | `frontier` | `lean`.
 
 ```json
 {
@@ -71,16 +71,16 @@ Written to `.claude/model-routing.json` (Phase 5-3d). `{MODEL_ROUTING}` is the p
 }
 ```
 
-To pin an individual tier against the profile, add a `models` object — `quick` | `standard` | `deep` | `verifier` → `fable` | `opus` | `sonnet` | `haiku`:
+A profile sets each tier's model **and** effort. Only the model is overridable here — add a `models` object with `quick` | `standard` | `deep` | `verifier` → `fable` | `opus` | `sonnet` | `haiku`. There is no `effort` key (effort comes from the spawned agent's frontmatter, which the Agent tool can't override):
 
 ```json
 {
-  "profile": "frontier",
-  "models": { "deep": "opus" }
+  "profile": "opus-centric",
+  "models": { "deep": "fable" }
 }
 ```
 
-Effort per tier is fixed in the plugin's own agent definitions (quick `low`, standard `high`, deep `xhigh`, verifier `high`) and is **not** settable here. Ladders, precedence, and the effort rationale: `bigin-skills` → `skills/model-router/references/model-profiles.md`.
+Effort comes from the plugin's own agent definitions and is **not** settable here — the profile picks it by picking which agent each tier spawns. Under `opus-centric` that's quick `low`, standard `medium`, deep `high`, verifier `high`; `frontier` raises standard to `high` and `lean` also drops the verifier to `medium`. Ladders, precedence, and the effort rationale: `bigin-skills` → `skills/model-router/references/model-profiles.md`.
 
 ---
 

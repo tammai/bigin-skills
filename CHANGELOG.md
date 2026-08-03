@@ -5,6 +5,121 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.53.0] - 2026-08-03
+
+Routing profiles now set each tier's **effort** as well as its model, the default ladder moves to
+`opus-centric`, and `xhigh` is retired. Also fixes a silent mis-routing bug in `task-workflow` and
+adds a user guide alongside the reference README.
+
+The end state, all three ladders:
+
+| Profile                  | quick        | standard      | deep         | verifier        |
+| ------------------------ | ------------ | ------------- | ------------ | --------------- |
+| `opus-centric` (default) | `sonnet`/low | `opus`/medium | `opus`/high  | `sonnet`/high   |
+| `frontier`               | `sonnet`/low | `opus`/high   | `fable`/high | `sonnet`/high   |
+| `lean`                   | `sonnet`/low | `sonnet`/high | `opus`/high  | `sonnet`/medium |
+
+### Changed
+
+- **A profile now sets each tier's effort, not just its model.** Previously effort was one fixed
+  set shared by every ladder. The Agent tool has no `effort` parameter — effort can only come from
+  the spawned agent file's frontmatter — so a profile pinning a tier differently spawns a
+  *different agent*. Two new files, `standard-worker-high` and `verifier-medium`, each byte-identical
+  to its base except `name` and `effort`. A variant fixes only the effort; the model still comes
+  from `routing.models[tier]`, so `standard-worker-high` runs on `opus` under `frontier` and
+  `sonnet` under `lean`.
+  - `classify.mjs` gains `EFFORTS` (per profile) and `AGENTS` ((tier, effort) → agent file);
+    `routing` now carries `efforts` and `agents` alongside `models`. **The router must spawn
+    `routing.agents[tier]` verbatim** — deriving the agent from the tier name runs the task at the
+    wrong effort with no error, since the spawn is otherwise valid.
+  - There is **no `effort` key** in `.claude/model-routing.json`; setting one now produces a
+    warning naming why, instead of being ignored in silence.
+- **Default ladder is `opus-centric`, was `frontier`.** The deep tier exists for thoroughness on
+  changes that can't be cheaply reverted — that's the effort axis, which its `high` pin already
+  delivers. Defaulting to the most expensive *model* spent capability budget on the axis the rubric
+  itself says isn't the diagnosis. Under the new default, deep and standard both run `opus` and
+  differ only by effort. `frontier` remains a one-line opt-in for projects whose architectural
+  calls justify Fable.
+- **`xhigh` and `max` are retired as a standing decision**, not a default awaiting justification.
+  The deep tier drops `xhigh` → `high`, and `high` is now the ceiling on every ladder. Above-default
+  effort buys hedging on top of a verifier round that already catches the failure it targets, so
+  deep-tier work coming back wrong is an upstream `PLAN.md`/rules problem. Recorded as a flat
+  prohibition in `.claude/rules/skill-authoring.md` and `references/model-profiles.md` so a later
+  edit can't restore it by arguing the case.
+- **`opus-centric` runs the standard tier at `medium`** — the only ladder below `high` there. Work
+  reaching that tier scored 2–4: an established pattern, with an approved `PLAN.md` already naming
+  the files and edge cases, so most of what full effort buys is re-deriving decisions the plan
+  already made. The failure mode `medium` risks (skipped file, unrun test) is exactly what the
+  verifier round catches — on the tasks that actually miss rather than on all of them. When those
+  `FAIL`s become routine on a project, the documented fix is switching it to `frontier`, not
+  editing the pin.
+- **`lean` re-specified**, and it drops Haiku entirely. It now trades the opposite way from the
+  other two: a cheaper model at *fuller* effort on the standard tier (`sonnet`/high rather than
+  `opus`/medium), buying back with thoroughness what it gives up in capability. The verifier routes
+  down to `medium` as the profile's cost concession — `model-profiles.md` names that as `lean`'s one
+  real caveat, with `{"models": {"verifier": "opus"}}` as the buy-back, replacing the old
+  haiku-inert-effort caveat. **Projects already pinned to `lean` will see different models and
+  efforts on three of four tiers**; the config itself stays valid and needs no edit.
+- **Existing repos are otherwise unaffected.** `.claude/model-routing.json` is written with an
+  explicit `profile`, so a scaffolded repo keeps the ladder it chose — the new default applies only
+  where the file is absent or malformed. The generated file's *content* is unchanged, so there's no
+  patch block.
+- **Drift gate for the new variants.** `tools/docs_sync.mjs --check` (already in pre-commit) imports
+  the ladder tables from `classify.mjs` and fails the commit on: an `EFFORTS` pair with no agent, an
+  `AGENTS` entry with no file, an agent whose frontmatter effort disagrees with the map, and body or
+  frontmatter drift between a variant and its base. All five failure modes are tested. The
+  near-duplicate-file risk `.claude/rules/skill-authoring.md` warns about is real here, so it's
+  mechanically blocked rather than left to prose.
+- **Docs rewritten rather than patched where the argument inverted.**
+  `references/model-profiles.md` → "Why these effort levels" previously argued that standard sits
+  *at* the default and deep is the one above-default escalation; both halves are now false, so the
+  premise, ordering, and per-tier rationale were replaced. `references/scoring-rubric.md`'s buckets
+  were renamed from agent names to tier names (Quick / Standard / Deep) — with variants, a bucket
+  can no longer name a single agent. Propagated to the `model-router` SKILL table and Steps 3c/4/5,
+  `references/agent-invocation.md`, `bigin-harness-setup`'s Phase 1.5 question +
+  `references/files-shared.md` + `references/summary-checklist.md`, `task-workflow`'s deep-tier
+  confirmation prompt, `references/verify-contract.md`, the three tier agents' own
+  model/effort notes, `.claude/rules/skill-authoring.md`, README, and the user guide.
+
+### Fixed
+
+- **`classify.mjs`'s top-level error fallback emitted a `routing` object with no `agents` or
+  `efforts`.** Every path through `resolveRouting()` goes through `withAgents()`, but `main()`'s
+  catch block built its fallback as an object literal — so on the one path explicitly designed to
+  fail soft, the router would read `routing.agents[tier]` as `undefined` and spawn
+  `bigin-skills:undefined`. The fallback now goes through `withAgents()` too.
+- **The variant-parity gate couldn't see list-valued frontmatter.** `parseFrontmatter` drops
+  `skills:` and its indented items, so the original check — which compared parsed key/value maps —
+  would not have caught `standard-worker-high` losing its preloaded `debug-workflow`/`write-tests`
+  skills. It now compares the raw frontmatter block with the `name:`/`effort:` lines removed.
+- **`docs_sync.mjs` restated the ladder instead of importing it, and the invariant it claimed to
+  enforce wasn't enforced.** A comment in `classify.mjs` said the gate covered the EFFORTS→AGENTS
+  mapping; it only covered variant parity, so an effort with no agent would have resolved to
+  `null` silently. `classify.mjs` now exports its tables behind a direct-execution guard
+  (`import.meta.url === pathToFileURL(process.argv[1]).href`), `docs_sync.mjs` imports them, and
+  three new checks fail the commit on: an EFFORTS pair with no agent, an AGENTS entry with no
+  file, and an agent whose frontmatter effort disagrees with the map it's listed under. The
+  hand-copied `EFFORT_VARIANTS` list is gone — variants are derived from `AGENTS`. All five
+  failure modes are tested.
+- **`task-workflow` spawned agents by hardcoded name, which silently ignored the ladder.** Its
+  implement step named `standard-worker`/`quick-executor`/`deep-architect` as if the tier and the
+  agent were the same thing, and its verifier dispatch hardcoded `bigin-skills:verifier`. Under
+  `frontier` or `lean` — where the standard tier resolves to `standard-worker-high`, and `lean`'s
+  verifier to `verifier-medium` — that ran the task at the wrong effort with no error and no
+  warning, since the spawn itself is perfectly valid. Both now read `routing.agents[tier]`. Found
+  by a full staleness sweep after the ladder changes, not by a failing gate; the same sweep also
+  renamed `references/scoring-rubric.md`'s buckets from agent names to tier names (Quick /
+  Standard / Deep), which is what made the conflation visible in the first place.
+
+### Added
+
+- **`docs/USER_GUIDE.md`** — a task-oriented guide for people *using* the plugin, as the
+  counterpart to the reference README: install, day-1 harness setup with the decision table,
+  the daily `task-workflow` loop and what to do at each step, a which-skill-for-which-job table,
+  a **"Living with the gates"** section covering what each guard blocks/exempts and how to
+  unblock it, ladder tuning, the two knowledge skills, session handoff, troubleshooting, and a
+  glossary. Linked from the README's header callout and its Plugin Structure tree.
+
 ## [1.52.1] - 2026-07-30
 
 Trigger-precision pass on the four scaffold skills, found by running `knowledge-distill`'s

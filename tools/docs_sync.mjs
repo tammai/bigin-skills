@@ -99,9 +99,73 @@ for (const key of manifestAgents) {
 }
 
 const agentFrontmatter = {};
+const agentRaw = {};
+const agentBody = {};
 for (const name of agentFiles) {
   const text = readFileSync(join("agents", `${name}.md`), "utf-8");
   agentFrontmatter[name] = parseFrontmatter(text, `agents/${name}.md`);
+  const end = text.indexOf("\n---\n", 4);
+  agentRaw[name] = text.slice(4, end);
+  agentBody[name] = text.slice(end + 5);
+}
+
+// --- routing ladder + effort-variant parity ---
+//
+// Effort can only come from an agent file's frontmatter (the Agent tool has no effort
+// parameter), so a routing profile that wants a tier at a different effort needs its own
+// agent file. Three things have to hold, and none of them fail loudly at runtime — a
+// missing agent resolves to `null` and the router spawns nothing useful, and a drifted
+// variant just quietly behaves differently from its base. So they're gated here.
+//
+// The ladder tables are imported, not restated: a second copy would be one more thing to
+// keep in sync by hand, which is the failure this gate exists to prevent.
+const { DEFAULT_PROFILE, EFFORTS, AGENTS } = await import("../skills/model-router/scripts/classify.mjs");
+
+// 1. Every (profile, tier) effort the ladder can resolve to has an agent that carries it.
+for (const [profile, tiers] of Object.entries(EFFORTS)) {
+  for (const [tier, effort] of Object.entries(tiers)) {
+    if (!AGENTS[tier]?.[effort]) {
+      fail(
+        `classify.mjs: profile "${profile}" pins the ${tier} tier at "${effort}", but AGENTS.${tier} has no agent for that effort — ` +
+          `routing.agents.${tier} would resolve to null. Add the variant file and its AGENTS entry.`
+      );
+    }
+  }
+}
+
+// 2. Every agent the ladder can name exists on disk.
+for (const [tier, byEffort] of Object.entries(AGENTS)) {
+  for (const [effort, name] of Object.entries(byEffort)) {
+    if (!agentFiles.includes(name)) fail(`classify.mjs: AGENTS.${tier}.${effort} names "${name}" but agents/${name}.md does not exist`);
+    if (agentFrontmatter[name].effort !== effort) {
+      fail(
+        `agents/${name}.md pins effort "${agentFrontmatter[name].effort}" but classify.mjs maps it to "${effort}" — ` +
+          `the ladder would promise an effort the spawned agent doesn't carry`
+      );
+    }
+  }
+}
+
+// 3. Each tier's non-default agents are effort variants of the default-profile one:
+//    byte-identical bodies, frontmatter differing only in `name` and `effort`.
+for (const [tier, byEffort] of Object.entries(AGENTS)) {
+  const base = byEffort[EFFORTS[DEFAULT_PROFILE][tier]];
+  for (const variant of Object.values(byEffort)) {
+    if (variant === base) continue;
+    if (agentBody[variant] !== agentBody[base]) {
+      fail(
+        `agents/${variant}.md body has drifted from agents/${base}.md — effort variants are the same role at a different pin. ` +
+          `Edit ${base}.md, then copy its body verbatim into ${variant}.md.`
+      );
+    }
+    // Raw frontmatter, not the parsed map: parseFrontmatter drops list values
+    // (`skills:` and its indented items), so a parsed comparison would let a
+    // difference in the variant's preloaded skills through unnoticed.
+    const strip = (raw) => raw.split("\n").filter((l) => !/^(name|effort):/.test(l)).join("\n");
+    if (strip(agentRaw[variant]) !== strip(agentRaw[base])) {
+      fail(`agents/${variant}.md frontmatter differs from agents/${base}.md beyond name/effort — variants may differ only in those two`);
+    }
+  }
 }
 
 // --- table builders ---
