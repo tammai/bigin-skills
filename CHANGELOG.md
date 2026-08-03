@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.54.0] - 2026-08-03
+
+`classify.mjs` stops reporting planned-but-nonexistent files as uncovered code. Found while
+validating 1.53.0 end-to-end against a real repo (op-time-tracker).
+
+### Changed
+
+- **`testCoverageRatio` is now measured only over non-test files that exist on disk, and
+  planned files that don't exist yet are reported separately as `plannedNewFiles`.** The ratio
+  counts non-test files with a sibling test found on disk. Routing runs *before* work starts
+  against the **planned** scope (`--paths`), so a module that hasn't been written yet
+  contributed to the denominator and matched nothing — meaning any task that adds a file
+  reported `testCoverageRatio: 0`, tripped the `< 0.3` bar, and escalated Quick → Standard via
+  `task-workflow` Step 4.1. The escalation itself is right (writing a fresh test suite is the
+  part that doesn't belong at the quick tier's `low` effort, and `quick-executor`'s brief
+  already scopes it to changes with coverage in place) — what was wrong is that the number
+  said "this code is untested," a genuine risk signal, when it meant "this code doesn't exist
+  yet," which isn't one. A reader could not tell from the JSON which of the two had moved the
+  tier.
+  - A scope of entirely-new files now reports `testCoverageRatio: null` rather than `0`, with
+    the new paths in `plannedNewFiles`. Both the existing `null with code changes` row and the
+    new `plannedNewFiles` row set the same **tests first** bar, so routing is unchanged for
+    this case.
+  - **One behaviour delta, and it only ever tightens.** A *mixed* scope — some existing files,
+    some new — previously averaged the new file's miss into the ratio (one covered existing
+    file plus one new file gave `0.5`, above the `0.3` threshold, so no trigger fired). It now
+    reports `testCoverageRatio: 1.0` with `plannedNewFiles` non-empty, which does fire the
+    tests-first bar. The new module gets TDD ordering it previously missed by arithmetic
+    accident; no case that triggered before stops triggering.
+  - `scope: none` and the top-level error fallback report `plannedNewFiles: null` alongside the
+    other unknown-not-zero signals, and `scopeNote` names it.
+  - Docs updated in step: `model-router/SKILL.md` (Step 1 field list + a paragraph on what the
+    ratio measures, Step 3b bar table), `references/scoring-rubric.md` (bar table, with the
+    two rows' distinction spelled out), `task-workflow/SKILL.md` Step 4.1 (the trigger list now
+    names the new-file case and says why the quick tier rarely takes module-adding work), and
+    `docs/USER_GUIDE.md`'s trigger summary.
+  - No `patch` block: `classify.mjs` lives in the plugin and is never copied into target repos,
+    so every consumer picks this up on the next plugin update.
+
 ## [1.53.0] - 2026-08-03
 
 Routing profiles now set each tier's **effort** as well as its model, the default ladder moves to

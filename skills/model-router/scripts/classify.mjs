@@ -235,11 +235,12 @@ function classify(argv) {
     return {
       scope,
       scopeNote:
-        'no planned scope and no diff yet — filesChanged/testCoverageRatio/highRiskMatches are UNKNOWN, not zero. Re-run with --paths <planned files>, or estimate these signals by reasoning (SKILL.md Step 2). Do not score them as 0.',
+        'no planned scope and no diff yet — filesChanged/testCoverageRatio/highRiskMatches/plannedNewFiles are UNKNOWN, not zero. Re-run with --paths <planned files>, or estimate these signals by reasoning (SKILL.md Step 2). Do not score them as 0.',
       filesChanged: null,
       touchedFiles: [],
       highRiskMatches: null,
       testCoverageRatio: null,
+      plannedNewFiles: null,
       fullSpecDetected: detectFullSpec(),
       routing: resolveRouting(),
     };
@@ -248,8 +249,18 @@ function classify(argv) {
   const highRiskMatches = touchedFiles.filter((f) => HIGH_RISK_RE.test(f));
 
   const nonTestFiles = touchedFiles.filter((f) => !TEST_FILE_RE.test(f));
+
+  // A planned file that doesn't exist yet cannot be assessed for coverage. Counting it as
+  // uncovered conflates "existing code with no tests" (a real risk signal) with "no code
+  // written yet" (not one), and the resulting 0 silently escalated the tier for a reason
+  // the number didn't actually state. Report it as its own signal and keep it out of the
+  // denominator; the tests-first bar still fires, now off `plannedNewFiles`.
+  const plannedNewFiles = nonTestFiles.filter((f) => !existsSync(f));
+  const assessableFiles = nonTestFiles.filter((f) => existsSync(f));
   const testCoverageRatio =
-    nonTestFiles.length === 0 ? null : nonTestFiles.filter(hasSiblingTest).length / nonTestFiles.length;
+    assessableFiles.length === 0
+      ? null
+      : assessableFiles.filter(hasSiblingTest).length / assessableFiles.length;
 
   return {
     scope,
@@ -257,6 +268,7 @@ function classify(argv) {
     touchedFiles,
     highRiskMatches,
     testCoverageRatio,
+    plannedNewFiles,
     fullSpecDetected: detectFullSpec(),
     routing: resolveRouting(),
   };
@@ -275,6 +287,7 @@ function main() {
           touchedFiles: [],
           highRiskMatches: null,
           testCoverageRatio: null,
+          plannedNewFiles: null,
           fullSpecDetected: false,
           // withAgents, not a literal — the router reads routing.agents[tier] to pick
           // a subagent_type, so a fallback missing `agents` degrades into spawning

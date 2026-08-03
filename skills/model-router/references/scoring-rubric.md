@@ -43,6 +43,7 @@ Independent of tier. A Quick-tier task on a contract file still gets the full ba
 | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | `highRiskMatches` non-empty                     | A verifier round is **mandatory** even where `task-workflow` would skip it; show full gate output; state the revert path in `PLAN.md` notes |
 | `testCoverageRatio` < 0.3, or null with code changes | Tests come first, per `write-tests`' TDD ordering — an untested change doesn't get validated by eye                   |
+| `plannedNewFiles` non-empty                          | Tests come first, same ordering. Distinct from the row above: a file that doesn't exist yet is uncovered by construction, so it's excluded from `testCoverageRatio` rather than dragging it to 0 |
 | `filesChanged` ≥ 5                              | Run gates across the whole tree, not just the touched files                                                               |
 | Flaky/timing symptom (reasoned)                 | ≥5 consecutive passes, per `debug-workflow`'s own `race-conditions.md`                                                    |
 | None of the above                               | Normal gates: lint + typecheck + tests, with actual output shown                                                          |

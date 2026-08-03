@@ -40,12 +40,14 @@ Routing happens *before* work starts, so pass the **planned** scope — the file
 node ${CLAUDE_SKILL_DIR}/scripts/classify.mjs --paths "path/one.ts,path/two.ts"
 ```
 
-Relay the JSON. Fields: `scope`, `filesChanged`, `touchedFiles`, `highRiskMatches`, `testCoverageRatio`, `fullSpecDetected`, `routing`.
+Relay the JSON. Fields: `scope`, `filesChanged`, `touchedFiles`, `highRiskMatches`, `testCoverageRatio`, `plannedNewFiles`, `fullSpecDetected`, `routing`.
+
+`testCoverageRatio` is measured over non-test files **that exist on disk**. Files in the planned scope that don't exist yet are reported separately as `plannedNewFiles` and excluded from the ratio — a file with no code in it can't be "untested", and folding it in produced a 0 that read as a risk signal when it only meant "new". A scope that is *entirely* new files therefore reports `testCoverageRatio: null`, not `0`.
 
 With no `--paths` the script falls back to uncommitted changes, then the branch diff — correct mid-task, wrong at the start. `scope` tells you which it used:
 
 - `planned` / `uncommitted` / `branch` — signals are real, use them.
-- `none` — a clean tree with no planned scope. `filesChanged`, `highRiskMatches`, and `testCoverageRatio` come back `null`, meaning **unknown, not zero**. Never score a `null` as 0 pts — that's what made every fresh task look trivial. Either re-run with `--paths`, or estimate from the stated scope in Step 2.
+- `none` — a clean tree with no planned scope. `filesChanged`, `highRiskMatches`, `testCoverageRatio`, and `plannedNewFiles` come back `null`, meaning **unknown, not zero**. Never score a `null` as 0 pts — that's what made every fresh task look trivial. Either re-run with `--paths`, or estimate from the stated scope in Step 2.
 - On an `error` field (non-git repo, no `git` on `PATH`) — same handling as `none`. `routing` is still populated with the default profile either way.
 
 ## Step 2: Assess capability signals (reason directly, no tool)
@@ -86,6 +88,7 @@ From the mechanical signals — this changes what the payload demands, never whi
 | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `highRiskMatches` non-empty                          | Verifier round **mandatory** even where `task-workflow` would skip it; full gate output; revert path in `PLAN.md` |
 | `testCoverageRatio` < 0.3, or null with code changes | Tests first, per `write-tests`' TDD ordering                                                                      |
+| `plannedNewFiles` non-empty                          | Tests first, same ordering — a new module has no coverage by construction, not by neglect                          |
 | `filesChanged` ≥ 5                                   | Gates across the whole tree, not just touched files                                                               |
 | Flaky/timing symptom                                 | ≥5 consecutive passes (see `debug-workflow`'s `race-conditions.md`)                                               |
 | None of the above                                    | Normal gates: lint + typecheck + tests, output shown                                                              |

@@ -321,7 +321,7 @@ You'll only notice this in the routing line ("Routed to standard-worker-high on 
 
 `model-router` scores **capability** (can the model do this at all → picks the tier) and **verification** (how carefully must this be checked → sets the gate discipline) *separately*. A change can be mechanically simple and still need heavy verification — touching a contract, a migration, or CI. In that case the quick tier gets skipped in favor of `standard-worker`, even though the capability score was low.
 
-Verification bar triggers: high-risk path, test coverage under 0.3, 5+ files, flaky symptoms.
+Verification bar triggers: high-risk path, test coverage under 0.3, a planned new file, 5+ files, flaky symptoms.
 
 ### The one confirmation you'll see
 
