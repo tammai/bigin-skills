@@ -5,6 +5,151 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.56.0] - 2026-08-04
+
+Guards fail closed on an unreadable payload instead of silently waving the call through, and
+testing one by hand has a recipe that doesn't involve nested shell quotes.
+
+### Fixed
+
+- **A guard that couldn't parse its payload used to fail *open*.** Every stdin-reading guard did `JSON.parse(readFileSync(0, 'utf-8'))` bare, so empty or malformed stdin threw — and an uncaught Node exception exits **1**, which Claude Code treats as a *non-blocking* error for `PreToolUse`. The tool call then proceeded ungated, with a stack trace as the only trace. Latent in normal operation (real payloads are valid JSON), but the wrong failure direction for the spec gate and the canary/injection gate, and it made hand-testing actively misleading: a mistyped test payload looked exactly like "the guard ran and allowed it."
+
+  The five `PreToolUse` gates — `bash-guard.mjs`, `spec-gate-guard.mjs`, `bugfix-test-guard.mjs`, `commit-msg-guard.mjs`, `injection-gate-guard.mjs` — now catch the parse, print a one-line diagnostic, and **exit 2**. `injection-scan-guard.mjs` (PostToolUse) and `canary-seed.mjs` (SessionStart) have no blocking option, so they exit 0 quietly rather than dumping a stack trace; `precompact-snapshot.mjs` already wrapped its read and is unchanged.
+
+  `commit-msg-guard.mjs` needed the narrower fix: its existing outer `try`/`catch` exits 0 on unreadable input, which is correct for a missing commit-message *file* in git-hook mode but wrong for a stdin payload the hook was handed. The parse now fails closed inside `subjectFromToolInput()`, leaving file mode's allow-on-unreadable behavior intact.
+
+  Verified against the extracted guard scripts in a real `git init` repo: 15 unparsable-payload cases (malformed JSON and empty stdin × 8 guards), 3 `commit-msg-guard.mjs` file-mode cases including the unreadable path that must still allow, and 11 regression cases confirming every prior block/allow verdict is unchanged — `--no-verify` blocked, `--force-with-lease` allowed, non-conventional subject blocked, 25-line `Write` to `src/` blocked with no plan and allowed with `Status: approved`, `.md` trivial path allowed, `fix:` commit blocked with no staged test and allowed with one.
+
+### Added
+
+- **`references/hook-guard.md` → `## Testing a guard by hand`.** Nothing in the skill ever said how to smoke-test a guard, so a setup run improvised `echo '{"tool_input": …}' | node …` and lost to nested quoting. The new section says to write the payload to a file with a quoted heredoc (the shell expands nothing), read the **exit code** rather than the absence of output, and covers `commit-msg-guard.mjs`'s second entry point. Paired with the fail-closed change, a bad test payload now announces itself instead of passing for a green run.
+
+  ```patch
+  target: .claude/guards/bash-guard.mjs
+  anchor: const data = JSON.parse(readFileSync(0, 'utf-8'))
+  insert: replace
+  ---
+  // Fail closed: an unparsable payload would otherwise exit 1, which Claude Code
+  // treats as non-blocking — the command would run ungated.
+  function readPayload() {
+    try {
+      return JSON.parse(readFileSync(0, 'utf-8'))
+    } catch {
+      console.error('Error: bash-guard.mjs could not parse its hook payload (empty or malformed stdin) — blocking rather than passing the call through unchecked.')
+      process.exit(2)
+    }
+  }
+
+  const data = readPayload()
+  ```
+
+  ```patch
+  target: .claude/guards/spec-gate-guard.mjs
+  anchor: const data = JSON.parse(readFileSync(0, 'utf-8'))
+  insert: replace
+  ---
+  // Fail closed: an unparsable payload would otherwise exit 1, which Claude Code
+  // treats as non-blocking — the edit would land ungated.
+  function readPayload() {
+    try {
+      return JSON.parse(readFileSync(0, 'utf-8'))
+    } catch {
+      console.error('Error: spec-gate-guard.mjs could not parse its hook payload (empty or malformed stdin) — blocking rather than passing the edit through unchecked.')
+      process.exit(2)
+    }
+  }
+
+  const data = readPayload()
+  ```
+
+  ```patch
+  target: .claude/guards/bugfix-test-guard.mjs
+  anchor: const data = JSON.parse(readFileSync(0, 'utf-8'))
+  insert: replace
+  ---
+  // Fail closed: an unparsable payload would otherwise exit 1, which Claude Code
+  // treats as non-blocking — the commit would run ungated.
+  function readPayload() {
+    try {
+      return JSON.parse(readFileSync(0, 'utf-8'))
+    } catch {
+      console.error('Error: bugfix-test-guard.mjs could not parse its hook payload (empty or malformed stdin) — blocking rather than passing the commit through unchecked.')
+      process.exit(2)
+    }
+  }
+
+  const data = readPayload()
+  ```
+
+  ```patch
+  target: .claude/guards/injection-gate-guard.mjs
+  anchor: const data = JSON.parse(readFileSync(0, 'utf-8'))
+  insert: replace
+  ---
+  // Fail closed: an unparsable payload would otherwise exit 1, which Claude Code
+  // treats as non-blocking — the call would run with both stages skipped.
+  function readPayload() {
+    try {
+      return JSON.parse(readFileSync(0, 'utf-8'))
+    } catch {
+      console.error('Error: injection-gate-guard.mjs could not parse its hook payload (empty or malformed stdin) — blocking rather than passing the call through unchecked.')
+      process.exit(2)
+    }
+  }
+
+  const data = readPayload()
+  ```
+
+  ```patch
+  target: .claude/guards/commit-msg-guard.mjs
+  anchor: const command = JSON.parse(readFileSync(0, 'utf-8'))?.tool_input?.command ?? ''
+  insert: replace
+  ---
+  let payload
+  try {
+    payload = JSON.parse(readFileSync(0, 'utf-8'))
+  } catch {
+    // Fail closed. The outer catch's "can't judge → allow" covers an unreadable
+    // message file; a payload this hook was handed and couldn't parse is different —
+    // exiting 1 there would be non-blocking and the commit would run ungated.
+    console.error('Error: commit-msg-guard.mjs could not parse its hook payload (empty or malformed stdin) — blocking rather than passing the commit through unchecked.')
+    process.exit(2)
+  }
+  const command = payload?.tool_input?.command ?? ''
+  ```
+
+  ```patch
+  target: .claude/guards/injection-scan-guard.mjs
+  anchor: const data = JSON.parse(readFileSync(0, 'utf-8'))
+  insert: replace
+  ---
+  // PostToolUse can't block, so there's no fail-closed option here — exit quietly
+  // on an unparsable payload rather than dumping a stack trace. The PreToolUse
+  // guards fail closed (exit 2) in the same situation.
+  let data
+  try {
+    data = JSON.parse(readFileSync(0, 'utf-8'))
+  } catch {
+    process.exit(0)
+  }
+  ```
+
+  ```patch
+  target: .claude/guards/canary-seed.mjs
+  anchor: const data = JSON.parse(readFileSync(0, 'utf-8'))
+  insert: replace
+  ---
+  // SessionStart can't block, so an unparsable payload takes the same path as a
+  // missing session_id: no token seeded, stage 3 inert for this session. Exit
+  // quietly rather than dumping a stack trace.
+  let data
+  try {
+    data = JSON.parse(readFileSync(0, 'utf-8'))
+  } catch {
+    process.exit(0)
+  }
+  ```
+
 ## [1.55.0] - 2026-08-04
 
 A commit-message format gate — for the agent and for humans — closing the hole that made

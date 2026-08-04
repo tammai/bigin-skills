@@ -273,6 +273,10 @@ Three stages, aimed at content the agent fetches rather than at you:
 
 If you get a confirmation prompt right after the agent fetched a web page, that's stage 2. Look at what it fetched before saying yes.
 
+### "could not parse its hook payload"
+
+Every `PreToolUse` gate fails **closed**: if it can't read the payload Claude Code handed it, it blocks the call rather than letting it through unchecked. You'll essentially only see this if someone runs a guard by hand without piping a payload in — the recipe for doing that properly is in `bigin-harness-setup/references/hook-guard.md` → `## Testing a guard by hand`. If it ever appears during normal work, the hook payload format changed; fix the guard, don't delete it.
+
 ### `context_budget.mjs` — the always-loaded budget
 
 Caps `CLAUDE.md` at 60 lines and unscoped rule files at 40. Runs in pre-commit.

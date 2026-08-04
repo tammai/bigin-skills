@@ -4,6 +4,32 @@ Scripts for enforcement gates. Written into the target project during setup. Gua
 
 ---
 
+## Testing a guard by hand
+
+**Never build the payload inline in a shell string.** Hook payloads contain nested quotes and often newlines, and `echo '{"tool_input": {"command": "git commit -m \"x\""}}' | node …` is a quoting puzzle that silently produces malformed JSON — which reads exactly like "the guard allowed it." Write the payload to a file with a quoted heredoc instead, so the shell expands nothing:
+
+```bash
+cat > /tmp/payload.json <<'JSON'
+{"tool_name":"Bash","tool_input":{"command":"git commit --no-verify -m \"feat: x\""}}
+JSON
+node .claude/guards/bash-guard.mjs < /tmp/payload.json; echo "exit=$?"
+```
+
+Read the **exit code**, not the absence of output: `0` = allowed, `2` = blocked (the reason is on stderr). Anything else is the guard itself failing.
+
+The `PreToolUse` guards fail closed — empty or malformed stdin exits `2` with a one-line diagnostic rather than a stack trace, because Claude Code treats any non-`2` nonzero exit as a *non-blocking* error and would run the call ungated. So a bad test payload now announces itself instead of masquerading as a pass. `injection-scan-guard.mjs` (PostToolUse) and `canary-seed.mjs` (SessionStart) have no blocking option and exit `0` quietly instead.
+
+Two guards take a second entry point that needs its own payload-free test:
+
+```bash
+printf 'fixed the parser\n' > /tmp/msg.txt
+node .claude/guards/commit-msg-guard.mjs /tmp/msg.txt; echo "exit=$?"   # expect 2
+```
+
+`.claude/rules/skill-authoring.md` (in the `bigin-skills` repo) lists the exact cases each guard must still block and allow.
+
+---
+
 ## bash-guard.mjs
 
 Write to `.claude/guards/bash-guard.mjs`.
@@ -14,7 +40,18 @@ Write to `.claude/guards/bash-guard.mjs`.
 // Claude Code PreToolUse hook — reads tool input from stdin, exits 2 to block.
 import { readFileSync } from 'node:fs'
 
-const data = JSON.parse(readFileSync(0, 'utf-8'))
+// Fail closed: an unparsable payload would otherwise exit 1, which Claude Code
+// treats as non-blocking — the command would run ungated.
+function readPayload() {
+  try {
+    return JSON.parse(readFileSync(0, 'utf-8'))
+  } catch {
+    console.error('Error: bash-guard.mjs could not parse its hook payload (empty or malformed stdin) — blocking rather than passing the call through unchecked.')
+    process.exit(2)
+  }
+}
+
+const data = readPayload()
 const command = data?.tool_input?.command ?? ''
 
 // Strip quoted strings so flags inside commit messages don't trigger false positives.
@@ -53,7 +90,18 @@ import { existsSync, readFileSync } from 'node:fs'
 import { execSync } from 'node:child_process'
 import { join } from 'node:path'
 
-const data = JSON.parse(readFileSync(0, 'utf-8'))
+// Fail closed: an unparsable payload would otherwise exit 1, which Claude Code
+// treats as non-blocking — the edit would land ungated.
+function readPayload() {
+  try {
+    return JSON.parse(readFileSync(0, 'utf-8'))
+  } catch {
+    console.error('Error: spec-gate-guard.mjs could not parse its hook payload (empty or malformed stdin) — blocking rather than passing the edit through unchecked.')
+    process.exit(2)
+  }
+}
+
+const data = readPayload()
 const toolName = data?.tool_name ?? ''
 const toolInput = data?.tool_input ?? {}
 const filePath = toolInput.file_path ?? ''
@@ -150,7 +198,18 @@ Write to `.claude/guards/bugfix-test-guard.mjs`.
 import { execSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 
-const data = JSON.parse(readFileSync(0, 'utf-8'))
+// Fail closed: an unparsable payload would otherwise exit 1, which Claude Code
+// treats as non-blocking — the commit would run ungated.
+function readPayload() {
+  try {
+    return JSON.parse(readFileSync(0, 'utf-8'))
+  } catch {
+    console.error('Error: bugfix-test-guard.mjs could not parse its hook payload (empty or malformed stdin) — blocking rather than passing the commit through unchecked.')
+    process.exit(2)
+  }
+}
+
+const data = readPayload()
 const command = data?.tool_input?.command ?? ''
 
 // Detect `git commit` outside quoted strings (same scrub bash-guard.mjs uses).
@@ -241,7 +300,17 @@ function subjectFromFile(path) {
 
 // PreToolUse hook: pull the message out of the `git commit` command line.
 function subjectFromToolInput() {
-  const command = JSON.parse(readFileSync(0, 'utf-8'))?.tool_input?.command ?? ''
+  let payload
+  try {
+    payload = JSON.parse(readFileSync(0, 'utf-8'))
+  } catch {
+    // Fail closed. The outer catch's "can't judge → allow" covers an unreadable
+    // message file; a payload this hook was handed and couldn't parse is different —
+    // exiting 1 there would be non-blocking and the commit would run ungated.
+    console.error('Error: commit-msg-guard.mjs could not parse its hook payload (empty or malformed stdin) — blocking rather than passing the commit through unchecked.')
+    process.exit(2)
+  }
+  const command = payload?.tool_input?.command ?? ''
 
   // Detect `git commit` outside quoted strings (same scrub bash-guard.mjs uses).
   const scrubbed = command.replace(/'[^']*'/g, "''").replace(/"[^"]*"/g, '""')
@@ -314,7 +383,15 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
-const data = JSON.parse(readFileSync(0, 'utf-8'))
+// PostToolUse can't block, so there's no fail-closed option here — exit quietly
+// on an unparsable payload rather than dumping a stack trace. The PreToolUse
+// guards fail closed (exit 2) in the same situation.
+let data
+try {
+  data = JSON.parse(readFileSync(0, 'utf-8'))
+} catch {
+  process.exit(0)
+}
 const toolName = data?.tool_name ?? ''
 const toolInput = data?.tool_input ?? {}
 const toolResponse = data?.tool_response ?? ''
@@ -404,7 +481,18 @@ import { existsSync, readFileSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
-const data = JSON.parse(readFileSync(0, 'utf-8'))
+// Fail closed: an unparsable payload would otherwise exit 1, which Claude Code
+// treats as non-blocking — the call would run with both stages skipped.
+function readPayload() {
+  try {
+    return JSON.parse(readFileSync(0, 'utf-8'))
+  } catch {
+    console.error('Error: injection-gate-guard.mjs could not parse its hook payload (empty or malformed stdin) — blocking rather than passing the call through unchecked.')
+    process.exit(2)
+  }
+}
+
+const data = readPayload()
 const sessionId = data?.session_id ?? 'unknown'
 const toolInput = data?.tool_input ?? {}
 
@@ -556,7 +644,15 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { randomUUID } from 'node:crypto'
 
-const data = JSON.parse(readFileSync(0, 'utf-8'))
+// SessionStart can't block, so an unparsable payload takes the same path as a
+// missing session_id: no token seeded, stage 3 inert for this session. Exit
+// quietly rather than dumping a stack trace.
+let data
+try {
+  data = JSON.parse(readFileSync(0, 'utf-8'))
+} catch {
+  process.exit(0)
+}
 const sessionId = data?.session_id
 
 if (!sessionId) process.exit(0)
