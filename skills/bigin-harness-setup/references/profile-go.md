@@ -43,6 +43,7 @@ See `.claude/rules/` — path-scoped conventions, security, architecture.
 ## Hard Rules (non-negotiable)
 - `internal/api/` and `internal/store/` are 100% generated — never hand-edit. Change `openapi.yaml` or `internal/store/queries/*.sql`, run `make generate`, *then* touch `internal/server/`.
 - No `--no-verify`. No `//nolint` without a comment explaining the exception.
+- Commit messages are Conventional Commits — `type(scope): subject` (enforced by `commit-msg-guard.mjs`).
 - `authMiddleware` is a stub — replace it before production traffic.
 - Never echo `err.Error()` or generated-tool error text into a response body. Handler + error-response rules: `.claude/rules/conventions.md`.
 
@@ -190,6 +191,15 @@ Prepend `paths: ["**/*.go"]` as YAML frontmatter when writing `architecture.md` 
           {
             "type": "command",
             "command": "node .claude/guards/bugfix-test-guard.mjs"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/guards/commit-msg-guard.mjs"
           }
         ]
       },

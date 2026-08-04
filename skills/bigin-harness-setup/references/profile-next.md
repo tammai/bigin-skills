@@ -46,6 +46,7 @@ See `.claude/rules/` — path-scoped conventions, security, architecture.
 ## Hard Rules (non-negotiable)
 - ESLint auto-formats every file you create or edit (PostToolUse hook). Never disable it.
 - No `--no-verify`. No `eslint-disable`, `@ts-ignore`, or `as any` without a justifying comment. Never weaken eslint config to pass a check.
+- Commit messages are Conventional Commits — `type(scope): subject` (enforced by `commit-msg-guard.mjs`).
 - Auth/session via `iron-session` only — never roll your own session or token store.
 - The browser never calls the backend directly and never holds the access token: everything goes through `src/app/api/**/route.ts`, and `openapi.yaml` generates the server types. Rules: `.claude/rules/conventions-server.md`.
 
@@ -237,7 +238,7 @@ Prepend `paths: ["src/app/**", "src/components/**", "src/hooks/**"]` as YAML fro
 
 ## settings.json Template
 
-Governance superset: `permissions` + `PostToolUse` lint-fix (the `next-scaffold` baseline) **plus** the `PreToolUse` `bash-guard.mjs`, `bugfix-test-guard.mjs`, `spec-gate-guard.mjs`, and `injection-gate-guard.mjs` hooks, and a second `PostToolUse` entry for `injection-scan-guard.mjs` (governance). Used when onboarding an existing Next.js repo (Phase 5-3) — also write `.claude/guards/lint-fix-file.mjs` if it's missing (script body: `skills/next-scaffold/scripts/templates/files/.claude/guards/lint-fix-file.mjs`, single source of truth). Keep the `permissions` / lint-fix `PostToolUse` keys in sync with `skills/next-scaffold/scripts/templates/merge/claude-settings.json`.
+Governance superset: `permissions` + `PostToolUse` lint-fix (the `next-scaffold` baseline) **plus** the `PreToolUse` `bash-guard.mjs`, `bugfix-test-guard.mjs`, `commit-msg-guard.mjs`, `spec-gate-guard.mjs`, and `injection-gate-guard.mjs` hooks, and a second `PostToolUse` entry for `injection-scan-guard.mjs` (governance). Used when onboarding an existing Next.js repo (Phase 5-3) — also write `.claude/guards/lint-fix-file.mjs` if it's missing (script body: `skills/next-scaffold/scripts/templates/files/.claude/guards/lint-fix-file.mjs`, single source of truth). Keep the `permissions` / lint-fix `PostToolUse` keys in sync with `skills/next-scaffold/scripts/templates/merge/claude-settings.json`.
 
 ```json
 {
@@ -281,6 +282,15 @@ Governance superset: `permissions` + `PostToolUse` lint-fix (the `next-scaffold`
           {
             "type": "command",
             "command": "node .claude/guards/bugfix-test-guard.mjs"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/guards/commit-msg-guard.mjs"
           }
         ]
       },

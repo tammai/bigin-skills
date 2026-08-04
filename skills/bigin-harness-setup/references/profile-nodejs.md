@@ -52,6 +52,7 @@ See `.claude/rules/` — path-scoped conventions, security, architecture.
 - `src/api/openapi.json` is generated from each module's `api/*.schemas.ts` (TypeBox) via `pnpm openapi:export` — never hand-edit it; CI diff-checks it. Migrations likewise: change `infrastructure/*.schema.ts`, run `pnpm db:generate`, then `pnpm db:migrate`. Never edit a migration already applied to a shared environment — add a new one.
 - A module's `index.ts` is the only file other modules may import from it — enforced by `eslint-plugin-boundaries`.
 - No `--no-verify`. No `eslint-disable` (especially `boundaries/dependencies`), `@ts-ignore`, or `as any` without a justifying comment. Never weaken eslint config to pass a check.
+- Commit messages are Conventional Commits — `type(scope): subject` (enforced by `commit-msg-guard.mjs`).
 - TypeBox route schemas do request/response validation, not Zod. Zod has exactly one job: fail-closed env validation at boot (`shared/config/env.ts`).
 - The stubbed auth check must be replaced before production traffic.
 - Layering, repository boundary, and the error-response contract: `.claude/rules/conventions.md`.
@@ -240,6 +241,15 @@ Prepend `paths: ["src/**"]` as YAML frontmatter when writing `architecture.md` (
           {
             "type": "command",
             "command": "node .claude/guards/bugfix-test-guard.mjs"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/guards/commit-msg-guard.mjs"
           }
         ]
       },

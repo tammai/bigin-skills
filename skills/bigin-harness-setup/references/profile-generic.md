@@ -42,6 +42,7 @@ See `.claude/rules/` — path-scoped security and architecture rules.
 
 ## Hard Rules (non-negotiable)
 - No `--no-verify`, no disabling a lint rule or type check to make a gate pass. Fix the code or say why the rule is wrong.
+- Commit messages are Conventional Commits — `type(scope): subject` (enforced by `commit-msg-guard.mjs`).
 - Match the surrounding code — its naming, layering, error handling, and test style are the convention here. There is no generated conventions rule file for this stack; the existing code is the spec.
 - Every bug fix ships a regression test that fails before the fix (enforced at commit time by `bugfix-test-guard.mjs`).
 - Never add a dependency without checking maintenance status and license.
@@ -100,6 +101,15 @@ No CI template. Phase 5.6 is skipped entirely for this profile even when `CI_PRO
           {
             "type": "command",
             "command": "node .claude/guards/bugfix-test-guard.mjs"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/guards/commit-msg-guard.mjs"
           }
         ]
       },

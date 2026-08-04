@@ -131,6 +131,7 @@ your-repo/
 │   │   ├── bash-guard.mjs               ← blocks --no-verify and force-push to main
 │   │   ├── spec-gate-guard.mjs          ← blocks non-trivial edits before PLAN.md is approved / on a branch mismatch
 │   │   ├── bugfix-test-guard.mjs        ← blocks fix-shaped commits with no staged regression test
+│   │   ├── commit-msg-guard.mjs         ← blocks commit subjects that are not Conventional Commits
 │   │   ├── injection-scan-guard.mjs     ← flags likely prompt-injection markers in fetched content
 │   │   ├── injection-gate-guard.mjs     ← asks for confirmation after a flag; denies outright on a canary-token match
 │   │   ├── session-resume-check.mjs     ← SessionStart hook: prompts to resume an in-progress SESSION.md
@@ -141,7 +142,8 @@ your-repo/
 ├── tools/
 │   └── context_budget.mjs               ← budget gate: CLAUDE.md ≤60, unscoped rules ≤40
 ├── scripts/
-│   └── pre-commit.sh                   ← lint + typecheck + test + budget check
+│   ├── pre-commit.sh                   ← lint + typecheck + test + budget check
+│   └── commit-msg.sh                   ← Conventional Commits check, for every committer
 └── README.md                           ← AI Onboarding + runtime hygiene + Context Budget table
 ```
 
@@ -162,9 +164,11 @@ The skill detects the stack profile (or asks), confirms before overwriting anyth
 ### Enforcement (the load-bearing part)
 
 - **`scripts/pre-commit.sh`** — runs lint + typecheck + tests; fails closed. The skill installs it as a git hook (and `git init`s the repo if needed).
+- **`scripts/commit-msg.sh`** — a git `commit-msg` hook delegating to `commit-msg-guard.mjs`, so the Conventional Commits rule binds humans and not just the agent. Where the repo already uses `simple-git-hooks` or `husky`, the entry goes in that config instead and no script is written.
 - **`.claude/guards/bash-guard.mjs`** — a `PreToolUse` hook that blocks the agent from weakening its own gates (`--no-verify`, `git commit -n`, force-push to main). `--force-with-lease` on a feature branch is allowed.
 - **`.claude/guards/spec-gate-guard.mjs`** — a `PreToolUse` hook that blocks non-trivial `Edit`/`Write`/`MultiEdit` calls until `PLAN.md` exists with `Status: approved`, and blocks them again if `PLAN.md`'s `Branch:` line disagrees with the branch you're on — a leftover plan from a finished task can't govern the next one. Trivial paths (`tests/**`, `*.md`, `.env.example`, common config files) and edits ≤20 lines are exempt.
 - **`.claude/guards/bugfix-test-guard.mjs`** — a `PreToolUse` hook that blocks fix-shaped `git commit`s (conventional `fix:`, or `bugfix`/`hotfix`) unless a staged file matches a test pattern, all staged files are docs/config, or the message contains `[no-test]`. Enforces `debug-workflow`'s regression-test requirement deterministically instead of by prose.
+- **`.claude/guards/commit-msg-guard.mjs`** — a `PreToolUse` hook that blocks `git commit`s whose subject isn't a Conventional Commit (`type(scope)!: subject`, type from the standard eleven, ≤100 chars). Merge/revert/`fixup!` subjects and commits with no parsable `-m` are left alone. It's also what makes `bugfix-test-guard.mjs` trustworthy — before it, `fixed the parser` slipped past the regression-test gate.
 - **`.claude/guards/injection-scan-guard.mjs` + `.claude/guards/injection-gate-guard.mjs`** — a three-stage prompt-injection defense (inspired by Lasso Security's PostToolUse Defender). The scan guard (`PostToolUse`, stage 1) heuristically checks `WebFetch`/`mcp__*` responses and `curl`/`wget` Bash output for injected instructions and flags a session-scoped marker; the gate guard (`PreToolUse`, stage 2) asks for confirmation on the next risky `Bash`/`Write`/`Edit`/`WebFetch`/`mcp__*` call if that flag is still fresh (5-minute window), then clears it.
 - **`.claude/guards/canary-seed.mjs`** — a `SessionStart` hook that seeds a per-session random token and instructs the model never to reproduce it. `injection-gate-guard.mjs`'s stage 3 denies (not asks) any tool call whose input contains that token — a per-session UUID has zero legitimate reason to appear anywhere, so this is a hard block rather than a confirmation.
 - **`.claude/guards/session-resume-check.mjs`** — a `SessionStart` hook that deterministically injects a resume-prompt reminder when `.claude/memory/SESSION.md` has `status: in-progress`, instead of relying on CLAUDE.md prose alone.
@@ -280,7 +284,7 @@ bigin-skills/
 │   │       ├── profile-nodejs.md
 │   │       ├── files-shared.md    ← security, architecture, task guide, review checklist, paths substitutions
 │   │       ├── patch-mode.md      ← Phase 1a: version diffing + CHANGELOG patch-block application
-│   │       ├── hook-guard.md      ← bash-guard.mjs, spec-gate-guard.mjs, bugfix-test-guard.mjs, injection-scan/gate-guard.mjs, session-resume-check.mjs, canary-seed.mjs, precompact-snapshot.mjs + pre-commit scripts per profile
+│   │       ├── hook-guard.md      ← bash-guard.mjs, spec-gate-guard.mjs, bugfix-test-guard.mjs, injection-scan/gate-guard.mjs, session-resume-check.mjs, canary-seed.mjs, precompact-snapshot.mjs, commit-msg-guard.mjs + pre-commit/commit-msg scripts
 │   │       ├── budget-gate.md     ← context_budget.mjs (budget gate script)
 │   │       ├── knowledge-bundle.md
 │   │       ├── graph.md           ← Phase 5.7: optional Graphify rule file + usage doc

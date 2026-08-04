@@ -15,10 +15,12 @@ If not present, append the following block (replace `{LINT}`, `{TYPECHECK}`, `{T
 
 1. Clone the repo and install dependencies.
 2. Run `claude` in the repo root and accept the workspace trust dialog — this repo ships a `.claude/settings.json` with pre-approved permissions, which Claude Code only applies after you trust the folder. (If the dialog doesn't appear, or you're on a headless/non-interactive setup, set `hasTrustDialogAccepted: true` for this path in `~/.claude.json`.)
-3. Install git hook:
+3. Install git hooks:
    ```sh
    ln -sf ../../scripts/pre-commit.sh .git/hooks/pre-commit && chmod +x scripts/pre-commit.sh
+   ln -sf ../../scripts/commit-msg.sh .git/hooks/commit-msg && chmod +x scripts/commit-msg.sh
    ```
+   (Skip either line whose script this repo doesn't have — where `simple-git-hooks` or `husky` is in use, its own install step covers that hook instead.)
 4. Verify gates pass: `{LINT} && {TYPECHECK} && {TEST}`
 5. Read `CLAUDE.md`, then `AI_TASK_GUIDE.md` for what `/task-workflow` will ask of you.
 6. Do one scoped task end-to-end through all gates to confirm the setup works.
@@ -65,6 +67,7 @@ Created:
   .claude/guards/bash-guard.mjs
   .claude/guards/spec-gate-guard.mjs
   .claude/guards/bugfix-test-guard.mjs
+  .claude/guards/commit-msg-guard.mjs
   .claude/guards/injection-scan-guard.mjs
   .claude/guards/injection-gate-guard.mjs
   .claude/guards/session-resume-check.mjs
@@ -77,6 +80,7 @@ Created:
   .claude/model-routing.json [subagent model + effort ladder: {MODEL_ROUTING}]
   CLAUDE.md [created]
   scripts/pre-commit.sh [skipped if a hook manager already exists]
+  scripts/commit-msg.sh [skipped if a hook manager already exists]
   [Knowledge Bundle: .claude/rules/knowledge.md, knowledge/*, tools/knowledge_validate.mjs] (if opted in)
   [.github/workflows/ci.yml] (if CI_PROVIDER is github/both)
   [.gitlab-ci.yml] (if CI_PROVIDER is gitlab/both)
@@ -84,6 +88,7 @@ Created:
 Enabled:
   git repo [initialized/already present]
   pre-commit gate [scripts/pre-commit.sh hook | existing simple-git-hooks/husky]
+  commit-msg gate [scripts/commit-msg.sh hook | simple-git-hooks | husky]
   context budget gate (tools/context_budget.mjs — wired into pre-commit)
   session resume prompt (SessionStart hook — deterministic, replaces CLAUDE.md prose)
   canary exfiltration gate (SessionStart seeds a per-session token; injection-gate-guard.mjs denies any tool call whose input contains it)
@@ -119,9 +124,11 @@ Next steps:
 - [ ] `AI_TASK_GUIDE.md` — human-facing pointer to /task-workflow (not a second copy of the workflow)
 - [ ] `AI_REVIEW_CHECKLIST.md` — profile commands filled in
 - [ ] `scripts/pre-commit.sh` — lint + typecheck + test + context budget check, executable
+- [ ] `scripts/commit-msg.sh` — Conventional Commits check, executable (or the equivalent entry added to simple-git-hooks/husky)
 - [ ] `.claude/guards/bash-guard.mjs` — blocks `--no-verify` and force-push to main
 - [ ] `.claude/guards/spec-gate-guard.mjs` — blocks non-trivial edits until `PLAN.md` is approved, and on a `Branch:` mismatch
 - [ ] `.claude/guards/bugfix-test-guard.mjs` — blocks fix-shaped commits with no staged test file
+- [ ] `.claude/guards/commit-msg-guard.mjs` — blocks commits whose subject is not a Conventional Commit
 - [ ] `.claude/guards/injection-scan-guard.mjs` — flags likely prompt-injection markers in WebFetch/mcp__/curl-wget Bash output
 - [ ] `.claude/guards/injection-gate-guard.mjs` — asks for confirmation before the next risky tool call after a fresh flag
 - [ ] `.claude/guards/session-resume-check.mjs` — SessionStart hook, injects a resume prompt when SESSION.md has status: in-progress
@@ -135,6 +142,7 @@ Next steps:
 - [ ] **patch mode only** — only changelog `patch`-tagged changes since `FROM_VERSION` applied; `.claude/harness-version` advanced to `TO_VERSION`; summary lists applied vs skipped
 - [ ] **nuxt/next only** — `.vscode/settings.json` with ESLint format-on-save (Prettier disabled), merged if it existed
 - [ ] git repo initialized (if it wasn't one) and `.git/hooks/pre-commit` installed (or foreign hook left untouched with confirmation)
+- [ ] `.git/hooks/commit-msg` installed via symlink, simple-git-hooks, or husky — and which one is named in the summary
 - [ ] `README.md` — AI Onboarding + runtime hygiene + Context Budget table appended (if README existed)
 - [ ] **if opted in** — Knowledge Bundle: `.claude/rules/knowledge.md`, `knowledge/{meta,contracts,constraints}/*.md`, `knowledge/index.md`, `knowledge/log.md`, `tools/knowledge_validate.mjs`, wired into the pre-commit gate, `AI_REVIEW_CHECKLIST.md` gets one added line
 - [ ] **if CI_PROVIDER = github/both** — `.github/workflows/ci.yml` runs lint + typecheck + test (+ knowledge validator if opted in)

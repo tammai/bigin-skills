@@ -157,10 +157,11 @@ const command = data?.tool_input?.command ?? ''
 const scrubbed = command.replace(/'[^']*'/g, "''").replace(/"[^"]*"/g, '""')
 if (!/\bgit\s+commit\b/.test(scrubbed)) process.exit(0)
 
-// Extract the commit message from -m/--message. No parsable message → can't judge → allow.
+// Extract the commit message from -m/--message, including bundled short flags (-am).
+// No parsable message → can't judge → allow.
 const msgMatch =
-  command.match(/(?:-m|--message)(?:=|\s+)"([^"]*)"/) ??
-  command.match(/(?:-m|--message)(?:=|\s+)'([^']*)'/)
+  command.match(/(?:--message|-[a-zA-Z]*m)(?:=|\s+)"([^"]*)"/) ??
+  command.match(/(?:--message|-[a-zA-Z]*m)(?:=|\s+)'([^']*)'/)
 if (!msgMatch) process.exit(0)
 const message = msgMatch[1]
 
@@ -204,6 +205,93 @@ console.error(
   'Error: fix commit with no test file included. Every bug fix ships a regression test (see the debug-workflow skill). Stage a test covering the bug, or add [no-test] to the commit message with the reason.'
 )
 process.exit(2)
+```
+
+---
+
+## commit-msg-guard.mjs
+
+Write to `.claude/guards/commit-msg-guard.mjs`.
+
+**Dual-mode, one implementation.** With a path argument it validates a commit-message file (git `commit-msg` hook — covers commits a human types); with no argument it reads a `PreToolUse` payload from stdin (covers commits Claude makes). Same types, same length cap, same passthroughs either way — the rule can't drift between the two, which is the whole reason it isn't two scripts. Phase 5-2g installs both entry points.
+
+Pairs with `bugfix-test-guard.mjs`: this one makes the *shape* of the message reliable, which is what makes the other guard's `fix:` detection trustworthy — before it, `fixed the parser` sailed past the regression-test gate.
+
+```javascript
+#!/usr/bin/env node
+// Blocks commits whose subject isn't a Conventional Commit. Two entry points:
+//   node commit-msg-guard.mjs <msg-file>   git commit-msg hook — validates the message file
+//   node commit-msg-guard.mjs              Claude Code PreToolUse hook — reads stdin payload
+// Both exit 2 to reject; both allow when there's no subject they can read.
+import { readFileSync } from 'node:fs'
+
+const TYPES = ['feat', 'fix', 'docs', 'style', 'refactor', 'perf', 'test', 'build', 'ci', 'chore', 'revert']
+const CONVENTIONAL = new RegExp(`^(${TYPES.join('|')})(\\([^()]+\\))?!?: .+`)
+const MAX_SUBJECT = 100
+
+// git commit-msg hook: first line that is neither a comment nor blank.
+// (The file still carries git's comment template and any scissors line at this point.)
+function subjectFromFile(path) {
+  for (const line of readFileSync(path, 'utf-8').split('\n')) {
+    if (line.startsWith('#') || line.trim() === '') continue
+    return line.trim()
+  }
+  return null
+}
+
+// PreToolUse hook: pull the message out of the `git commit` command line.
+function subjectFromToolInput() {
+  const command = JSON.parse(readFileSync(0, 'utf-8'))?.tool_input?.command ?? ''
+
+  // Detect `git commit` outside quoted strings (same scrub bash-guard.mjs uses).
+  const scrubbed = command.replace(/'[^']*'/g, "''").replace(/"[^"]*"/g, '""')
+  if (!/\bgit\s+commit\b/.test(scrubbed)) return null
+
+  // -m/--message, including bundled short flags (-am). Unparsable forms (heredoc,
+  // $'...', an editor-driven commit) return null — but the commit-msg hook still sees those.
+  const msgMatch =
+    command.match(/(?:--message|-[a-zA-Z]*m)(?:=|\s+)"([^"]*)"/) ??
+    command.match(/(?:--message|-[a-zA-Z]*m)(?:=|\s+)'([^']*)'/)
+  return msgMatch ? msgMatch[1].split('\n')[0].trim() : null
+}
+
+let subject
+try {
+  subject = process.argv[2] ? subjectFromFile(process.argv[2]) : subjectFromToolInput()
+} catch {
+  process.exit(0) // unreadable input → can't judge → never block on guard failure
+}
+if (!subject) process.exit(0)
+
+// Git's own generated subjects and rebase markers aren't ours to reformat.
+if (/^(Merge|Revert)\b/.test(subject) || /^(fixup|squash)!/.test(subject)) process.exit(0)
+
+if (!CONVENTIONAL.test(subject)) {
+  console.error(
+    `Error: commit message is not a Conventional Commit. Use "<type>(<scope>): <subject>" — type one of: ${TYPES.join(', ')}. Append ! before the colon for a breaking change. Got: "${subject}"`
+  )
+  process.exit(2)
+}
+
+if (subject.length > MAX_SUBJECT) {
+  console.error(
+    `Error: commit subject is ${subject.length} chars (max ${MAX_SUBJECT}). Move the detail into a body: git commit -m "<subject>" -m "<body>".`
+  )
+  process.exit(2)
+}
+```
+
+---
+
+## commit-msg: all profiles
+
+Write to `scripts/commit-msg.sh` — only in the plain-git case (Phase 5-2g step 2 uses the hook manager's own config where one exists). Profile-independent: the rule is the same everywhere, and the work is all in the guard.
+
+```bash
+#!/bin/sh
+# Commit-message gate — Conventional Commits, enforced for every committer.
+# $1 is the path to the message file git is about to use.
+exec node .claude/guards/commit-msg-guard.mjs "$1"
 ```
 
 ---

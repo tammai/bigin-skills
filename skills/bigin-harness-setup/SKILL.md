@@ -56,7 +56,7 @@ Present → read `references/speckit-migration.md` for the layout table, the `mi
 
 ## Phase 1: Detect Existing Harness
 
-If `SCAFFOLDED = true`, `references/scaffold-delegation.md` → "What each scaffold leaves behind" lists what that profile's script already wrote and how to reconcile: treat it all as pre-existing, and for nuxt/next merge the governance guards the scaffold lacks into the `.claude/settings.json` it created (`bash-guard.mjs`, `spec-gate-guard.mjs`, `bugfix-test-guard.mjs`, the `injection-scan-guard.mjs` / `injection-gate-guard.mjs` pair, `canary-seed.mjs`, governance rules, AI files) rather than writing fresh. For go/nodejs there is no `.claude/` to merge against — continue through Phases 2 onward normally.
+If `SCAFFOLDED = true`, `references/scaffold-delegation.md` → "What each scaffold leaves behind" lists what that profile's script already wrote and how to reconcile: treat it all as pre-existing, and for nuxt/next merge the governance guards the scaffold lacks into the `.claude/settings.json` it created (`bash-guard.mjs`, `spec-gate-guard.mjs`, `bugfix-test-guard.mjs`, `commit-msg-guard.mjs`, the `injection-scan-guard.mjs` / `injection-gate-guard.mjs` pair, `canary-seed.mjs`, governance rules, AI files) rather than writing fresh. For go/nodejs there is no `.claude/` to merge against — continue through Phases 2 onward normally.
 
 Check for existing harness files:
 ```
@@ -245,14 +245,27 @@ Read from `references/hook-guard.md` → `## canary-seed.mjs`. Write to `.claude
 
 Read from `references/hook-guard.md` → `## bugfix-test-guard.mjs`. Write to `.claude/guards/bugfix-test-guard.mjs`. Applies to all profiles — enforces `debug-workflow`'s "every bug fix ships a regression test" requirement at commit time rather than relying on prose.
 
-### 5-2g. Precompact snapshot (autosaves session state before compaction)
+### 5-2g. Commit message guard (blocks non-Conventional-Commit messages)
+
+Enforces the Conventional Commits subject line that `bugfix-test-guard.mjs`'s `fix:` detection depends on. Applies to all profiles. Two entry points into **one** script — the `PreToolUse` hook catches commits Claude makes, the git `commit-msg` hook catches everyone's.
+
+1. **Write the guard.** Read from `references/hook-guard.md` → `## commit-msg-guard.mjs`. Write to `.claude/guards/commit-msg-guard.mjs`. Phase 5-3 registers its `PreToolUse` entry.
+
+2. **Install the git `commit-msg` hook.** Requires a git repo — if 5-1b didn't run (no `scripts/pre-commit.sh` was created), check `git rev-parse --is-inside-work-tree 2>/dev/null` first and `git init` if it fails. Then, matching whatever already gates commits in this repo:
+   - **`simple-git-hooks`** (key in `package.json`) → add `"commit-msg": "node .claude/guards/commit-msg-guard.mjs $1"` to that object, then re-run `pnpm simple-git-hooks` (or `npx simple-git-hooks`) so it's written into `.git/hooks/`. This is the `SCAFFOLDED = true` nuxt/next case.
+   - **`husky`** (`.husky/` dir) → write `.husky/commit-msg` containing `node .claude/guards/commit-msg-guard.mjs "$1"`, then `chmod +x .husky/commit-msg`.
+   - **Plain git** (go / nodejs / generic, or any repo with no hook manager) → read `references/hook-guard.md` → `## commit-msg: all profiles`, write `scripts/commit-msg.sh`, `chmod +x scripts/commit-msg.sh`, then install it the same way 5-1b installs pre-commit — `ln -sf ../../scripts/commit-msg.sh .git/hooks/commit-msg` if that path is absent or already our symlink; if it exists and is **not** ours, show it and ask before replacing, exactly as 5-1b does. Never clobber a foreign hook silently.
+
+   Say which of the three paths was taken in the Phase 7 summary. As with pre-commit, `.git/hooks/` isn't version-controlled — Phase 6's README onboarding covers the fresh-clone step.
+
+### 5-2h. Precompact snapshot (autosaves session state before compaction)
 
 Read from `references/hook-guard.md` → `## precompact-snapshot.mjs`. Write to `.claude/guards/precompact-snapshot.mjs`. Applies to all profiles — the `PreCompact` hook in every profile's `settings.json` template points at this script, so it must be written or that hook dangles. Autosaves in-flight state to `.claude/memory/SESSION.md` (in `session-handoff`'s template shape) before a manual or automatic compaction, so `session-resume-check.mjs` can recover it.
 
 ### 5-3. .claude/settings.json
 
 For **nuxt** / **next** (same merge shape, different scaffold skill):
-- **If `SCAFFOLDED = true`**: the `nuxt-scaffold`/`next-scaffold` skill already wrote `.claude/settings.json` with `permissions.allow` + a `PostToolUse` `lint-fix-file.mjs` hook (and the script itself). Merge the `PreToolUse` `bash-guard.mjs` + `spec-gate-guard.mjs` + `injection-gate-guard.mjs` hooks (matcher `Bash|Write|Edit|WebFetch|mcp__.*`), a `PreToolUse` `bugfix-test-guard.mjs` hook (matcher `Bash`, alongside `bash-guard.mjs`), a `SessionStart` block with both `canary-seed.mjs` and `session-resume-check.mjs` hooks, any missing `permissions.allow` entries, **and** a second `PostToolUse` entry for `injection-scan-guard.mjs` alongside the existing `lint-fix-file.mjs` one — do not replace or duplicate the existing `lint-fix-file.mjs` entry. Merge per-event; show additions before writing.
+- **If `SCAFFOLDED = true`**: the `nuxt-scaffold`/`next-scaffold` skill already wrote `.claude/settings.json` with `permissions.allow` + a `PostToolUse` `lint-fix-file.mjs` hook (and the script itself). Merge the `PreToolUse` `bash-guard.mjs` + `spec-gate-guard.mjs` + `injection-gate-guard.mjs` hooks (matcher `Bash|Write|Edit|WebFetch|mcp__.*`), `PreToolUse` `bugfix-test-guard.mjs` + `commit-msg-guard.mjs` hooks (matcher `Bash`, alongside `bash-guard.mjs`), a `SessionStart` block with both `canary-seed.mjs` and `session-resume-check.mjs` hooks, any missing `permissions.allow` entries, **and** a second `PostToolUse` entry for `injection-scan-guard.mjs` alongside the existing `lint-fix-file.mjs` one — do not replace or duplicate the existing `lint-fix-file.mjs` entry. Merge per-event; show additions before writing.
 - **Otherwise** (onboarding an existing nuxt or next repo): write `.claude/guards/lint-fix-file.mjs` per 5-2's note above if missing, then read the full settings.json template from `references/profile-nuxt.md` or `references/profile-next.md` → `## settings.json Template`. If `.claude/settings.json` exists, merge the `hooks` block + missing `permissions.allow` entries (per-event, never drop the user's); if not, write fresh.
 
 For **go** / **nodejs** / **generic**: read the template from `references/profile-{PROFILE}.md` → `## settings.json Template`. If the file exists, merge the `hooks` block + missing `permissions.allow` entries (per-event); otherwise write fresh. The `generic` template pre-approves git commands only — an unknown toolchain gets no blanket allowlist; let the user approve its commands as they come up.
@@ -404,7 +417,7 @@ Read `references/summary-checklist.md` → `## Output Checklist` and verify ever
 - `references/profile-generic.md` — fallback profile for a stack that matches none of the four: what it installs and skips, command detection, CLAUDE.md + settings.json templates, why no CI
 - `references/files-shared.md` — shared files: security, architecture, AI task guide pointer, review checklist, paths substitutions per profile
 - `references/patch-mode.md` — Phase 1a: version diffing + CHANGELOG patch-block application for `INSTALL_MODE=patch`
-- `references/hook-guard.md` — bash-guard.mjs, spec-gate-guard.mjs, bugfix-test-guard.mjs, injection-scan-guard.mjs, injection-gate-guard.mjs, session-resume-check.mjs, canary-seed.mjs, precompact-snapshot.mjs scripts + pre-commit scripts per profile
+- `references/hook-guard.md` — bash-guard.mjs, spec-gate-guard.mjs, bugfix-test-guard.mjs, commit-msg-guard.mjs, injection-scan-guard.mjs, injection-gate-guard.mjs, session-resume-check.mjs, canary-seed.mjs, precompact-snapshot.mjs scripts + pre-commit scripts per profile
 - `references/budget-gate.md` — context_budget.mjs script (context budget gate)
 - `references/knowledge-bundle.md` — optional Knowledge Bundle: rule file, spec, starter concept files, validator script
 - `references/graph.md` — optional Graphify: rule file, usage doc, install/gitignore contract

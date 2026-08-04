@@ -5,6 +5,144 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.55.0] - 2026-08-04
+
+A commit-message format gate — for the agent and for humans — closing the hole that made
+`bugfix-test-guard.mjs` skippable.
+
+### Added
+
+- **`commit-msg-guard.mjs` — commit subjects must be Conventional Commits, enforced deterministically instead of assumed.** The harness parsed commit messages in one place (`bugfix-test-guard.mjs`, which looks for a `fix:`/`fix(scope):`/`fix!:` prefix or `bugfix`/`hotfix`) but never required any format, so `git commit -m "fixed the parser"` was a fix commit that no gate recognized — the regression-test requirement was one wording away from being optional. The new guard blocks (exit 2) any commit whose subject doesn't match `<type>(<scope>)?!?: <subject>` with type from the standard eleven (`feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`), or whose subject exceeds 100 chars (commitlint's default `header-max-length`). `Merge`/`Revert` subjects and `fixup!`/`squash!` rebase markers pass untouched, and anything it can't read is allowed — a guard that can't judge never blocks. Each profile's generated `CLAUDE.md` gains a one-line Hard Rule naming the format, so the agent writes a conforming subject rather than learning it from a rejection.
+
+  **One script, two entry points**, installed together at new Phase 5-2g: with no argument it reads a `PreToolUse` payload from stdin (matcher `Bash`, all five profiles — catches commits Claude makes, including the bundled-flag `git commit -am` form); with a path argument it validates a commit-message file as a git `commit-msg` hook (catches commits anyone types, including editor-driven ones the `PreToolUse` path can't parse). Sharing one implementation is the point — a second copy of the rule is a second place for it to drift. The git hook is installed to match whatever already gates the repo: a `commit-msg` entry in `simple-git-hooks` (the `SCAFFOLDED = true` nuxt/next case), a `.husky/commit-msg` file, or `scripts/commit-msg.sh` symlinked into `.git/hooks/` — the last following 5-1b's existing never-clobber-a-foreign-hook procedure. Which path was taken is named in the Phase 7 summary.
+
+  Verified against a 44-case matrix (recorded in `.claude/rules/skill-authoring.md`): 18 `PreToolUse` cases covering both boundaries of the length cap, `-am`, chained `git add . && git commit`, and `git commit` appearing only inside a quoted string; 13 file-mode cases covering git's comment template, a scissors line, a blank/comment-only file, and an unreadable path; plus 11 `bugfix-test-guard.mjs` cases and a real `git init` repo where the installed hook actually rejected a non-conforming commit and accepted a conforming one.
+
+  ```patch
+  target: .claude/guards/commit-msg-guard.mjs
+  mode: create-if-missing
+  ---
+  #!/usr/bin/env node
+  // Blocks commits whose subject isn't a Conventional Commit. Two entry points:
+  //   node commit-msg-guard.mjs <msg-file>   git commit-msg hook — validates the message file
+  //   node commit-msg-guard.mjs              Claude Code PreToolUse hook — reads stdin payload
+  // Both exit 2 to reject; both allow when there's no subject they can read.
+  import { readFileSync } from 'node:fs'
+
+  const TYPES = ['feat', 'fix', 'docs', 'style', 'refactor', 'perf', 'test', 'build', 'ci', 'chore', 'revert']
+  const CONVENTIONAL = new RegExp(`^(${TYPES.join('|')})(\\([^()]+\\))?!?: .+`)
+  const MAX_SUBJECT = 100
+
+  // git commit-msg hook: first line that is neither a comment nor blank.
+  // (The file still carries git's comment template and any scissors line at this point.)
+  function subjectFromFile(path) {
+    for (const line of readFileSync(path, 'utf-8').split('\n')) {
+      if (line.startsWith('#') || line.trim() === '') continue
+      return line.trim()
+    }
+    return null
+  }
+
+  // PreToolUse hook: pull the message out of the `git commit` command line.
+  function subjectFromToolInput() {
+    const command = JSON.parse(readFileSync(0, 'utf-8'))?.tool_input?.command ?? ''
+
+    // Detect `git commit` outside quoted strings (same scrub bash-guard.mjs uses).
+    const scrubbed = command.replace(/'[^']*'/g, "''").replace(/"[^"]*"/g, '""')
+    if (!/\bgit\s+commit\b/.test(scrubbed)) return null
+
+    // -m/--message, including bundled short flags (-am). Unparsable forms (heredoc,
+    // $'...', an editor-driven commit) return null — but the commit-msg hook still sees those.
+    const msgMatch =
+      command.match(/(?:--message|-[a-zA-Z]*m)(?:=|\s+)"([^"]*)"/) ??
+      command.match(/(?:--message|-[a-zA-Z]*m)(?:=|\s+)'([^']*)'/)
+    return msgMatch ? msgMatch[1].split('\n')[0].trim() : null
+  }
+
+  let subject
+  try {
+    subject = process.argv[2] ? subjectFromFile(process.argv[2]) : subjectFromToolInput()
+  } catch {
+    process.exit(0) // unreadable input → can't judge → never block on guard failure
+  }
+  if (!subject) process.exit(0)
+
+  // Git's own generated subjects and rebase markers aren't ours to reformat.
+  if (/^(Merge|Revert)\b/.test(subject) || /^(fixup|squash)!/.test(subject)) process.exit(0)
+
+  if (!CONVENTIONAL.test(subject)) {
+    console.error(
+      `Error: commit message is not a Conventional Commit. Use "<type>(<scope>): <subject>" — type one of: ${TYPES.join(', ')}. Append ! before the colon for a breaking change. Got: "${subject}"`
+    )
+    process.exit(2)
+  }
+
+  if (subject.length > MAX_SUBJECT) {
+    console.error(
+      `Error: commit subject is ${subject.length} chars (max ${MAX_SUBJECT}). Move the detail into a body: git commit -m "<subject>" -m "<body>".`
+    )
+    process.exit(2)
+  }
+  ```
+
+  ```patch
+  target: scripts/commit-msg.sh
+  mode: create-if-missing
+  ---
+  #!/bin/sh
+  # Commit-message gate — Conventional Commits, enforced for every committer.
+  # $1 is the path to the message file git is about to use.
+  exec node .claude/guards/commit-msg-guard.mjs "$1"
+  ```
+
+  Patch mode writes `scripts/commit-msg.sh` but cannot symlink it — after patching an existing repo, run `ln -sf ../../scripts/commit-msg.sh .git/hooks/commit-msg && chmod +x scripts/commit-msg.sh` once (or add the equivalent entry to `simple-git-hooks`/`husky`). The patch summary says so.
+
+  ```patch
+  target: .claude/settings.json
+  anchor: "command": "node .claude/guards/bugfix-test-guard.mjs"
+          }
+        ]
+      },
+  insert: after
+  ---
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/guards/commit-msg-guard.mjs"
+          }
+        ]
+      },
+  ```
+
+  ```patch
+  target: CLAUDE.md
+  anchor: No `--no-verify`
+  insert: after
+  ---
+  - Commit messages are Conventional Commits — `type(scope): subject` (enforced by `commit-msg-guard.mjs`).
+  ```
+
+### Fixed
+
+- **`bugfix-test-guard.mjs` let `git commit -am "fix: x"` through with no staged test.** Its message extraction matched a bare `-m`/`--message` only, so the bundled short-flag form parsed as "no message found" and took the fail-open path — the exact commit shape the guard exists to catch. Both guards now extract with `(?:--message|-[a-zA-Z]*m)`, which still leaves `--amend` and `--no-edit` unmatched (checked explicitly: `--amend` contains no `-<letters>m` followed by a quote). Fail-open behavior for genuinely unparsable messages is unchanged.
+
+  ```patch
+  target: .claude/guards/bugfix-test-guard.mjs
+  anchor: command.match(/(?:-m|--message)(?:=|\s+)"([^"]*)"/) ??
+    command.match(/(?:-m|--message)(?:=|\s+)'([^']*)'/)
+  insert: replace
+  ---
+  command.match(/(?:--message|-[a-zA-Z]*m)(?:=|\s+)"([^"]*)"/) ??
+    command.match(/(?:--message|-[a-zA-Z]*m)(?:=|\s+)'([^']*)'/)
+  ```
+
+### Changed
+
+- Phase 5-2h is the old Phase 5-2g (`precompact-snapshot.mjs`) renumbered; the new commit-message guard takes 5-2g so the two commit-time gates sit next to each other. No behavior change.
+- `docs/USER_GUIDE.md` §6 gains a `commit-msg-guard.mjs` entry (what blocks, what's exempt, the two-second fix) and notes that this gate — unlike `bash-guard.mjs` — binds humans too.
+
 ## [1.54.0] - 2026-08-03
 
 `classify.mjs` stops reporting planned-but-nonexistent files as uncovered code. Found while

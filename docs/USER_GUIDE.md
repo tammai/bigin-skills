@@ -107,7 +107,8 @@ your-repo/
 │   ├── settings.json           ← pre-approved commands + hook wiring
 │   └── model-routing.json      ← which model each tier runs on
 ├── tools/context_budget.mjs    ← always-loaded token budget gate
-└── scripts/pre-commit.sh       ← lint + typecheck + test, fails closed
+├── scripts/pre-commit.sh       ← lint + typecheck + test, fails closed
+└── scripts/commit-msg.sh       ← Conventional Commits check, for every committer
 ```
 
 ### After setup
@@ -245,6 +246,16 @@ The gates will block you sometimes. That's the point — but knowing *why* turns
 **Allows:** once a `*.test.ts` / `*.spec.ts` / `*_test.go` / `tests/**` file is staged; when every staged file is docs/config; or when the message contains `[no-test]`.
 
 **Fix:** stage the regression test. If there genuinely can't be one (a docs typo mislabeled `fix:`), add `[no-test]` — but that's an escape hatch, not a habit.
+
+### `commit-msg-guard.mjs` — "not a Conventional Commit"
+
+**Blocks:** `git commit -m "…"` when the subject isn't `type(scope): subject` — type one of `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert` — or when the subject runs past 100 chars.
+
+**Allows:** `!` before the colon for breaking changes; `Merge`/`Revert`/`fixup!`/`squash!` subjects; any commit with no parsable `-m` (an `--amend`, or an editor-driven commit).
+
+**Fix:** rewrite the subject, or move the detail into a body with a second `-m`.
+
+Unlike `bash-guard.mjs`, this one binds you too: the same script is installed as a git `commit-msg` hook, so a commit typed in your own terminal gets the identical check. One implementation, two entry points — the rule can't drift between agent and human.
 
 ### `bash-guard.mjs` — "you can't disable your own gates"
 
