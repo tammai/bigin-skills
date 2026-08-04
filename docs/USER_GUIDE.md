@@ -235,7 +235,7 @@ The gates will block you sometimes. That's the point — but knowing *why* turns
 
 **Blocks:** non-trivial `Edit`/`Write`/`MultiEdit` when `PLAN.md` is missing, not `Status: approved`, or its `Branch:` line disagrees with the branch you're on.
 
-**Exempt:** `tests/**`, `*.md`, `.env.example`, common config files, and any edit ≤20 lines.
+**Exempt:** `tests/**`, `*.md`, `.env.example`, common config files, `graphify-out/**`, anything **git-ignored** (build output, caches — a path that never reaches the diff has nothing to spec), and any edit ≤20 lines. Note that "git-ignored" is index-aware: a *tracked* file that merely matches a `.gitignore` pattern is still gated.
 
 **Fix:** run `/task-workflow` and approve the spec. If it's a leftover plan from a finished task, delete `PLAN.md` — that's exactly what the `Branch:` check exists to catch.
 

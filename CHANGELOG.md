@@ -5,6 +5,89 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.56.1] - 2026-08-04
+
+### Fixed
+
+- **`spec-gate-guard.mjs` demanded an approved plan before writing generated artifacts.** A `graphify` run writes chunk files into `graphify-out/`, and the gate blocked them: `Write(graphify-out/.graphify_chunk_01.json)` → "PLAN.md missing or not approved". The allowlist covered tests, docs, `.env.example`, and config files, but nothing generated — so indexing a repo required either a plan about the indexer's scratch files or turning the gate off, and "turn the gate off" is how gates die.
+
+  Two exemptions, because one doesn't cover the other:
+
+  - **`graphify-out/**` by pattern.** `graphify-out/` is deliberately *committed* (`references/graph.md`: never gitignore it wholesale, or every skill expecting the graph breaks), so the git-ignore check below can't reach it.
+  - **Any git-ignored path.** Build output, caches, local config — a path that never reaches the diff a plan is written against gives the gate nothing to govern. Deliberately **index-aware** (no `--no-index`): a *tracked* file that merely matches a `.gitignore` pattern is still gated, so force-added build output doesn't become a hole. `git check-ignore` failing (not a repo, unusable path) means "not ignored", so the gate stays closed by default.
+
+  `bugfix-test-guard.mjs` gets the `graphify-out/**` pattern too, preserving its "same allowlist as `spec-gate-guard.mjs`" invariant — a fix commit that only regenerates the graph shouldn't demand a regression test. It needs no git-ignore check: staged files are tracked by definition.
+
+  Verified against the extracted guards in a repo with `dist/` and `graphify-out/cache/` gitignored, `graphify-out/graph.json` tracked, and `dist/bundle.js` force-tracked: the originally-reported write now passes, as do tracked/ignored/nested/absolute `graphify-out` paths and ignored `dist/` paths; the gate still blocks a 60-line `src/` write, a 60-line `Edit`, force-tracked `dist/bundle.js`, near-misses `src/graphify-outsider.ts` and `src/mygraphify-out2/x.ts`, and any non-trivial edit outside a git repo. The 26-case v1.56.0 suite still passes unchanged.
+
+  ```patch
+  target: .claude/guards/spec-gate-guard.mjs
+  anchor: import { execSync } from 'node:child_process'
+  insert: replace
+  ---
+  import { execSync, execFileSync } from 'node:child_process'
+  ```
+
+  ```patch
+  target: .claude/guards/spec-gate-guard.mjs
+  anchor: if (TRIVIAL_PATTERNS.some(p => p.test(filePath))) process.exit(0)
+  insert: replace
+  ---
+  if (TRIVIAL_PATTERNS.some(p => p.test(filePath))) process.exit(0)
+
+  // Build output and local caches aren't reviewable source: a git-ignored path never
+  // reaches the diff a plan is written against, so the gate has nothing to govern there.
+  // Deliberately index-aware (no --no-index) — a *tracked* file that merely matches a
+  // gitignore pattern is still gated, which is why graphify-out/ needs its rule above.
+  function isGitIgnored(path) {
+    try {
+      execFileSync('git', ['check-ignore', '-q', '--', path], { stdio: 'ignore' })
+      return true
+    } catch {
+      return false // exit 1 = not ignored; 128 = not a repo / unusable path
+    }
+  }
+
+  if (isGitIgnored(filePath)) process.exit(0)
+  ```
+
+  ```patch
+  target: .claude/guards/spec-gate-guard.mjs
+  anchor: /\.env\.example$/i,
+  insert: after
+  ---
+  /(^|[/\\])graphify-out[/\\]/i,
+  ```
+
+  ```patch
+  target: .claude/guards/bugfix-test-guard.mjs
+  anchor: /\.env\.example$/i,
+  insert: after
+  ---
+  /(^|[/\\])graphify-out[/\\]/i,
+  ```
+
+  Comment-only, so a patched repo reads identically to a freshly scaffolded one:
+
+  ```patch
+  target: .claude/guards/spec-gate-guard.mjs
+  anchor: // Trivial paths never require an approved plan: tests, docs, env examples, config files.
+  insert: replace
+  ---
+  // Trivial paths never require an approved plan: tests, docs, env examples, config
+  // files, and generated graph artifacts (graphify-out/ is committed by design, so the
+  // git-ignore check below can't cover it).
+  ```
+
+  ```patch
+  target: .claude/guards/bugfix-test-guard.mjs
+  anchor: // Docs/config-only fixes have no runtime surface to test — same allowlist as spec-gate-guard.mjs.
+  insert: replace
+  ---
+  // Docs/config-only fixes have no runtime surface to test — same allowlist as
+  // spec-gate-guard.mjs (minus its git-ignore check: staged files are tracked by definition).
+  ```
+
 ## [1.56.0] - 2026-08-04
 
 Guards fail closed on an unreadable payload instead of silently waving the call through, and

@@ -87,7 +87,7 @@ Write to `.claude/guards/spec-gate-guard.mjs`.
 // edits governed by a PLAN.md left over from a different branch.
 // Claude Code PreToolUse hook — reads tool input from stdin, exits 2 to block.
 import { existsSync, readFileSync } from 'node:fs'
-import { execSync } from 'node:child_process'
+import { execSync, execFileSync } from 'node:child_process'
 import { join } from 'node:path'
 
 // Fail closed: an unparsable payload would otherwise exit 1, which Claude Code
@@ -108,15 +108,33 @@ const filePath = toolInput.file_path ?? ''
 
 if (!filePath) process.exit(0)
 
-// Trivial paths never require an approved plan: tests, docs, env examples, config files.
+// Trivial paths never require an approved plan: tests, docs, env examples, config
+// files, and generated graph artifacts (graphify-out/ is committed by design, so the
+// git-ignore check below can't cover it).
 const TRIVIAL_PATTERNS = [
   /(^|[/\\])tests?[/\\]/i,
   /\.md$/i,
   /\.env\.example$/i,
+  /(^|[/\\])graphify-out[/\\]/i,
   /(^|[/\\])(\.eslintrc(\.\w+)?|eslint\.config\.\w+|\.prettierrc(\.\w+)?|prettier\.config\.\w+|tsconfig(\.\w+)?\.json|vite\.config\.\w+|vitest\.config\.\w+|nuxt\.config\.\w+|\.editorconfig|\.gitignore|\.npmrc)$/i
 ]
 
 if (TRIVIAL_PATTERNS.some(p => p.test(filePath))) process.exit(0)
+
+// Build output and local caches aren't reviewable source: a git-ignored path never
+// reaches the diff a plan is written against, so the gate has nothing to govern there.
+// Deliberately index-aware (no --no-index) — a *tracked* file that merely matches a
+// gitignore pattern is still gated, which is why graphify-out/ needs its rule above.
+function isGitIgnored(path) {
+  try {
+    execFileSync('git', ['check-ignore', '-q', '--', path], { stdio: 'ignore' })
+    return true
+  } catch {
+    return false // exit 1 = not ignored; 128 = not a repo / unusable path
+  }
+}
+
+if (isGitIgnored(filePath)) process.exit(0)
 
 function currentBranch() {
   try {
@@ -252,10 +270,12 @@ const TEST_PATTERNS = [
 ]
 if (files.some(f => TEST_PATTERNS.some(p => p.test(f)))) process.exit(0)
 
-// Docs/config-only fixes have no runtime surface to test — same allowlist as spec-gate-guard.mjs.
+// Docs/config-only fixes have no runtime surface to test — same allowlist as
+// spec-gate-guard.mjs (minus its git-ignore check: staged files are tracked by definition).
 const TRIVIAL_PATTERNS = [
   /\.md$/i,
   /\.env\.example$/i,
+  /(^|[/\\])graphify-out[/\\]/i,
   /(^|[/\\])(\.eslintrc(\.\w+)?|eslint\.config\.\w+|\.prettierrc(\.\w+)?|prettier\.config\.\w+|tsconfig(\.\w+)?\.json|vite\.config\.\w+|vitest\.config\.\w+|nuxt\.config\.\w+|\.editorconfig|\.gitignore|\.npmrc)$/i
 ]
 if (files.every(f => TRIVIAL_PATTERNS.some(p => p.test(f)))) process.exit(0)
