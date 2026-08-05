@@ -34,13 +34,12 @@ Universal `PRESET_DEPS` land via one `pnpm add`, `PRESET_DEV_DEPS` via one `pnpm
 | `pnpm add @pinia/colada` | `@pinia/colada` | Async data (`useQuery` / `useMutation`) on top of Pinia |
 | `pnpm add @pinia/colada-nuxt` | `@pinia/colada-nuxt` | Nuxt module for `@pinia/colada` — **required**, not optional (see [official guide](https://pinia-colada.esm.dev/nuxt.html)); without it `useQuery`/`useMutation` throw. Registered in `nuxt.config.ts` by the script itself (`ensureModuleRegistered`), not `nuxi module add` |
 | `pnpm add zod` | `zod` | Runtime schema validation (validate backend responses in API routes, request bodies) |
-| `pnpm add openapi-fetch` | `openapi-fetch` | Runtime typed backend client (`shared/api-client`) — universal, since every template ships the BFF proxy + generated client |
 | `pnpm add -D vitest` | `vitest` | Unit test runner |
 | `pnpm add -D @nuxt/test-utils` | `@nuxt/test-utils` | Nuxt-aware Vitest environment (`defineVitestConfig`) |
 | `pnpm add -D happy-dom` | `happy-dom` | DOM implementation required by `@nuxt/test-utils`'s `environment: 'nuxt'` — `pnpm test` fails without it |
 | `pnpm add -D simple-git-hooks` | `simple-git-hooks` | Lightweight git hook manager (project commit gate) — needs `pnpm approve-builds simple-git-hooks` (Stage 4) on pnpm 10+ |
 | `pnpm add -D lint-staged` | `lint-staged` | Run ESLint on staged files at commit |
-| `pnpm add -D openapi-typescript` | `openapi-typescript` | Regenerates the committed client-types snapshot (`pnpm openapi-types`) from `openapi.yaml` — **universal** now that `openapi.yaml` + `shared/api-client` ship in every template's base preset |
+| `pnpm add -D openapi-typescript` | `openapi-typescript` | Regenerates the committed client-types snapshot (`pnpm openapi-types`) from `openapi.yaml` — **universal** now that `openapi.yaml` + `shared/api-client` ship in every template's base preset. Types only: the runtime client is Nuxt's global `$fetch`, so there is no HTTP-client dependency |
 | `pnpm add -D eslint-plugin-boundaries` [`starter` only] | `eslint-plugin-boundaries` | Enforces the Nuxt Layers cross-layer import boundaries — only `starter` is restructured into Layers, so it's not installed for the other 8 templates |
 | `pnpm add -D eslint-import-resolver-typescript` [`starter` only] | `eslint-import-resolver-typescript` | Load-bearing resolver for `eslint-plugin-boundaries` (see `starter/eslint.boundaries.mjs`) — `starter` only, alongside the boundaries plugin |
 

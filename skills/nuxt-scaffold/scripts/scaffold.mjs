@@ -267,12 +267,12 @@ function preflight() {
 }
 
 const CORE_MODULES = ['@pinia/nuxt', 'nuxt-auth-utils', '@vueuse/nuxt']
-// openapi-fetch is the runtime typed backend client (shared/api-client) — universal now that every
-// template ships the BFF proxy + generated client, not just an unauthenticated sample.
+// The runtime backend client (shared/api-client) is Nuxt's global `$fetch` typed against the
+// generated schema — no HTTP-client dependency to install.
 // `pinia` is explicit (not just a transitive peer of @pinia/nuxt): @pinia/colada peer-depends on it,
 // and on the CLONED templates — where stage 1 installs @pinia/nuxt via pnpm add, not create-nuxt's
 // `--modules pinia` — pnpm won't hoist the peer, so vitest can't resolve `pinia` without this.
-const PRESET_DEPS = ['pinia', '@pinia/colada', '@pinia/colada-nuxt', 'zod', 'openapi-fetch']
+const PRESET_DEPS = ['pinia', '@pinia/colada', '@pinia/colada-nuxt', 'zod']
 // openapi-typescript regenerates the committed client-types snapshot (pnpm openapi-types) —
 // universal now that openapi.yaml + shared/api-client ship in every template's base preset.
 const PRESET_DEV_DEPS = ['vitest', '@nuxt/test-utils', 'happy-dom', 'simple-git-hooks', 'lint-staged', 'openapi-typescript']

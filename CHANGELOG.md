@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.57.0] - 2026-08-05
+
+### Changed
+
+- **`nuxt-scaffold`'s backend client is Nuxt's `$fetch`, not `openapi-fetch`.** `shared/api-client/index.ts` now exports `apiClient = $fetch.create({ baseURL: '/api/backend' })` — the same same-origin BFF proxy binding, one fewer runtime dependency, and the idiomatic Nuxt HTTP client instead of a second one alongside it. Type safety is unchanged: `openapi-typescript` still generates `schema.d.ts` from the committed `openapi.yaml` (`pnpm openapi-types`), and a new `Ok<Path, Method>` helper pulls the 200 JSON body out of the generated `paths`, so the sample composable reads `await apiClient<Ok<'/v1/users'>>('/v1/users')`. `$fetch` throws on non-2xx, so the old `{ data, error }` branch is gone — Pinia Colada surfaces the rejection as the query's `error`.
+
+  `openapi-fetch` is dropped from `PRESET_DEPS`; `openapi-typescript` stays (types only). Only `nuxt-scaffold` changed — `next-scaffold` keeps `openapi-fetch`, since `$fetch` is a Nuxt global with no Next.js equivalent.
+
 ## [1.56.1] - 2026-08-04
 
 ### Fixed

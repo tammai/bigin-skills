@@ -1,5 +1,6 @@
 import { defineQuery, useQuery } from '@pinia/colada'
 import { apiClient } from '~~/shared/api-client'
+import type { Ok } from '~~/shared/api-client'
 import type { components } from '~~/shared/api-client/schema'
 
 // User shape comes straight from the generated contract — no hand-maintained
@@ -9,13 +10,13 @@ export type User = components['schemas']['User']
 export const userQueries = {
   list: {
     key: ['users', 'list'],
-    // Goes through the same-origin BFF proxy (apiClient's baseUrl '/api/backend'):
+    // Goes through the same-origin BFF proxy (apiClient's baseURL '/api/backend'):
     // the proxy attaches the Bearer token and handles token refresh. This query
-    // never sees a token or NUXT_BACKEND_URL.
+    // never sees a token or NUXT_BACKEND_URL. $fetch throws on non-2xx, so the
+    // failure path needs no branch here — Colada surfaces it as `error`.
     query: async (): Promise<User[]> => {
-      const { data, error } = await apiClient.GET('/v1/users')
-      if (error || !data) throw new Error('failed to fetch users')
-      return data.data
+      const { data } = await apiClient<Ok<'/v1/users'>>('/v1/users')
+      return data
     }
   }
 }

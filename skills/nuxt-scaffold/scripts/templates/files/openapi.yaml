@@ -1,7 +1,7 @@
 # Committed snapshot of the PAIRED backend's contract (go-scaffold's
 # api/openapi.yaml — the ADR's default Go+Nuxt pairing). It is the input to
-# `pnpm openapi-types`, which regenerates shared/api-client/schema.d.ts (the typed
-# openapi-fetch client). This is NOT authored here — the backend owns it. After a
+# `pnpm openapi-types`, which regenerates shared/api-client/schema.d.ts (the types
+# behind the $fetch client). This is NOT authored here — the backend owns it. After a
 # backend contract change, copy its api/openapi.yaml over this file and re-run
 # `pnpm openapi-types`. Paths are written in full, including /v1.
 openapi: 3.0.3
