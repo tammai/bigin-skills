@@ -84,6 +84,8 @@ Created:
   [Knowledge Bundle: .claude/rules/knowledge.md, knowledge/*, tools/knowledge_validate.mjs] (if opted in)
   [.github/workflows/ci.yml] (if CI_PROVIDER is github/both)
   [.gitlab-ci.yml] (if CI_PROVIDER is gitlab/both)
+  [PLAN.md — created to clear the active spec gate for the CI writes above, then deleted] (Phase 5.6 step 0 only)
+  [CI skipped — PLAN.md is mid-task and the spec gate blocks the write; re-run once it's cleared] (Phase 5.6 step 0 only)
 
 Enabled:
   git repo [initialized/already present]
@@ -114,6 +116,7 @@ Next steps:
 - [ ] **nuxt + empty repo** — `nuxt-scaffold` skill executed (Phase 0.5); `nuxt.config.ts` now present
 - [ ] **next + empty repo** — `next-scaffold` skill executed (Phase 0.5); `next.config.ts` now present
 - [ ] **existing repo matching no profile** — `PROFILE = generic`, no profile question asked; Phase 0.5, conventions/testing rules, `.vscode/settings.json` and CI all skipped
+- [ ] **re-run on a repo that already has the guards** (adding CI that was declined the first time) — Phase 5.6 step 0 clears the active spec gate with a throwaway `PLAN.md`, the CI files land, and `PLAN.md` is gone afterwards; with a mid-task `PLAN.md` present, CI is skipped instead and the summary says why
 - [ ] `CLAUDE.md` — profile-specific, ≤60 lines (generic: `{STACK}` line + detected commands, undetected ones dropped from the table)
 - [ ] **nuxt/next only** — `.claude/rules/conventions-frontend.md` — paths: app/** (nuxt) or src/app/**,src/components/**,src/hooks/** (next) (≤40 lines)
 - [ ] **nuxt/next only** — `.claude/rules/conventions-server.md` — paths: server/** (nuxt) or src/app/api/**,src/lib/** (next) (≤40 lines)

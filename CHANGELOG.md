@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.59.1] - 2026-08-06
+
+### Fixed
+
+- **Re-running harness setup on a repo that already has the guards died at Phase 5.6.** `spec-gate-guard.mjs` blocks any `Write` outside its trivial allowlist, `.github/workflows/ci.yml` isn't on that list, and a setup run has no `PLAN.md` — so "set up the harness, decline CI, add CI later" was a dead end, failing with `PLAN.md missing or not approved`. `ci.yml` was the only casualty: every other post-Phase-5 write (README, knowledge bundle, `graphify-out/`) already lands on an allowlisted path.
+
+  Phase 5.6 gains a step 0 that checks for the guard plus its `PreToolUse` registration and, when active, writes a minimal approved `PLAN.md` naming the provider, profile, and exact target paths — then deletes it once the CI files land. Reported in the Phase 7 summary, both the creation and the delete. With a `PLAN.md` already present it never clobbers: an approved plan matching `HEAD` just passes the gate, and a mid-task one skips CI with the reason stated.
+
+  Two fixes were considered and rejected, and the skill now records why so they don't get re-proposed. **Widening `TRIVIAL_PATTERNS`** is worse than the bug — a workflow file executes with access to CI secrets and defines which gates run at all, making it the single file most worth gating. **Reordering Phase 5.6 ahead of Phase 5** doesn't work either: a `PreToolUse` block is `exit 2` that nothing in the run can override, and on a re-run the guard is live from the session's first tool call, so ordering within the run is irrelevant.
+
+  The `PLAN.md` step is deliberately narrow and must not be generalized into a self-approval habit: the user already approved CI in Phase 1.5, and this only records that existing decision in the form the guard can read. It covers this phase's CI paths and nothing else, and the plan is deleted immediately — an approved `PLAN.md` left behind would hold the gate open for whatever the user did next.
+
 ## [1.59.0] - 2026-08-06
 
 ### Added
