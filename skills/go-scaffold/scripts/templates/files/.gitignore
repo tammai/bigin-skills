@@ -1,4 +1,22 @@
-/bin/
+# Environment
 .env
+
+# Binaries
+/bin/
+{{PROJECT_NAME}}
+*.exe
 *.test
+
+# Air
+tmp/
+build-errors.log
+
+# Coverage
 coverage.out
+
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/

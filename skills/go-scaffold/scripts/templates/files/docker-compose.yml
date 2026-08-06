@@ -3,31 +3,41 @@ services:
     build: .
     env_file: .env
     environment:
-      # .env's DATABASE_URL points at localhost:5432 for `make run` on the
-      # host; inside this container "localhost" is itself, not the db
-      # service, so override it to the compose network's service name.
-      DATABASE_URL: postgres://{{DB_SLUG}}:{{DB_SLUG}}@db:5432/{{DB_SLUG}}?sslmode=disable
+      # .env points DB_HOST at localhost:5454 for `make run` on the host. Inside
+      # this container "localhost" is itself, not the db service — override just
+      # the host/port pair to the compose network's service name and its
+      # container-side port.
+      DB_HOST: db
+      DB_PORT: "5432"
     ports:
-      - "8080:8080"
+      - "8090:8090"
     depends_on:
       db:
         condition: service_healthy
 
   db:
     image: postgres:16-alpine
+    restart: always
     environment:
       POSTGRES_USER: {{DB_SLUG}}
       POSTGRES_PASSWORD: {{DB_SLUG}}
       POSTGRES_DB: {{DB_SLUG}}
+    ports:
+      # host:container. The container keeps Postgres' default 5432; only the HOST
+      # side moves off it, because 5432 is the port every other Postgres on the
+      # machine also wants.
+      - "5454:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U {{DB_SLUG}}"]
+      test: ["CMD-SHELL", "pg_isready -U {{DB_SLUG}} -d {{DB_SLUG}}"]
       interval: 5s
-      timeout: 3s
-      retries: 10
+      timeout: 5s
+      retries: 5
     volumes:
       - pgdata:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
 
 volumes:
   pgdata:
+    # Explicit name — do NOT rely on the implicit <project>_pgdata. Adopting a
+    # stale volume from another project makes Postgres ignore the credentials
+    # above (they only apply on first initialisation of an empty data dir).
+    name: {{DB_SLUG}}_pgdata

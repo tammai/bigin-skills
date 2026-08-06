@@ -115,12 +115,16 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
-          go-version: "1.22"
+          # Track the repo's own go directive rather than a pinned version that
+          # goes stale the first time `go mod tidy` bumps it.
+          go-version-file: go.mod
       - run: go build ./...
       - name: lint
         run: |
           go install honnef.co/go/tools/cmd/staticcheck@latest
-          make lint
+          # Prefer the repo's own lint target — it knows which generated
+          # packages to exclude. Fall back to a plain sweep if there isn't one.
+          if grep -q '^lint:' Makefile 2>/dev/null; then make lint; else staticcheck ./...; fi
       - run: go test ./... -count=1
 ```
 
@@ -211,12 +215,14 @@ stages:
 
 quality:
   stage: quality
-  image: golang:1.22
+  image: golang:1.24
   before_script:
     - go install honnef.co/go/tools/cmd/staticcheck@latest
   script:
     - go build ./...
-    - make lint
+    # Prefer the repo's own lint target — it knows which generated packages to
+    # exclude. Fall back to a plain sweep if there isn't one.
+    - if grep -q '^lint:' Makefile 2>/dev/null; then make lint; else staticcheck ./...; fi
     - go test ./... -count=1
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "main"'

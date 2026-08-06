@@ -1,18 +1,16 @@
 #!/usr/bin/env node
 /**
- * scaffold.mjs — deterministic Go modular-monolith REST API scaffold.
+ * scaffold.mjs — deterministic Go REST API scaffold (Gin + GORM, contract-first).
  *
  * Usage:
  *   node scaffold.mjs --module github.com/acme/orders-api [--dir orders-api]
  *                      [--project orders-api] [--cors https://app.example.com]
  *                      [--force] [--no-commit] [--skip-verify]
  *
- * Contract-first, per-module codegen (ADR §4.1): the single api/openapi.yaml
- * tags every operation with its module; each module's own oapi-codegen config
- * (include-tags) generates that module's chi-server interface + models into its
- * nested internal/gen/. sqlc generates each module's typed queries into its
- * internal/infrastructure/db/. This script runs every generator itself so the
- * repo it leaves behind builds and tests green, not a skeleton needing fixup.
+ * Contract-first: openapi.yaml is the single source of truth. One oapi-codegen
+ * run (gin-server + models) produces api/api.gen.go; everything else is
+ * hand-written. This script runs the generator itself so the repo it leaves
+ * behind builds and tests green, not a skeleton needing fixup.
  *
  * All decisions are pre-resolved via CLI flags — never prompts, never stdin.
  * Node stdlib only. Exit codes: 0 ok, 1 runtime failure, 2 bad usage/args.
@@ -24,26 +22,22 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { spawnSync, spawn } from 'node:child_process'
+import { spawnSync } from 'node:child_process'
 import { parseArgs } from 'node:util'
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url))
 const TEMPLATES = path.join(SCRIPT_DIR, 'templates', 'files')
 
 // Pinned via `go run pkg@version` — never added to the scaffolded module's own
-// go.mod (that would drag ~40 unrelated transitive deps into go.sum just to pin
-// a dev tool). Bump here + the Makefile stays in sync (its template is written
-// from these too).
-const SQLC_VERSION = 'v1.29.0'
+// go.mod (that would drag unrelated transitive deps into go.sum just to pin a
+// dev tool). Bump here and the Makefile stays in sync (its template is written
+// from this constant).
 const OAPI_CODEGEN_VERSION = 'v2.4.1'
 
-// Per-module oapi-codegen configs (ADR §4.1). Each writes gen.go into its own
-// nested internal/gen/ (output path is set inside each config, relative to the
-// project root this script runs generators from).
-const OAPI_MODULE_CONFIGS = [
-  'internal/users/internal/gen/oapi-codegen.yaml',
-  'internal/posts/internal/gen/oapi-codegen.yaml'
-]
+// Config consumed by the single oapi-codegen run. Its `output:` key points at
+// api/api.gen.go, relative to the project root this script generates from.
+const OAPI_CONFIG = 'oapi-codegen.yaml'
+const OAPI_SPEC = 'openapi.yaml'
 
 const NAME_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/
 const MODULE_RE = /^[A-Za-z0-9][A-Za-z0-9._~-]*(\/[A-Za-z0-9][A-Za-z0-9._~-]*)*$/
@@ -128,14 +122,12 @@ function substitute(content, cfg) {
     .replaceAll('{{PROJECT_NAME}}', cfg.project)
     .replaceAll('{{DB_SLUG}}', cfg.dbSlug)
     .replaceAll('{{CORS}}', cfg.cors)
-    .replaceAll('{{SQLC_VERSION}}', SQLC_VERSION)
     .replaceAll('{{OAPI_CODEGEN_VERSION}}', OAPI_CODEGEN_VERSION)
 }
 
-// Recursively collect every template file (dotfiles/dotdirs included). The old
-// STATIC/GLUE split existed because glue files needed generated code to exist
-// first; nothing is compiled until AFTER codegen runs below, so file WRITE order
-// no longer matters — everything is written in one pass, then generated.
+// Recursively collect every template file (dotfiles/dotdirs included). Nothing
+// is compiled until AFTER codegen runs below, so write order doesn't matter —
+// everything is written in one pass, then generated.
 function walkFiles(dir, base = dir) {
   const out = []
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -177,39 +169,6 @@ function run(cmd, args, cwd, { optional = false } = {}) {
   return { ok: true, stdout: res.stdout, stderr: res.stderr }
 }
 
-// Runs several independent commands concurrently (used for the per-module
-// oapi-codegen invocations, which just filter the same api/openapi.yaml into
-// separate output dirs — no data dependency between them, so serializing them
-// only adds latency, doubly so on the first run where each may download/build
-// its own copy of the tool). Each command's own output is buffered and
-// flushed once it finishes, then any failure fails the whole scaffold.
-function runParallel(commands, cwd) {
-  return Promise.all(
-    commands.map(
-      ({ cmd, args }) =>
-        new Promise((resolve) => {
-          const child = spawn(cmd, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] })
-          let stdout = ''
-          let stderr = ''
-          child.stdout.on('data', (d) => { stdout += d })
-          child.stderr.on('data', (d) => { stderr += d })
-          child.on('error', (error) => resolve({ ok: false, cmd, args, error }))
-          child.on('close', (status) => resolve({ ok: status === 0, cmd, args, status, stdout, stderr }))
-        })
-    )
-  ).then((results) => {
-    for (const r of results) {
-      log(`$ ${r.cmd} ${r.args.join(' ')}`)
-      if (r.stdout?.trim()) process.stdout.write(r.stdout)
-      if (!r.ok) {
-        if (r.stderr?.trim()) process.stderr.write(r.stderr)
-        if (r.error?.code === 'ENOENT') fail(`${r.cmd} not found on PATH`)
-        fail(r.error ? `${r.cmd} ${r.args.join(' ')} failed to spawn: ${r.error.message}` : `${r.cmd} ${r.args.join(' ')} exited ${r.status}`)
-      }
-    }
-  })
-}
-
 // ── main ────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -230,20 +189,17 @@ async function main() {
   log(`scaffolding into ${targetDir} (module: ${cfg.module}, project: ${cfg.project})`)
   writeFiles(walkFiles(TEMPLATES), targetDir, cfg)
 
+  // api/ holds nothing but generated output, so no template file creates it —
+  // and oapi-codegen won't create a missing output directory itself.
+  fs.mkdirSync(path.join(targetDir, 'api'), { recursive: true })
+
   if (cfg.skipVerify) {
     log('--skip-verify set: skipping codegen, build, and commit. Files written only.')
     return
   }
 
-  log('running codegen (oapi-codegen per module + sqlc) — first run downloads and builds both tools, can take a minute')
-  await runParallel(
-    OAPI_MODULE_CONFIGS.map((config) => ({
-      cmd: 'go',
-      args: ['run', `github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@${OAPI_CODEGEN_VERSION}`, '-config', config, 'api/openapi.yaml']
-    })),
-    targetDir
-  )
-  run('go', ['run', `github.com/sqlc-dev/sqlc/cmd/sqlc@${SQLC_VERSION}`, 'generate'], targetDir)
+  log('running codegen (oapi-codegen) — the first run downloads and builds the tool, which can take a minute')
+  run('go', ['run', `github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@${OAPI_CODEGEN_VERSION}`, '-config', OAPI_CONFIG, OAPI_SPEC], targetDir)
 
   log('go mod tidy')
   run('go', ['mod', 'tidy'], targetDir)
@@ -255,19 +211,17 @@ async function main() {
   run('go', ['vet', './...'], targetDir)
 
   log('go build')
-  run('go', ['build', '-o', 'bin/server', './cmd/server'], targetDir)
+  run('go', ['build', '-o', 'bin/server', '.'], targetDir)
 
-  // Unit tests only — integration tests are behind `//go:build integration` and
-  // need Docker (run via `make test-integration`), never at scaffold time.
-  log('go test (unit)')
-  run('go', ['test', './...'], targetDir)
+  log('go test')
+  run('go', ['test', './...', '-count=1'], targetDir)
 
-  // Scoped to hand-written code — internal/gen (oapi-codegen) and infrastructure/db
-  // (sqlc) are DO-NOT-EDIT generated output the scaffold's own tooling regenerates,
-  // and staticcheck's generated-file heuristic doesn't recognize either marker.
+  // Scoped to hand-written code — api/ is oapi-codegen output the scaffold's own
+  // tooling regenerates, and staticcheck's generated-file heuristic doesn't
+  // recognise its marker (it's folded into the package doc comment).
   const pkgList = run('go', ['list', './...'], targetDir, { optional: true })
   const pkgs = pkgList.ok
-    ? pkgList.stdout.split('\n').filter(p => p.trim() && !/\/(internal\/gen|infrastructure\/db)$/.test(p.trim()))
+    ? pkgList.stdout.split('\n').filter((p) => p.trim() && !/\/api$/.test(p.trim()))
     : []
   const staticcheck = pkgs.length
     ? run('staticcheck', pkgs, targetDir, { optional: true })
@@ -282,7 +236,7 @@ async function main() {
       run('git', ['init'], targetDir)
     }
     run('git', ['add', '-A'], targetDir)
-    const commit = spawnSync('git', ['commit', '-m', 'chore: scaffold Go modular-monolith REST API (per-module oapi-codegen + sqlc)'], { cwd: targetDir, encoding: 'utf8' })
+    const commit = spawnSync('git', ['commit', '-m', 'chore: scaffold Go REST API (gin + oapi-codegen + GORM)'], { cwd: targetDir, encoding: 'utf8' })
     if (commit.status !== 0) {
       log(`git commit skipped: ${(commit.stderr || commit.stdout || '').trim() || 'nothing to commit or no git identity configured'}`)
     } else {
@@ -297,18 +251,16 @@ Next steps:
   cd ${cfg.dir}
   cp .env.example .env          # set JWT_SECRET (openssl rand -base64 48)
   go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest   # one-time, only tool not go-run-able
-  make dev-setup                 # docker compose up -d db + migrate + seed
-  make run
+  make dev-setup                 # docker compose up -d db + migrate-up
+  make run                       # or \`make dev\` for hot reload (go install github.com/air-verse/air@latest)
 
-Editable surface: api/openapi.yaml, internal/<module>/ (domain, application,
-infrastructure, api), internal/shared/, internal/<module>/internal/infrastructure/queries/,
-db/migrations/. Everything else regenerates via \`make generate\` — don't hand-edit
-internal/<module>/internal/gen/ or internal/<module>/internal/infrastructure/db/.
+Editable surface: openapi.yaml, handlers/, middleware/, models/, utils/,
+config/, migrations/. api/api.gen.go regenerates via \`make generate\` — never
+hand-edit it.
 
-\`go test ./...\` runs unit tests (Docker-free). \`make test-integration\` runs the
-golden-path suite against a real Postgres via testcontainers-go (needs Docker).
-Module boundaries are compiler-enforced by Go's nested internal/ — a cross-module
-import of another module's internals fails to build.
+Routing is generated from the contract; SECURITY IS NOT. A new path prefix that
+needs auth or a rate limit must be added to middleware/selector.go, or the route
+is public and nothing fails loudly. main_test.go asserts both directions.
 `)
 }
 

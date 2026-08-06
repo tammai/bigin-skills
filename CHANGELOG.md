@@ -5,6 +5,70 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.58.0] - 2026-08-06
+
+### Changed
+
+- **The `go` stack is now Gin + GORM on a flat package layout — `go-scaffold` and the harness `go` profile both rewritten to match.** The old shape (chi router, `sqlc`-generated queries, a `users`/`posts` modular monolith under `cmd/` + nested `internal/`) no longer reflects how BigIn writes Go services, so both surfaces described a stack nobody was building. Out: chi, `sqlc`, `pgx` used directly, argon2id, the module boundary layer, `internal/store/queries/*.sql`. In:
+
+  - **Gin**, with routing generated from `openapi.yaml` by `oapi-codegen`'s `gin-server` into a single `api/api.gen.go`; handlers implement `api.ServerInterface`, asserted at compile time in `handlers/server.go`.
+  - **GORM + Postgres**, models in `models/`, the handle in `config/`, schema owned by hand-written `golang-migrate` SQL in `migrations/` (never `AutoMigrate` — the SQL is the reviewable record).
+  - **Flat top-level packages**: `main.go`, `api/`, `handlers/`, `middleware/`, `models/`, `config/`, `utils/`, `migrations/`.
+  - **Auth kernel**: bcrypt, JWT access tokens, and opaque refresh tokens stored only as a SHA-256 hash and **rotated on use**, so a replayed token is rejected. Password-complexity validation, a `notags` custom binding tag that rejects HTML at bind time, `bluemonday` sanitisation at write time, per-route in-memory rate limiting, RBAC with `admin` as a superset, and admin endpoints that refuse self-demotion and self-deletion.
+  - **`air`** for hot reload (`make dev`), `godotenv` for `.env`, `docker compose` Postgres published on host **5454** (not 5432, which every other local Postgres wants) with an explicitly named volume.
+
+  The sharpest edge of this stack, called out in the generated `CLAUDE.md`, the `architecture.md` addendum, and the skill's design notes: **routing is generated, security is not.** `oapi-codegen` ignores the contract's `security:` schemes, so authorization and rate limits come from prefix selectors in `middleware/selector.go` that match on `c.FullPath()` — i.e. `GinServerOptions.BaseURL` + the spec path. Change `BaseURL` without updating the selectors and every case falls through to `default: c.Next()`: protected routes go public, nothing fails to compile, every response is still 200. The scaffold ships `main_test.go` asserting **both** directions against the real `newRouter` (protected routes 401 anonymously; public auth routes not 401), which is why `newRouter` is split out of `main()`.
+
+  Also new in the scaffold, beyond a straight port: `/healthz` (never touches the DB, so an outage can't get the container restart-looped) and `/readyz` (pings, tolerates a nil handle); an origin-allowlisted `middleware/CORS()` reading `CORS_ORIGINS` instead of a blanket `Access-Control-Allow-Origin: *` — a wildcard origin plus an `Authorization` header is the misconfiguration that lets any site drive an authenticated session; a `JWT_SECRET` boot check (an empty signing key would silently accept forged tokens); `-include .env` in the Makefile so `test`/`build`/`lint` still work in a fresh clone; and a Docker-free unit suite covering the negative cases that matter — expired token, foreign signing secret, `alg=none` confusion, unlisted CORS origin, junk `REFRESH_TOKEN_EXPIRY_DAYS`.
+
+  Verified end-to-end against a real scaffold run: exit 0 with codegen, `go mod tidy`, `gofmt`, `go vet`, `go build`, `go test`, and `staticcheck` all green, plus a git commit; `make generate && gofmt -s -w . && git diff --exit-code api/api.gen.go` clean (the CI drift gate holds); re-running without `--force` fails fast at exit 2. Then against live Postgres: migrations apply, signup normalises `Ada@Example.COM` and collapses whitespace in the name, a second signup at different case returns 409, `<b>x</b>` in `full_name` is rejected 400 on the `notags` tag, `weakpass` is rejected 400 naming the missing character class, login → profile 200, a user token on `/admin/users` is 403, a refresh token works once then returns 401 on replay, and the 6th rapid login in a minute returns 429.
+
+- **`bigin-harness-setup`'s go CI templates no longer pin a stale Go version or assume a `lint` Makefile target.** `github: go` swaps `go-version: "1.22"` for `go-version-file: go.mod` (a pin goes stale the first time `go mod tidy` bumps the directive), and both the GitHub and GitLab templates now run `make lint` only when the Makefile actually defines that target, falling back to `staticcheck ./...` — the same conditional `references/hook-guard.md`'s pre-commit template already used. GitLab's image moves `golang:1.22` → `golang:1.24`.
+
+  No patch block covers the `profile-go.md` rewrite itself. Migrating an already-scaffolded chi/`sqlc` modular monolith's documentation to the Gin/GORM flat shape isn't an anchor match, it's a rewrite a human needs to drive — the same call v1.31.0 made going the other direction. The CI fixes below *are* mechanical, so they auto-apply.
+
+  ```patch
+  target: .github/workflows/ci.yml
+  anchor: '          go-version: "1.22"'
+  insert: replace
+  ---
+            # Track the repo's own go directive rather than a pinned version that
+            # goes stale the first time `go mod tidy` bumps it.
+            go-version-file: go.mod
+  ```
+
+  ```patch
+  target: .github/workflows/ci.yml
+  anchor: '          go install honnef.co/go/tools/cmd/staticcheck@latest
+          make lint'
+  insert: replace
+  ---
+            go install honnef.co/go/tools/cmd/staticcheck@latest
+            # Prefer the repo's own lint target — it knows which generated
+            # packages to exclude. Fall back to a plain sweep if there isn't one.
+            if grep -q '^lint:' Makefile 2>/dev/null; then make lint; else staticcheck ./...; fi
+  ```
+
+  ```patch
+  target: .gitlab-ci.yml
+  anchor: '  image: golang:1.22'
+  insert: replace
+  ---
+    image: golang:1.24
+  ```
+
+  ```patch
+  target: .gitlab-ci.yml
+  anchor: '    - make lint'
+  insert: replace
+  ---
+      # Prefer the repo's own lint target — it knows which generated packages to
+      # exclude. Fall back to a plain sweep if there isn't one.
+      - if grep -q '^lint:' Makefile 2>/dev/null; then make lint; else staticcheck ./...; fi
+  ```
+
+- Stale-doc sweep for the bump: `README.md`'s profiles table, "What gets generated" prose and plugin-structure tree, `tools/docs-manifest.json`'s `go-scaffold` summary (README tables regenerated via `docs_sync.mjs`), `references/scaffold-delegation.md`'s "what the go scaffold leaves behind" row and codegen-timing note, `go-scaffold/evals/evals.json`'s stack-specific negatives, and the `sqlc` keyword in `plugin.json`/`marketplace.json` (→ `gin`, `gorm`).
+
 ## [1.57.0] - 2026-08-05
 
 ### Changed

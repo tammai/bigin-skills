@@ -1,6 +1,6 @@
 # Go Profile Templates
 
-Stack: Go REST API backend — contract-first (`oapi-codegen` + `sqlc`), chi router, Postgres
+Stack: Go REST API backend — Gin, contract-first (`oapi-codegen`), GORM + Postgres
 
 Empty repo → scaffolded by the **`go-scaffold`** skill (writes files, runs codegen, verifies build/vet/test, commits; no GitHub clone). See `skills/go-scaffold/`.
 
@@ -9,12 +9,12 @@ Empty repo → scaffolded by the **`go-scaffold`** skill (writes files, runs cod
 ## Commands
 
 ```
-lint:       make lint         # staticcheck ./...
+lint:       make lint         # staticcheck, excluding generated api/
 typecheck:  go build ./...
-test:       go test ./...
-dev:        go run ./cmd/server
-build:      go build -o bin/server ./cmd/server
-generate:   make generate   # oapi-codegen (openapi.yaml) + sqlc (internal/store/queries/)
+test:       go test ./... -count=1
+dev:        make dev          # air hot reload; make run for plain `go run .`
+build:      go build -o bin/server .
+generate:   make generate     # oapi-codegen: openapi.yaml -> api/api.gen.go
 ```
 
 ---
@@ -24,28 +24,29 @@ generate:   make generate   # oapi-codegen (openapi.yaml) + sqlc (internal/store
 ```markdown
 # CLAUDE.md
 
-Stack: Go REST API · contract-first (oapi-codegen + sqlc) · chi · Postgres
+Stack: Go REST API · Gin · contract-first (oapi-codegen) · GORM · Postgres
 Go: ≥1.24
 
 ## Commands
-| Purpose   | Command                              |
-|-----------|---------------------------------------|
-| dev       | `make run`                            |
-| test      | `go test ./...`                       |
-| vet       | `go vet ./...`                        |
-| lint      | `make lint`                           |
-| build     | `go build -o bin/server ./cmd/server` |
-| generate  | `make generate`                       |
+| Purpose   | Command                    |
+|-----------|----------------------------|
+| dev       | `make run` (`make dev` = hot reload) |
+| test      | `go test ./... -count=1`   |
+| vet       | `go vet ./...`             |
+| lint      | `make lint`                |
+| build     | `make build`               |
+| generate  | `make generate`            |
+| migrate   | `make migrate-up`          |
 
 ## Rules
 See `.claude/rules/` — path-scoped conventions, security, architecture.
 
 ## Hard Rules (non-negotiable)
-- `internal/api/` and `internal/store/` are 100% generated — never hand-edit. Change `openapi.yaml` or `internal/store/queries/*.sql`, run `make generate`, *then* touch `internal/server/`.
+- `api/api.gen.go` is 100% generated — never hand-edit. Change `openapi.yaml`, run `make generate`, *then* write the handler.
+- Routing is generated; **security is not**. A route under a new path prefix needing auth or a rate limit must be added to `middleware/selector.go`, or it is public and nothing fails loudly.
 - No `--no-verify`. No `//nolint` without a comment explaining the exception.
 - Commit messages are Conventional Commits — `type(scope): subject` (enforced by `commit-msg-guard.mjs`).
-- `authMiddleware` is a stub — replace it before production traffic.
-- Never echo `err.Error()` or generated-tool error text into a response body. Handler + error-response rules: `.claude/rules/conventions.md`.
+- Never echo `err.Error()` from a database or internal failure into a response body — return a fixed message via `utils.Error`. Handler + error rules: `.claude/rules/conventions.md`.
 
 ## Task workflow
 Non-trivial features: /task-workflow.
@@ -61,68 +62,87 @@ Paths frontmatter scopes this file to Go source — only loaded when Go files ar
 ---
 paths:
   - "**/*.go"
-  - "internal/**"
-  - "cmd/**"
+  - "openapi.yaml"
+  - "migrations/**"
 ---
 # Conventions
 
 ## Editable surface
 Only these are hand-written:
 - `openapi.yaml` — the contract
-- `internal/store/queries/*.sql` — domain SQL
-- `db/migrations/` — schema
-- `internal/server/*.go` — routing, middleware, business logic
+- `migrations/` — schema (golang-migrate; `make migrate-create name=x`)
+- `models/`, `handlers/`, `middleware/`, `utils/`, `config/`, `main.go`
 
-`internal/api/` (from `openapi.yaml` via `oapi-codegen`) and `internal/store/` (from `internal/store/queries/*.sql` + `db/migrations/` via `sqlc`) are 100% generated — regenerate with `make generate`, never hand-edit. Both carry a `// Code generated ... DO NOT EDIT.` header; if you're about to edit a file with that header, stop and edit the source (the SQL, or `openapi.yaml`) instead.
+`api/api.gen.go` is generated from `openapi.yaml` by `oapi-codegen` — regenerate with `make generate`, never hand-edit. It carries a `// Code generated ... DO NOT EDIT.` header; if you're about to edit a file with that header, stop and edit `openapi.yaml` instead.
 
 ## Naming
-- Packages: lowercase, single word (`server`, `config`, `store`, `api`)
+- Packages: lowercase, single word (`handlers`, `models`, `middleware`, `utils`, `config`)
 - Exported types: PascalCase. Unexported: camelCase.
-- SQL query names (sqlc `-- name:` comments): PascalCase, matching the generated Go method (`GetUser`, `CreateUser`)
-- Files: snake_case (`request_logger.go`)
+- Files: snake_case, named after the resource (`refresh_token.go`)
+- One handler file per resource (`auth.go`, `profile.go`, `admin.go`); all methods hang off the single `handlers.Server`.
 
-## Handler Pattern (StrictServerInterface)
+## Handler Pattern (api.ServerInterface)
 
-Handlers implement the generated `api.StrictServerInterface` in `internal/server/handlers.go` — one method per `openapi.yaml` `operationId`. Validate input, call `s.store` (the generated `store.Querier`), map domain results to typed response objects. Never write to `http.ResponseWriter` directly in a handler — return a typed `...JSONResponse` value.
+Handlers implement the generated `api.ServerInterface` — one method per `openapi.yaml` `operationId`, asserted at compile time by `var _ api.ServerInterface = (*Server)(nil)` in `handlers/server.go`. Bind into the generated request type, validate, query `config.DB`, map the GORM model to the contract's response type via `toAPIUser`-style helpers, and always return through `utils.Success` / `utils.Error`.
 
 ```go
-func (s *Server) CreateUser(ctx context.Context, request api.CreateUserRequestObject) (api.CreateUserResponseObject, error) {
-    if request.Body == nil {
-        return api.CreateUser400JSONResponse{Code: "invalid_request", Message: "request body is required"}, nil
+func (s *Server) UpdateProfile(c *gin.Context) {
+    var body api.UpdateProfileRequest
+    if err := c.ShouldBindJSON(&body); err != nil {
+        utils.Error(c, http.StatusBadRequest, err.Error()) // binding errors are safe to surface
+        return
     }
-    user, err := s.store.CreateUser(ctx, store.CreateUserParams{Email: string(request.Body.Email), Name: request.Body.Name})
-    if err != nil {
-        return nil, err // -> handleResponseError: logged, generic 500, never err.Error() to the client
+    userID, ok := c.Get("userID")
+    if !ok {
+        utils.Error(c, http.StatusUnauthorized, "Unauthorized")
+        return
     }
-    return api.CreateUser201JSONResponse(toAPIUser(user)), nil
+    var user models.User
+    if err := config.DB.First(&user, userID).Error; err != nil {
+        utils.Error(c, http.StatusNotFound, "User not found")
+        return
+    }
+    if body.FullName != nil {
+        user.FullName = utils.SanitizeText(*body.FullName)
+    }
+    if err := config.DB.Save(&user).Error; err != nil {
+        utils.Error(c, http.StatusInternalServerError, "Failed to update profile") // fixed message, never err.Error()
+        return
+    }
+    utils.Success(c, http.StatusOK, toAPIUser(user))
 }
 ```
 
-A typed `4xxJSONResponse` returned with a `nil` error is a *handled* response (visited normally). A non-nil `error` return is an *unexpected* failure — the strict handler's `ResponseErrorHandlerFunc` (wired in `internal/server/routes.go`) logs it and writes a generic message. Never bypass this by writing to `w` inside a handler.
+A `c.ShouldBindJSON` error is the one error text safe to return — it describes the client's own payload. Every database or internal failure gets a **fixed** message; the driver's error can name tables, columns, and the DSN.
 
 ## OpenAPI First
-Write `openapi.yaml` before implementing any new route, then `make generate` before writing the handler.
+Write `openapi.yaml` before implementing any new route, then `make generate` before writing the handler. Request validation rides on the contract: put `binding` tags on the schema via `x-oapi-codegen-extra-tags` (`required`, `email`, `min=8`, `notags`) rather than re-validating by hand in the handler.
 
-## Error Handling
-- Domain errors (not found, validation) → typed response objects (`api.GetUser404JSONResponse{...}`), returned with a `nil` error.
-- Unexpected errors (DB down, etc.) → `return nil, err`; the shared `ResponseErrorHandlerFunc`/`RequestErrorHandlerFunc` in `internal/server/middleware.go` handle logging + the generic client-facing message. Both the strict-handler layer (JSON body decode) and the chi `ServerInterfaceWrapper` layer (path/query param binding) route through the same handlers — see `internal/server/routes.go`'s `api.HandlerWithOptions` call. Don't add a second, un-wired error path.
+## Security wiring
+- `middleware/selector.go` maps route prefixes to roles and rate limits by matching `c.FullPath()`. Those literals include the `GinServerOptions.BaseURL` prefix set in `main.go` — change one without the other and every case falls through to `default: c.Next()`, silently making protected routes public. `main_test.go` asserts both directions; keep it passing.
+- Free-text fields get two layers: the `notags` binding tag rejects markup at bind time, `utils.SanitizeText` cleans at write time. Add both to any new free-text field.
+- Refresh tokens are opaque, stored only as a SHA-256 hash, and rotated on use. Never store or log a raw refresh token.
+- Never trust a client-supplied `role`; it is set server-side.
 
 ## Project Layout
 ```
-cmd/server/main.go       ← entry point, wiring, graceful shutdown
-internal/
-  config/                ← env-based config (caarlos0/env)
-  server/                ← router, middleware, handlers — the only hand-written business logic
-  api/                   ← GENERATED from openapi.yaml (oapi-codegen) — do not edit
-  store/                 ← GENERATED from internal/store/queries/*.sql (sqlc) — do not edit
-    queries/             ← hand-written SQL, sqlc's input
-db/migrations/           ← hand-written schema SQL (golang-migrate format)
+main.go            ← wiring: validators, CORS, health probes, generated route registration
+openapi.yaml       ← the contract
+oapi-codegen.yaml  ← generator config
+api/               ← GENERATED from openapi.yaml — do not edit
+handlers/          ← one method per operationId, implementing api.ServerInterface
+middleware/        ← auth (JWT + RBAC), rate limit, CORS, path selectors
+models/            ← GORM models
+config/            ← env loading + the DB handle
+utils/             ← JWT, password policy, sanitisation, response helpers
+migrations/        ← hand-written schema SQL (golang-migrate)
 ```
 
 ## Testing
 - Co-located `_test.go` files (idiomatic Go), not a mirrored `tests/` tree.
-- Unit-test handlers against a fake satisfying `store.Querier` — sqlc's generated interface is the seam; no hand-rolled interface and no real Postgres needed for handler-logic tests.
-- Nil-guard tests (e.g. a readiness check against a nil pool) are worth keeping — they catch the class of bug that only shows up when a dependency is legitimately absent, not just the happy path with everything wired.
+- Router-level tests build the real `newRouter` — a test that rebuilds its own router proves nothing about the wiring that ships.
+- `utils/` and `middleware/` are pure and DB-free; test them directly (`t.Setenv` for `JWT_SECRET`), including the negative cases: expired token, foreign signing secret, `alg=none`, unlisted CORS origin.
+- Nil-guard tests (e.g. `/readyz` with no DB connected) are worth keeping — they catch the class of bug that only shows up when a dependency is legitimately absent.
 ```
 
 ---
@@ -133,13 +153,18 @@ Prepend `paths: ["**/*.go"]` as YAML frontmatter when writing `architecture.md` 
 
 ```markdown
 ## [Go] Contract-First Boundary
-- `openapi.yaml` and `internal/store/queries/*.sql` are the only sources of truth for, respectively, the API surface and data access. `internal/api/` and `internal/store/` are generated — a PR touching either without a corresponding contract/query/migration change is a sign the contract was bypassed.
-- All business logic lives in `internal/server/handlers.go`, implementing the generated `StrictServerInterface`. Nothing outside `internal/server/` calls `internal/store` directly.
-- `internal/server/middleware.go` owns the only two places an HTTP response is written for an error (`handleRequestError`, `handleResponseError`) — both request-error paths (JSON body decode *and* chi param binding, wired via `api.HandlerWithOptions`) go through them. A new route or generated operation must not open a third, unwired error path that leaks `err.Error()`.
+- `openapi.yaml` is the only source of truth for the API surface. `api/api.gen.go` is generated — a PR touching it without a corresponding contract change is a sign the contract was bypassed.
+- Handlers implement the generated `api.ServerInterface` and are the only place business logic lives. `handlers/server.go`'s `var _ api.ServerInterface = (*Server)(nil)` is what makes a contract change fail the build instead of drifting silently.
+- Every response goes through `utils.Success` / `utils.Error`, so the API has exactly one error shape (`{"error": "..."}`) — including the generated router's own param-binding failures, remapped by the `ErrorHandler` in `main.go`. A new route must not open a second, unwired error path that leaks `err.Error()`.
+
+## [Go] Generated Routing, Hand-Wired Security
+- `oapi-codegen` does not enforce the contract's `security:` schemes. Authorization and rate limiting come from the prefix selectors in `middleware/selector.go`, which match on `c.FullPath()` — i.e. `GinServerOptions.BaseURL` + the spec path.
+- A new protected prefix that isn't added there is public, compiles fine, and returns 200. Treat any change to `BaseURL`, to a path prefix in `openapi.yaml`, or to `selector.go` as touching all three.
 
 ## [Go] Regeneration Discipline
-- After editing `openapi.yaml` or `internal/store/queries/*.sql`: run `make generate` before writing handler code against the new shapes.
-- `internal/server/handlers.go` may fail to compile immediately after a contract change — that's expected, it means the generated interface changed and handlers need updating, not that something is broken.
+- After editing `openapi.yaml`: run `make generate` before writing handler code against the new shapes.
+- `handlers/` may fail to compile immediately after a contract change — that's expected, it means the generated interface changed and handlers need updating, not that something is broken.
+- Schema changes are migrations (`make migrate-create name=x`), never GORM `AutoMigrate` — the SQL in `migrations/` is the reviewable record.
 ```
 
 ---
@@ -160,6 +185,7 @@ Prepend `paths: ["**/*.go"]` as YAML frontmatter when writing `architecture.md` 
       "Bash(gofmt:*)",
       "Bash(staticcheck:*)",
       "Bash(golangci-lint:*)",
+      "Bash(air:*)",
       "Bash(migrate:*)",
       "Bash(docker build:*)",
       "Bash(docker compose:*)",

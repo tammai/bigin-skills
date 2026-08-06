@@ -18,7 +18,7 @@
     },
     "go-scaffold": {
       "group": "core",
-      "summary": "Scaffolds a Go modular-monolith REST API — users/posts, oapi-codegen + sqlc, JWT+argon2id+RBAC, chi router, Postgres. Runs codegen + build/vet/test itself."
+      "summary": "Scaffolds a Go REST API — Gin, contract-first oapi-codegen, GORM + Postgres, JWT access/refresh auth + RBAC. Runs codegen + build/vet/test itself."
     },
     "nodejs-scaffold": {
       "group": "core",
