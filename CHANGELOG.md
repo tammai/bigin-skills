@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.59.0] - 2026-08-06
+
+### Added
+
+- **`task-workflow` mirrors `PLAN.md`'s task table into Claude Code's task list, so progress is visible without opening the file.** After step 3's coverage check, one task per `## Tasks` row; `in_progress` when a row starts, `completed` when it flips to `Done`; closed out in step 6 alongside the `PLAN.md` delete. Skipped for plans under 3 rows, where the overhead outweighs the visibility.
+
+  **One-way and disposable, by design.** `PLAN.md` stays the single source of truth — the table is never edited from the task list, a task never carries state the table doesn't, and a completed task is never evidence a row is done (step 4.5's "show the command output" rule is unchanged). The reason the tracking table lives *inside* `PLAN.md` in the first place is that `spec-gate-guard.mjs` greps it off disk for `Status: approved` and `Branch:`, and the verifier is spawned fresh with no session memory and audits the diff against that file. Neither can see session task state. That asymmetry is the point, and the skill now says so explicitly, so a later edit doesn't "simplify" by moving anything out of the file.
+
+  The cost this accepts is a second place the same information appears — the failure mode that split `AI_TASK_GUIDE.md` from `task-workflow` once before. Making the mirror strictly derived, never authoritative, is what keeps it from drifting into a second tracker.
+
+### Fixed
+
+- **Corrected the rationale shipped in v1.58.1's guard-formatting rule.** It claimed the PostToolUse lint-fix hook couldn't rescue the two guards because "hooks registered during a setup run aren't active for that run" — an assertion made without verifying it. The verifiable reason is the phase ordering: Phase 5-2 writes the guards, Phase 5-3 registers the hook, so every guard is on disk before anything is watching to fix it. The rule itself, and its ESLint specifics, are unchanged. Corrected in `.claude/rules/skill-authoring.md`, in v1.58.1's entry below, and in that release's published notes.
+
 ## [1.58.1] - 2026-08-06
 
 ### Fixed
@@ -15,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   The assignment is rewritten to keep `=` on the first line rather than adopting `--fix`'s leading-`=` output — both satisfy `operator-linebreak: before`, and this one survives a later `--fix` unchanged.
 
-  `.claude/rules/skill-authoring.md` gains the rule this violated: guards are linted as app code in the `nuxt`/`next` profiles, and the PostToolUse lint-fix hook can't cover them because hooks registered during a setup run aren't active for that run — so they have to be written lint-clean at the source.
+  `.claude/rules/skill-authoring.md` gains the rule this violated: guards are linted as app code in the `nuxt`/`next` profiles, and the PostToolUse lint-fix hook can't cover them because Phase 5-2 writes the guards before Phase 5-3 registers that hook — so they have to be written lint-clean at the source.
 
   ```patch
   target: .claude/guards/bugfix-test-guard.mjs

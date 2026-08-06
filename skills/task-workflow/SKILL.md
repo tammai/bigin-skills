@@ -28,6 +28,10 @@ Follow this workflow for every non-trivial task.
 
    Fix any gap in `PLAN.md` now. This is the same economics as the security rule in step 2: a missing task costs one line here and a whole verify round once code exists. At full-spec tier it's mechanical — check the `Covers` column against the FR list. Don't spawn a subagent for this; it's a read of a file you just wrote.
 
+   **Mirror the tasks for live tracking** — once the coverage check passes, create one Claude Code task per `## Tasks` row (`TaskCreate`), then keep them current as you work: `in_progress` when you start a row, `completed` when you flip it to `Done`. Skip the mirror for plans with fewer than 3 rows; the overhead outweighs the visibility.
+
+   The mirror is **one-way and disposable**. `PLAN.md` is the source of truth: never edit the table from the task list, never let a task carry state the table doesn't, and never treat a completed task as evidence a row is done — step 4.5's rule stands, it's the command output that counts. Everything that must survive compaction, `/clear`, a handoff, or a fresh subagent lives in the file, which is why the table is *inside* `PLAN.md` and not a separate progress doc. The verifier and `spec-gate-guard.mjs` read `PLAN.md` off disk and cannot see session task state at all — that asymmetry is the point, so don't "fix" it by moving anything out of the file.
+
 4. **Implement/verify loop** — an independent verifier subagent, not just tests, checks every diff against `PLAN.md` before it reaches review. Skip the whole loop (implement inline, then just run lint+typecheck+tests yourself) only when the spec gate itself was skipped **and** `model-router`'s verification bar came back "normal gates" — a trivial-looking change that touches a contract, migration, or CI path still goes through the loop. The loop guards against spec drift on non-trivial work; it isn't there to gate copy fixes.
 
    1. **Implement.** Run `model-router`'s scoring and resolution only (its Steps 1 through 4: gather signals with the *planned* file list via `--paths`, score capability, set the verification bar, resolve the tier's model **and agent**, state all of it) — skip straight to spawning if the tier is obvious or the user already named a model/tier. If step 2 already scored capability, reuse that result and run only the verification bar and resolution here; re-score just the capability axis when the approved spec moved the scope out from under it. Don't let `model-router` auto-spawn (its own Step 5); which tier actually implements is the user's call, not a silent one:
@@ -46,7 +50,7 @@ Follow this workflow for every non-trivial task.
 
 5. **Review** — ask whether to run `/code-review` (and `/security-review` too, if the change touches auth, sessions, secrets, PII, or untrusted input) on the diff — don't run either automatically. If the user says yes, check `AI_REVIEW_CHECKLIST.md` and don't mark this step done until it's clean. If they decline or want to defer, note that in `PLAN.md` and move on.
 
-6. **Cleanup** — once every task in `PLAN.md` is `Done` and review is resolved (clean, or explicitly declined by the user), delete `PLAN.md`. It's a working file for the task, not project documentation — nothing to preserve once the task ships.
+6. **Cleanup** — once every task in `PLAN.md` is `Done` and review is resolved (clean, or explicitly declined by the user), delete `PLAN.md`. It's a working file for the task, not project documentation — nothing to preserve once the task ships. Close out any mirrored tasks in the same pass, so a finished task doesn't leave a stale list behind.
 
    Two things happen before the delete, both proposed rather than run silently:
 
