@@ -231,14 +231,13 @@ const data = readPayload()
 const command = data?.tool_input?.command ?? ''
 
 // Detect `git commit` outside quoted strings (same scrub bash-guard.mjs uses).
-const scrubbed = command.replace(/'[^']*'/g, "''").replace(/"[^"]*"/g, '""')
+const scrubbed = command.replace(/'[^']*'/g, '\'\'').replace(/"[^"]*"/g, '""')
 if (!/\bgit\s+commit\b/.test(scrubbed)) process.exit(0)
 
 // Extract the commit message from -m/--message, including bundled short flags (-am).
 // No parsable message → can't judge → allow.
-const msgMatch =
-  command.match(/(?:--message|-[a-zA-Z]*m)(?:=|\s+)"([^"]*)"/) ??
-  command.match(/(?:--message|-[a-zA-Z]*m)(?:=|\s+)'([^']*)'/)
+const msgMatch = command.match(/(?:--message|-[a-zA-Z]*m)(?:=|\s+)"([^"]*)"/)
+  ?? command.match(/(?:--message|-[a-zA-Z]*m)(?:=|\s+)'([^']*)'/)
 if (!msgMatch) process.exit(0)
 const message = msgMatch[1]
 
@@ -333,14 +332,13 @@ function subjectFromToolInput() {
   const command = payload?.tool_input?.command ?? ''
 
   // Detect `git commit` outside quoted strings (same scrub bash-guard.mjs uses).
-  const scrubbed = command.replace(/'[^']*'/g, "''").replace(/"[^"]*"/g, '""')
+  const scrubbed = command.replace(/'[^']*'/g, '\'\'').replace(/"[^"]*"/g, '""')
   if (!/\bgit\s+commit\b/.test(scrubbed)) return null
 
   // -m/--message, including bundled short flags (-am). Unparsable forms (heredoc,
   // $'...', an editor-driven commit) return null — but the commit-msg hook still sees those.
-  const msgMatch =
-    command.match(/(?:--message|-[a-zA-Z]*m)(?:=|\s+)"([^"]*)"/) ??
-    command.match(/(?:--message|-[a-zA-Z]*m)(?:=|\s+)'([^']*)'/)
+  const msgMatch = command.match(/(?:--message|-[a-zA-Z]*m)(?:=|\s+)"([^"]*)"/)
+    ?? command.match(/(?:--message|-[a-zA-Z]*m)(?:=|\s+)'([^']*)'/)
   return msgMatch ? msgMatch[1].split('\n')[0].trim() : null
 }
 

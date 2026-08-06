@@ -5,6 +5,60 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.58.1] - 2026-08-06
+
+### Fixed
+
+- **`bugfix-test-guard.mjs` and `commit-msg-guard.mjs` shipped in a style ESLint rejects, breaking `pnpm lint` in every nuxt repo that installed them.** Both carried `"''"` (double-quoted) in their quote-scrub line and a trailing `??`/`=` at end-of-line in the `msgMatch` assignment. `@nuxt/eslint`'s `@stylistic` preset enforces `quotes: single` with no `avoidEscape` and `operator-linebreak: before`, so a fresh scaffold ran `pnpm lint` and got six errors across the two files. `bash-guard.mjs` had the lint-clean form of the same scrub (`'\'\''`) all along — the two newer guards drifted from it.
+
+  Formatting only; no behavior change. Verified by extracting all nine guard scripts from `hook-guard.md` and running ESLint with the exact ruleset `nuxt-scaffold` ships (`stylistic.configs.customize({ indent: 2, quotes: 'single', semi: false, commaDangle: 'never', braceStyle: '1tbs' })`) — clean, and the other seven were already clean. Then re-ran both guards' full case lists from `.claude/rules/skill-authoring.md` (35 cases, including `commit-msg-guard.mjs`'s second commit-msg-file entry point and both guards' fail-closed malformed/empty-stdin cases): all pass.
+
+  The assignment is rewritten to keep `=` on the first line rather than adopting `--fix`'s leading-`=` output — both satisfy `operator-linebreak: before`, and this one survives a later `--fix` unchanged.
+
+  `.claude/rules/skill-authoring.md` gains the rule this violated: guards are linted as app code in the `nuxt`/`next` profiles, and the PostToolUse lint-fix hook can't cover them because hooks registered during a setup run aren't active for that run — so they have to be written lint-clean at the source.
+
+  ```patch
+  target: .claude/guards/bugfix-test-guard.mjs
+  anchor: |
+    const scrubbed = command.replace(/'[^']*'/g, "''").replace(/"[^"]*"/g, '""')
+  insert: replace
+  ---
+  const scrubbed = command.replace(/'[^']*'/g, '\'\'').replace(/"[^"]*"/g, '""')
+  ```
+
+  ```patch
+  target: .claude/guards/bugfix-test-guard.mjs
+  anchor: |
+    const msgMatch =
+      command.match(/(?:--message|-[a-zA-Z]*m)(?:=|\s+)"([^"]*)"/) ??
+      command.match(/(?:--message|-[a-zA-Z]*m)(?:=|\s+)'([^']*)'/)
+  insert: replace
+  ---
+  const msgMatch = command.match(/(?:--message|-[a-zA-Z]*m)(?:=|\s+)"([^"]*)"/)
+    ?? command.match(/(?:--message|-[a-zA-Z]*m)(?:=|\s+)'([^']*)'/)
+  ```
+
+  ```patch
+  target: .claude/guards/commit-msg-guard.mjs
+  anchor: |
+    const scrubbed = command.replace(/'[^']*'/g, "''").replace(/"[^"]*"/g, '""')
+  insert: replace
+  ---
+    const scrubbed = command.replace(/'[^']*'/g, '\'\'').replace(/"[^"]*"/g, '""')
+  ```
+
+  ```patch
+  target: .claude/guards/commit-msg-guard.mjs
+  anchor: |
+    const msgMatch =
+      command.match(/(?:--message|-[a-zA-Z]*m)(?:=|\s+)"([^"]*)"/) ??
+      command.match(/(?:--message|-[a-zA-Z]*m)(?:=|\s+)'([^']*)'/)
+  insert: replace
+  ---
+    const msgMatch = command.match(/(?:--message|-[a-zA-Z]*m)(?:=|\s+)"([^"]*)"/)
+      ?? command.match(/(?:--message|-[a-zA-Z]*m)(?:=|\s+)'([^']*)'/)
+  ```
+
 ## [1.58.0] - 2026-08-06
 
 ### Changed
