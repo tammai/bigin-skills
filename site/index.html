@@ -216,9 +216,11 @@
   #backToTop { bottom: 24px; right: 26px; z-index: 30; opacity: 0; pointer-events: none; }
   #backToTop.is-visible { opacity: 1; pointer-events: auto; }
   #backToTop svg { width: 18px; height: 18px; }
-  /* Above ~1160px the centred nav clears the top-right toggle; below it they
-     collide, so the toggle joins the bottom-right cluster instead. */
-  @media (max-width: 1200px) { #themeToggle { top: auto; bottom: 24px; right: 74px; } }
+  /* Below ~1160px the centred nav no longer clears the top-right toggle, so the
+     two would overlap. Rather than relocating the toggle, the script hides it
+     while the nav's GitHub button is on screen and reveals it once that scrolls
+     away — the corner is free by then. */
+  #themeToggle.is-hidden { opacity: 0; pointer-events: none; }
 
   .foot { border-top: 1px solid var(--line); margin-top: 2rem; }
   .foot-in {
@@ -476,9 +478,23 @@
 
     var top = document.getElementById('backToTop');
     top.addEventListener('click', function () { window.scrollTo({ top: 0, behavior: 'smooth' }); });
-    function onScroll() { top.classList.toggle('is-visible', window.scrollY > 600); }
-    window.addEventListener('scroll', onScroll, { passive: true });
-    onScroll();
+
+    // The toggle stays top-right at every width. Only on narrow viewports, where
+    // the nav reaches the corner, is it held back until the GitHub button leaves.
+    var toggle = document.getElementById('themeToggle');
+    var navBtn = document.querySelector('.nav-links a.btn');
+    var narrow = window.matchMedia('(max-width: 1200px)');
+
+    function syncChrome() {
+      top.classList.toggle('is-visible', window.scrollY > 600);
+      if (!narrow.matches || !navBtn) { toggle.classList.remove('is-hidden'); return; }
+      toggle.classList.toggle('is-hidden', navBtn.getBoundingClientRect().bottom > 0);
+    }
+
+    window.addEventListener('scroll', syncChrome, { passive: true });
+    window.addEventListener('resize', syncChrome, { passive: true });
+    if (narrow.addEventListener) narrow.addEventListener('change', syncChrome);
+    syncChrome();
 
     var btn = document.querySelector('[data-copy]');
     if (btn) {
