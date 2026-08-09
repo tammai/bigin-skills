@@ -4,6 +4,8 @@
 
 Spec-driven `task-workflow` with an independent verifier, mechanical enforcement gates, and governance for standardized development across BigIn's stacks.
 
+> **Brand new?** Read the [handbook](https://bigin-skills.pages.dev/handbook.html) — a single self-contained page covering why the harness exists, the five concepts behind it, setup, the daily loop, and the practices that decide whether it works for a team. Prints to PDF; the source lives at [`site/handbook.html`](site/handbook.html).
+>
 > **New here?** Read the [User Guide](docs/USER_GUIDE.md) — a task-oriented walkthrough of setting up a repo, the daily workflow, what each gate blocks and how to unblock it, and troubleshooting. This README is the full reference.
 
 ## Quick Start
@@ -390,8 +392,16 @@ bigin-skills/
 │   └── docs-manifest.json         ← source of truth for the generated tables
 ├── scripts/
 │   └── git-hooks/pre-commit       ← runs context_budget.mjs + docs_sync.mjs --check
+├── site/                          ← marketing site, deployed to Cloudflare Pages
+│   ├── index.html                 ← landing page
+│   └── handbook.html              ← self-contained onboarding handbook — concepts, setup, practices
 ├── docs/
-│   └── USER_GUIDE.md              ← task-oriented guide for people using the plugin (this README is the reference)
+│   ├── USER_GUIDE.md              ← task-oriented guide for people using the plugin (this README is the reference)
+│   ├── SPEC-GATE.md               ← when a spec is required, the two formats, what the guard measures
+│   ├── ROUTING.md                 ← tier scoring, the three ladders, the verification bar, effort
+│   ├── GATES.md                   ← every enforcement guard, the injection gate, unblocking
+│   ├── KNOWLEDGE.md               ← the knowledge/ bundle: what it holds, what keeps it honest
+│   └── GRAPHIFY.md                ← the optional code-graph convention and its knowledge/ split
 ├── CLAUDE.md
 ├── CHANGELOG.md
 └── README.md

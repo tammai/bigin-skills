@@ -52,6 +52,7 @@ Commit `graphify-out/` itself — the graph is checked in like any other generat
 Commands default to `graphify-out/graph.json` in the cwd, so from the repo root pass `--graph graphify-out/graph.json` explicitly:
 
 - **"Where is X implemented?"** — `graphify explain "X"` (exact-ish node name) or `graphify query "where is X handled?"` (natural language, BFS from matched start nodes).
+- **"What breaks if I change X?"** — `graphify affected "X"` walks the graph in reverse and lists dependents with their `file:line`. `--depth N` widens the radius (default 2); `--relation R` (repeatable) restricts it to specific edge kinds (`calls`, `imports`, `inherits`, …). Run it *before* editing — it's what turns a guessed blast radius into a derived one.
 - **Call-chain spot-checks** — `graphify path "A" "B"` to confirm a relationship actually exists between two symbols.
 - **Broader structure** — `graphify query "what connects auth to the database?"`-style questions to enumerate handlers, entry points, or dependents before reading.
 

@@ -2,6 +2,8 @@
 
 A practical, task-oriented guide to using the `bigin-skills` plugin day to day.
 
+**Never used this before?** Start with the [handbook](https://bigin-skills.pages.dev/handbook.html) (source: [`site/handbook.html`](../site/handbook.html)). It covers why the harness exists, the concepts behind it, and the practices that make it work, in one readable pass. This guide is the task-oriented companion you come back to.
+
 This guide is written for the person *using* the harness in a project. If you're looking for the full reference — every profile, every generated file, every flag — that's [`README.md`](../README.md). If you're changing the plugin itself, read [`CLAUDE.md`](../CLAUDE.md) and `.claude/rules/skill-authoring.md`.
 
 **Contents**
@@ -145,6 +147,8 @@ Trigger it with plain language — "implement X", "add a feature", "fix the bug 
 
 ### The spec gate is the whole point
 
+Full guide — when a spec is required, choosing between the two formats, and exactly what the guard measures: [`SPEC-GATE.md`](SPEC-GATE.md).
+
 For non-trivial features, the agent pastes this in chat and waits:
 
 ```
@@ -231,6 +235,8 @@ One `PLAN.md` per worktree. Spec-gate approval is **per-worktree** — approving
 
 The gates will block you sometimes. That's the point — but knowing *why* turns a blocker into a two-second fix.
 
+Full guide — every guard, the three-stage injection gate, fail-closed behavior, and how to test one by hand: [`GATES.md`](GATES.md).
+
 ### `spec-gate-guard.mjs` — "no approved PLAN.md"
 
 **Blocks:** non-trivial `Edit`/`Write`/`MultiEdit` when `PLAN.md` is missing, not `Status: approved`, or its `Branch:` line disagrees with the branch you're on.
@@ -292,6 +298,8 @@ Caps `CLAUDE.md` at 60 lines and unscoped rule files at 40. Runs in pre-commit.
 ---
 
 ## 7. Tuning cost and depth
+
+Full guide — the three ladders, how a tier is scored, the verification bar, and why effort isn't settable: [`ROUTING.md`](ROUTING.md).
 
 Three execution tiers, each a subagent, plus the verifier. Your chosen ladder sets both the model and the effort of each.
 
@@ -381,6 +389,12 @@ Then it **stops** and shows you the full set of proposed changes. Nothing is wri
 
 Don't use it on a single PR. That's `/code-review`.
 
+Full guide to the bundle — what opting in scaffolds, the two kinds of knowledge, what keeps it from rotting, and where a fact belongs: [`KNOWLEDGE.md`](KNOWLEDGE.md).
+
+### Not the same thing: a code graph
+
+`knowledge/` answers **why**. A code graph answers **where**. If you use graphify alongside the harness, [`GRAPHIFY.md`](GRAPHIFY.md) covers the split — and why graph output must never be written into `knowledge/`.
+
 ---
 
 ## 9. Long sessions and handoff
@@ -445,6 +459,11 @@ Probably the injection gate (stage 2) after a recent web fetch. Check what was f
 ## Where to go next
 
 - Full reference for every profile and generated file — [`README.md`](../README.md)
+- The spec gate and the two spec formats — [`SPEC-GATE.md`](SPEC-GATE.md)
+- Every enforcement gate, and how to unblock one — [`GATES.md`](GATES.md)
+- Model routing, ladders, and effort — [`ROUTING.md`](ROUTING.md)
+- The `knowledge/` bundle in depth — [`KNOWLEDGE.md`](KNOWLEDGE.md)
+- Using a code graph alongside the harness — [`GRAPHIFY.md`](GRAPHIFY.md)
 - Running several tasks in parallel — [`skills/task-workflow/references/parallelization.md`](../skills/task-workflow/references/parallelization.md)
 - A filled-in full spec — [`skills/task-workflow/references/full-spec-example.md`](../skills/task-workflow/references/full-spec-example.md)
 - Model tier rationale — [`skills/model-router/references/model-profiles.md`](../skills/model-router/references/model-profiles.md)

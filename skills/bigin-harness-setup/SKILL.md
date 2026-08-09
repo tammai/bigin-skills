@@ -346,7 +346,9 @@ This phase only ever writes CI files it generates itself. It never edits a pre-e
 
 ## Phase 5.7: Graphify (optional)
 
-Decided in Phase 1.5 (`GRAPH`). If false, skip everything below — no graph files, no gitignore entries, no `graphify-out/` expectations exist anywhere in the harness.
+Decided in Phase 1.5 (`GRAPH`). If false, skip everything below — none of the scaffolding is written: no rule file, no `docs/graph-usage.md`, no gitignore entries, no install prompt, no proposed index.
+
+This decision governs **scaffolding only, not skill behavior.** `task-workflow`, `debug-workflow`, `model-router`, and `sprint-distill` each key off whether `graphify-out/graph.json` exists on disk — none of them reads the `GRAPH` answer. A repo scaffolded with `GRAPH = false` that later acquires a graph gets those integrations anyway, minus the `.claude/rules/graph.md` guardrails (query-don't-read, `INFERRED` is not confirmation, a source read wins). Don't "simplify" those skills to a config flag: file existence is what makes the degradation path silent.
 
 1. **Write templates** from `references/graph.md`: `## .claude/rules/graph.md` → `.claude/rules/graph.md`, `## docs/graph-usage.md` → `docs/graph-usage.md`. Skip each if `INSTALL_MODE=new` and it already exists.
 2. **Gitignore contract**: append `graphify-out/cost.json` and `graphify-out/cache/` (per-file AST cache, populated on every index run) to `.gitignore` — idempotent, check before appending. Never add `graphify-out/` itself; that directory is committed.

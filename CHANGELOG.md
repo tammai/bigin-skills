@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.60.0] - 2026-08-09
+
+### Added
+
+- **`docs/GRAPHIFY.md`** — team-facing guide to the optional graph convention: what opting in at Phase 1.5 scaffolds, graphify's role in each `task-workflow` step (two of six are wired — step 4 via `model-router`'s spawn payload, step 6's proposed rebuild — the rest are manual, and the guide says so rather than implying automation that doesn't exist), the wiring in `debug-workflow`, `sprint-distill`, and `knowledge-distill`, and the `knowledge/`-vs-graph split. Query recipes, confidence tags, and the gitignore contract stay in the generated `docs/graph-usage.md`; this guide points there instead of restating them, which is the drift that split `AI_TASK_GUIDE.md` from `task-workflow` once before. Linked from `USER_GUIDE.md` §8 and "Where to go next".
+
+- **`site/` — a marketing landing page, for deployment to Cloudflare Pages** (`bigin-skills.pages.dev`). Self-contained `index.html` sharing the handbook's design tokens and favicon: hero with the two CTAs (handbook, GitHub), the three failure modes each paired with its mechanism, the six-step loop marking the two steps that need an answer, a skills overview, and the enforcement principle. Footer states **source-available under PolyForm Strict 1.0.0** — deliberately not "open source", which PolyForm Strict is not.
+
+- **`site/handbook.html`** (moved from `docs/`) — a self-contained onboarding handbook (BigIn design system, dark/light, prints to PDF, no server or dependencies). Eight chapters: the three failure modes the harness targets and what each costs, five concepts that explain the rest, repo setup with the `core.hooksPath` step called out as the most-missed line, the daily loop with a diagram of all six steps, knowledge and the optional graph, unblocking a gate, and best practices ordered by impact. Deliberately the *narrative* layer — the six markdown guides stay canonical for mechanics and the appendix routes to each. Linked from `README.md` and the top of `USER_GUIDE.md`.
+
+- **`docs/GATES.md`** — team-facing guide to the enforcement gates `SPEC-GATE.md` doesn't cover: `bash-guard`'s blocked/allowed pairs, the `commit-msg-guard` ↔ `bugfix-test-guard` interlock (the subject-shape rule is what makes `fix:` detection trustworthy — loosening one silently weakens the other), the three-stage prompt-injection gate (PostToolUse scan → 5-minute heuristic ask → canary deny, and why the canary denies rather than asks), the three non-blocking hooks, and the fail-closed rationale: a crashing guard exits 1, which Claude Code treats as non-blocking, so an unparsable payload must exit 2. Includes the heredoc test recipe and an unblock table. Linked from `USER_GUIDE.md` §6 and "Where to go next".
+
+- **`docs/ROUTING.md`** — team-facing guide to `model-router`: the capability-vs-verification split, the three ladders and why the standard tier's agent differs per profile (effort has no call-site override, so `frontier`/`lean` route to `standard-worker-high`), the scoring table and its three auto-overrides, the verification bar's stacking triggers, the config schema and precedence, and the standing rule that `high` is the ceiling with the reasoning attached. Gotchas section covers `scope: none` nulls meaning unknown-not-zero, the all-new-file scope reporting `testCoverageRatio: null`, exhaustion never escalating to Deep, and `haiku`'s inert effort pin. Linked from `USER_GUIDE.md` §7 and "Where to go next".
+
+- **`docs/SPEC-GATE.md`** — team-facing guide to the spec gate: when a spec is required, the default vs full format and the only two ways the full one gets used (an explicit ask, or a `deep` score offering it once — never because a task *feels* big), `PLAN.md`'s `Status:`/`Branch:`/`Covers` mechanics, and what `spec-gate-guard.mjs` measures check-by-check, including the per-tool line-count proxy and why the git-ignore check is index-aware. Also records that a full-spec `PLAN.md` sets `fullSpecDetected`, so picking the format is also a routing decision that auto-overrides to the deep tier. Linked from `USER_GUIDE.md` §4 and "Where to go next".
+
+- **`docs/KNOWLEDGE.md`** — team-facing guide to the `knowledge/` bundle: what Phase 5.5 scaffolds and wires (the validator into pre-commit and CI, the behavior-change line into `AI_REVIEW_CHECKLIST.md`), the split between our-own-system concepts and pinned library bundles, the bundle's role in each `task-workflow` step (four of seven touchpoints are wired, including the always-loaded index-first rule and step 6's narrow distill prompt), the four staleness mechanisms with a lifecycle diagram, and a where-does-this-fact-belong table covering `knowledge/` vs `.claude/rules/` vs `graphify-out/` vs `PLAN.md`. The frontmatter schema, `type` list, and linking rules stay in the generated `knowledge/meta/knowledge-bundle-spec.md`; this guide points there rather than restating them. Linked from `USER_GUIDE.md` §8 and "Where to go next".
+
+- **`graphify affected` added to the generated `docs/graph-usage.md` query recipes.** The reverse-traversal command lists dependents with `file:line` and takes `--depth N` and repeatable `--relation R`. It's the command that fits `task-workflow` step 3 — a `PLAN.md` task table built from a derived blast radius holds up in the verify round better than one built from memory — and the recipes covered `explain`, `path`, and `query` but not this one.
+
+  ```patch
+  target: docs/graph-usage.md
+  anchor: |
+    - **Call-chain spot-checks** — `graphify path "A" "B"` to confirm a relationship actually exists between two symbols.
+  insert: before
+  ---
+  - **"What breaks if I change X?"** — `graphify affected "X"` walks the graph in reverse and lists dependents with their `file:line`. `--depth N` widens the radius (default 2); `--relation R` (repeatable) restricts it to specific edge kinds (`calls`, `imports`, `inherits`, …). Run it *before* editing — it's what turns a guessed blast radius into a derived one.
+  ```
+
+### Fixed
+
+- **The handbook shipped two wrong install commands.** The marketplace path omitted the `@bigin` marketplace suffix (`/plugin install bigin-skills` → `/plugin install bigin-skills@bigin`), and the npx path was invented outright (`npx bigin-skills install` → `npx skills add tammai/bigin-skills`). Both now match what `README.md` and `USER_GUIDE.md` document. The repo slug was also wrong — `bigin/bigin-skills` rather than `tammai/bigin-skills`.
+
+- **Phase 5.7 overstated what declining `GRAPH` does.** It read "no `graphify-out/` expectations exist anywhere in the harness," but `task-workflow`, `debug-workflow`, `model-router`, and `sprint-distill` all key off whether `graphify-out/graph.json` exists on disk — none of them reads the Phase 1.5 answer. A `GRAPH = false` repo that later acquires a graph gets every integration, just without the `.claude/rules/graph.md` guardrails. The phase now scopes its claim to scaffolding and says why the skills test the file instead of a flag: file existence is what keeps the degradation path silent, so a later refactor shouldn't "simplify" it into a config key.
+
 ## [1.59.1] - 2026-08-06
 
 ### Fixed
