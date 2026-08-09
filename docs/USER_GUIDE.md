@@ -2,7 +2,7 @@
 
 A practical, task-oriented guide to using the `bigin-skills` plugin day to day.
 
-**Never used this before?** Start with the [handbook](https://bigin-skills.pages.dev/handbook.html) (source: [`site/handbook.html`](../site/handbook.html)). It covers why the harness exists, the concepts behind it, and the practices that make it work, in one readable pass. This guide is the task-oriented companion you come back to.
+**Never used this before?** Start with the [handbook](https://bigin-skills.pages.dev/handbook) (source: [`site/handbook.html`](../site/handbook.html)). It covers why the harness exists, the concepts behind it, and the practices that make it work, in one readable pass. This guide is the task-oriented companion you come back to.
 
 This guide is written for the person *using* the harness in a project. If you're looking for the full reference — every profile, every generated file, every flag — that's [`README.md`](../README.md). If you're changing the plugin itself, read [`CLAUDE.md`](../CLAUDE.md) and `.claude/rules/skill-authoring.md`.
 

@@ -4,7 +4,7 @@
 
 Spec-driven `task-workflow` with an independent verifier, mechanical enforcement gates, and governance for standardized development across BigIn's stacks.
 
-> **Brand new?** Read the [handbook](https://bigin-skills.pages.dev/handbook.html) — a single self-contained page covering why the harness exists, the five concepts behind it, setup, the daily loop, and the practices that decide whether it works for a team. Prints to PDF; the source lives at [`site/handbook.html`](site/handbook.html).
+> **Brand new?** Read the [handbook](https://bigin-skills.pages.dev/handbook) — a single self-contained page covering why the harness exists, the five concepts behind it, setup, the daily loop, and the practices that decide whether it works for a team. Prints to PDF; the source lives at [`site/handbook.html`](site/handbook.html).
 >
 > **New here?** Read the [User Guide](docs/USER_GUIDE.md) — a task-oriented walkthrough of setting up a repo, the daily workflow, what each gate blocks and how to unblock it, and troubleshooting. This README is the full reference.
 
