@@ -8,7 +8,8 @@ info:
   version: 1.0.0
 servers:
   # Documentation only — oapi-codegen does NOT read this to register routes; the
-  # prefix comes from GinServerOptions.BaseURL in main.go. Keep the two identical.
+  # prefix comes from middleware.BaseURL (internal/api/middleware/selector.go),
+  # which is also what the route selectors match on. Keep the two identical.
   - url: http://localhost:8090/api/v1
 tags:
   - name: auth

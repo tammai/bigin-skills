@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * scaffold.mjs — deterministic Go REST API scaffold (Gin + GORM, contract-first).
+ * scaffold.mjs — deterministic Go modular-monolith REST API scaffold
+ * (Gin + GORM, contract-first).
  *
  * Usage:
  *   node scaffold.mjs --module github.com/acme/orders-api [--dir orders-api]
@@ -8,9 +9,9 @@
  *                      [--force] [--no-commit] [--skip-verify]
  *
  * Contract-first: openapi.yaml is the single source of truth. One oapi-codegen
- * run (gin-server + models) produces api/api.gen.go; everything else is
- * hand-written. This script runs the generator itself so the repo it leaves
- * behind builds and tests green, not a skeleton needing fixup.
+ * run (gin-server + models) produces internal/openapi/openapi.gen.go;
+ * everything else is hand-written. This script runs the generator itself so the
+ * repo it leaves behind builds and tests green, not a skeleton needing fixup.
  *
  * All decisions are pre-resolved via CLI flags — never prompts, never stdin.
  * Node stdlib only. Exit codes: 0 ok, 1 runtime failure, 2 bad usage/args.
@@ -35,9 +36,15 @@ const TEMPLATES = path.join(SCRIPT_DIR, 'templates', 'files')
 const OAPI_CODEGEN_VERSION = 'v2.4.1'
 
 // Config consumed by the single oapi-codegen run. Its `output:` key points at
-// api/api.gen.go, relative to the project root this script generates from.
+// OAPI_OUTPUT_DIR/openapi.gen.go, relative to the project root this script
+// generates from.
 const OAPI_CONFIG = 'oapi-codegen.yaml'
 const OAPI_SPEC = 'openapi.yaml'
+
+// Holds nothing but generated output, so no template file creates it — and
+// oapi-codegen won't create a missing output directory itself. Kept in sync
+// with oapi-codegen.yaml's `output:` key.
+const OAPI_OUTPUT_DIR = path.join('internal', 'openapi')
 
 const NAME_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/
 const MODULE_RE = /^[A-Za-z0-9][A-Za-z0-9._~-]*(\/[A-Za-z0-9][A-Za-z0-9._~-]*)*$/
@@ -189,9 +196,7 @@ async function main() {
   log(`scaffolding into ${targetDir} (module: ${cfg.module}, project: ${cfg.project})`)
   writeFiles(walkFiles(TEMPLATES), targetDir, cfg)
 
-  // api/ holds nothing but generated output, so no template file creates it —
-  // and oapi-codegen won't create a missing output directory itself.
-  fs.mkdirSync(path.join(targetDir, 'api'), { recursive: true })
+  fs.mkdirSync(path.join(targetDir, OAPI_OUTPUT_DIR), { recursive: true })
 
   if (cfg.skipVerify) {
     log('--skip-verify set: skipping codegen, build, and commit. Files written only.')
@@ -211,17 +216,20 @@ async function main() {
   run('go', ['vet', './...'], targetDir)
 
   log('go build')
-  run('go', ['build', '-o', 'bin/server', '.'], targetDir)
+  run('go', ['build', '-o', 'bin/server', './cmd/server'], targetDir)
 
+  // Includes internal/arch, the architecture test — so a template edit that
+  // breaks a module boundary fails here rather than in the user's first PR.
   log('go test')
   run('go', ['test', './...', '-count=1'], targetDir)
 
-  // Scoped to hand-written code — api/ is oapi-codegen output the scaffold's own
-  // tooling regenerates, and staticcheck's generated-file heuristic doesn't
-  // recognise its marker (it's folded into the package doc comment).
+  // Scoped to hand-written code — internal/openapi is oapi-codegen output the
+  // scaffold's own tooling regenerates, and staticcheck's generated-file
+  // heuristic doesn't recognise its marker (it's folded into the package doc
+  // comment).
   const pkgList = run('go', ['list', './...'], targetDir, { optional: true })
   const pkgs = pkgList.ok
-    ? pkgList.stdout.split('\n').filter((p) => p.trim() && !/\/api$/.test(p.trim()))
+    ? pkgList.stdout.split('\n').filter((p) => p.trim() && !/\/internal\/openapi$/.test(p.trim()))
     : []
   const staticcheck = pkgs.length
     ? run('staticcheck', pkgs, targetDir, { optional: true })
@@ -236,7 +244,7 @@ async function main() {
       run('git', ['init'], targetDir)
     }
     run('git', ['add', '-A'], targetDir)
-    const commit = spawnSync('git', ['commit', '-m', 'chore: scaffold Go REST API (gin + oapi-codegen + GORM)'], { cwd: targetDir, encoding: 'utf8' })
+    const commit = spawnSync('git', ['commit', '-m', 'chore: scaffold Go modular-monolith REST API (gin + oapi-codegen + GORM)'], { cwd: targetDir, encoding: 'utf8' })
     if (commit.status !== 0) {
       log(`git commit skipped: ${(commit.stderr || commit.stdout || '').trim() || 'nothing to commit or no git identity configured'}`)
     } else {
@@ -254,13 +262,20 @@ Next steps:
   make dev-setup                 # docker compose up -d db + migrate-up
   make run                       # or \`make dev\` for hot reload (go install github.com/air-verse/air@latest)
 
-Editable surface: openapi.yaml, handlers/, middleware/, models/, utils/,
-config/, migrations/. api/api.gen.go regenerates via \`make generate\` — never
+Editable surface: openapi.yaml, migrations/, cmd/server/, and internal/
+(modules/<mod>/{domain,application,infrastructure,api}, shared/, api/).
+internal/openapi/openapi.gen.go regenerates via \`make generate\` — never
 hand-edit it.
 
+Adding a module: create internal/modules/<name>/ with the four layers plus
+module.go, embed its Handlers in internal/api/server.go, construct it in
+cmd/server/main.go. Only module.go is importable from outside the module —
+internal/arch fails \`go test ./...\` on anything deeper.
+
 Routing is generated from the contract; SECURITY IS NOT. A new path prefix that
-needs auth or a rate limit must be added to middleware/selector.go, or the route
-is public and nothing fails loudly. main_test.go asserts both directions.
+needs auth or a rate limit must be added to internal/api/middleware/selector.go,
+or the route is public and nothing fails loudly. internal/api/router_test.go
+asserts both directions.
 `)
 }
 

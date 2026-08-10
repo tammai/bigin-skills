@@ -1,6 +1,6 @@
 {
   "name": "bigin-skills",
-  "version": "1.60.0",
+  "version": "1.61.0",
   "description": "BigIn's collection of Claude Code skills for standardized AI-assisted development — harness setup (governance files + enforcement gates for nuxt/go/nodejs/next repos), Nuxt, Next.js, Go, and Node.js app scaffolding, end-of-sprint and pinned-library knowledge distillation, and session handoff.",
   "author": {
     "name": "Tam Mai",
@@ -27,6 +27,7 @@
     "vercel",
     "go-backend",
     "go-scaffold",
+    "modular-monolith",
     "oapi-codegen",
     "gin",
     "gorm",

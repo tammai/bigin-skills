@@ -7,11 +7,12 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /out/server .
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /out/server ./cmd/server
 
 FROM gcr.io/distroless/static-debian12:nonroot
 # distroless nonroot's default WORKDIR is /home/nonroot, not / — without this,
-# main.go's relative os.ReadFile("openapi.yaml") fails and the process exits.
+# the relative os.ReadFile("openapi.yaml") in cmd/server fails and the process
+# exits at boot.
 WORKDIR /
 COPY --from=build /out/server /server
 COPY openapi.yaml /openapi.yaml

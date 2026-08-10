@@ -1,5 +1,9 @@
-package: api
+package: openapi
 generate:
   models: true
   gin-server: true
-output: api/api.gen.go
+# The generated package lives on its own, under a name no hand-written package
+# shares. internal/api (the composition root) and each module's api package both
+# import it; if the generated code lived in either of those, the module handlers
+# and the router could not import each other's types without a cycle.
+output: internal/openapi/openapi.gen.go

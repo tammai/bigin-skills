@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.61.0] - 2026-08-10
+
+### Changed
+
+- **`go-scaffold` now generates a modular monolith instead of flat packages.** `handlers/`, `models/`, `utils/`, `config/`, `middleware/`, and `main.go` are gone. What replaces them:
+
+  ```
+  cmd/server/                   entrypoint + composition root
+  internal/
+    openapi/                    GENERATED from openapi.yaml (was api/api.gen.go)
+    api/                        router, health probes, module assembly
+      middleware/               auth guard, CORS, rate limit, path selectors
+    modules/users/
+      module.go                 the module's public contract
+      domain/                   entity + invariants — no gin, no gorm
+      application/              use cases + the repository ports they depend on
+      infrastructure/           GORM records + repositories implementing those ports
+      api/                      gin handlers: bind, call a use case, map the result
+    shared/                     apperr, auth, config, db, httpx, validate
+    arch/                       the boundary rules, enforced as a test
+  ```
+
+  The feature set is unchanged — same contract, same migrations, same auth kernel (signup, login, refresh rotation, logout, profile, admin user management with self-demotion and self-deletion blocked). Only the shape changed, plus what that shape makes possible: use cases now run against in-memory fakes with no database, so the DB-free suite went from 17 test functions to 61 (143 including subtests), and the new ones cover behavior the flat version had no seam to test — rotation replay, account enumeration, self-demotion, paging clamps, and an unclassified error not leaking its text.
+
+  **`internal/arch` makes the layout enforceable rather than decorative.** It reads every import under `internal/` with `go/parser` and fails `go test ./...` on: a module's subpackages imported from outside it (only `module.go` is the door — including for the composition root), `domain` importing `application`/`infrastructure`/`api`, `application` importing `infrastructure`/`api`, `domain` or `application` importing gin or gorm, and `shared` importing any module. A `golangci-lint` `depguard` config was the alternative and was declined: this needs no tool on PATH, runs inside the `go test` the scaffold and CI already run, and its failure message names the rule and the reason instead of a config key. `arch_test.go` also tests the checker itself with a fixture table — a checker whose patterns silently match nothing keeps the suite green while every boundary rots, and both directions (illegal caught, legal shape not) are asserted per rule.
+
+  **The BaseURL drift this scaffold documented as its sharpest edge is now structurally impossible.** `middleware.BaseURL` is one constant, read both by the router's `GinServerOptions.BaseURL` and by the path selectors, so the two cannot disagree. The remaining hazard — a *new* path prefix with no selector case, which is public, compiles, and answers 200 — is unchanged, and `internal/api/router_test.go` still asserts both directions against the real `NewRouter`.
+
+  Three smaller changes came with the restructure, each removing a class of bug rather than moving code:
+  - **`shared/apperr` + `httpx.Fail`** replace per-handler status picking. A use case says "this is a conflict"; exactly one place maps that to 409. An error that never passed through `apperr` becomes a fixed-message 500, so a driver error naming tables, columns, or the DSN cannot reach a client by accident.
+  - **Nothing below `cmd/server` reads `os.Getenv`.** `shared/config` resolves the environment once; the signing key, TTLs, and CORS allowlist are passed down. `auth.TokenIssuer` holds the key as a field, which also removed every `t.Setenv` from the token tests.
+  - **Paging is clamped in the use case, not the handler.** The contract declares `minimum`/`maximum` on those query parameters but the generated router does not enforce them, so `?limit=1000000` reached the database as written.
+
+  Validated end to end against a live Postgres: codegen reproducible, both boundary violations caught (the encapsulation one *after* confirming it compiles, since nothing else would catch it), and the full golden path — anonymous 401s, weak-password and `notags` 400s, case-insensitive duplicate 409, user-token-on-admin-route 403, refresh replay 401, logout-then-refresh 401, self-demote/self-delete 400, missing-target 404, hostile `limit` clamped to 20, rate-limit 429s, and `healthz` 200 / `readyz` 503 with the database stopped.
+
+- **The `go` harness profile now documents the modular layout** — commands (`./cmd/server`, `internal/openapi`), the layering section and where a rule belongs, the handler pattern in terms of `httpx.Fail`, the project tree, adding a module, testing against fakes, and a `[Go] Modular Monolith` architecture addendum.
+
+  **No `patch` block, deliberately.** Patch mode exists to push template changes into already-scaffolded repos, but every existing Go repo is flat — rewriting its rules to describe modules would make its governance describe a codebase that isn't there. This lands for new scaffolds only. A team that wants to restructure an existing Go repo should do it as a `task-workflow` change and re-run harness setup afterward.
+
 ## [1.60.0] - 2026-08-09
 
 ### Added

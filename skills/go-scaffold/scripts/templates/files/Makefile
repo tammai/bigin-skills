@@ -2,6 +2,7 @@
 
 APP_NAME := {{PROJECT_NAME}}
 OAPI_CODEGEN_VERSION := {{OAPI_CODEGEN_VERSION}}
+MAIN_PKG := ./cmd/server
 
 # `-include` (not `include`): a fresh clone has no .env yet, and every target
 # below that doesn't touch the database must still work without one.
@@ -10,32 +11,35 @@ export
 
 DB_URL := postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=$(DB_SSLMODE)
 
-# openapi.yaml -> api/api.gen.go (gin server interface + request/response models).
-# Pinned via `go run pkg@version` so the generator version is reproducible
-# without adding it (and ~40 transitive deps) to this module's own go.mod.
+# openapi.yaml -> internal/openapi/openapi.gen.go (gin server interface +
+# request/response models). Pinned via `go run pkg@version` so the generator
+# version is reproducible without adding it (and ~40 transitive deps) to this
+# module's own go.mod.
 generate:
 	go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@$(OAPI_CODEGEN_VERSION) -config oapi-codegen.yaml openapi.yaml
 
 run:
-	go run .
+	go run $(MAIN_PKG)
 
 # Hot reload. One-time install: go install github.com/air-verse/air@latest
 dev:
 	air
 
 build:
-	go build -o bin/server .
+	go build -o bin/server $(MAIN_PKG)
 
+# Includes the architecture test (internal/arch), which fails on an import that
+# crosses a module boundary.
 test:
 	go test ./... -count=1
 
 vet:
 	go vet ./...
 
-# Skips api/ — api.gen.go is oapi-codegen output, DO NOT EDIT, and staticcheck's
-# generated-file heuristic doesn't recognise its marker.
+# Skips internal/openapi — openapi.gen.go is oapi-codegen output, DO NOT EDIT,
+# and staticcheck's generated-file heuristic doesn't recognise its marker.
 lint:
-	staticcheck $$(go list ./... | grep -v '/api$$')
+	staticcheck $$(go list ./... | grep -v '/internal/openapi$$')
 
 fmt:
 	gofmt -l -s -w .

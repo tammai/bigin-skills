@@ -14,13 +14,15 @@ jobs:
         with:
           go-version-file: go.mod
       # Spec↔code sync: regenerate from openapi.yaml and fail if the committed
-      # api/api.gen.go drifted. `gofmt -s` matches what the scaffold applied
+      # generated file drifted. `gofmt -s` matches what the scaffold applied
       # post-codegen, so the diff reflects real drift only.
       - run: make generate
       - run: gofmt -s -w .
-      - run: git diff --exit-code api/api.gen.go
+      - run: git diff --exit-code internal/openapi/openapi.gen.go
       - run: go vet ./...
-      - run: go build -o bin/server .
+      - run: go build -o bin/server ./cmd/server
+      # Includes internal/arch, the architecture test: an import crossing a
+      # module boundary fails here, not at review time.
       - run: go test ./... -count=1
-      # staticcheck on hand-written code only — api/ is oapi-codegen output.
-      - run: go run honnef.co/go/tools/cmd/staticcheck@2025.1.1 $(go list ./... | grep -v '/api$')
+      # staticcheck on hand-written code only — internal/openapi is generated.
+      - run: go run honnef.co/go/tools/cmd/staticcheck@2025.1.1 $(go list ./... | grep -v '/internal/openapi$')
