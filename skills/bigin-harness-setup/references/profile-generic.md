@@ -2,7 +2,7 @@
 
 Fallback profile — used when Phase 0's stack detection matches none of `nuxt` / `go` / `nodejs` / `next`. Nothing is asked; the harness installs its stack-neutral half.
 
-What generic **does** install: `CLAUDE.md`, `.claude/rules/security.md` + `architecture.md`, the AI files, all eight guards, `settings.json`, the context-budget gate, the pre-commit script, and every opt-in phase (knowledge bundle, graphify, model routing).
+What generic **does** install: `CLAUDE.md`, `.claude/rules/security.md` + `architecture.md`, the AI files, every guard wired in the `settings.json` block below (all nine), `settings.json` itself, the context-budget gate, the pre-commit script, and every opt-in phase (knowledge bundle, graphify, model routing).
 
 What generic **skips**: Phase 0.5 scaffold (no scaffold skill exists for an unknown stack), the profile conventions rules (`conventions*.md`, `testing.md` — there's no stack to write conventions for), `.vscode/settings.json`, and Phase 5.6 CI generation (see `## CI` below).
 

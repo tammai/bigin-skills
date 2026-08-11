@@ -1436,9 +1436,9 @@
 
     <p>
       An unconstrained coding agent is good at producing code that looks right.
-      That is precisely the failure mode: it is <strong>plausible</strong>, it is
-      <strong>large</strong>, and the ways it diverges from what you wanted only
-      surface at review — when fixing them means a rewrite rather than a sentence.
+      That is the failure mode: the diff is <strong>plausible and large</strong>, so
+      the ways it diverges from what you wanted surface only at review — when
+      fixing them means a rewrite rather than a sentence.
     </p>
 
     <p>
@@ -1481,8 +1481,8 @@
 
     <h3>What it costs you</h3>
     <p>
-      Be clear-eyed about this. The harness adds a decision point before
-      non-trivial work: you read a spec and approve it. That is real friction, and
+      The harness adds a decision point before non-trivial work: you read a spec
+      and approve it. That is real friction, and
       it is the entire mechanism — an agent that never has to stop is an agent
       that never has to be right about scope. What it does <em>not</em> add is
       per-session overhead: the always-loaded footprint is a few thousand
@@ -1724,12 +1724,12 @@ Fix the double-submit bug on the checkout form</code></pre>
       </div>
       <div class="step">
         <h4>Verify — a fresh agent, reading the diff only</h4>
-        <p>Nothing required from you. A brand-new subagent audits the diff against <code>PLAN.md</code> — it is handed <strong>the diff itself, never the implementer's account of what it did</strong>, which is the whole reason the check is worth anything. On a fail the same implementer is resumed with the issue list, and another new verifier checks the next round. Three rounds maximum, then it stops and asks you.</p>
+        <p>Nothing required from you — this runs exactly as <a href="#concepts">Independent verification</a> describes. What to watch for is the third round: that is the cap, and it hands the decision back to you rather than looping again.</p>
       </div>
       <div class="step">
         <h4>Review and Cleanup — one decision</h4>
         <p><strong>Review first, and it is your call how.</strong> A human pass, <code>/code-review</code>, or both — it is offered, never run automatically. Say yes to the AI pass for anything touching auth, money, or data you can't reconstruct; a human pass is worth it wherever the consequence of being wrong lands on someone outside the team. If the change touches auth, sessions, secrets, PII, or untrusted input, <code>/security-review</code> is offered alongside it.</p>
-        <p><strong>Cleanup only runs once review is resolved</strong> — clean, or explicitly declined. If the task established a decision, invariant, or constraint, a specific <code>knowledge/</code> edit is proposed; then <code>PLAN.md</code> is deleted, because it is a working file rather than documentation. <strong>"Nothing durable here" is the correct answer most of the time</strong> — routine work doesn't produce concepts.</p>
+        <p>Cleanup only runs once review is resolved — clean, or explicitly declined. If the task established a decision, invariant, or constraint, a specific <code>knowledge/</code> edit is proposed; then <code>PLAN.md</code> is deleted, because it is a working file rather than documentation. <strong>"Nothing durable here" is the correct answer most of the time</strong> — routine work doesn't produce concepts.</p>
       </div>
     </div>
 
@@ -1844,9 +1844,9 @@ Fix the double-submit bug on the checkout form</code></pre>
 
     <h3>Do these</h3>
     <ul class="list">
-      <li><strong>Read the spec properly, once.</strong> Thirty seconds here is the
-        highest-leverage half-minute in the workflow. Approving specs unread
-        reproduces exactly the problem the gate exists to prevent, with extra steps.</li>
+      <li><strong>Read the spec properly, once.</strong> Approving specs unread
+        reproduces the exact problem the gate exists to prevent, with extra steps
+        in between.</li>
       <li><strong>Make everyone run the hooks-path command.</strong> Put it in your
         README's setup section. A contributor who skipped it has no gates and no
         way to notice.</li>
@@ -1924,7 +1924,7 @@ Fix the double-submit bug on the checkout form</code></pre>
           <tr><td>docs/GATES.md</td><td>Every guard, the injection gate, unblocking</td></tr>
           <tr><td>docs/KNOWLEDGE.md</td><td>The bundle: what it holds, what keeps it honest</td></tr>
           <tr><td>docs/GRAPHIFY.md</td><td>The optional code graph</td></tr>
-          <tr><td>README.md</td><td>Full reference — every profile, every generated file</td></tr>
+          <tr><td>README.md</td><td>Install, the skill and agent inventory, the model ladder</td></tr>
         </tbody>
       </table>
     </div>

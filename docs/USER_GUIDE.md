@@ -4,7 +4,7 @@ A practical, task-oriented guide to using the `bigin-skills` plugin day to day.
 
 **Never used this before?** Start with the [handbook](https://bigin-skills.pages.dev/handbook) (source: [`site/handbook.html`](../site/handbook.html)). It covers why the harness exists, the concepts behind it, and the practices that make it work, in one readable pass. This guide is the task-oriented companion you come back to.
 
-This guide is written for the person *using* the harness in a project. If you're looking for the full reference — every profile, every generated file, every flag — that's [`README.md`](../README.md). If you're changing the plugin itself, read [`CLAUDE.md`](../CLAUDE.md) and `.claude/rules/skill-authoring.md`.
+This guide is written for the person *using* the harness in a project, and it's the longest read you should need. [`README.md`](../README.md) is the short front door — install, the two commands, the skill and agent inventory. For a specific subsystem in depth, the guides linked from each section below go further than either. If you're changing the plugin itself, read [`CLAUDE.md`](../CLAUDE.md) and `.claude/rules/skill-authoring.md`.
 
 **Contents**
 
@@ -458,7 +458,7 @@ Probably the injection gate (stage 2) after a recent web fetch. Check what was f
 
 ## Where to go next
 
-- Full reference for every profile and generated file — [`README.md`](../README.md)
+- Install, the skill/agent inventory, the model ladder — [`README.md`](../README.md)
 - The spec gate and the two spec formats — [`SPEC-GATE.md`](SPEC-GATE.md)
 - Every enforcement gate, and how to unblock one — [`GATES.md`](GATES.md)
 - Model routing, ladders, and effort — [`ROUTING.md`](ROUTING.md)

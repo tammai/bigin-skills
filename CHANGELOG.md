@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.61.1] - 2026-08-11
+
+### Changed
+
+- **License changed from PolyForm Strict 1.0.0 back to MIT** (© 2026 BigIn), reversing v1.47.2. Use, modification, redistribution, sublicensing, and commercial use by anyone are all permitted, with attribution the only condition — no separate license from BigIn is needed for any of them. `LICENSE` holds the standard MIT text; `marketplace.json`'s `license` field is now `MIT`; the README's License section and the site footer are reworded to match. The v1.60.0 entry below describes that footer as deliberately *not* saying "open source" — under MIT it now does, and that entry stands as the record of what was true then.
+
+- **`README.md` cut from 443 lines to 156 — it's the front door now, not the reference.** The guides it used to predate ([`docs/USER_GUIDE.md`](docs/USER_GUIDE.md), the five deep-dives, the handbook) now own the detail, so the README kept only what nothing else holds: the pitch, install, the two commands you actually run, the situational-skill table, a compressed profiles table, the generated skill/agent inventories, the model ladder and its config schema, and the maintainer section.
+
+  What went, and where it already lived: the per-profile "what gets generated" prose (each scaffold's own `SKILL.md`), the generated-repo tree (`USER_GUIDE.md` §3 has a tighter one), the ten-bullet enforcement list (`docs/GATES.md`), the six-step walkthrough (`USER_GUIDE.md` §4), the Sprint Distill section (its `SKILL.md`), and the 135-line plugin-structure tree.
+
+  That last one is the point rather than a casualty. The skills/agents tables are generated and were fresh; the hand-maintained tree was where every drift had collected — it was missing three `bigin-harness-setup/references/` files including `speckit-migration.md`, which the same README linked from prose, and it omitted `.claude/skills/` entirely while the maintainer section documented a skill living there. Deleting a hand-maintained mirror of the filesystem removes the drift surface instead of re-syncing it. The five `docs/` deep-dives, previously reachable only as plain text inside that tree, are now linked from a nav table at the top.
+
+- Cross-references that called the README "the full reference — every profile, every generated file, every flag" updated to match what it now is: `USER_GUIDE.md` (intro + "Where to go next") and the handbook's document table.
+
+- **`site/handbook.html` copy pass** — the Verify step in the daily-loop chapter restated the Independent verification concept almost completely (diff-not-summary, resume behavior, three-round cap), so it now cross-references that section and keeps only what the step adds: the cap is where the decision comes back to you. The "read the spec properly" practice likewise stopped re-teaching the spec-gate step it follows. Plus a banned-word fix, a rule-of-three unwound in the opening problem statement, and one over-emphasized paragraph. 265 characters of prose removed; every table, command, and constraint survives.
+
+### Fixed
+
+- **`profile-generic.md` said the generic profile installs "all eight guards"; it installs nine.** The count was wrong when it was written in v1.51.0 — `precompact-snapshot.mjs` had shipped in v1.46.0, and the `settings.json` block in that same file has always wired nine hooks. Reworded to anchor the count to that block rather than restate a number that drifts on its own. Agent-facing prose only, so nothing generated into a repo changed and no patch block is needed.
+
 ## [1.61.0] - 2026-08-10
 
 ### Changed
