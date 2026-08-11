@@ -94,7 +94,7 @@ flowchart TD
 
 **The left side is automatic; the right side never is.** Once `graph.json` exists, the four consumers adopt it with no action from you. Every rebuild, by contrast, is proposed and waits — `session-resume-check.mjs` warns, the three skills offer, you say yes.
 
-If the graph doesn't exist, every arrow into it degrades to grep and read, silently.
+Without a graph, every arrow into it degrades — see [§6](#6-keeping-it-fresh).
 
 ---
 

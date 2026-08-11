@@ -139,7 +139,7 @@ Trigger it with plain language — "implement X", "add a feature", "fix the bug 
 | Step | What the agent does | What **you** do |
 | --- | --- | --- |
 | **1. Scope** | States in one sentence what's changing and why | Skim it. If it misread you, correct it now — it's one sentence, not a diff. |
-| **2. Spec gate** | Drafts a spec and **stops** | **Approve, edit, or reject.** This is your highest-leverage moment. |
+| **2. Spec gate** | Drafts a spec and **stops** | **Approve, edit, or reject.** Nothing downstream can fix a spec you waved through. |
 | **3. Plan file** | Writes the approved spec + task table to `PLAN.md`, reads it back for coverage | Nothing. |
 | **4. Implement/verify** | Routes to a tier, implements, then spawns an independent verifier. Loops up to 3× on FAIL. | Nothing, unless the tier comes back `deep-architect` (it asks) or the round cap is hit. |
 | **5. Review** | Asks whether to run `/code-review` (+ `/security-review` if the change touches auth/secrets/PII/untrusted input) | Say yes or no. Neither runs automatically. |
@@ -322,9 +322,7 @@ Set it in your repo's `.claude/model-routing.json`:
 | `frontier` | sonnet/low | opus/high | fable/high | sonnet/high | Everything above quick at full effort, deep on the top model. Pay up front rather than per verifier round. |
 | `lean` | sonnet/low | sonnet/high | opus/high | sonnet/medium | Cost-first, trading the other way: a cheaper standard tier run at *fuller* effort. Deep still escalates to opus. |
 
-`opus-centric` is the only ladder that runs the standard tier below `high` — the other two differ from each other on model, not effort. If standard-tier work keeps coming back with verifier `FAIL`s, switching to `frontier` is the intended fix.
-
-Under the default ladder, quick / standard / deep differ by **effort** more than by model — the deep tier's step up to `high` targets the "didn't check its work" failure mode rather than raw capability. Reach for `frontier` only if you're actually seeing the other failure mode: the model had full context, clearly tried, and still got the structure wrong.
+`opus-centric` is the only ladder that runs the standard tier below `high` — the other two differ from each other on model, not effort. Switch to `frontier` when you keep seeing either failure mode: standard-tier work returning verifier `FAIL`s, or a model that had full context, clearly tried, and still got the structure wrong.
 
 Per-tier **model** overrides layer on top. There is no `effort` key — setting one is ignored with a warning:
 

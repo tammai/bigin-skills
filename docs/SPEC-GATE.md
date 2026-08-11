@@ -18,7 +18,7 @@ This is the mechanism `USER_GUIDE.md` calls "the whole point" of the harness, se
 
 ## 1. What the gate is for
 
-**Problem it solves:** an agent that starts editing before the shape of the change is agreed will produce something plausible, large, and subtly not what you wanted — and you'll discover that at review, when it's a rewrite rather than a sentence.
+**Problem it solves:** an agent that starts editing before the shape of the change is agreed produces a large, plausible diff that isn't quite what you wanted — and you discover that at review, when correcting it costs a rewrite rather than a sentence.
 
 The gate forces one decision to happen first: **what are we building, and what are we explicitly not building.** Everything downstream depends on that artifact existing. The verifier audits the diff against `PLAN.md`, never against the implementer's own account of what it did. `model-router` scores the tier from the planned file list. Step 6 can't close while a task row is open. Remove the plan and each of those loses its reference point.
 
@@ -108,7 +108,7 @@ flowchart TD
 
 The rule that keeps this from inflating: **a `standard` or `quick` score is not a reason to raise formats at all**, and the format is never upgraded because a task *feels* big. That judgment belongs to the rubric, not to a vibe. Step 4 reuses the same score rather than re-running it, unless the approved spec moved the scope out from under it.
 
-Worth knowing in the other direction: a full-spec `PLAN.md` on disk sets `fullSpecDetected`, which is an **auto-override to the deep tier** in later scoring. Choosing the full format is therefore also a routing decision — it commits the implementation to the most expensive tier. That's usually right for work that earned the format, and it's a reason not to reach for it casually.
+Worth knowing in the other direction: a full-spec `PLAN.md` on disk sets `fullSpecDetected`, which is an **auto-override to the deep tier** in later scoring. Choosing the full format is therefore also a routing decision — it commits the implementation to the most expensive tier.
 
 ---
 
@@ -133,7 +133,7 @@ Branch: {git branch --show-current}
 
 Statuses: `Not started`, `In progress`, `Done`, `Blocked`.
 
-**`Status: approved` is what the guard greps for.** A plan you're still drafting doesn't unlock edits.
+**`Status: approved` is what the guard greps for.** A plan you're still drafting doesn't let edits through.
 
 **`Branch:` stops a leftover plan from governing the wrong task.** If it disagrees with `HEAD`, non-trivial edits are blocked. Omit it when there's no branch to name (detached `HEAD`, not a repo) and the check is skipped — the guard never blocks on what git can't answer. On a deliberate rename or rebase, update the line rather than deleting it.
 

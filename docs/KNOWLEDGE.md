@@ -25,10 +25,10 @@ For the structural graph it's often confused with, see [`GRAPHIFY.md`](GRAPHIFY.
 
 That protocol is the whole cost model. The bundle can grow for years without growing what a session loads, because the default read is the index, not the contents.
 
-Three things it is not:
+Three things it is not. The first two have a home that does fit, and [§6](#6-where-a-fact-belongs) is the table for choosing:
 
-- **Not how-we-work.** Conventions, gates, and process live in `.claude/rules/` and the plugin. `knowledge/` answers what and why; rules answer how. Don't mix them.
-- **Not a place for structural facts.** Call flow, dependency, schema shape belong in the graph — they're extracted, not written. See §6.
+- **Not how-we-work** — that's `.claude/rules/`.
+- **Not a place for structural facts** — call flow, dependency, and schema shape are extracted into the graph, not written by hand.
 - **Not documentation.** Concept files **point at sources of truth** — `openapi.yaml`, `.claude/rules/`, the source itself — and never duplicate them. If you're about to paste a schema in, link to it instead.
 
 Every `.md` under `knowledge/` is a concept file with valid frontmatter. There are no freeform docs in there — that's what makes the validator able to check the whole tree.
@@ -153,6 +153,6 @@ Three mistakes worth naming:
 
 **Conventions in `knowledge/`.** "We use conventional commits" is how-we-work. It belongs in `.claude/rules/` or the plugin, where `sprint-distill`'s net-neutral budget applies to it.
 
-**Per-task narrative in `knowledge/`.** "Added the export button" is not an invariant. Step 6's prompt exists to catch decisions, not to log features — and answering "nothing durable here" is the correct outcome most of the time.
+**Per-task narrative in `knowledge/`.** "Added the export button" is not an invariant. Step 6's prompt exists to catch decisions, not to log features.
 
 The inverse also holds: a graph, a rule file, and a `PLAN.md` together still can't say *why* the retry logic sits where it does. That sentence only has one home.

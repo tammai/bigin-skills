@@ -156,7 +156,7 @@ That asymmetry is why `lean`'s `verifier-medium` is a knowing bet, not an oversi
 
 Valid profiles: `opus-centric` · `frontier` · `lean`. Tier keys: `quick` · `standard` · `deep` · `verifier`. Models: `fable` · `opus` · `sonnet` · `haiku`.
 
-**There is no `effort` key.** Effort can only come from the spawned agent's frontmatter, so setting one produces a warning and is otherwise ignored. Pick the profile whose effort ladder you want instead.
+**There is no `effort` key** — for the reason in [§2](#2-the-three-ladders). Setting one produces a warning and is otherwise ignored; pick the profile whose effort ladder you want instead.
 
 Buying back `lean`'s verifier — model only, since the `medium` pin isn't settable here:
 

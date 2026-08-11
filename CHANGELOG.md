@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.61.2] - 2026-08-11
+
+### Changed
+
+- **Copy pass over all six `docs/` guides.** Two banned words (`unlock` in `SPEC-GATE.md`, `leverage` in `USER_GUIDE.md`) and one rule-of-three removed. The rest was the same defect in six places: a summary section re-deriving the claim its own detail section owns. `KNOWLEDGE.md` §1's "three things it is not" duplicated §6's "three mistakes"; `USER_GUIDE.md` gave the when-to-pick-`frontier` advice three separate times; `SPEC-GATE.md`, `GATES.md`, `ROUTING.md`, and `GRAPHIFY.md` each restated one rule their later section states in full. Each is now a cross-reference to the section that owns it, which is the same fix the v1.61.1 README rewrite applied at document scale. 470 characters removed; every table, command, threshold, and rationale untouched.
+
 ## [1.61.1] - 2026-08-11
 
 ### Changed

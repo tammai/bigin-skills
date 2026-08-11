@@ -64,7 +64,7 @@ This is the load-bearing one. Every other gate is only as strong as the inabilit
 - `--force-with-lease` — the sanctioned alternative. It refuses when the remote moved under you, which is the actual failure `--force` causes.
 - A commit message that merely *contains* `-n`. The `-n` pattern only matches in the flag region after `commit`, not inside a quoted message.
 
-If a gate is blocking something it shouldn't, the fix is that gate's allowlist or threshold, changed deliberately. Not this.
+If a gate is blocking something it shouldn't, change that gate — see [§7](#7-testing-and-unblocking). Not this one.
 
 ---
 
