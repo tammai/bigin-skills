@@ -27,7 +27,7 @@ Every skill's `description:` frontmatter is already loaded on every turn, so the
 
 ## Versioning
 
-Version lives in `.claude-plugin/plugin.json`. Bump it when publishing changes and add a `CHANGELOG.md` entry. Before a **major or minor** bump, find and fix all stale docs first — the skills/agents tables in `README.md` are generated (run `node tools/docs_sync.mjs`), so sweep only the remaining manual surfaces: prose, cross-references, the README tree diagram, `SKILL.md`s, `marketplace.json`. Patch bumps don't require this sweep. Pre-commit gates: activate once with `git config core.hooksPath scripts/git-hooks` (runs the budget gate + `docs_sync.mjs --check`).
+Version lives in `.claude-plugin/plugin.json`. Bump it when publishing changes and add a `CHANGELOG.md` entry. **Docs-only passes are exempt** — copy edits, restructuring, link fixes: ship them as a `docs:` commit with no bump and no changelog entry, and let the commit message be the record. Before a **major or minor** bump, find and fix all stale docs first — the skills/agents tables in `README.md` are generated (run `node tools/docs_sync.mjs`), so sweep only the remaining manual surfaces: prose, cross-references, the README tree diagram, `SKILL.md`s, `marketplace.json`. Patch bumps don't require this sweep. Pre-commit gates: activate once with `git config core.hooksPath scripts/git-hooks` (runs the budget gate + `docs_sync.mjs --check`).
 
 ## Session Handoff
 
