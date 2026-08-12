@@ -432,6 +432,7 @@ Read `references/summary-checklist.md` → `## Output Checklist` and verify ever
 - `references/hook-guard.md` — bash-guard.mjs, spec-gate-guard.mjs, bugfix-test-guard.mjs, commit-msg-guard.mjs, injection-scan-guard.mjs, injection-gate-guard.mjs, session-resume-check.mjs, canary-seed.mjs, precompact-snapshot.mjs scripts + pre-commit scripts per profile
 - `references/budget-gate.md` — context_budget.mjs script (context budget gate)
 - `references/knowledge-bundle.md` — optional Knowledge Bundle: rule file, spec, starter concept files, validator script
+- `references/knowledge-migration.md` — one-shot OKF v0.1 → v0.2 migrator for pre-v1.62.0 bundles. **Not** part of the Phase 5.5 install list — a fresh scaffold is already v0.2
 - `references/graph.md` — optional Graphify: rule file, usage doc, install/gitignore contract
 - `references/ci.md` — optional CI config: GitHub Actions + GitLab CI templates per profile, plus the knowledge-validate step
 - `references/summary-checklist.md` — Phase 7 summary print template + Output Checklist

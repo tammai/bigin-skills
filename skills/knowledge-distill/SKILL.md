@@ -23,12 +23,17 @@ rule in that reference is there because the validator enforces it.
 - `git` is available and the library's repo is public. Private repos and non-git doc sources
   are out of scope.
 - The repo has a `knowledge/` bundle. If `knowledge/index.md` is missing, do Phase 0a first.
+- The bundle is on the OKF v0.2 layout. If any `knowledge/libraries/*/index.md` carries a
+  `library:` key and has no `pin.md` beside it, that bundle predates v1.62.0 — stop and run
+  `node tools/knowledge_migrate_okf.mjs` (dry run first, then `--write`). Distilling over a
+  legacy bundle leaves two pins in one directory, and only one of them is the one the drift
+  guard reads. The script is in `bigin-harness-setup`'s `references/knowledge-migration.md`
+  if the repo doesn't have it yet.
 
 ## Phase 0a — Bootstrap the bundle (only when it's absent)
 
-A distilled bundle is self-validating without a repo-level bundle — its own `index.md` is
-`type: Index`, which seeds the validator's reachability walk. So what's missing isn't
-correctness. It's that nothing would ever *read* the bundle (discovery runs through
+A distilled bundle is self-validating without a repo-level bundle — its own `index.md` seeds
+the validator's reachability walk. So what's missing isn't correctness. It's that nothing would ever *read* the bundle (discovery runs through
 `.claude/rules/knowledge.md`'s index-first protocol), and Phase 3's validator step would have
 no validator to run. Distilling into a repo with neither is paying a clone plus up to three
 audit rounds for files no session opens.
@@ -85,7 +90,8 @@ what doesn't. Write, per the confirmed topic list:
 
 | File | `type` | Holds |
 |---|---|---|
-| `knowledge/libraries/<lib>/index.md` | `Index` | The pin + provenance frontmatter, mental model, decision tables, top anti-patterns, deltas from the previous major, and links to every topic file. Never a table of contents — if a line adds nothing a filename doesn't already say, cut it. |
+| `knowledge/libraries/<lib>/index.md` | *(reserved — no frontmatter)* | The mental model, decision tables, top anti-patterns, deltas from the previous major, and links to `pin.md` and every topic file. Never a table of contents — if a line adds nothing a filename doesn't already say, cut it. |
+| `knowledge/libraries/<lib>/pin.md` | `Contract` | The pin and its provenance, all in frontmatter: `library`, `version`, `source_repo`, `source_commit`, `docs_path`, `conventions_blended`, plus `generated`/`verified`. The body is two lines — what's pinned and how to re-distill it. |
 | `knowledge/libraries/<lib>/<topic>.md` | `Domain` | Operational knowledge for one topic: API surface, idioms, anti-patterns, code shapes. |
 | `knowledge/libraries/<lib>/sources.md` | `Playbook` | Topic → path-in-source-repo map, so a deep dive knows where to look instead of re-cloning blind. |
 
@@ -94,8 +100,10 @@ Rules that are not negotiable:
 - **Rewrite, never copy.** These files are our distillation of someone else's documentation.
   Paraphrase into our own decision-oriented framing; do not paste doc prose or reproduce
   doc pages wholesale. Short illustrative code shapes are fine — a copied chapter is not.
-- **Cite.** Every file gets a `# Citations` section naming the repo, tag, and the doc paths
-  it was derived from. This is required by the bundle spec for any externally-sourced claim.
+- **Cite in frontmatter.** Every file gets a `sources:` key naming the repo, tag, and the doc
+  paths it was derived from — one entry per path, `resource` required on each. This is what
+  the bundle spec requires for any externally-sourced claim; the v0.1 `# Citations` section
+  is deprecated and the validator warns on it.
 - **Blend conventions visibly.** If the user passed team convention docs (`.claude/rules/*`,
   a house style guide), fold the relevant rule in *at the point of relevance* prefixed
   `Team convention:` — never silently merged into a library fact, and never in a separate
@@ -121,7 +129,10 @@ bundle, because every future session in the repo now reads it as fact.
    Cap at 3 rounds.
 3. **Round cap hit** — stop. Show the user the latest issues list and ask whether to cut the
    affected topics, adjust the budgets, or take over manually. Do not commit.
-4. **On `PASS`** — set `verified:` to today's date in the index frontmatter. Continue.
+4. **On `PASS`** — append the audit to `pin.md`'s `verified:` list as
+   `{ by: knowledge-auditor/<model>, at: <today, ISO 8601> }`. That actor form is what marks
+   the bundle machine-confirmed rather than human-reviewed; never write it as `human:<id>`.
+   Continue.
 
 **A bundle that has not passed a clean audit must not be committed.** No exceptions for
 "small" bundles or re-distills.
@@ -130,7 +141,7 @@ bundle, because every future session in the repo now reads it as fact.
 
 1. **Link it from the root index.** Append one line to `knowledge/index.md` under a
    `## Libraries` heading (create the heading if absent), in the index's existing format:
-   `- [Nuxt 4.0.3](/libraries/nuxt/index.md) — distilled API surface and idioms, pinned to 4.0.3`
+   `* [Nuxt 4.0.3](/libraries/nuxt/index.md) - distilled API surface and idioms, pinned to 4.0.3`
 2. **Validate.** `node tools/knowledge_validate.mjs` must exit 0 with no `ERROR` lines. Fix
    anything it reports before committing — this is the gate that runs in CI anyway.
 3. **Install the drift guard, once per repo.** Two independent checks, so a half-install
@@ -157,8 +168,9 @@ docs diff bounds the work:
    tag <old-tag>`) or clone the old tag separately and diff the two trees.
 2. Rewrite only the topic files the diff touches. Leave the rest byte-identical — a rewritten
    file with no semantic change is pure review noise.
-3. Update frontmatter: `version`, `source_commit`, `distilled`, and **remove any `drift_ack`**
-   (it acknowledged staleness that no longer exists).
+3. Update `pin.md` frontmatter: `version`, `source_commit`, `generated.at`, and **remove any
+   `drift_ack`** (it acknowledged staleness that no longer exists) and any stale `verified`
+   entries — the new content hasn't been audited yet.
 4. Update the root-index line's version, and the deltas section in the bundle's `index.md`.
 5. **Phase 2 in full, regardless of diff size.** A three-line docs diff can still invalidate
    a claim three files away.

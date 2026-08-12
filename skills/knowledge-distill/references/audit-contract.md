@@ -20,8 +20,9 @@ no summary line before or after. Main parses the response directly as JSON.
 `FAIL` on any of: an API that doesn't exist at the pinned commit; a signature, option name, or
 default that contradicts source; a claim about the previous major version that can't be checked
 at this commit and isn't marked as such; a `Team convention:` rule presented as library
-behavior, or a house rule blended in without that prefix; frontmatter whose `version` or
-`source_commit` disagrees with the clone; a missing or wrong `# Citations` section.
+behavior, or a house rule blended in without that prefix; `pin.md` frontmatter whose `version`
+or `source_commit` disagrees with the clone; a missing `sources` key, or one citing paths that
+don't exist in the clone.
 
 Style, wording, topic selection, and how much detail a file carries are **not** audit findings.
 An accurate bundle that reads awkwardly passes.

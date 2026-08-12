@@ -31,7 +31,7 @@ Three things it is not. The first two have a home that does fit, and [§6](#6-wh
 - **Not a place for structural facts** — call flow, dependency, and schema shape are extracted into the graph, not written by hand.
 - **Not documentation.** Concept files **point at sources of truth** — `openapi.yaml`, `.claude/rules/`, the source itself — and never duplicate them. If you're about to paste a schema in, link to it instead.
 
-Every `.md` under `knowledge/` is a concept file with valid frontmatter. There are no freeform docs in there — that's what makes the validator able to check the whole tree.
+Every `.md` under `knowledge/` is a concept file with valid frontmatter, save the two filenames the format reserves — `index.md` (the directory listing) and `log.md` (the change history), which carry none. There are no freeform docs in there — that's what makes the validator able to check the whole tree.
 
 ---
 
@@ -67,7 +67,7 @@ The bundle holds two populations with different authors, lifecycles, and failure
 | Verified by | Human review in PR | A `knowledge-auditor` subagent, against the clone |
 | Expires when | Behavior changes | The dependency moves a minor |
 
-**Library bundles are not a separate format.** They're ordinary concept files under `knowledge/libraries/<lib>/`, subject to the same validator. What's specific to them: flat provenance frontmatter (`library`, `version`, `source_repo`, `source_commit`, `docs_path`), a `# Citations` section in every file, and tighter budgets.
+**Library bundles are not a separate format.** They're ordinary concept files under `knowledge/libraries/<lib>/`, subject to the same validator. What's specific to them: a `pin.md` holding the provenance frontmatter (`library`, `version`, `source_repo`, `source_commit`, `docs_path`), a `sources` key in every file, and tighter budgets.
 
 Three rules of `knowledge-distill` worth knowing before you invoke it:
 
@@ -122,11 +122,13 @@ flowchart TD
     S -->|proposes edits| K
 ```
 
-**`knowledge_validate.mjs`** — catches *structural* rot. Every file has valid frontmatter and an allowed `type`; every bundle-relative link resolves; `timestamp` is valid ISO 8601 when present. Missing `description`/`tags` and index-unreachable files are warnings, not failures. Runs in pre-commit and CI.
+**`knowledge_validate.mjs`** — catches *structural* rot. Every non-reserved file has valid frontmatter and an allowed `type`; every bundle-relative link resolves; the trust and lifecycle keys (`generated`, `verified`, `status`, `stale_after`, `sources`) are well-formed when present. Missing `description`/`tags`, index-unreachable files, leftover v0.1 keys, and a `stale_after` date that has passed are warnings, not failures. Runs in pre-commit and CI.
+
+> **Bundle created before v1.62.0?** It still validates — the OKF v0.2 move was designed to warn rather than fail. Run `node tools/knowledge_migrate_okf.mjs` (dry run by default, `--write` to apply) to clear the structural half automatically: library pins move out of the now-reserved `index.md` into `pin.md`, and reserved files shed their frontmatter. Library bundles are the ones that actually need it — until the pin moves, the drift guard is reading it off a fallback path and a re-distill would write a second pin beside the old one.
 
 **`knowledge_drift.mjs`** — catches *version* rot in library bundles. It compares each bundle's `version` against the version **declared** in `package.json` or `go.mod` and fails on a minor-or-above divergence. Declared, not locked — reading four lockfile formats would need a YAML parser and a dependency for a signal the declared range already gives, and a patch move doesn't change an API surface.
 
-> **The escape hatch:** set `drift_ack: <declared-version>` in the bundle's index frontmatter to accept a known divergence. It suppresses the failure for that exact declared version and nothing else — bump again and the guard fires again. It lives in the file being acknowledged, shows up in the diff, and a re-distill deletes it. Without it the only way past is `--no-verify`, which `bash-guard.mjs` blocks outright.
+> **The escape hatch:** set `drift_ack: <declared-version>` in the bundle's `pin.md` frontmatter to accept a known divergence. It suppresses the failure for that exact declared version and nothing else — bump again and the guard fires again. It lives in the file being acknowledged, shows up in the diff, and a re-distill deletes it. Without it the only way past is `--no-verify`, which `bash-guard.mjs` blocks outright.
 
 **Review** — catches *behavior* rot. The staleness policy is that any PR meaningfully changing behavior updates the related concept file **in the same PR**, and the checklist line is what makes someone check.
 

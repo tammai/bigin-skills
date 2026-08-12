@@ -105,7 +105,7 @@ Output a single structured proposal and **wait for explicit approval before writ
 - [new/update] <path> — <one-line reason> [replaces: <what it compresses>]
   ...
 
-## Draft log entry (knowledge/log.md, appended last on approval)
+## Draft log entry (knowledge/log.md, written last on approval, newest-first)
 ## {DATE}
 <summary of what changed in the bundle this sprint>
 
@@ -138,7 +138,8 @@ Only after explicit approval, and only the items approved:
 1. Write approved `knowledge/` changes.
 2. Write approved `bigin-skills` changes.
 3. **Validator, best-effort:** if `KB_MODE = full` and `tools/knowledge_validate.mjs` exists at the repo root, run it (`node tools/knowledge_validate.mjs`). Repos scaffolded before v1.19.0 have the legacy `tools/knowledge_validate.py` instead — run that via `uv run tools/knowledge_validate.py`. If neither exists or the run errors, don't block — note in the Phase 5 summary that validation didn't run and should be checked manually.
-4. Append the `knowledge/log.md` entry **last**, only after the above succeed.
+4. Write the `knowledge/log.md` entry **last**, only after the above succeed — as a new date
+   heading directly under the file's title, since the log runs newest-first.
 
 ---
 

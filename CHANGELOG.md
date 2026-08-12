@@ -5,6 +5,273 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.62.0] - 2026-08-12
+
+### Changed
+
+- **The Knowledge Bundle convention now targets [Open Knowledge Format v0.2](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md)** (released late July 2026; the canonical spec moved from openknowledgeformat.com to the `GoogleCloudPlatform/knowledge-catalog` repo). We still own the profile and take no OKF tooling dependency. v0.2 carries two breaking changes and four additive families, and both breaking changes landed on us:
+
+  - **`timestamp` → `generated: { by, at }`.** Who produced a concept and when it last meaningfully changed. The legacy key still validates; the validator warns until it's migrated.
+  - **`# Citations` → `sources`.** Provenance moves from a body section into frontmatter, one entry per source with `resource` required and optional `author` / `usage_count` / `last_modified`. The old section still parses, with a warning.
+  - **`index.md` and `log.md` are reserved filenames** carrying *no* frontmatter — except the bundle-root `index.md`, which may declare `okf_version: "0.2"` and nothing else. `Index` and `Log` therefore left the `type` allowlist, and the validator's reachability walk now seeds from every file *named* `index.md` rather than every file *typed* `Index`.
+  - **Adopted, all optional:** `verified: [{ by, at }]` with the actor convention (`human:<id>`, `process:<id>`, `<producer>/<version>`) and the trust tiers it derives, `status: draft|stable|deprecated`, and `stale_after: <YYYY-MM-DD>`.
+  - **Not adopted:** the `Attested Computation` type and its `runtime`/`parameters`/`executor`/`attester` family, plus the `# Computation` heading. That family targets sanctioned data computations (BigQuery, dbt, Looker); we have no such surface, and adopting it would mean an executor/attester runtime nothing here would ever run.
+
+- **`tools/knowledge_validate.mjs` rewritten** — still zero-dependency Node, now roughly twice the size. The v0.1 parser handled flat `key: value`, inline arrays, and `- item` lists only; every v0.2 trust key is a nested map or a list of maps, so it grew block-map, block-list, and inline-flow parsing with nesting, plus tab and trailing-garbage detection. New checks: reserved-filename frontmatter, `generated`/`verified` shape and actor form, `status` enum, `stale_after` (a passed date warns), `sources[].resource` required, `usage_window` dates. It reads a bare `verified: { by, at }` as a one-element list, per §11.
+
+  **Deliberately still stricter than OKF:** §11 tells *consumers* to tolerate unknown `type` values and broken links. We're the producer, so both stay hard failures — a typo'd link in our own bundle is a bug, not forward compatibility.
+
+- **`knowledge-distill`: the library pin moved from `libraries/<lib>/index.md` to a new `libraries/<lib>/pin.md`** (`type: Contract`). The whole pin — `library`, `version`, `source_repo`, `source_commit`, `docs_path`, `conventions_blended`, `drift_ack` — lived in the frontmatter of a file v0.2 now forbids frontmatter on. `index.md` demotes to the listing it was always described as. The old flat `verified: <date>` key collided with v0.2's `verified` list outright, so a clean Phase 2 audit now appends `{ by: knowledge-auditor/<model>, at: <date> }` — which is also what marks a bundle *machine-confirmed* rather than *human-reviewed*.
+
+  `tools/knowledge_drift.mjs` reads `pin.md` and **falls back to the legacy `index.md`**, so bundles distilled before this release keep getting drift-checked and get a warning naming the fix instead of a silent skip.
+
+### Migration
+
+Already-scaffolded repos are **not** broken by this release: an untouched v0.1 bundle still exits 0 on the new validator, with warnings only. Two files can't be delivered by patch mode, though — `knowledge/meta/knowledge-bundle-spec.md` and `tools/knowledge_validate.mjs` are whole-file rewrites with no single clean anchor, and `mode: create-if-missing` won't overwrite a file that already exists. Copy both from `skills/bigin-harness-setup/references/knowledge-bundle.md` by hand.
+
+Then run the migrator that the block below installs:
+
+```bash
+node tools/knowledge_migrate_okf.mjs          # dry run — prints the plan
+node tools/knowledge_migrate_okf.mjs --write  # apply
+node tools/knowledge_validate.mjs             # confirm
+```
+
+It moves each library pin out of the reserved `index.md` into `pin.md`, links it so it isn't unreachable, converts `distilled`/`timestamp` → `generated` and `verified: <date>` → one verification event, derives a `sources` entry pinned to the SHA, and strips frontmatter from reserved files (keeping `okf_version` at the bundle root). It's idempotent and skips any bundle that already has a `pin.md`. Per-concept `timestamp` keys and `# Citations` sections are left alone — both need a judgment call a script can't make, and both are warnings rather than failures, so migrate them as each file is next edited. Whatever it doesn't handle, `knowledge_validate.mjs`'s warnings name file by file.
+
+Migrating matters most for **library bundles**: until the pin moves, `knowledge_drift.mjs` is reading it off a legacy fallback path, and a re-distill would write a second pin beside the old one. `knowledge-distill`'s prerequisites now detect that state and stop rather than distill over it.
+
+```patch
+target: tools/knowledge_migrate_okf.mjs
+mode: create-if-missing
+---
+#!/usr/bin/env node
+// One-shot migration of an existing knowledge/ bundle from the OKF v0.1 layout to v0.2.
+// Two transforms, both idempotent:
+//   1. Library pins move out of the reserved libraries/<lib>/index.md into a sibling pin.md.
+//   2. Reserved files (index.md, log.md) drop their frontmatter; the bundle-root index.md
+//      keeps only okf_version.
+// Legacy `timestamp`/`distilled` become generated.at, and a legacy `verified: <date>` becomes
+// one verified event. Body prose is never touched, and `# Citations` sections are left alone —
+// the validator warns on those, and rewriting prose is not this script's job.
+// Zero dependencies — runs on any Node >= 18 (macOS, Linux, Windows).
+// Usage: node tools/knowledge_migrate_okf.mjs [--root knowledge] [--write]
+// Defaults to a dry run; pass --write to apply. Exit codes: 0 ok, 1 nothing parseable.
+import { readFileSync, writeFileSync, readdirSync, existsSync, statSync } from 'node:fs'
+import { join } from 'node:path'
+
+const BUNDLE_ROOT = 'knowledge'
+
+// Keys that belong to the pin, in the order they should appear in pin.md.
+const PIN_KEYS = [
+  'library', 'version', 'source_repo', 'source_commit',
+  'docs_path', 'conventions_blended', 'drift_ack'
+]
+
+// Legacy pins were flat by construction — the v0.1 parser had no nested-map support — so a
+// scalar/inline-array reader is sufficient here.
+function splitFrontmatter(raw) {
+  const text = raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw
+  if (!text.startsWith('---')) return { meta: null, header: '', body: text }
+  const end = text.indexOf('\n---', 3)
+  if (end === -1) return { meta: null, header: '', body: text }
+  const header = text.slice(text.indexOf('\n') + 1, end)
+  const bodyStart = text.indexOf('\n', end + 1)
+  const body = bodyStart === -1 ? '' : text.slice(bodyStart + 1)
+
+  const meta = {}
+  for (const line of header.split('\n')) {
+    const kv = line.match(/^([A-Za-z0-9_-]+):\s*(.*)$/)
+    if (!kv) continue
+    let value = kv[2].trim()
+    if (value.length >= 2 && ((value[0] === '"' && value.at(-1) === '"') || (value[0] === '\'' && value.at(-1) === '\''))) {
+      value = value.slice(1, -1)
+    }
+    meta[kv[1]] = value
+  }
+  return { meta, header, body }
+}
+
+function buildPin(meta) {
+  const library = meta.library ?? 'unknown'
+  const version = meta.version ?? 'unknown'
+  const lines = ['---', 'type: Contract']
+  lines.push(`title: ${meta.title ?? `${library} ${version} Pin`}`)
+  lines.push(`description: ${meta.description ?? `What this bundle is pinned to, and the provenance of every claim in it.`}`)
+  const tags = meta.tags && meta.tags !== '[]' ? meta.tags.replace(/]$/, ', pin]') : `[library, ${library}, pin]`
+  lines.push(`tags: ${tags}`)
+  lines.push('status: stable')
+  for (const key of PIN_KEYS) {
+    if (meta[key] !== undefined) lines.push(`${key}: ${meta[key]}`)
+  }
+
+  const generatedAt = meta.distilled ?? meta.timestamp
+  if (generatedAt) lines.push(`generated: { by: process:knowledge-distill, at: ${generatedAt} }`)
+
+  // A legacy `verified: <date>` recorded that a clean audit passed, but not which model ran
+  // it. process:knowledge-auditor keeps that honest — machine-confirmed, actor unspecified.
+  if (meta.verified) {
+    lines.push('verified:')
+    lines.push(`  - { by: process:knowledge-auditor, at: ${meta.verified} }`)
+  }
+
+  if (meta.source_repo) {
+    const tree = meta.source_commit
+      ? `https://${meta.source_repo.replace(/^https?:\/\//, '')}/tree/${meta.source_commit}`
+      : `https://${meta.source_repo.replace(/^https?:\/\//, '')}`
+    lines.push('sources:')
+    lines.push('  - id: repo')
+    lines.push(`    resource: ${tree}`)
+    lines.push(`    title: ${meta.source_repo} @ ${version}`)
+    if (generatedAt) lines.push(`    last_modified: ${String(generatedAt).slice(0, 10)}`)
+  }
+
+  lines.push('---', '', `# ${library} ${version} Pin`, '')
+  lines.push(`This bundle describes \`${library}\` at \`${version}\`. Re-distill with \`/knowledge-distill\` to move the pin.`)
+  return lines.join('\n') + '\n'
+}
+
+// The index must link pin.md or the validator reports it unreachable.
+function linkPin(body, library) {
+  if (/\(\/libraries\/[^)]*\/pin\.md\)/.test(body)) return body
+  const link = `* [Pin](/libraries/${library}/pin.md) - what this bundle is pinned to, and its provenance`
+  const lines = body.split('\n')
+  const heading = lines.findIndex(line => /^#\s/.test(line))
+  if (heading === -1) return `${link}\n\n${body}`
+  lines.splice(heading + 1, 0, '', link)
+  return lines.join('\n')
+}
+
+function migrateLibraries(root, changes) {
+  const dir = join(root, 'libraries')
+  let entries
+  try {
+    if (!statSync(dir).isDirectory()) return
+    entries = readdirSync(dir, { withFileTypes: true })
+  } catch {
+    return
+  }
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue
+    const indexPath = join(dir, entry.name, 'index.md')
+    const pinPath = join(dir, entry.name, 'pin.md')
+    if (!existsSync(indexPath)) continue
+    if (existsSync(pinPath)) continue
+
+    const { meta, body } = splitFrontmatter(readFileSync(indexPath, 'utf-8'))
+    if (!meta || (!meta.library && !meta.version)) continue
+
+    changes.push({ path: pinPath, content: buildPin(meta), what: 'create pin.md from index.md frontmatter' })
+    changes.push({
+      path: indexPath,
+      content: linkPin(body.replace(/^\n+/, ''), meta.library ?? entry.name),
+      what: 'strip frontmatter, link pin.md'
+    })
+  }
+}
+
+function migrateReserved(root, changes) {
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name)
+      if (entry.isDirectory()) {
+        walk(full)
+        continue
+      }
+      if (entry.name !== 'index.md' && entry.name !== 'log.md') continue
+      // Library indexes are handled by migrateLibraries, which also adds the pin link.
+      if (/libraries[/\\][^/\\]+[/\\]index\.md$/.test(full)) continue
+
+      const { meta, body } = splitFrontmatter(readFileSync(full, 'utf-8'))
+      if (!meta) continue
+
+      const isRootIndex = full === join(root, 'index.md')
+      const keys = Object.keys(meta)
+      if (isRootIndex && keys.length === 1 && keys[0] === 'okf_version') continue
+
+      const kept = isRootIndex ? `---\nokf_version: "0.2"\n---\n\n` : ''
+      changes.push({
+        path: full,
+        content: kept + body.replace(/^\n+/, ''),
+        what: isRootIndex ? 'reduce frontmatter to okf_version' : 'strip frontmatter'
+      })
+    }
+  }
+  walk(root)
+}
+
+function main() {
+  const argv = process.argv.slice(2)
+  let root = BUNDLE_ROOT
+  let write = false
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--root') root = argv[++i]
+    else if (argv[i].startsWith('--root=')) root = argv[i].slice('--root='.length)
+    else if (argv[i] === '--write') write = true
+  }
+
+  try {
+    if (!statSync(root).isDirectory()) throw new Error('not a directory')
+  } catch {
+    console.log(`ERROR ${root}: bundle root does not exist`)
+    return 1
+  }
+
+  const changes = []
+  migrateLibraries(root, changes)
+  migrateReserved(root, changes)
+
+  if (changes.length === 0) {
+    console.log(`OK ${root}: already on the OKF v0.2 layout, nothing to migrate`)
+    return 0
+  }
+
+  for (const change of changes) {
+    console.log(`${write ? 'WRITE' : 'PLAN '} ${change.path} — ${change.what}`)
+    if (write) writeFileSync(change.path, change.content)
+  }
+
+  if (write) {
+    console.log(`\n${changes.length} file(s) migrated. Run 'node tools/knowledge_validate.mjs' next.`)
+  } else {
+    console.log(`\n${changes.length} file(s) would change. Re-run with --write to apply.`)
+  }
+  return 0
+}
+
+process.exit(main())
+```
+
+```patch
+target: .claude/rules/knowledge.md
+anchor: |
+  - Frontmatter is required: `type` (one of Index, Contract, System, Domain, Table, Metric, Playbook, Constraint, Log), plus `title`, `description`, `tags`, `timestamp` when relevant.
+insert: replace
+---
+- `index.md` and `log.md` are reserved — a directory listing and a change log. They carry no frontmatter, so never make one a concept file.
+- Frontmatter is required on every other file: `type` (one of Contract, System, Domain, Table, Metric, Playbook, Constraint), plus `title`, `description`, `tags`.
+- Record who wrote it and when with `generated: { by, at }`, and who confirmed it with `verified`. Actors are `human:<id>`, `process:<id>`, or `<producer>/<version>`.
+```
+
+```patch
+target: .claude/rules/knowledge.md
+anchor: |
+  - Claims from an external source get a `# Citations` section.
+insert: replace
+---
+- External claims go in the `sources` frontmatter key, not a `# Citations` section.
+```
+
+```patch
+target: .claude/rules/knowledge.md
+anchor: |
+  A PR that meaningfully changes behavior updates the related concept file(s) in the same PR. Add one entry to `knowledge/log.md` per sprint.
+insert: replace
+---
+A PR that meaningfully changes behavior updates the related concept file(s) in the same PR. Add one entry to `knowledge/log.md` per sprint. Set `stale_after: <YYYY-MM-DD>` on anything with a known expiry.
+```
+
 ## [1.61.2] - 2026-08-11
 
 ### Changed

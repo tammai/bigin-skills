@@ -13,7 +13,7 @@ Declared, not locked: lockfile formats are `pnpm-lock.yaml` (needs a YAML parser
 declared range already gives. A patch-level move doesn't change an API surface; a minor does.
 
 **Escape hatch.** A team that knows the bundle is one minor behind and has decided that's fine
-sets `drift_ack: <declared-version>` in the bundle's index frontmatter. It suppresses the
+sets `drift_ack: <declared-version>` in the bundle's `pin.md` frontmatter. It suppresses the
 failure for that exact declared version and nothing else — bump the dependency again and the
 guard fires again. It lives in the file being acknowledged, shows up in the diff, and Phase 3
 of a re-distill deletes it. Without it, the only way past a failing hook is `--no-verify`,
@@ -42,9 +42,10 @@ every scaffolded repo.
 ```javascript
 #!/usr/bin/env node
 // Fail when a distilled library bundle's pinned version has drifted from the version the
-// project declares. Compares knowledge/libraries/*/index.md frontmatter (`library`, `version`)
+// project declares. Compares knowledge/libraries/*/pin.md frontmatter (`library`, `version`)
 // against package.json dependencies or go.mod requires. Patch-level drift passes; minor and
 // major fail. `drift_ack: <declared-version>` in a bundle's frontmatter suppresses that one.
+// Pre-v0.2 bundles kept the pin in index.md; that is still read, with a warning.
 // Zero dependencies — runs on any Node >= 18 (macOS, Linux, Windows).
 // Usage: node tools/knowledge_drift.mjs [--root knowledge]
 // Exit codes: 0 ok (or nothing to check), 1 drift found.
@@ -143,9 +144,13 @@ function bundles(root) {
   const found = []
   for (const entry of entries) {
     if (!entry.isDirectory()) continue
-    const path = join(dir, entry.name, 'index.md')
+    // OKF v0.2 moved the pin out of the reserved index.md into pin.md. Fall back to the
+    // old location so a bundle distilled before the move still gets drift-checked.
+    const pin = join(dir, entry.name, 'pin.md')
+    const legacy = join(dir, entry.name, 'index.md')
+    const path = existsSync(pin) ? pin : legacy
     if (!existsSync(path)) continue
-    found.push({ path, meta: frontmatterScalars(readFileSync(path, 'utf-8')) })
+    found.push({ path, legacy: path === legacy, meta: frontmatterScalars(readFileSync(path, 'utf-8')) })
   }
   return found.sort((a, b) => (a.path < b.path ? -1 : 1))
 }
@@ -166,10 +171,15 @@ function main() {
   const warnings = []
   let checked = 0
 
-  for (const { path, meta } of found) {
+  for (const { path, legacy, meta } of found) {
     if (!meta.library || !meta.version) {
-      warnings.push(`${path}: missing 'library' or 'version' frontmatter — cannot check drift`)
+      warnings.push(legacy
+        ? `${path}: no pin.md in this bundle and index.md carries no 'library'/'version' — cannot check drift`
+        : `${path}: missing 'library' or 'version' frontmatter — cannot check drift`)
       continue
+    }
+    if (legacy) {
+      warnings.push(`${path}: pin still lives in the reserved index.md — move it to pin.md (OKF v0.2)`)
     }
     if (!declared.has(meta.library)) {
       warnings.push(`${path}: '${meta.library}' is not a declared dependency — nothing to compare`)

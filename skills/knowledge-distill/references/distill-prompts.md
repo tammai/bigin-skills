@@ -10,7 +10,8 @@ Two canonical prompts. `## Distillation` is guidance you follow yourself in Phas
 You are writing for an agent that has never seen this library's current version and will act
 on what you write without checking. Optimize for **decisions**, not coverage.
 
-**The index file** (`libraries/<lib>/index.md`) answers, in this order:
+**The index file** (`libraries/<lib>/index.md` — reserved, so it carries no frontmatter; the
+pin and provenance live in `pin.md` next to it) answers, in this order:
 
 1. **Mental model** — the 3–5 sentences that make the rest of the library predictable. What
    are the core objects, what owns lifecycle, what runs where (server/client/build).
@@ -72,8 +73,11 @@ the tag, and the SHA. Pass no summary of the distillation work itself.
 >   marked as historical.
 > - Lines prefixed `Team convention:` that actually describe library behavior, and library
 >   behavior stated as fact that is really a house rule and is missing the prefix.
-> - Frontmatter `version` / `source_commit` disagreeing with the clone's actual tag and SHA.
-> - A missing `# Citations` section, or one citing paths that don't exist in the clone.
+> - `pin.md` frontmatter `version` / `source_commit` disagreeing with the clone's actual tag
+>   and SHA.
+> - A missing `sources` frontmatter key, or one citing paths that don't exist in the clone.
+>   `index.md` is reserved and carries no frontmatter — its provenance is `pin.md`'s job, so
+>   do not report it as missing there.
 >
 > Do not report style, wording, topic selection, or level of detail. An accurate bundle that
 > reads awkwardly passes.
