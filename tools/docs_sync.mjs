@@ -2,7 +2,7 @@
 // Docs-sync generator — regenerates the skills/agents inventory tables in
 // README.md from the filesystem (skills/*/SKILL.md dirs,
 // agents/*.md frontmatter) plus tools/docs-manifest.json (presentation-only:
-// group + one-line summary per skill/agent). Fails closed (exit 1) on any
+// group + one-line summary per skill, summary + spawner per agent). Fails closed (exit 1) on any
 // skill<->manifest or agent<->manifest mismatch so a new skill/agent can't
 // silently go undocumented, and on any marker problem (missing/duplicate)
 // or unparseable agent frontmatter.
@@ -96,6 +96,7 @@ for (const key of manifestAgents) {
 }
 for (const key of manifestAgents) {
   validateSummary(manifest.agents[key].summary, key);
+  validateSummary(manifest.agents[key].routed, `${key}.routed`);
 }
 
 const agentFrontmatter = {};
@@ -192,9 +193,9 @@ function agentsTable() {
   const rows = manifestAgents.map((key) => {
     const fm = agentFrontmatter[key];
     if (!fm.model || !fm.effort) fail(`agents/${key}.md: frontmatter missing model or effort`);
-    return [`\`${key}\``, `${fm.model}/${fm.effort} — ${manifest.agents[key].summary}`];
+    return [`\`${key}\``, `${fm.model}/${fm.effort}`, manifest.agents[key].routed, manifest.agents[key].summary];
   });
-  return buildTable(["Agent", "Purpose"], rows);
+  return buildTable(["Agent", "Model / effort", "Spawned by", "Purpose"], rows);
 }
 
 // README.md is the only generated-table home. CLAUDE.md is always-loaded on every

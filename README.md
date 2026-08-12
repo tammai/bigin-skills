@@ -27,7 +27,7 @@ Install the whole plugin, not one skill: `bigin-harness-setup` calls sibling ski
 
 ## The two things you run
 
-**1. Once per repo — "set up a harness."** [`bigin-harness-setup`](skills/bigin-harness-setup/SKILL.md) lays down the governance layer: a ≤60-line `CLAUDE.md`, path-scoped `.claude/rules/`, the guard hooks, and the context-budget gate. On an empty repo it scaffolds the app first, delegating to the matching stack skill, then overlays governance additively. Idempotent — re-running is safe. On a repo already using GitHub Spec Kit, it detects that and offers migrate / coexist / leave ([details](skills/bigin-harness-setup/references/speckit-migration.md)).
+**1. Once per repo — "set up a harness."** [`bigin-harness-setup`](skills/bigin-harness-setup/SKILL.md) lays down the governance layer: a ≤60-line `CLAUDE.md`, path-scoped `.claude/rules/`, the guard hooks, and the context-budget gate. On an empty repo it scaffolds the app first, delegating to the matching stack skill, then overlays governance additively. Idempotent — re-running is safe. On a repo already using Spec Kit, it detects that and offers migrate / coexist / leave ([details](skills/bigin-harness-setup/references/speckit-migration.md)).
 
 **2. Every day after — "implement X" / "fix bug in Y."** [`task-workflow`](skills/task-workflow/SKILL.md) is the main driver: scope → spec gate → approved `PLAN.md` → implement/verify loop (capped at 3 rounds, independent verifier) → review → cleanup. It's the discipline `spec-gate-guard.mjs` and `bugfix-test-guard.mjs` actually enforce. You'll run setup once and this dozens of times.
 
@@ -47,13 +47,13 @@ Everything else is situational:
 
 Setup detects the profile, or asks. It decides which templates get written.
 
-| Profile | Stack | Empty repo → |
+| Profile | Stack | Scaffold |
 | --- | --- | --- |
 | `nuxt` | Nuxt 4 BFF on Cloudflare Pages — Pinia + Colada, Nuxt UI, nuxt-auth-utils, Zod, Vitest. No DB; the backend owns data | `nuxt-scaffold` |
 | `next` | Next.js App Router BFF on Vercel — shadcn/ui, Zustand, TanStack Query, iron-session, Zod, Vitest. No DB | `next-scaffold` |
 | `go` | Go modular-monolith REST API — Gin, contract-first `oapi-codegen`, GORM + Postgres, JWT access/refresh + RBAC, boundaries enforced by a test | `go-scaffold` |
 | `nodejs` | Node.js modular-monolith REST API — Fastify, code-first OpenAPI (TypeBox), Drizzle + Postgres, JWT + argon2id, outbox/inbox + job queue | `nodejs-scaffold` |
-| `generic` | Any existing repo matching none of the four — no question asked. Commands are detected, not guessed; anything undetected stays a visible `TODO` | _(no scaffold)_ |
+| `generic` | Any existing repo matching none of the four — no question asked. Commands are detected, not guessed; anything undetected stays a visible `TODO` | _(none)_ |
 
 Each scaffold skill's `SKILL.md` is the reference for what it generates. What setup writes into your repo: [User Guide §3](docs/USER_GUIDE.md#3-day-1--set-up-a-repo).
 
@@ -61,7 +61,7 @@ Each scaffold skill's `SKILL.md` is the reference for what it generates. What se
 
 ## Skills
 
-**Core** — the harness itself: setup, workflow, maintenance.
+**Core** — the harness itself: setup and workflow.
 
 <!-- gen:skills-core -->
 | Skill                   | Purpose                                                                                                                                                      |
@@ -79,7 +79,7 @@ Each scaffold skill's `SKILL.md` is the reference for what it generates. What se
 | **model-router**        | Scores capability and verification needs separately, then routes to the quick/standard/deep tier on a per-project model + effort ladder.                     |
 <!-- /gen:skills-core -->
 
-**Handoff skills** — add-ons for a specific cross-role handoff. Not required for the core harness; opt in per project.
+**Handoff skills** — add-ons for a specific cross-role handoff or mid-session handoff. Not required for the core harness; opt in per project.
 
 <!-- gen:skills-handoff -->
 | Skill                     | Purpose                                                                                                                                    |
@@ -90,21 +90,21 @@ Each scaffold skill's `SKILL.md` is the reference for what it generates. What se
 
 ## Agents
 
-`agents/<name>.md` — plugin-level subagents spawned through the Agent tool as `bigin-skills:<name>`, not invoked as skills. `model-router` picks between the execution tiers; `task-workflow` spawns the verifier, `knowledge-distill` the auditor.
+`agents/<name>.md` — plugin-level subagents spawned through the Agent tool as `bigin-skills:<name>`, not invoked as skills. A ladder name in the **Spawned by** column means that agent is only reached under those routing profiles.
 
 <!-- gen:agents-table -->
-| Agent                  | Purpose                                                                                                                                                                   |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `quick-executor`       | sonnet/low — mechanical, single-file, low-risk tasks. Routed by `model-router`.                                                                                           |
-| `standard-worker`      | opus/medium — default tier, most feature/bug-fix work. Routed by `model-router`.                                                                                          |
-| `standard-worker-high` | opus/high — same role as `standard-worker`, pinned higher. Spawned instead of it under the `frontier` and `lean` ladders.                                                 |
-| `deep-architect`       | opus/high — architectural decisions, breaking contract changes, row-transforming migrations, full-spec tier. Routed by `model-router`.                                    |
-| `verifier`             | sonnet/high — read-only — audits a diff against `PLAN.md` independently of the implementer's own summary. Spawned fresh each round, alongside whichever tier implemented. |
-| `verifier-medium`      | sonnet/medium — same role as `verifier`, pinned lower. Spawned instead of it under the `lean` ladder.                                                                     |
-| `knowledge-auditor`    | sonnet/high — read-only — audits a distilled library bundle against the library's cloned source at the pinned commit. Spawned fresh each round by `knowledge-distill`.    |
+| Agent                  | Model / effort | Spawned by                          | Purpose                                                                                                           |
+| ---------------------- | -------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `quick-executor`       | sonnet/low     | `model-router`                      | Mechanical, single-file, low-risk tasks — the quick tier.                                                         |
+| `standard-worker`      | opus/medium    | `model-router`                      | Default tier: most feature and bug-fix work.                                                                      |
+| `standard-worker-high` | opus/high      | `model-router` — `frontier`, `lean` | Same role as `standard-worker`, pinned higher; spawned instead of it on those ladders.                            |
+| `deep-architect`       | opus/high      | `model-router`                      | Architectural decisions, breaking contract changes, row-transforming migrations, full-spec tier.                  |
+| `verifier`             | sonnet/high    | `task-workflow`                     | Read-only — audits a diff against `PLAN.md`, not the implementer's summary. Fresh each round.                     |
+| `verifier-medium`      | sonnet/medium  | `task-workflow` — `lean`            | Same role as `verifier`, pinned lower; spawned instead of it on that ladder.                                      |
+| `knowledge-auditor`    | sonnet/high    | `knowledge-distill`                 | Read-only — audits a distilled bundle against the library's cloned source at the pinned commit. Fresh each round. |
 <!-- /gen:agents-table -->
 
-The `model`/`effort` pair above comes from each agent's frontmatter. `model-router` overrides `model` per spawn from the project's ladder; **effort can't be passed at spawn time**, which is why two tiers ship an *effort variant* instead.
+The **Model / effort** column comes from each agent's frontmatter. `model-router` overrides `model` per spawn from the project's ladder; **effort can't be passed at spawn time**, which is why two tiers ship an *effort variant* instead.
 
 ### Model ladder
 

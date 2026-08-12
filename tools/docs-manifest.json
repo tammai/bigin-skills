@@ -55,25 +55,32 @@
   },
   "agents": {
     "quick-executor": {
-      "summary": "mechanical, single-file, low-risk tasks. Routed by `model-router`."
+      "routed": "`model-router`",
+      "summary": "Mechanical, single-file, low-risk tasks — the quick tier."
     },
     "standard-worker": {
-      "summary": "default tier, most feature/bug-fix work. Routed by `model-router`."
+      "routed": "`model-router`",
+      "summary": "Default tier: most feature and bug-fix work."
     },
     "standard-worker-high": {
-      "summary": "same role as `standard-worker`, pinned higher. Spawned instead of it under the `frontier` and `lean` ladders."
+      "routed": "`model-router` — `frontier`, `lean`",
+      "summary": "Same role as `standard-worker`, pinned higher; spawned instead of it on those ladders."
     },
     "deep-architect": {
-      "summary": "architectural decisions, breaking contract changes, row-transforming migrations, full-spec tier. Routed by `model-router`."
+      "routed": "`model-router`",
+      "summary": "Architectural decisions, breaking contract changes, row-transforming migrations, full-spec tier."
     },
     "verifier": {
-      "summary": "read-only — audits a diff against `PLAN.md` independently of the implementer's own summary. Spawned fresh each round, alongside whichever tier implemented."
+      "routed": "`task-workflow`",
+      "summary": "Read-only — audits a diff against `PLAN.md`, not the implementer's summary. Fresh each round."
     },
     "verifier-medium": {
-      "summary": "same role as `verifier`, pinned lower. Spawned instead of it under the `lean` ladder."
+      "routed": "`task-workflow` — `lean`",
+      "summary": "Same role as `verifier`, pinned lower; spawned instead of it on that ladder."
     },
     "knowledge-auditor": {
-      "summary": "read-only — audits a distilled library bundle against the library's cloned source at the pinned commit. Spawned fresh each round by `knowledge-distill`."
+      "routed": "`knowledge-distill`",
+      "summary": "Read-only — audits a distilled bundle against the library's cloned source at the pinned commit. Fresh each round."
     }
   },
   "groups": {
