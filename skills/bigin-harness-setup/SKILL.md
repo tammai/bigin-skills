@@ -139,32 +139,36 @@ Skip if `INSTALL_MODE=new` and `CLAUDE.md` already exists.
 
 Create `.claude/rules/` if it doesn't exist.
 
-**For nuxt** — generate five files (each: skip if `INSTALL_MODE=new` and already exists):
+**For nuxt** — generate six files (each: skip if `INSTALL_MODE=new` and already exists):
 
 - **conventions-frontend.md** — from `references/profile-nuxt.md` → `## conventions-frontend.md Template`. Includes `paths:` frontmatter scoping it to `app/**` etc.
 - **conventions-server.md** — from `references/profile-nuxt.md` → `## conventions-server.md Template`. Includes `paths:` frontmatter scoping it to `server/**`.
 - **testing.md** — from `references/profile-nuxt.md` → `## testing.md Template`. Includes `paths:` frontmatter scoping it to `tests/**` + `vitest.config.ts`. Centralized-tests convention: `tests/` mirrors `app/`/`server/`, cross-tree imports use the `~~/` root alias, Nitro auto-imports stubbed via `tests/support/`.
 - **security.md** — from `references/files-shared.md` → `## security.md`. **Prepend** the nuxt paths frontmatter from `## paths substitutions` in `references/files-shared.md` before the content.
 - **architecture.md** — from `references/files-shared.md` → `## architecture.md`, then append the profile block from `references/profile-nuxt.md` → `## architecture addendum`. **Prepend** the nuxt paths frontmatter from `## paths substitutions` before the content.
+- **comments.md** — from `references/files-shared.md` → `## comments.md`, verbatim. Its `paths:` frontmatter is stack-agnostic and already in the template — do **not** substitute the profile's paths.
 
-**For next** — generate five files, same shape as nuxt (a frontend+backend split app, not a single-tree backend) — each: skip if `INSTALL_MODE=new` and already exists:
+**For next** — generate six files, same shape as nuxt (a frontend+backend split app, not a single-tree backend) — each: skip if `INSTALL_MODE=new` and already exists:
 
 - **conventions-frontend.md** — from `references/profile-next.md` → `## conventions-frontend.md Template`. Includes `paths:` frontmatter scoping it to `src/app/**`, `src/components/**`, `src/hooks/**`, `src/stores/**`.
 - **conventions-server.md** — from `references/profile-next.md` → `## conventions-server.md Template`. Includes `paths:` frontmatter scoping it to `src/app/api/**`, `src/lib/**`, `src/proxy.ts`.
 - **testing.md** — from `references/profile-next.md` → `## testing.md Template`. Includes `paths:` frontmatter scoping it to `src/**/*.test.ts(x)` + `vitest.config.ts`. Co-located-tests convention (unlike nuxt's centralized `tests/` tree): tests sit next to the source they cover.
 - **security.md** — from `references/files-shared.md` → `## security.md`. **Prepend** the next paths frontmatter from `## paths substitutions` in `references/files-shared.md` before the content.
 - **architecture.md** — from `references/files-shared.md` → `## architecture.md`, then append the profile block from `references/profile-next.md` → `## architecture addendum`. **Prepend** the next paths frontmatter from `## paths substitutions` before the content.
+- **comments.md** — from `references/files-shared.md` → `## comments.md`, verbatim (stack-agnostic frontmatter already in the template — no paths substitution).
 
-**For go / nodejs** — generate three files (each: skip if `INSTALL_MODE=new` and already exists):
+**For go / nodejs** — generate four files (each: skip if `INSTALL_MODE=new` and already exists):
 
 - **conventions.md** — from `references/profile-{PROFILE}.md` → `## conventions.md Template`. The template already includes `paths:` frontmatter.
 - **security.md** — from `references/files-shared.md` → `## security.md`. **Prepend** the profile-specific paths frontmatter from `## paths substitutions` in `references/files-shared.md`.
 - **architecture.md** — from `references/files-shared.md` → `## architecture.md`, then append the profile block from `references/profile-{PROFILE}.md` → `## architecture addendum`. **Prepend** the profile-specific paths frontmatter.
+- **comments.md** — from `references/files-shared.md` → `## comments.md`, verbatim (stack-agnostic frontmatter already in the template — no paths substitution).
 
-**For generic** — generate two files only, no conventions and no testing rule (there is no known stack to write conventions for; `CLAUDE.md`'s "match the surrounding code" rule stands in for them). Each: skip if `INSTALL_MODE=new` and already exists:
+**For generic** — generate three files only, no conventions and no testing rule (there is no known stack to write conventions for; `CLAUDE.md`'s "match the surrounding code" rule stands in for them). Each: skip if `INSTALL_MODE=new` and already exists:
 
 - **security.md** — from `references/files-shared.md` → `## security.md`. **Prepend** the `generic` paths frontmatter from `## paths substitutions`.
 - **architecture.md** — from `references/files-shared.md` → `## architecture.md` with **no** addendum appended (`references/profile-generic.md` → `## architecture addendum` explains why). **Prepend** the `generic` paths frontmatter.
+- **comments.md** — from `references/files-shared.md` → `## comments.md`, verbatim. Stack-agnostic, so `generic` gets it too, unlike the conventions rules.
 
 ---
 
@@ -384,7 +388,7 @@ Harness installed. Now measure its token footprint:
    Fail = one or more files need trimming (see output for which).
 
 The path-scoped rule files (conventions-frontend.md, conventions-server.md, security.md,
-architecture.md) only load when matching files are in context — they don't count against
+architecture.md, comments.md) only load when matching files are in context — they don't count against
 the always-loaded budget unless you're editing those paths.
 ```
 

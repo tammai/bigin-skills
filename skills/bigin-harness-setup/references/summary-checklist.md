@@ -64,6 +64,7 @@ Created:
   .claude/rules/conventions-server.md    [nuxt/next only] (paths: server/** — nuxt | src/app/api/**,src/lib/** — next)
   .claude/rules/testing.md        [nuxt/next only] (paths: tests/**, vitest.config.ts — nuxt | src/**/*.test.ts(x), vitest.config.ts — next)
   .claude/rules/conventions.md    [go/nodejs only] (paths: scoped to source dir)
+  .claude/rules/comments.md       (all profiles; paths: source-extension glob, not profile-substituted)
   .claude/guards/bash-guard.mjs
   .claude/guards/spec-gate-guard.mjs
   .claude/guards/bugfix-test-guard.mjs
@@ -124,6 +125,7 @@ Next steps:
 - [ ] **go/nodejs** — `.claude/rules/conventions.md` — paths: scoped to source dir
 - [ ] `.claude/rules/security.md` — shared security rules, paths: scoped per profile
 - [ ] `.claude/rules/architecture.md` — shared base + profile addendum, paths: scoped per profile
+- [ ] `.claude/rules/comments.md` — all profiles including generic, verbatim with its own source-extension `paths:` (no substitution)
 - [ ] `AI_TASK_GUIDE.md` — human-facing pointer to /task-workflow (not a second copy of the workflow)
 - [ ] `AI_REVIEW_CHECKLIST.md` — profile commands filled in
 - [ ] `scripts/pre-commit.sh` — lint + typecheck + test + context budget check, executable

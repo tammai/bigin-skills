@@ -5,6 +5,62 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.63.0] - 2026-08-13
+
+### Added
+
+- **`bigin-harness-setup` now generates `.claude/rules/comments.md`** — the harness had no comment convention at all. Its only comment-related rule was "a suppression needs a justifying comment," repeated in every profile's `CLAUDE.md` Hard Rules and in the review checklist. Nothing said when to write a comment, or what never belongs in one, so generated code accumulated the usual residue: narration of the line below, "changed from X" history git already holds, and comments addressed to the reviewer rather than to a future maintainer.
+
+  The new rule file covers eight points — comment the why not the what, match the file's existing density, no narration, no history, no process residue, suppressions always state a reason, TODOs carry an owner and an exit condition, doc comments only where the language expects them. Two bad/good pairs close it out (a suppression and a TODO), written as **indented** code rather than fenced, so the block survives extraction from inside this `patch` fence.
+
+  It ships to **every** profile including `generic`, and unlike `security.md` / `architecture.md` it is written verbatim with its own stack-agnostic `paths:` frontmatter (a source-file extension glob) rather than the profile's paths — comment rules apply to scripts and tooling outside the app directories too. Path-scoped, so it costs nothing until a source file is in context.
+
+- **`AI_REVIEW_CHECKLIST.md` gains one Code quality bullet** pointing at the new rule file, so the review step actually checks it.
+
+In the block below, the first `---` is the patch separator; the second one opens the file's own YAML frontmatter and belongs to the content.
+
+```patch
+target: .claude/rules/comments.md
+mode: create-if-missing
+---
+---
+paths:
+  - "**/*.{ts,tsx,js,jsx,mjs,cjs,vue,svelte,go,py,rb,rs,java,kt,cs,php,swift,scala,ex,exs}"
+---
+# Comment Rules
+
+- **Comment the why, never the what.** The code already says what it does. A comment earns its place by carrying what the code can't: a non-obvious constraint, a rejected alternative, a workaround plus the upstream issue it waits on.
+- **Match the file you're in.** Comment density is house style. A file with no comments doesn't want yours; a heavily documented one expects them. Never add comments to lines you didn't otherwise change.
+- **No narration.** No `// loop over users`, no section banners, no prose restating the signature directly above it.
+- **No history in code.** No "added X", "changed from Y", "previously Z", no dates, no commented-out code kept "just in case". Git holds all of it.
+- **No process residue.** Never write comments addressed to the reviewer or the requester ("as requested", "generated", "TODO for review") — the reader is a future maintainer with no memory of this task.
+- **A suppression always states its reason.** `@ts-ignore`, `as any`, `eslint-disable`, `//nolint` — each needs a comment saying why, on the same line or directly above. This is the one comment that is never optional.
+- **TODOs need an owner and an exit condition.** `// TODO(name): drop once <specific thing>`. A bare `TODO` is noise — delete it or file it.
+- **Doc comments only where the language expects them.** Exported Go identifiers get a doc comment starting with the identifier name. Public TS/JS API gets JSDoc when the signature alone is ambiguous. Internal code gets neither by default.
+
+The two that get skipped most:
+
+    // ✗ @ts-ignore
+    // ✓ @ts-ignore — `raw` is typed `unknown` until sdk@3.2 ships generics
+    //   (vendor/sdk#412); parseConfig() below validates the shape at runtime.
+
+    // ✗ //nolint:gosec
+    // ✓ //nolint:gosec — bin is resolved from an allowlist in resolveBinary(),
+    //   never from request input.
+
+    // ✗ // TODO: clean this up
+    // ✓ // TODO(dana): drop this fallback once every client is on /v2 (#318).
+```
+
+```patch
+target: AI_REVIEW_CHECKLIST.md
+anchor: |
+  - [ ] No `//nolint` without a justifying comment (Go)
+insert: after
+---
+- [ ] No narration, history, or process-residue comments — `.claude/rules/comments.md`
+```
+
 ## [1.62.0] - 2026-08-12
 
 ### Changed

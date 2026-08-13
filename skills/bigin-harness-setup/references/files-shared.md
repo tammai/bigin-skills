@@ -6,7 +6,7 @@ Templates for files that are identical (or nearly identical) across all stack pr
 
 ## paths substitutions
 
-When writing `.claude/rules/security.md` and `.claude/rules/architecture.md`, prepend the profile-specific `paths:` frontmatter before the template content.
+When writing `.claude/rules/security.md` and `.claude/rules/architecture.md`, prepend the profile-specific `paths:` frontmatter before the template content. `.claude/rules/comments.md` is the exception — it carries its own stack-agnostic frontmatter (source-file extensions, every profile), because comment rules apply to any source file including scripts and tooling outside the app directories.
 
 Every profile's list includes its OpenAPI contract file: `architecture.md` owns the versioning rule (additive changes, `/v2/` on a break), so it has to load when the contract itself is the file being edited — not only when source files are.
 
@@ -125,6 +125,42 @@ Never reverse. A repo must never import a handler.
 
 ---
 
+## comments.md
+
+Written verbatim — frontmatter included, no paths substitution.
+
+```markdown
+---
+paths:
+  - "**/*.{ts,tsx,js,jsx,mjs,cjs,vue,svelte,go,py,rb,rs,java,kt,cs,php,swift,scala,ex,exs}"
+---
+# Comment Rules
+
+- **Comment the why, never the what.** The code already says what it does. A comment earns its place by carrying what the code can't: a non-obvious constraint, a rejected alternative, a workaround plus the upstream issue it waits on.
+- **Match the file you're in.** Comment density is house style. A file with no comments doesn't want yours; a heavily documented one expects them. Never add comments to lines you didn't otherwise change.
+- **No narration.** No `// loop over users`, no section banners, no prose restating the signature directly above it.
+- **No history in code.** No "added X", "changed from Y", "previously Z", no dates, no commented-out code kept "just in case". Git holds all of it.
+- **No process residue.** Never write comments addressed to the reviewer or the requester ("as requested", "generated", "TODO for review") — the reader is a future maintainer with no memory of this task.
+- **A suppression always states its reason.** `@ts-ignore`, `as any`, `eslint-disable`, `//nolint` — each needs a comment saying why, on the same line or directly above. This is the one comment that is never optional.
+- **TODOs need an owner and an exit condition.** `// TODO(name): drop once <specific thing>`. A bare `TODO` is noise — delete it or file it.
+- **Doc comments only where the language expects them.** Exported Go identifiers get a doc comment starting with the identifier name. Public TS/JS API gets JSDoc when the signature alone is ambiguous. Internal code gets neither by default.
+
+The two that get skipped most:
+
+    // ✗ @ts-ignore
+    // ✓ @ts-ignore — `raw` is typed `unknown` until sdk@3.2 ships generics
+    //   (vendor/sdk#412); parseConfig() below validates the shape at runtime.
+
+    // ✗ //nolint:gosec
+    // ✓ //nolint:gosec — bin is resolved from an allowlist in resolveBinary(),
+    //   never from request input.
+
+    // ✗ // TODO: clean this up
+    // ✓ // TODO(dana): drop this fallback once every client is on /v2 (#318).
+```
+
+---
+
 ## AI_TASK_GUIDE.md
 
 Orientation for humans, not a second copy of the workflow. The `task-workflow` skill is the single source — this file must never restate its steps in enough detail to drift from them.
@@ -178,6 +214,7 @@ Before marking any task complete, every item must be checked.
 ## Code quality
 - [ ] No new `@ts-ignore`, `as any`, or `eslint-disable` without a justifying comment
 - [ ] No `//nolint` without a justifying comment (Go)
+- [ ] No narration, history, or process-residue comments — `.claude/rules/comments.md`
 - [ ] No hardcoded secrets, credentials, or API keys
 
 ## Testing
