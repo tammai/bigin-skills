@@ -14,6 +14,8 @@ The agent writes a spec before it writes code. A second, memoryless agent audits
 
 ## Install
 
+**Claude Code**
+
 ```
 /plugin marketplace add tammai/bigin-skills
 /plugin install bigin-skills@bigin
@@ -21,13 +23,23 @@ The agent writes a spec before it writes code. A second, memoryless agent audits
 
 Or `npx skills add tammai/bigin-skills`.
 
+**Cursor**
+
+```
+/add-plugin
+```
+
+Then pick `bigin-skills` (or Customize → Plugins). For local development, symlink the checkout instead: `ln -s "$(pwd)" ~/.cursor/plugins/local/bigin-skills`.
+
+Both hosts install the same tree — `.cursor-plugin/plugin.json` declares paths into the existing `skills/` and `agents/` directories, so there's one copy of everything. What differs: Cursor doesn't take the subagent ladder's per-tier `model`/`effort` pins, so `model-router`'s fan-out is Claude-Code-only. Everything else, including every gate, works on both ([details](skills/bigin-harness-setup/references/cursor-parity.md)).
+
 Install the whole plugin, not one skill: `bigin-harness-setup` calls sibling skills by repo-relative path, so its empty-repo scaffold branches only work in place.
 
 ---
 
 ## The two things you run
 
-**1. Once per repo — "set up a harness."** [`bigin-harness-setup`](skills/bigin-harness-setup/SKILL.md) lays down the governance layer: a ≤60-line `CLAUDE.md`, path-scoped `.claude/rules/`, the guard hooks, and the context-budget gate. On an empty repo it scaffolds the app first, delegating to the matching stack skill, then overlays governance additively. Idempotent — re-running is safe. On a repo already using Spec Kit, it detects that and offers migrate / coexist / leave ([details](skills/bigin-harness-setup/references/speckit-migration.md)).
+**1. Once per repo — "set up a harness."** [`bigin-harness-setup`](skills/bigin-harness-setup/SKILL.md) lays down the governance layer: a ≤60-line `CLAUDE.md`, path-scoped `.claude/rules/`, the guard hooks, and the context-budget gate. On an empty repo it scaffolds the app first, delegating to the matching stack skill, then overlays governance additively. Idempotent — re-running is safe. On a repo already using Spec Kit, it detects that and offers migrate / coexist / leave ([details](skills/bigin-harness-setup/references/speckit-migration.md)). If teammates work in Cursor, it also generates the Cursor mirror — `AGENTS.md`, `.cursor/rules/*.mdc`, `.cursor/hooks.json` — running the same guards off the same canonical files ([details](skills/bigin-harness-setup/references/cursor-parity.md)).
 
 **2. Every day after — "implement X" / "fix bug in Y."** [`task-workflow`](skills/task-workflow/SKILL.md) is the main driver: scope → spec gate → approved `PLAN.md` → implement/verify loop (capped at 3 rounds, independent verifier) → review → cleanup. It's the discipline `spec-gate-guard.mjs` and `bugfix-test-guard.mjs` actually enforce. You'll run setup once and this dozens of times.
 
@@ -66,7 +78,7 @@ Each scaffold skill's `SKILL.md` is the reference for what it generates. What se
 <!-- gen:skills-core -->
 | Skill                   | Purpose                                                                                                                                                      |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **bigin-harness-setup** | Scaffolds an AI workflow harness — CLAUDE.md brief, path-scoped rules, gates (commit hooks + budget check). Profiles: nuxt, go, nodejs, next, generic.       |
+| **bigin-harness-setup** | Scaffolds an AI workflow harness — CLAUDE.md brief, path-scoped rules, commit gates, optional Cursor mirror. Profiles: nuxt, go, nodejs, next, generic.      |
 | **task-workflow**       | On-demand task workflow (/task-workflow): scope → spec → plan (approved) → implement/verify loop (capped, independent verifier) → review → cleanup.          |
 | **nuxt-scaffold**       | Scaffolds a Nuxt 4 BFF app from scratch via a deterministic Node.js script — npm create nuxt@latest + BFF preset + config/sample code. No GitHub clone.      |
 | **next-scaffold**       | Scaffolds a Next.js App Router BFF app from scratch via a deterministic Node.js script — create-next-app + BFF preset + shadcn/ui. No GitHub clone.          |
@@ -138,6 +150,8 @@ node tools/docs_sync.mjs --check  # diff-only; exits 1 on stale regions
 ```
 
 A new skill or agent needs a matching manifest entry — the generator fails closed both ways and blocks the commit by name.
+
+**Plugin manifests** — four files, two hosts. `.claude-plugin/plugin.json`'s `version` is the source of truth; `.cursor-plugin/plugin.json` and both `marketplace.json`s must match, and `docs_sync.mjs --check` fails the commit if they drift. The same check enforces Cursor's stricter component rules (a skill's `name` must equal its folder name; skills and agents both need a `description`), since Claude Code accepts files Cursor would reject.
 
 **Pre-commit gate** — activate once per clone; runs the budget gate + docs-sync check:
 

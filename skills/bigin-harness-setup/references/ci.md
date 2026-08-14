@@ -255,3 +255,27 @@ For the **go profile only** (the `golang` image has no Node), also add to `befor
     - apt-get update -qq && apt-get install -y -qq nodejs
 ```
 The nuxt/nodejs/next profiles run on a `node` image — no addition needed.
+
+---
+
+## cursor-mirror step: github
+
+Only when `AGENT_HOSTS` includes `cursor`. Insert as the last step of the `quality` job. The pre-commit gate already runs this, so CI is the backstop for a commit that reached the branch without hooks installed — a fresh clone, a web edit, or a teammate who skipped the onboarding step.
+
+```yaml
+      - name: cursor mirror up to date
+        run: node tools/cursor_mirror.mjs --check
+```
+
+---
+
+## cursor-mirror step: gitlab
+
+Only when `AGENT_HOSTS` includes `cursor`. Add the run to `script`.
+
+`script` addition:
+```yaml
+    - node tools/cursor_mirror.mjs --check
+```
+
+Same Node caveat as the knowledge validator above: the **go profile** needs the `nodejs` `before_script` line, and it's the same line — add it once even when both steps are present.

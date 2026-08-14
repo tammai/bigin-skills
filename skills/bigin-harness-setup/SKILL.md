@@ -1,6 +1,6 @@
 ---
 name: bigin-harness-setup
-description: "Scaffolds BigIn's AI workflow harness into a repo — CLAUDE.md brief, path-scoped .claude/rules/, commit-time gates (guard hooks + context-budget check). Profiles: nuxt, go, nodejs, next, generic. Triggers: 'set up harness', 'add AI rules', 'add CLAUDE.md', 'migrate off Spec Kit'."
+description: "Scaffolds BigIn's AI workflow harness into a repo — CLAUDE.md brief, path-scoped .claude/rules/, commit-time gates (guard hooks + context-budget check), optional Cursor mirror (AGENTS.md + .cursor/rules/). Profiles: nuxt, go, nodejs, next, generic. Triggers: 'set up harness', 'add AI rules', 'add Cursor support', 'migrate off Spec Kit'."
 effort: medium
 allowed-tools: Bash(git init) Bash(git rev-parse *) Bash(chmod +x *) Bash(ln -sf *)
 ---
@@ -87,9 +87,9 @@ Self-contained — skip Phases 1.5 through 8 entirely when this runs; it ends wi
 
 ## Phase 1.5: Gather Remaining Decisions
 
-Skip this phase entirely if `KNOWLEDGE_BUNDLE`, `GRAPH`, `CI_PROVIDER`, and `MODEL_ROUTING` are already set (Phase 0.5/0.5b asked them alongside the nuxt-scaffold/go-scaffold batch for the empty-repo branch).
+Skip this phase entirely if `KNOWLEDGE_BUNDLE`, `GRAPH`, `CI_PROVIDER`, `MODEL_ROUTING`, and `AGENT_HOSTS` are already set (Phase 0.5/0.5b asked them alongside the nuxt-scaffold/go-scaffold batch for the empty-repo branch).
 
-Otherwise, ask **one bundled `AskUserQuestion` call**, before writing any files, combining:
+Otherwise, ask **one bundled `AskUserQuestion` call**, before writing any files, combining the questions below. `AskUserQuestion` accepts at most four per call, so when more than four apply, split into two back-to-back calls keeping this order — still no file written until all of them are answered.
 
 1. **Knowledge Bundle & Graphify** (four-way):
    ```
@@ -115,10 +115,19 @@ Otherwise, ask **one bundled `AskUserQuestion` call**, before writing any files,
    Per-tier overrides and the full schema: bigin-skills skills/model-router/references/model-profiles.md.
    ```
    Store `MODEL_ROUTING` (the profile name).
-4. **Install mode** — only if Phase 1 detected an existing-harness conflict in this run: the overwrite/new/cancel question from Phase 1 above.
-5. **Spec Kit handling** — only if Phase 0.7 found Spec Kit: the `migrate | coexist | leave` question, worded in `references/speckit-migration.md` → "The decision". On `migrate`, `KNOWLEDGE_BUNDLE` stops being a free choice — it's where the `specs/` rationale lands, so if the user declines both, say the "why" has nowhere to go before accepting it.
+4. **Agent hosts** — which AI coding hosts this harness has to hold. Auto-detect a default first: `.cursor/` present in the repo → preselect `both`; otherwise preselect `claude`. Present the preselected option first/labeled as detected, but let the user override:
+   ```
+   Which agent hosts should the harness cover? (claude/both/cursor)
+   1. claude — Claude Code only: CLAUDE.md, .claude/rules/, .claude/settings.json hooks.
+   2. both — also generate the Cursor mirror: AGENTS.md, .cursor/rules/*.mdc, .cursor/hooks.json. Same guards, same gates, one canonical source (Claude Code's) kept in sync by tools/cursor_mirror.mjs.
+   3. cursor — Cursor mirror as well as the canonical tree. Same files as `both`: the Claude Code tree is the source the mirror is generated from, so it's always written.
+   See references/cursor-parity.md for what the mirror contains and the one behavior that degrades.
+   ```
+   Store `AGENT_HOSTS`. Options 2 and 3 are the same install — say so rather than pretending a Cursor-only layout exists, since `.cursor/rules/` is generated *from* `.claude/rules/` and deleting the source would break the gate on the next commit.
+5. **Install mode** — only if Phase 1 detected an existing-harness conflict in this run: the overwrite/new/cancel question from Phase 1 above.
+6. **Spec Kit handling** — only if Phase 0.7 found Spec Kit: the `migrate | coexist | leave` question, worded in `references/speckit-migration.md` → "The decision". On `migrate`, `KNOWLEDGE_BUNDLE` stops being a free choice — it's where the `specs/` rationale lands, so if the user declines both, say the "why" has nowhere to go before accepting it.
 
-Store `KNOWLEDGE_BUNDLE`, `GRAPH`, `CI_PROVIDER`, `MODEL_ROUTING` (and `INSTALL_MODE` / `SPECKIT` if included). Run the chosen Spec Kit path immediately after this phase resolves and before Phase 2 — `migrate` must finish removing Spec Kit before any harness file is written, and `leave` stops the run here. Code and security review are not scaffolded as project-local agents — point the user at the `/code-review` and `/security-review` skills instead (see Phase 7 summary).
+Store `KNOWLEDGE_BUNDLE`, `GRAPH`, `CI_PROVIDER`, `MODEL_ROUTING`, `AGENT_HOSTS` (and `INSTALL_MODE` / `SPECKIT` if included). Run the chosen Spec Kit path immediately after this phase resolves and before Phase 2 — `migrate` must finish removing Spec Kit before any harness file is written, and `leave` stops the run here. Code and security review are not scaffolded as project-local agents — point the user at the `/code-review` and `/security-review` skills instead (see Phase 7 summary).
 
 ---
 
@@ -220,6 +229,12 @@ Read `references/budget-gate.md` → `## tools/context_budget.mjs`. Write to `to
 Skip if `INSTALL_MODE=new` and `tools/context_budget.mjs` already exists.
 
 If `scripts/pre-commit.sh` was created in 5-1, the budget check step is already included in the template (it's guarded with `if [ -f tools/context_budget.mjs ]`). No further action needed.
+
+### 5-1d. Guard host adapter
+
+Read `references/hook-guard.md` → `## lib/hook-io.mjs`. Write to `.claude/guards/lib/hook-io.mjs`. Applies to all profiles, and to `AGENT_HOSTS = claude` as well — **every guard below imports it**, so skipping it leaves nine broken scripts. Not executable on its own: no shebang, no `chmod`.
+
+It normalizes the payload-field and response-envelope differences between Claude Code and Cursor so one guard body serves both hosts. There is no Cursor-specific copy of any guard anywhere; if you find yourself writing one, the difference belongs in this module instead.
 
 ### 5-2. Bash guard (blocks gate bypass)
 
@@ -361,6 +376,21 @@ This decision governs **scaffolding only, not skill behavior.** `task-workflow`,
 
 ---
 
+## Phase 5.8: Cursor Parity (optional)
+
+Decided in Phase 1.5 (`AGENT_HOSTS`). Skip everything if it doesn't include `cursor`.
+
+Generates the Cursor half of the harness: `AGENTS.md`, `.cursor/rules/*.mdc`, `.cursor/hooks.json`, and `tools/cursor_mirror.mjs`. Full procedure, templates, and rationale: `references/cursor-parity.md` → `## Procedure (Phase 5.8)`.
+
+**Runs here, last of the file-writing phases, on purpose.** The mirror is generated from whatever `.claude/rules/` ended up containing, so it has to run after Phase 3 (base rules), Phase 5.5 (`knowledge.md`) and Phase 5.7 (`graph.md`) — move it earlier and those two rules silently never reach Cursor.
+
+Three things this phase never does:
+- **Hand-write a mirror file.** Always run `node tools/cursor_mirror.mjs` and let it write them. A hand-written `.mdc` that differs from what the script would produce fails `--check` on the very next commit.
+- **Mirror the guards.** One script body serves both hosts (`lib/hook-io.mjs`, Phase 5-1d). `.cursor/hooks.json` registers the same `.mjs` files `.claude/settings.json` does.
+- **Treat the Cursor tree as a source.** `.claude/` is canonical. If a rule needs changing, change it there and re-run the mirror.
+
+---
+
 ## Phase 6: Update README
 
 Check for `README.md`. If found, check whether it already contains `## AI Onboarding`. If not present, append the templates from `references/summary-checklist.md` → `## Phase 6 README Templates` (replace `{LINT}`, `{TYPECHECK}`, `{TEST}` with profile commands). If no `README.md` exists: skip this phase (do not create one).
@@ -390,6 +420,10 @@ Harness installed. Now measure its token footprint:
 The path-scoped rule files (conventions-frontend.md, conventions-server.md, security.md,
 architecture.md, comments.md) only load when matching files are in context — they don't count against
 the always-loaded budget unless you're editing those paths.
+
+With Cursor parity installed the gate prints one line per host — Claude Code (CLAUDE.md +
+unscoped .claude/rules/ + skill descriptions) and Cursor (AGENTS.md + always-applied
+.cursor/rules/) — and each is capped separately, since only one loads in any given session.
 ```
 
 ---
@@ -406,10 +440,11 @@ the always-loaded budget unless you're editing those paths.
 - Knowledge Bundle (Phase 5.5) — opt-in only, decided once in Phase 1.5 (`KNOWLEDGE_BUNDLE`); skip entirely if declined. Never edit unknown CI config automatically — only note it's needed.
 - CI Config (Phase 5.6) — opt-in only, decided once in Phase 1.5 (`CI_PROVIDER`, auto-detected default); skip entirely if `no`. Only ever writes/overwrites CI files this skill generated; never edits pre-existing, hand-written CI config.
 - Graphify (Phase 5.7) — opt-in only, decided once in Phase 1.5 (`GRAPH`); skip entirely if declined. Never auto-runs the initial index — always proposed. Install prompting happens here only, never in a consuming skill.
+- Cursor parity (Phase 5.8) — opt-in only, decided once in Phase 1.5 (`AGENT_HOSTS`); skip entirely if it's `claude`. Mirror files are always generated by `tools/cursor_mirror.mjs`, never hand-written, and a re-run is a no-op when they're current. `.cursor/hooks.json` merges per event like `.claude/settings.json`. `.claude/` stays canonical: the mirror is regenerated from it, never merged back into it. `.claude/guards/lib/hook-io.mjs` (Phase 5-1d) is **not** optional — it's written on every install, since every guard imports it.
 - `.claude/model-routing.json` (Phase 5-3d) — decided once in Phase 1.5 (`MODEL_ROUTING`); `new` mode never overwrites an existing ladder. Deleting the file is safe: `model-router` falls back to the `opus-centric` default.
 - Spec Kit (Phase 0.7) — detection only; `none` is the common case and skips the phase. On `migrate`, nothing is deleted until the user has seen the triage table, `git tag pre-harness-migration` is set first, and contract fragments are reconciled before `specs/` goes. On `coexist`, the spec-gate hook is left unregistered rather than the guard left unwritten. Never migrate a repo that didn't ask.
 - Profile detection (Phase 0) — the four-way question is asked **only** for an empty repo, where it picks the scaffold. Existing code that matches no marker is `PROFILE = generic`, never a question: it skips Phase 0.5, the conventions/testing rules, `.vscode/settings.json`, and Phase 5.6 CI, and installs everything else. Commands are detected, and an undetected one stays a visible `TODO` rather than a guess.
-- All user-facing questions (empty-repo profile choice, harness conflicts, Knowledge Bundle, CI, model routing profile, Spec Kit handling, foreign pre-commit hook) resolve before any file is written — see Phase 1.5.
+- All user-facing questions (empty-repo profile choice, harness conflicts, Knowledge Bundle, CI, model routing profile, agent hosts, Spec Kit handling, foreign pre-commit hook) resolve before any file is written — see Phase 1.5, which splits into two `AskUserQuestion` calls when more than four apply.
 - Never delete files not part of the harness.
 - `.claude/harness-version` — written on every fresh/overwrite setup (Phase 5-3c) as a baseline for future patch runs; `new` mode only writes it if absent, since skipped pre-existing files may be older than the recorded version.
 - Patch mode (Phase 1a) — only touches files/lines named in a changelog entry's `patch` block; never guesses at an anchor match; always advances `.claude/harness-version` even on partial application, logging what still needs manual review.
@@ -433,10 +468,11 @@ Read `references/summary-checklist.md` → `## Output Checklist` and verify ever
 - `references/profile-generic.md` — fallback profile for a stack that matches none of the four: what it installs and skips, command detection, CLAUDE.md + settings.json templates, why no CI
 - `references/files-shared.md` — shared files: security, architecture, AI task guide pointer, review checklist, paths substitutions per profile
 - `references/patch-mode.md` — Phase 1a: version diffing + CHANGELOG patch-block application for `INSTALL_MODE=patch`
-- `references/hook-guard.md` — bash-guard.mjs, spec-gate-guard.mjs, bugfix-test-guard.mjs, commit-msg-guard.mjs, injection-scan-guard.mjs, injection-gate-guard.mjs, session-resume-check.mjs, canary-seed.mjs, precompact-snapshot.mjs scripts + pre-commit scripts per profile
+- `references/hook-guard.md` — lib/hook-io.mjs (the two-host payload adapter every guard imports), bash-guard.mjs, spec-gate-guard.mjs, bugfix-test-guard.mjs, commit-msg-guard.mjs, injection-scan-guard.mjs, injection-gate-guard.mjs, session-resume-check.mjs, canary-seed.mjs, precompact-snapshot.mjs scripts + pre-commit scripts per profile
 - `references/budget-gate.md` — context_budget.mjs script (context budget gate)
 - `references/knowledge-bundle.md` — optional Knowledge Bundle: rule file, spec, starter concept files, validator script
 - `references/knowledge-migration.md` — one-shot OKF v0.1 → v0.2 migrator for pre-v1.62.0 bundles. **Not** part of the Phase 5.5 install list — a fresh scaffold is already v0.2
 - `references/graph.md` — optional Graphify: rule file, usage doc, install/gitignore contract
+- `references/cursor-parity.md` — Phase 5.8: the Claude Code → Cursor mapping, `.mdc` frontmatter translation, `AGENTS.md` + `.cursor/hooks.json` templates, the `cursor_mirror.mjs` generator, and the one verdict that degrades on Cursor
 - `references/ci.md` — optional CI config: GitHub Actions + GitLab CI templates per profile, plus the knowledge-validate step
 - `references/summary-checklist.md` — Phase 7 summary print template + Output Checklist

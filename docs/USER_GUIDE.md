@@ -51,9 +51,25 @@ Everything else in the plugin (scaffolders, distillers, routers) exists to suppo
 npx skills add tammai/bigin-skills
 ```
 
+### Cursor
+
+```
+/add-plugin
+```
+
+Pick `bigin-skills`, or browse Customize → Plugins. To develop against a local checkout, symlink it instead:
+
+```bash
+ln -s "$(pwd)" ~/.cursor/plugins/local/bigin-skills
+```
+
+Both hosts load the same directories — the repo carries a manifest for each (`.claude-plugin/plugin.json`, `.cursor-plugin/plugin.json`) and the Cursor one points at the existing `skills/` and `agents/`, so there's a single copy of every skill.
+
+One capability doesn't transfer: Cursor's agents don't accept the per-tier `model`/`effort` pins that `model-router` spawns with, so the subagent ladder ([§7](#7-tuning-cost-and-depth)) is Claude-Code-only. The skills, the workflow, and every gate work on both.
+
 ### Verify it's live
 
-Start a Claude Code session and type `/` — you should see `bigin-skills:task-workflow`, `bigin-skills:bigin-harness-setup`, and the rest in the skill list.
+Start a session and type `/` — you should see `bigin-skills:task-workflow`, `bigin-skills:bigin-harness-setup`, and the rest in the skill list. (Cursor lists them without the `bigin-skills:` prefix.)
 
 > **Don't install `bigin-harness-setup` standalone.** It calls sibling skills by repo-relative path (`node skills/nuxt-scaffold/scripts/scaffold.mjs`), so copying just that one directory breaks its empty-repo scaffold branches. The other skills copy cleanly on their own.
 
@@ -91,6 +107,7 @@ The skill detects your stack, asks a small batch of questions **before writing a
 | Knowledge bundle & graph | knowledge + graphify | `knowledge/` holds decisions and invariants (the "why"); `graphify-out/` is a structural code graph for navigation |
 | CI config | auto-detected from your git remote | Generates a workflow running lint + typecheck + test on push and PRs |
 | Model ladder | `opus-centric` | Which models the three execution tiers spawn on — see [§7](#7-tuning-cost-and-depth) |
+| Agent hosts | auto-detected — `both` if `.cursor/` exists, else `claude` | Whether to also generate the Cursor mirror so the same rules and gates apply in Cursor — see [`GATES.md` §7](GATES.md#7-the-same-gates-in-cursor) |
 
 If the repo is empty, the app itself gets scaffolded first (by `nuxt-scaffold` / `next-scaffold` / `go-scaffold` / `nodejs-scaffold`), and the governance layer is overlaid on top additively.
 
@@ -112,6 +129,18 @@ your-repo/
 ├── scripts/pre-commit.sh       ← lint + typecheck + test, fails closed
 └── scripts/commit-msg.sh       ← Conventional Commits check, for every committer
 ```
+
+Plus, if you opted into Cursor:
+
+```
+├── AGENTS.md                   ← generated from CLAUDE.md; what Cursor loads
+├── .cursor/
+│   ├── rules/*.mdc             ← generated from .claude/rules/; paths: → globs:
+│   └── hooks.json              ← registers the same nine guards
+└── tools/cursor_mirror.mjs     ← regenerates the mirror; --check gates the commit
+```
+
+`.claude/` stays canonical. Edit `CLAUDE.md` or `.claude/rules/`, run `node tools/cursor_mirror.mjs`, and commit both sides — the pre-commit gate fails the commit if you forget.
 
 ### After setup
 
@@ -281,11 +310,11 @@ If you get a confirmation prompt right after the agent fetched a web page, that'
 
 ### "could not parse its hook payload"
 
-Every `PreToolUse` gate fails **closed**: if it can't read the payload Claude Code handed it, it blocks the call rather than letting it through unchecked. You'll essentially only see this if someone runs a guard by hand without piping a payload in — the recipe for doing that properly is in `bigin-harness-setup/references/hook-guard.md` → `## Testing a guard by hand`. If it ever appears during normal work, the hook payload format changed; fix the guard, don't delete it.
+Every blocking gate fails **closed**: if it can't read the payload the host handed it, it blocks the call rather than letting it through unchecked. You'll essentially only see this if someone runs a guard by hand without piping a payload in — the recipe for doing that properly is in `bigin-harness-setup/references/hook-guard.md` → `## Testing a guard by hand`. If it ever appears during normal work, the hook payload format changed; fix the guard, don't delete it.
 
 ### `context_budget.mjs` — the always-loaded budget
 
-Caps `CLAUDE.md` at 60 lines and unscoped rule files at 40. Runs in pre-commit.
+Caps `CLAUDE.md` at 60 lines and unscoped rule files at 40. Runs in pre-commit. With Cursor parity installed it caps `AGENTS.md` and always-applied `.cursor/rules/*.mdc` the same way, and prints one budget line per host — each capped separately, since only one of them loads in a given session.
 
 **Fix:** don't grow `CLAUDE.md`. Move the content into a path-scoped rule file under `.claude/rules/` with `paths:` frontmatter, so it loads only when matching files are in context. That's the three-tier loading model working as designed:
 

@@ -25,7 +25,7 @@ The gate forces one decision to happen first: **what are we building, and what a
 It's enforced in two places, which is why it holds:
 
 - **`task-workflow`** — the discipline. Write the spec, wait for approval, then write `PLAN.md`.
-- **`spec-gate-guard.mjs`** — a `PreToolUse` hook that blocks non-trivial `Edit`/`Write`/`MultiEdit` when no approved plan exists. It doesn't trust the agent to have followed the skill.
+- **`spec-gate-guard.mjs`** — a pre-tool-use hook that blocks non-trivial `Edit`/`Write`/`MultiEdit` when no approved plan exists. It doesn't trust the agent to have followed the skill. Registered on `PreToolUse` in Claude Code and `preToolUse` in Cursor — one script, both hosts, same verdict ([GATES.md §7](GATES.md#7-the-same-gates-in-cursor)).
 
 ---
 

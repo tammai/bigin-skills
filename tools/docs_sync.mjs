@@ -169,6 +169,82 @@ for (const [tier, byEffort] of Object.entries(AGENTS)) {
   }
 }
 
+// --- plugin manifest parity (Claude Code <-> Cursor) ---
+//
+// The repo ships as a plugin to two hosts, each with its own manifest format:
+// .claude-plugin/{plugin,marketplace}.json and .cursor-plugin/{plugin,marketplace}.json.
+// Four files now carry the version and three carry the description, and nothing at
+// runtime complains when they disagree — a Cursor user just silently installs a plugin
+// stamped with last release's version. So the shared fields are gated here.
+//
+// Only genuinely shared fields are compared. The two schemas differ on purpose
+// (Cursor's manifest declares skills/agents paths; Claude Code's declares neither), and
+// keyword lists are allowed to diverge since each host's marketplace surfaces them
+// differently — the Cursor list is deliberately the shorter, less stack-specific one.
+function readJson(path) {
+  if (!existsSync(path)) fail(`${path} not found`);
+  try {
+    return JSON.parse(readFileSync(path, "utf-8"));
+  } catch (e) {
+    fail(`${path} is not valid JSON: ${e.message}`);
+  }
+}
+
+const claudePlugin = readJson(".claude-plugin/plugin.json");
+const cursorPlugin = readJson(".cursor-plugin/plugin.json");
+const claudeMarket = readJson(".claude-plugin/marketplace.json");
+const cursorMarket = readJson(".cursor-plugin/marketplace.json");
+
+const VERSION = claudePlugin.version;
+if (!/^\d+\.\d+\.\d+$/.test(VERSION ?? "")) {
+  fail(`.claude-plugin/plugin.json: version "${VERSION}" is not semver — it is the source of truth for every other manifest`);
+}
+
+const versioned = [
+  [".cursor-plugin/plugin.json", cursorPlugin.version],
+  [".cursor-plugin/marketplace.json → metadata.version", cursorMarket.metadata?.version],
+  [".cursor-plugin/marketplace.json → plugins[0].version", cursorMarket.plugins?.[0]?.version],
+];
+for (const [where, version] of versioned) {
+  if (version !== VERSION) {
+    fail(`${where} is "${version}" but .claude-plugin/plugin.json is "${VERSION}" — bump every manifest together`);
+  }
+}
+
+if (cursorPlugin.name !== claudePlugin.name) {
+  fail(`.cursor-plugin/plugin.json name "${cursorPlugin.name}" differs from .claude-plugin/plugin.json "${claudePlugin.name}"`);
+}
+if (cursorMarket.plugins?.[0]?.name !== claudePlugin.name) {
+  fail(`.cursor-plugin/marketplace.json plugins[0].name must be "${claudePlugin.name}"`);
+}
+if (cursorMarket.name !== claudeMarket.name) {
+  fail(`.cursor-plugin/marketplace.json name "${cursorMarket.name}" differs from .claude-plugin/marketplace.json "${claudeMarket.name}"`);
+}
+
+// Cursor resolves skills/agents through declared manifest paths rather than by
+// convention, so a renamed or moved directory silently ships an empty plugin.
+for (const [field, dir] of [["skills", cursorPlugin.skills], ["agents", cursorPlugin.agents]]) {
+  if (typeof dir !== "string") fail(`.cursor-plugin/plugin.json: "${field}" must be a path string`);
+  if (!existsSync(dir)) fail(`.cursor-plugin/plugin.json: "${field}" points at "${dir}", which does not exist`);
+}
+
+// Cursor requires every skill's `name` to equal its parent folder, and every skill and
+// agent to carry a description. Claude Code is laxer, so without this gate the plugin
+// installs fine here and is rejected — or worse, partially loaded — there.
+for (const name of skillDirs) {
+  const fm = parseFrontmatter(readFileSync(join("skills", name, "SKILL.md"), "utf-8"), `skills/${name}/SKILL.md`);
+  if (fm.name !== name) {
+    fail(`skills/${name}/SKILL.md: name is "${fm.name}" but Cursor requires it to match the folder name "${name}"`);
+  }
+  if (!fm.description) fail(`skills/${name}/SKILL.md: description missing — required by both hosts`);
+}
+for (const name of agentFiles) {
+  if (agentFrontmatter[name].name !== name) {
+    fail(`agents/${name}.md: name is "${agentFrontmatter[name].name}" but must match the filename "${name}"`);
+  }
+  if (!agentFrontmatter[name].description) fail(`agents/${name}.md: description missing — required by both hosts`);
+}
+
 // --- table builders ---
 
 function padRow(cells, widths) {

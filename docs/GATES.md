@@ -2,7 +2,7 @@
 
 Every enforcement gate the harness installs: what each blocks, why it exists, and how to get past one legitimately.
 
-The gates are deterministic scripts, not prose the agent is asked to follow. That's the point — a rule an agent can talk itself out of isn't a gate. They run at two moments: **before a tool call** (`PreToolUse` hooks) and **at commit time** (the pre-commit script).
+The gates are deterministic scripts, not prose the agent is asked to follow. That's the point — a rule an agent can talk itself out of isn't a gate. They run at two moments: **before a tool call** (`PreToolUse` hooks) and **at commit time** (the pre-commit script). Working in Cursor instead? Same scripts, same verdicts — see [§7](#7-the-same-gates-in-cursor).
 
 The spec gate has [its own guide](SPEC-GATE.md) and isn't repeated here. The `knowledge/` validator and drift guard are covered in [`KNOWLEDGE.md` §5](KNOWLEDGE.md#5-what-keeps-it-honest). The scripts themselves live in [`references/hook-guard.md`](../skills/bigin-harness-setup/references/hook-guard.md).
 
@@ -14,7 +14,8 @@ The spec gate has [its own guide](SPEC-GATE.md) and isn't repeated here. The `kn
 4. [The prompt-injection gate](#4-the-prompt-injection-gate)
 5. [The non-blocking hooks](#5-the-non-blocking-hooks)
 6. [Fail-closed, and why it matters](#6-fail-closed-and-why-it-matters)
-7. [Testing and unblocking](#7-testing-and-unblocking)
+7. [The same gates in Cursor](#7-the-same-gates-in-cursor)
+8. [Testing and unblocking](#8-testing-and-unblocking)
 
 ---
 
@@ -118,7 +119,7 @@ Pattern credited to [Lasso Security's PostToolUse Defender](https://www.lasso.se
 
 ## 5. The non-blocking hooks
 
-Three hooks that never block anything. They're easy to forget precisely because they never interrupt you.
+Three hooks that never block anything (four scripts, counting `injection-scan-guard` from §4). They're easy to forget precisely because they never interrupt you.
 
 **`session-resume-check.mjs`** (`SessionStart`) — injects context when `.claude/memory/SESSION.md` exists with `status: in-progress`, so a handed-off session offers to resume. Also reports graph presence and freshness when `graphify-out/` exists (see [`GRAPHIFY.md` §6](GRAPHIFY.md#6-keeping-it-fresh)). `SessionStart` is deliberate here rather than a `Stop` hook.
 
@@ -132,17 +133,41 @@ Together those two mean an auto-compact mid-task doesn't silently destroy your w
 
 ## 6. Fail-closed, and why it matters
 
-Claude Code treats **exit 2** as blocking and any *other* nonzero exit as a non-blocking error. So a guard that crashes on a malformed payload exits 1 — and the tool call runs **ungated**, with no visible sign the gate stopped working.
+Both hosts treat **exit 2** as blocking and any *other* nonzero exit as a non-blocking error. So a guard that crashes on a malformed payload exits 1 — and the tool call runs **ungated**, with no visible sign the gate stopped working.
 
-Every `PreToolUse` guard therefore wraps its payload parse and, on failure, prints a one-line diagnostic naming the script and exits 2. Blocking on an unreadable payload is the safe direction.
+Every blocking guard therefore wraps its payload parse and, on failure, prints a one-line diagnostic naming the script and exits 2. Blocking on an unreadable payload is the safe direction.
 
-The hooks that *can't* block — `injection-scan-guard` (`PostToolUse`), `canary-seed` (`SessionStart`), `precompact-snapshot` (`PreCompact`) — exit 0 quietly instead.
+The hooks that *can't* block — `injection-scan-guard`, `session-resume-check`, `canary-seed`, `precompact-snapshot` — exit 0 quietly instead.
 
 One deliberate exception: `commit-msg-guard`'s outer allow-on-unreadable is for a missing commit-message file in argv mode, so its payload parse fails closed *inside* the stdin path rather than at the top level.
 
+Cursor adds a second failure mode: it fails open on a hook that *crashes or times out*, not just on an odd exit code, unless the entry says otherwise. So `.cursor/hooks.json` sets `failClosed: true` on the five blocking gates and leaves it off the four non-blocking ones.
+
 ---
 
-## 7. Testing and unblocking
+## 7. The same gates in Cursor
+
+If setup installed Cursor parity, every gate above applies in Cursor too. There is **one script per gate, not two** — `.cursor/hooks.json` registers the same `.claude/guards/*.mjs` files that `.claude/settings.json` does, and `.claude/guards/lib/hook-io.mjs` absorbs the payload and response differences between the two hosts.
+
+The commit-time gates never needed anything: `pre-commit` and `commit-msg` are git hooks, so they've always applied to whoever commits, in whatever editor.
+
+Two things to know:
+
+- **One verdict is stricter in Cursor.** Cursor's `preToolUse` response supports `allow` and `deny` but not `ask`. The injection gate's stage-2 heuristic wants to *ask*, so under Cursor it **denies** instead, with a message telling the agent to surface the flagged content for you to confirm. Stage 3 (the canary) denies on both hosts. The rule is: never looser than Claude Code, occasionally stricter.
+- **The rules are generated, not authored.** `AGENTS.md` and `.cursor/rules/*.mdc` are produced from `CLAUDE.md` and `.claude/rules/` by `tools/cursor_mirror.mjs`. Edit the canonical file and re-run it; the pre-commit gate runs `--check` and fails the commit if the mirror is stale, missing, or orphaned.
+
+```bash
+node tools/cursor_mirror.mjs          # after changing CLAUDE.md or .claude/rules/
+node tools/cursor_mirror.mjs --check  # what the gate runs
+```
+
+**The skills come along too.** Cursor has a plugin system, and `bigin-skills` ships a `.cursor-plugin/plugin.json` alongside its Claude Code manifest — install it there and `/task-workflow`, `/debug-workflow`, and the rest are available. Repo-local skills need no mirror either: Cursor discovers skills from Claude's own directories, so a project's `.claude/skills/` is live as-is.
+
+What *doesn't* cross over is the subagent ladder. `model-router` spawns tiers through Claude Code's Agent tool with a per-tier `model`/`effort` pin, and Cursor's agents don't accept those — the roles are visible, the routing isn't. So in Cursor the implement/verify loop is something you drive rather than something the router fans out. Details: [`cursor-parity.md`](../skills/bigin-harness-setup/references/cursor-parity.md).
+
+---
+
+## 8. Testing and unblocking
 
 ### Testing a guard by hand
 
