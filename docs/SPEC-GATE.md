@@ -135,6 +135,8 @@ Statuses: `Not started`, `In progress`, `Done`, `Blocked`.
 
 **`Status: approved` is what the guard greps for.** A plan you're still drafting doesn't let edits through.
 
+**That's also the freeze switch.** If the requirement moves mid-task, `task-workflow`'s course-correction path sets `Status: amending` — the same gate then blocks non-trivial edits until the amended spec is re-approved, so nobody builds against a spec that's mid-rewrite. No second gate, no flag to remember: any value other than `approved` blocks. The amendment itself is logged in a `## Amendments` section, which is the only record of why the plan's shape changed once cleanup deletes the file.
+
 **`Branch:` stops a leftover plan from governing the wrong task.** If it disagrees with `HEAD`, non-trivial edits are blocked. Omit it when there's no branch to name (detached `HEAD`, not a repo) and the check is skipped — the guard never blocks on what git can't answer. On a deliberate rename or rebase, update the line rather than deleting it.
 
 **Full-spec tier adds two things** the default tier must not have: a `Covers` column linking each task to its `FR-`, and one tracked row per manual Verification Checklist item. Cleanup can't run while any of those rows is open. Default-tier plans have no FR-IDs to reference, so adding the column there is noise.
@@ -175,7 +177,7 @@ And you can't route around it: `bash-guard.mjs` blocks `--no-verify`, `git commi
 
 ## 7. Getting blocked
 
-Two messages, two different causes.
+Two messages, two different causes — plus one case where the block is deliberate and yours.
 
 **`PLAN.md missing or not approved`** — the gate working as designed. Legitimate ways forward:
 
@@ -185,6 +187,8 @@ Two messages, two different causes.
 
 **`PLAN.md is for branch 'X' but HEAD is 'Y'`** — a plan left over from another task. Finish it, update its `Branch:` line if you deliberately rebased or renamed, or delete it. Don't blank the `Status:` line to get moving; that leaves a plan on disk that the verifier may still pick up.
 
-Neither is an invitation to bypass. If the gate blocks something it shouldn't, the fix is the path allowlist or the threshold in `.claude/rules/`, changed deliberately — not `--no-verify`, which is blocked anyway.
+**Blocked while `Status: amending`** — not a failure, the freeze working. The requirement moved mid-task, so `task-workflow`'s course-correction path parked the plan until the amended spec is re-approved. Read the amended sections and the row changes, approve them, and the `Status:` line goes back to `approved`. Don't flip it back yourself to keep working — that's approving your own amendment, which is the one thing the gate is there to prevent.
+
+Neither of the first two is an invitation to bypass. If the gate blocks something it shouldn't, the fix is the path allowlist or the threshold in `.claude/rules/`, changed deliberately — not `--no-verify`, which is blocked anyway.
 
 > One workflow note: running several tasks at once needs a worktree per instance, because `PLAN.md` and the gate are per-directory. See [`references/parallelization.md`](../skills/task-workflow/references/parallelization.md).

@@ -196,6 +196,7 @@ Each guard's message names its own escape, and each is a real one:
 | Blocked by | Legitimate ways forward |
 |---|---|
 | `spec-gate-guard` | approve a plan, keep it ≤20 lines, or check the trivial-path list — see [`SPEC-GATE.md` §7](SPEC-GATE.md#7-getting-blocked) |
+| `spec-gate-guard`, plan says `Status: amending` | the freeze working, not a false positive: re-approve the amended spec — [`SPEC-GATE.md` §7](SPEC-GATE.md#7-getting-blocked) |
 | `commit-msg-guard` | rewrite the subject as a Conventional Commit under 100 chars |
 | `bugfix-test-guard` | stage the regression test, or `[no-test]` with the reason stated |
 | `bash-guard` | `--force-with-lease` instead of `--force`; for `--no-verify`, fix what's failing |

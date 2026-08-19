@@ -173,6 +173,9 @@ just describe the task ("implement X", "fix the bug in Y") and it triggers on it
 authoritative version of every step, spec format, and `PLAN.md` layout — if this file and the skill
 ever disagree, the skill wins.
 
+Work too big for one plan — several PRs, or several surfaces — goes through `epic-workflow` first: it
+splits the initiative into ordered units and hands them back to `task-workflow` one unit at a time.
+
 ## What it does, so you know what you're approving
 
 1. **Scope** — one sentence on what's changing, before any code.

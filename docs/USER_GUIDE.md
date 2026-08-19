@@ -229,6 +229,57 @@ Two properties worth knowing:
 
 If implementation reveals the task needs changes outside the stated scope, the workflow **stops and asks**. It never expands silently. A second task beats a sprawling first one.
 
+That covers work the task *turns out to need*. It's not the same as the requirement itself changing — that's next.
+
+### When the requirement changes mid-task
+
+You change your mind, or implementation reveals a spec assumption was wrong, and rows in `PLAN.md` are already `Done`. Three things look identical from inside the loop and only one of them is this:
+
+| What happened | What handles it |
+| --- | --- |
+| The code missed the plan | The verifier — `FAIL`, then a fix round |
+| The task needs work outside its scope | Scope discipline — stop and ask, second task |
+| **The requirement moved** | **Course correction** |
+
+What you'll see, in order:
+
+1. **The plan freezes.** `Status:` in `PLAN.md` flips to `amending`, and the spec gate — which only passes `approved` — blocks non-trivial edits until you re-approve. No new gate; the existing one just stops letting work through against a spec that's mid-rewrite.
+2. **The change gets classified out loud**, because the three cost different amounts: **additive** (new rows, nothing done is invalidated), **invalidating** (a `Done` row is now wrong and gets flipped back with a reason), or a **premise change** (the goal moved, not the requirements — the plan is replaced from the spec gate, not patched).
+3. **It's logged** to an `## Amendments` section in `PLAN.md`. That's the only record of why the plan's shape changed, and cleanup's distill step reads it before deleting the file.
+4. **You re-approve** — the changed sections and rows, as a diff, not the whole spec re-pasted. Then `Status:` goes back to `approved` and the loop resumes.
+
+Two limits worth knowing: amendment rounds **don't** count against the 3-round fix-loop cap (different failure mode), and there's a cap of **2 amendments per plan** — a third means the scope was wrong from the start, so it stops and re-scopes instead of looping.
+
+### When the work is bigger than one task
+
+If the request needs three or five plans rather than one, `epic-workflow` runs first and `task-workflow` runs underneath it:
+
+```
+/epic-workflow "multi-tenant billing"
+        ↓
+  triage — is this really 3+ units, >1 PR, or 2+ surfaces?
+        ↓
+  ≤3 questions, decomposition-level only
+        ↓
+  ordered units, each one plan's worth and independently shippable
+        ↓
+  YOU APPROVE THE DECOMPOSITION  ← the epic's only gate
+        ↓
+  .claude/memory/EPIC.md written
+        ↓
+  unit 1 → task-workflow (its own spec gate, its own PLAN.md)
+        ↓
+  row flipped to Done, then it STOPS — /clear and re-invoke for unit 2
+```
+
+Three things to hold onto:
+
+- **Approving an epic approves the decomposition, nothing else.** Every unit still faces the spec gate on its own merits. `EPIC.md` deliberately doesn't satisfy the guard — one epic-level approval standing in for five unwritten specs is exactly the drift the gate exists to stop.
+- **One unit per session, on purpose.** The queue file is the complete handoff package, so `/clear` between units. A finished unit's spec, diff, and verify rounds are context the next unit doesn't need.
+- **It refuses in both directions.** Below the bar it hands straight back to `task-workflow`; above ~8 units it says the scope is a roadmap, proposes the first epic-sized slice, and names what it deferred.
+
+Epic cleanup is also where the `knowledge/` distillation usually pays off. A single `PLAN.md` rarely establishes anything durable; an epic that settled a contract or a boundary did.
+
 ### Running several tasks at once
 
 One `PLAN.md` per worktree. Spec-gate approval is **per-worktree** — approving a plan in one instance never carries over to another. See [`skills/task-workflow/references/parallelization.md`](../skills/task-workflow/references/parallelization.md) for the worktree-per-instance pattern and the 3–4 task cascade.
@@ -241,6 +292,7 @@ One `PLAN.md` per worktree. Spec-gate approval is **per-worktree** — approving
 | --- | --- | --- |
 | Set up a new repo | "set up a harness" | `bigin-harness-setup` |
 | Build a feature / fix a tracked bug | "implement X", "fix Y" | `task-workflow` |
+| Break an initiative into shippable units | "this is too big for one task" | `epic-workflow` |
 | Write tests for one function | "write tests for `parseToken`" | `write-tests` |
 | Debug something not yet in a plan | "why is this flaky", "debug this" | `debug-workflow` |
 | Start a Nuxt / Next / Go / Node app from nothing | "scaffold nuxt", "create go rest api" | `*-scaffold` |
@@ -250,9 +302,11 @@ One `PLAN.md` per worktree. Spec-gate approval is **per-worktree** — approving
 | Implement a Nuxt UI Figma handoff | paste the Figma URL | `nuxt-ui-figma-handoff` |
 | Decide which model runs a task | "route this task" | `model-router` |
 
-### The two that overlap most
+### The three that overlap most
 
 **`write-tests` vs `task-workflow`** — `write-tests` is for "I need tests for this one function, now." A full feature going through `task-workflow` calls `write-tests` internally for its test authoring; you don't need to invoke both.
+
+**`epic-workflow` vs `task-workflow`** — `task-workflow` takes one task to shipped code. `epic-workflow` decides what the tasks *are*: it decomposes an initiative into ordered units, each sized to one `PLAN.md`, and then hands them back to `task-workflow` one unit per session (`/clear` between units — the queue file in `.claude/memory/EPIC.md` is the handoff package). Use it only when the work genuinely needs 3+ plans, spans more than one PR, or crosses two-plus surfaces; below that bar, decomposing costs a session and buys nothing. Approving an epic approves the *decomposition* only — every unit still faces the spec gate on its own.
 
 **`debug-workflow` vs `task-workflow`** — if the bug already has a `PLAN.md`, `task-workflow` owns it and points at `debug-workflow` for the actual debugging. Use `debug-workflow` standalone when the failure isn't tied to a ticket yet: a flaky test, a stack trace, "works in staging not prod," a live incident.
 
@@ -273,6 +327,8 @@ Full guide — every guard, the three-stage injection gate, fail-closed behavior
 **Exempt:** `tests/**`, `*.md`, `.env.example`, common config files, `graphify-out/**`, anything **git-ignored** (build output, caches — a path that never reaches the diff has nothing to spec), and any edit ≤20 lines. Note that "git-ignored" is index-aware: a *tracked* file that merely matches a `.gitignore` pattern is still gated.
 
 **Fix:** run `/task-workflow` and approve the spec. If it's a leftover plan from a finished task, delete `PLAN.md` — that's exactly what the `Branch:` check exists to catch.
+
+If the plan says `Status: amending`, the block is deliberate: a course correction is waiting on you to re-approve the amended spec. Approve it rather than editing the `Status:` line back yourself — see [§4](#when-the-requirement-changes-mid-task).
 
 ### `bugfix-test-guard.mjs` — "fix commit with no test"
 
@@ -432,7 +488,7 @@ When you're nearing a usage limit:
 Save session
 ```
 
-`session-handoff` writes tasks, decisions, and uncommitted changes to `.claude/memory/SESSION.md`. On the next session start, `session-resume-check.mjs` (a `SessionStart` hook) sees `status: in-progress` and prompts you to resume or start fresh — deterministically, not by hoping the model reads a line of CLAUDE.md prose.
+`session-handoff` writes tasks, decisions, and uncommitted changes to `.claude/memory/SESSION.md`. If an epic is in flight, `.claude/memory/EPIC.md` sits beside it — keep them in their lanes: `EPIC.md` holds the unit queue and its amendment log, `SESSION.md` holds whatever is in flight right now. Name the epic and unit number in `SESSION.md` rather than copying rows across; two records of one queue drift within a day. On the next session start, `session-resume-check.mjs` (a `SessionStart` hook) sees `status: in-progress` and prompts you to resume or start fresh — deterministically, not by hoping the model reads a line of CLAUDE.md prose.
 
 You also get this for free on automatic compaction: `precompact-snapshot.mjs` (a `PreCompact` hook) autosaves `SESSION.md` in the same format before context is compacted, so a mid-task compaction doesn't quietly lose in-flight state. It always exits 0 — a failed autosave never blocks compaction.
 
@@ -492,6 +548,7 @@ Probably the injection gate (stage 2) after a recent web fetch. Check what was f
 - The `knowledge/` bundle in depth — [`KNOWLEDGE.md`](KNOWLEDGE.md)
 - Using a code graph alongside the harness — [`GRAPHIFY.md`](GRAPHIFY.md)
 - Running several tasks in parallel — [`skills/task-workflow/references/parallelization.md`](../skills/task-workflow/references/parallelization.md)
+- The epic queue format and dispatch protocol — [`skills/epic-workflow/references/epic-queue.md`](../skills/epic-workflow/references/epic-queue.md)
 - A filled-in full spec — [`skills/task-workflow/references/full-spec-example.md`](../skills/task-workflow/references/full-spec-example.md)
 - Model tier rationale — [`skills/model-router/references/model-profiles.md`](../skills/model-router/references/model-profiles.md)
 - Migrating off Spec Kit — [`skills/bigin-harness-setup/references/speckit-migration.md`](../skills/bigin-harness-setup/references/speckit-migration.md)

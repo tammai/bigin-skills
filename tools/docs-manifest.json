@@ -8,6 +8,10 @@
       "group": "core",
       "summary": "On-demand task workflow (/task-workflow): scope → spec → plan (approved) → implement/verify loop (capped, independent verifier) → review → cleanup."
     },
+    "epic-workflow": {
+      "group": "core",
+      "summary": "Decomposes an initiative into ordered, independently shippable units (/epic-workflow), then dispatches one per session through task-workflow."
+    },
     "nuxt-scaffold": {
       "group": "core",
       "summary": "Scaffolds a Nuxt 4 BFF app from scratch via a deterministic Node.js script — npm create nuxt@latest + BFF preset + config/sample code. No GitHub clone."

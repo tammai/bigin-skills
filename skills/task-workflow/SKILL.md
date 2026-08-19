@@ -11,6 +11,7 @@ Follow this workflow for every non-trivial task.
 ## Steps
 
 1. **Scope** — state what you're changing and why in one sentence before touching any code.
+   If one sentence can't hold it — 3+ plans' worth of work, or more than one mergeable PR — the request is an epic, not a task. Stop here and run `epic-workflow` to decompose it; it hands each unit back to this workflow one at a time.
 
 2. **Spec gate** (non-trivial features only) — write and get approval for a spec before implementing.
    Skip for: bug fixes, copy changes, config tweaks, changes ≤20 lines of logic.
@@ -43,6 +44,8 @@ Follow this workflow for every non-trivial task.
       **Spawn what `routing.agents[tier]` names, not the tier's usual agent.** A profile that pins a tier at a non-default effort routes to a variant — the `standard` tier is `standard-worker-high` under `frontier` and `lean`, `standard-worker` only under `opus-centric`. Hardcoding the base name silently runs the task at the wrong effort. The spawned agent is the implementer for this task. Pass `model-router`'s verification bar through in the payload. Wait for it to finish; capture the returned agent ID and the diff it reports.
    2. **Dispatch a fresh verifier.** Call the Agent tool with `subagent_type: "bigin-skills:" + routing.agents.verifier` and `model:` set to `routing.models.verifier`, both from `model-router`'s signals (or `bigin-skills:verifier` on its own default if scoring was skipped) — the verifier tier has a variant too, `verifier-medium` under `lean`, so read the agent off `routing` rather than assuming. Pass `PLAN.md`'s path and **the diff itself** — never the implementer's own summary of what it did, that's exactly what independence is for. Parse the response against `references/verify-contract.md`'s schema.
    3. **On `FAIL`** — resume the *same* spawned implementer agent with `SendMessage` (`to:` its agent ID) relaying the issues list verbatim, so it fixes only what was flagged instead of re-deriving the task. Then dispatch a **new** verifier (fresh Agent call, new agent ID, no memory of this round) against the new diff. Note the round in `PLAN.md`'s task-row `Notes` (e.g. "Fix-loop round 2/3"). Cap at 3 rounds. Don't re-run model-router's scoring on a resume — the task's underlying complexity doesn't change round to round, only the issue list does; if the implementer itself decides the tier was wrong, it uses the normal `ROUTING_MISMATCH:` handback instead.
+
+      A `FAIL` means the implementation missed the plan. If the **plan itself** is now wrong — the requirement moved under it — that isn't a fix-loop round and relaying it as one makes the implementer chase a spec nobody re-approved. See `## Course correction`.
    4. **Round cap hit** — stop looping. Show the user the latest issues list and ask whether to adjust `PLAN.md`, raise the cap, or take over manually. Do not proceed to Review.
    5. **On `PASS`** — continue to Review below. The implementer is responsible for lint + typecheck + tests passing before it ever reports a diff as ready — the verifier's job is auditing against `PLAN.md`, not re-running the test suite. Show the actual command output in your response before flipping any `PLAN.md` task row to `Done` — a claim that tests pass without the output showing it doesn't count.
 
@@ -54,7 +57,7 @@ Follow this workflow for every non-trivial task.
 
    Two things happen before the delete, both proposed rather than run silently:
 
-   - **Distill, if there's anything durable.** `PLAN.md` is the only written record of *why* this task took the shape it did, and deleting it is the last chance to keep any of that. If the task established or changed a decision, invariant, contract, or constraint — not merely "added a feature" — say so and propose the specific `knowledge/` edit (which concept file, what line). Concepts are per-invariant, not per-task: prefer amending an existing file to adding one, and every new file needs a summary line in `knowledge/index.md` or the validator flags it unreachable. Nothing durable is the common case for routine work — say that and move on rather than inventing a concept to justify the step. Skip entirely if the repo has no `knowledge/` bundle.
+   - **Distill, if there's anything durable.** `PLAN.md` is the only written record of *why* this task took the shape it did, and deleting it is the last chance to keep any of that. If the task established or changed a decision, invariant, contract, or constraint — not merely "added a feature" — say so and propose the specific `knowledge/` edit (which concept file, what line). Read the `## Amendments` section first if there is one: a plan that had to be amended usually changed because of something worth writing down. Concepts are per-invariant, not per-task: prefer amending an existing file to adding one, and every new file needs a summary line in `knowledge/index.md` or the validator flags it unreachable. Nothing durable is the common case for routine work — say that and move on rather than inventing a concept to justify the step. Skip entirely if the repo has no `knowledge/` bundle.
    - **Rebuild the graph, if the task changed code** and `graphify-out/graph.json` exists: propose `graphify update .` (AST-only, zero API cost).
 
 ## Spec format (when required)
@@ -110,15 +113,51 @@ Branch: {git branch --show-current}
 | 1 | {task} | Not started | |
 ```
 
-Valid statuses: `Not started`, `In progress`, `Done`, `Blocked`.
+Valid task statuses: `Not started`, `In progress`, `Done`, `Blocked`.
+
+The plan's own `Status:` line is a different thing, and `spec-gate-guard.mjs` reads it: `approved` lets non-trivial edits through, and **anything else blocks them**. `## Course correction` uses `amending` for exactly that reason. An amended plan also gains a section, appended at the end:
+
+```
+## Amendments
+
+- **{YYYY-MM-DD} — {what changed}.** {why, and which task rows moved}
+```
 
 `Branch:` records the branch the plan was written on, so a plan left behind by an earlier task can't silently govern a later one — `spec-gate-guard.mjs` blocks non-trivial edits when it disagrees with `HEAD`. Omit the line when there's no branch to name (detached HEAD, or not a git repo); the guard skips the check rather than blocking on what it can't verify. On a deliberate rename or rebase onto a new branch, update the line rather than deleting it.
 
 **Full-spec tier only:** add a `Covers` column (e.g. `FR-3`) linking each task to the requirement it implements, and add one tracked row per Verification Checklist manual item (e.g. `Verify: error path for FR-2`, status `Not started`). Cleanup (step 6) can't happen while any of those rows is still open. Don't add the `Covers` column or verification rows for default-tier specs — there are no FR-IDs to reference.
 
+## Course correction
+
+For when the **requirement** moves while the plan is in flight — the user changes their mind, or implementation reveals that a spec assumption was wrong. Three failures look similar from inside step 4 and only one of them lands here:
+
+| What went wrong | Where it's handled |
+| --- | --- |
+| The implementation missed the plan | Verifier `FAIL` → step 4.3 |
+| The task needs work outside its stated scope | `## Scope discipline` → stop and ask, second task |
+| The requirement itself changed | Here |
+
+1. **Freeze the plan.** Set `Status: amending` in `PLAN.md`. That's all it takes — `spec-gate-guard.mjs` only lets non-trivial edits through on `approved`, so implementation is blocked until you re-approve, with no new gate and nothing to remember. If a spawned implementer is mid-flight, let it finish and discard the diff, or `SendMessage` it to stop; never leave two versions of the requirement live at once.
+
+2. **Classify the change**, and say which one it is out loud — the three have different costs and the user is choosing between them:
+
+   - **Additive** — a new requirement, nothing already `Done` is invalidated. Amend the spec section, append task rows (plus their `Covers` cell at full-spec tier), leave completed rows alone.
+   - **Invalidating** — something already `Done` is now wrong. Flip that row back to `Not started` with the reason in `Notes`, and decide revert-or-adapt explicitly. Never leave a `Done` row that no longer describes the code: the verifier audits the diff against the **whole** plan, so one stale row makes it either fail honest work or pass work nobody asked for.
+   - **Premise change** — the goal moved, not the requirements under it. Don't amend. Stop, say so, and start over at step 2 with a fresh spec; the old `PLAN.md` is replaced, not patched. A plan patched past recognition is the worst of both — it reads as approved and describes something nobody agreed to.
+
+3. **Log it.** Append one line to `PLAN.md`'s `## Amendments` section: what changed, why, which rows moved. `PLAN.md` is deleted at cleanup, so this log is the only record that the plan's shape changed, and step 6's distill pass reads it.
+
+4. **Re-approve.** Present the amended spec sections and the row changes — a diff, not the whole spec re-pasted — and wait. Then set `Status: approved` again.
+
+5. **Resume** at step 4.1. Amendment rounds don't count against the 3 fix-loop rounds; they're a different failure mode, and charging them to that cap would end the task for something the implementer got right. Do reset the fix-loop counter for any row whose spec changed — its earlier rounds were audited against a plan that no longer exists.
+
+**Cap: 2 amendments per plan.** A third means the scope was wrong from the start, not that the requirement keeps moving. Stop and re-scope: one new task, or `epic-workflow` if what's left is several.
+
 ## Scope discipline
 
-If implementation reveals the task requires changes outside the stated scope: **stop and ask**. Never expand scope silently. A second task is better than a sprawling first one.
+If implementation reveals the task requires changes outside the stated scope: **stop and ask**. Never expand scope silently. A second task is better than a sprawling first one — and if that second task turns out to be one of several, stop and run `epic-workflow` on what's left rather than growing this plan.
+
+Scope creep is not the same as the requirement changing. This section covers work the task *turns out to need*; `## Course correction` covers the requirement itself moving.
 
 ## Running multiple instances
 

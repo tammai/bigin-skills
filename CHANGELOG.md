@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.65.0] - 2026-08-19
+
+### Added
+
+- **`epic-workflow` — the layer above a single task.** `task-workflow` has always started at "implement X" and assumed someone else already decided what X was. For work that needs three or five plans rather than one, that decomposition lived nowhere: in the user's head between invocations, re-derived every session, with no record of what order the units had to land in or why. The new skill owns exactly that and nothing more — it decides what the tasks *are*, then hands them back to `task-workflow` one at a time.
+
+  **Triage first, because most requests aren't epics.** The bar is 3+ units, *or* work spanning more than one mergeable PR, *or* two-plus distinct surfaces (a contract *and* its consumers, a migration *and* the code reading it). Below the bar it says so in one sentence and hands straight to `task-workflow`; decomposing a one-plan task costs a session and buys nothing. Above ~8 units it refuses the other way — that's a roadmap, so it proposes the first epic-sized slice and names what it deferred rather than queueing twenty rows nobody reaches.
+
+  **Every unit must be independently shippable, not merely smaller.** Four rules, all four required: one plan's worth of work (one spec, one implement/verify loop, one reviewable diff); acceptance criteria that hold without any later unit existing; `main` still green and shippable with units 1..k done and k+1..n absent (flagged dead code is fine, a half-applied migration is not); and ordering by real artifact dependency, so `Blocked by` is empty wherever units can run in parallel worktrees.
+
+  **It adds no gate.** The decomposition gets one approval, in chat, before anything is written to disk — and that approves the *decomposition only*. Each unit still faces `spec-gate-guard.mjs` on its own merits with its own `PLAN.md`, and `.claude/memory/EPIC.md` deliberately does not satisfy the guard. One epic-level approval standing in for five unwritten specs is precisely the drift the spec gate exists to stop, so the queue file is not at the repo root, carries no `Branch:` line, and no guard reads it.
+
+  **One unit per session, by design.** After `task-workflow` reaches cleanup and deletes `PLAN.md`, the skill flips the row to `Done`, writes a one-line outcome into `Notes` for whatever a *later* unit needs to know, then stops and tells the user to `/clear` and re-invoke. The queue file is the complete handoff package; a finished unit's spec, diff, and verify rounds are context the next unit doesn't need and shouldn't pay for. Resume is the default path on re-invocation — it reads the queue before considering a decomposition, and never overwrites an in-flight epic.
+
+  The queue lives in `.claude/memory/EPIC.md` next to `SESSION.md`, because units land on different branches and a root-level file rides along on every one of them and conflicts on every merge. Format, a worked six-unit example, the dispatch/resume protocol, and the two states worth handling explicitly (an `In progress` row with no `PLAN.md`, and one with a live `PLAN.md`) are in `skills/epic-workflow/references/epic-queue.md`.
+
+  Epic cleanup is where the distillation actually pays: a single `PLAN.md` usually establishes nothing durable, but an epic that settled a contract or a boundary did. It reads the amendment log, proposes the specific `knowledge/` edit, then deletes the queue — a working file for the epic exactly as `PLAN.md` is for a task.
+
+- **`task-workflow` gains a course-correction path.** Three failures look identical from inside the implement/verify loop and only one of them was handled. A verifier `FAIL` covers "the implementation missed the plan." Scope discipline covers "the task needs work outside its stated scope." Nothing covered the third and most disruptive: **the requirement itself moved** while rows were in flight — the user changed their mind, or implementation revealed that a spec assumption was wrong. In practice that got relayed to the implementer as a fix-loop round, which made it chase a spec nobody had re-approved, and burned a round off the cap of three for something it had gotten right.
+
+  **The freeze switch already existed.** `spec-gate-guard.mjs` greps `^Status:\s*approved` and blocks non-trivial edits on any other value, so setting `Status: amending` in `PLAN.md` stops implementation cold until the amended spec is re-approved — no new guard, no new flag, nothing to remember. Documented in `docs/SPEC-GATE.md` alongside the `approved` and `Branch:` behavior it reuses.
+
+  The path then forces the change to be classified out loud, because the three cases cost different amounts and the user is choosing between them: **additive** (amend the spec, append rows, leave completed rows alone), **invalidating** (flip the affected `Done` row back with a reason — a stale `Done` row makes the verifier either fail honest work or pass work nobody asked for, since it audits the diff against the whole plan), or **premise change** (don't amend at all; a plan patched past recognition reads as approved while describing something nobody agreed to, so it's replaced from the spec gate). Amendments are logged in a new optional `## Amendments` section, which cleanup's distill pass now reads — a plan that had to change usually changed because of something worth writing down. Amendment rounds don't count against the 3-round fix-loop cap (different failure mode), but the counter resets for any row whose spec changed, since its earlier rounds were audited against a plan that no longer exists. Capped at 2 amendments: a third means the scope was wrong from the start, and it says so rather than looping.
+
+```patch
+target: AI_TASK_GUIDE.md
+anchor: ever disagree, the skill wins.
+insert: replace
+---
+ever disagree, the skill wins.
+
+Work too big for one plan — several PRs, or several surfaces — goes through `epic-workflow` first: it
+splits the initiative into ordered units and hands them back to `task-workflow` one unit at a time.
+```
+
 ## [1.64.0] - 2026-08-14
 
 ### Added

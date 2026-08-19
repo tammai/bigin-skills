@@ -93,7 +93,9 @@ Team conventions get **blended visibly**: a relevant `.claude/rules/*` rule is f
 | 6. Cleanup | **wired** | Before `PLAN.md` is deleted, if the task established or changed a **decision, invariant, contract, or constraint** — not merely "added a feature" — the specific edit is proposed: which file, what line. |
 | commit | **wired** | `knowledge_validate.mjs` and `knowledge_drift.mjs` run in pre-commit and CI. |
 
-Step 6 is the one to understand. `PLAN.md` is the only written record of *why* a task took its shape, and deleting it is the last chance to keep any of that. The prompt is deliberately narrow: **nothing durable is the common case** for routine work, and the skill says so rather than inventing a concept to justify the step. Concepts are per-invariant, not per-task — amending an existing file beats adding one, and any new file needs a summary line in `knowledge/index.md` or the validator flags it unreachable.
+Step 6 is the one to understand. `PLAN.md` is the only written record of *why* a task took its shape, and deleting it is the last chance to keep any of that. The prompt is deliberately narrow: **nothing durable is the common case** for routine work, and the skill says so rather than inventing a concept to justify the step. Concepts are per-invariant, not per-task — amending an existing file beats adding one, and any new file needs a summary line in `knowledge/index.md` or the validator flags it unreachable. If the plan carries an `## Amendments` section, the distill step reads it first: a plan that had to change usually changed because of something worth writing down.
+
+**The epic layer is the third entry point.** There are now three, at different altitudes: `task-workflow`'s cleanup (per task, usually nothing), `epic-workflow`'s cleanup (per epic — this is where durable decisions actually surface, because an epic that settled a contract or a boundary produced one), and `sprint-distill` (per sprint, across merged PRs). Same discipline in all three: propose a specific file and line, prefer amending to adding, and never bank a concept nobody asked for.
 
 ---
 

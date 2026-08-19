@@ -46,3 +46,5 @@ paths: skills/**,agents/**
 - `bigin-harness-setup` is idempotent — never clobbers without confirmation; `settings.json` merged, `README.md` append-only
 - `nuxt-scaffold` owns the Nuxt project (config, sample code, hooks); governance stays with `bigin-harness-setup`
 - `sprint-distill` compresses, never appends — every addition names what it replaces or cites budget headroom
+- `epic-workflow` adds **no gate**. Approving an epic approves the decomposition only, and `.claude/memory/EPIC.md` must never be made to satisfy `spec-gate-guard.mjs` — every unit keeps its own root `PLAN.md` and faces the gate on its own merits. The queue file is deliberately outside the repo root (units land on different branches) and carries no `Branch:` line.
+- `task-workflow`'s course-correction path **reuses `Status:`** rather than adding a freeze mechanism: `spec-gate-guard.mjs` passes only `approved`, so `amending` blocks by itself. Don't introduce a second flag, and don't teach the guard a new status — any value other than `approved` already blocks.

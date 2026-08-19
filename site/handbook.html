@@ -1741,11 +1741,165 @@ Fix the double-submit bug on the checkout form</code></pre>
       </div>
     </div>
 
+    <h3>When the requirement changes mid-task</h3>
+    <p>
+      You change your mind, or implementation reveals that a spec assumption was
+      wrong — and rows in <code>PLAN.md</code> are already done. Three things look
+      identical from inside the loop, and only the third one is this:
+    </p>
+    <div class="table-wrap">
+      <table class="keyed">
+        <thead><tr><th>What happened</th><th>What handles it</th></tr></thead>
+        <tbody>
+          <tr><td>The code missed the plan</td><td>The verifier — a failing verdict, then a fix round</td></tr>
+          <tr><td>The task needs work outside its scope</td><td>Scope discipline — stop and ask, second task</td></tr>
+          <tr><td><strong>The requirement moved</strong></td><td><strong>Course correction</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      <strong>The plan freezes first.</strong> Its <code>Status:</code> line flips to
+      <code>amending</code>, and the spec gate — which only ever passes
+      <code>approved</code> — stops letting non-trivial edits through until you
+      re-approve. That is the existing gate doing its job, not a new one: nobody
+      builds against a spec that is mid-rewrite.
+    </p>
+    <p>
+      Then the change is classified out loud, because the three cases cost very
+      different amounts. <strong>Additive</strong> means new rows and nothing already
+      finished is invalidated. <strong>Invalidating</strong> means a finished row is
+      now wrong, so it is flipped back with the reason recorded — a stale
+      <em>done</em> row would make the verifier either fail honest work or pass work
+      nobody asked for, because it audits the diff against the whole plan. A
+      <strong>premise change</strong> means the goal itself moved, and the plan is
+      replaced from the spec gate rather than patched; a plan patched past
+      recognition reads as approved while describing something nobody agreed to.
+    </p>
+    <p>
+      Every amendment is logged to an <code>## Amendments</code> section, which is the
+      only record that the plan's shape changed once cleanup deletes the file — and
+      which the distill step reads before it does. Amendment rounds do not count
+      against the three-round fix-loop cap; they are a different failure mode. There
+      is a cap of <strong>two amendments per plan</strong>, after which the honest
+      conclusion is that the scope was wrong from the start, and it says so.
+    </p>
+
+    <h3>When the work is bigger than one task</h3>
+    <p>
+      Some requests are three or five plans, not one. <code>epic-workflow</code> runs
+      above the loop and feeds it: it decides what the tasks <em>are</em>, in what
+      order, then hands them back one at a time.
+    </p>
+    <figure>
+      <svg class="diagram" viewBox="0 0 780 648" xmlns="http://www.w3.org/2000/svg"
+           role="img" aria-label="An initiative meets a triage test; work below the bar is handed straight to task-workflow, work above it is clarified, decomposed, approved by you, and written to the queue file. Each session then runs one unit through the six-step loop and returns to the queue after a slash clear, until every row is done and the queue is distilled and deleted.">
+        <defs>
+          <marker id="hbEpicArrow" viewBox="0 0 10 10" refX="7" refY="5"
+                  markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+            <path d="M0 1 L8 5 L0 9 z" fill="var(--dg-line)"/>
+          </marker>
+        </defs>
+
+        <g fill="none" stroke="var(--dg-line)" stroke-width="1.75"
+           stroke-linecap="round" marker-end="url(#hbEpicArrow)">
+          <path d="M390 60 V80"/>
+          <path d="M530 128 H596"/>
+          <path d="M390 176 V196"/>
+          <path d="M390 244 V268"/>
+          <path d="M390 324 V348"/>
+          <path d="M390 404 V428"/>
+          <path d="M390 480 V504"/>
+          <path d="M390 568 V596"/>
+          <path d="M240 556 H150 V454 H236"/>
+        </g>
+
+        <rect x="240" y="16" width="300" height="44" rx="12" fill="none"
+              stroke="var(--dg-border)" stroke-width="1.75"/>
+        <text x="390" y="43" text-anchor="middle" font-size="13" font-weight="600" fill="var(--dg-text)">An initiative</text>
+
+        <path d="M390 80 L530 128 L390 176 L250 128 Z" fill="none"
+              stroke="var(--dg-line)" stroke-width="1.75" stroke-linejoin="round"/>
+        <text x="390" y="124" text-anchor="middle" font-size="13" font-weight="600" fill="var(--dg-text)">Clears the bar?</text>
+        <text x="390" y="141" text-anchor="middle" font-size="10.5" fill="var(--dg-muted)">3+ units · &gt;1 PR · 2+ surfaces</text>
+
+        <text x="556" y="121" text-anchor="middle" font-size="11" font-weight="600" fill="var(--dg-muted)">no</text>
+        <rect x="596" y="104" width="176" height="48" rx="12" fill="none"
+              stroke="var(--dg-border)" stroke-width="1.75"/>
+        <text x="684" y="124" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--dg-text)">Straight to task-workflow</text>
+        <text x="684" y="140" text-anchor="middle" font-size="10.5" fill="var(--dg-muted)">one plan, one PR</text>
+
+        <text x="402" y="192" font-size="11" font-weight="600" fill="var(--dg-muted)">yes</text>
+
+        <rect x="240" y="196" width="300" height="48" rx="12"
+              fill="var(--dg-violet-fill)" stroke="var(--dg-violet)" stroke-width="1.75"/>
+        <text x="390" y="217" text-anchor="middle" font-size="13" font-weight="600" fill="var(--dg-text)">Up to 3 questions</text>
+        <text x="390" y="233" text-anchor="middle" font-size="10.5" fill="var(--dg-muted)">about the decomposition, not the code</text>
+
+        <rect x="240" y="268" width="300" height="56" rx="12"
+              fill="var(--dg-violet-fill)" stroke="var(--dg-violet)" stroke-width="1.75"/>
+        <text x="390" y="291" text-anchor="middle" font-size="13" font-weight="600" fill="var(--dg-text)">Decompose into ordered units</text>
+        <text x="390" y="309" text-anchor="middle" font-size="10.5" fill="var(--dg-muted)">each one plan&apos;s worth, each shippable alone</text>
+
+        <rect x="240" y="348" width="300" height="56" rx="12"
+              fill="var(--dg-accent-fill)" stroke="var(--brand-accent)" stroke-width="2"/>
+        <text x="390" y="371" text-anchor="middle" font-size="13" font-weight="600" fill="var(--dg-text)">You approve the decomposition</text>
+        <text x="390" y="389" text-anchor="middle" font-size="10.5" fill="var(--dg-muted)">the epic&apos;s only gate — nothing on disk before it</text>
+
+        <rect x="240" y="428" width="300" height="52" rx="12"
+              fill="var(--dg-blue-fill)" stroke="var(--dg-blue)" stroke-width="1.75"/>
+        <text x="390" y="450" text-anchor="middle" font-size="13" font-weight="600" fill="var(--dg-text)">The queue is written</text>
+        <text x="390" y="467" text-anchor="middle" font-size="10.5" font-family="var(--brand-font-code)" fill="var(--dg-muted)">.claude/memory/EPIC.md</text>
+
+        <rect x="240" y="504" width="300" height="64" rx="12"
+              fill="var(--dg-violet-fill)" stroke="var(--dg-violet)" stroke-width="1.75" stroke-dasharray="6 4"/>
+        <text x="390" y="530" text-anchor="middle" font-size="13" font-weight="600" fill="var(--dg-text)">One session, one unit</text>
+        <text x="390" y="548" text-anchor="middle" font-size="10.5" fill="var(--dg-muted)">the six-step loop above runs inside</text>
+
+        <text x="142" y="496" text-anchor="end" font-size="10.5" font-weight="600" fill="var(--dg-muted)">row marked done,</text>
+        <text x="142" y="511" text-anchor="end" font-size="10.5" font-weight="600" fill="var(--dg-muted)">/clear, re-invoke</text>
+
+        <text x="402" y="586" font-size="10.5" font-weight="600" fill="var(--dg-muted)">every row done</text>
+
+        <rect x="200" y="596" width="380" height="48" rx="12"
+              fill="var(--dg-mint-fill)" stroke="var(--dg-mint)" stroke-width="1.75"/>
+        <text x="390" y="617" text-anchor="middle" font-size="13" font-weight="600" fill="var(--dg-text)">Distill into knowledge/, then delete the queue</text>
+        <text x="390" y="633" text-anchor="middle" font-size="10.5" fill="var(--dg-muted)">a working file for the epic, like PLAN.md is for a task</text>
+      </svg>
+      <figcaption>
+        The skill refuses in both directions: below the bar it hands the request
+        straight back rather than decomposing a one-plan task, and above roughly
+        eight units it calls the scope a roadmap and proposes the first epic-sized
+        slice instead. The return edge goes to the queue file, not to the session —
+        after <code>/clear</code> it re-reads the queue and takes the next eligible row.
+      </figcaption>
+    </figure>
+    <p>
+      <strong>Approving an epic approves the decomposition and nothing else.</strong>
+      Every unit still faces the spec gate on its own merits. The queue file
+      deliberately does not satisfy the guard — one epic-level approval standing in
+      for five unwritten specs is precisely the drift the gate exists to stop.
+    </p>
+    <p>
+      <strong>One unit per session is the point, not an inconvenience.</strong> The
+      queue file is the complete handoff package, so <code>/clear</code> between
+      units: a finished unit's spec, diff, and verify rounds are context the next
+      unit does not need and should not pay for. The skill also refuses in both
+      directions — below the bar it hands straight back to the ordinary loop, and
+      above about eight units it says the scope is a roadmap, proposes the first
+      epic-sized slice, and names what it deferred.
+    </p>
+    <p>
+      Epic cleanup is where <code>knowledge/</code> usually earns its keep. A single
+      plan rarely establishes anything durable; an epic that settled a contract or a
+      boundary did.
+    </p>
+
     <div class="callout tip">
       <span class="callout-label">Tip</span>
       Scope discipline is a hard rule, not a preference: if implementation reveals
       work outside the stated scope, the agent stops and asks. A second task is
-      better than a sprawling first one.
+      better than a sprawling first one — and if that second task turns out to be
+      one of several, the epic layer above takes over rather than the plan growing.
     </div>
   </section>
 
@@ -1943,6 +2097,10 @@ Fix the double-submit bug on the checkout form</code></pre>
       <dd>The generated files that govern AI work in a repo: <code>CLAUDE.md</code>, <code>.claude/rules/</code>, and the commit-time gates.</dd>
       <dt>Spec gate</dt>
       <dd>The requirement that non-trivial work has an approved <code>PLAN.md</code> before any edit lands.</dd>
+      <dt>Course correction</dt>
+      <dd>The path taken when the requirement moves mid-task: the plan freezes at <code>Status: amending</code> until you re-approve the amended spec. Capped at two per plan.</dd>
+      <dt>Unit</dt>
+      <dd>One row of an epic's queue — a single plan's worth of work, independently verifiable and shippable without any later unit existing.</dd>
       <dt>Tier</dt>
       <dd>Which subagent executes a task — quick, standard, or deep — chosen by capability scoring.</dd>
       <dt>Verification bar</dt>

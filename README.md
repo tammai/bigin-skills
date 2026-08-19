@@ -43,11 +43,14 @@ Install the whole plugin, not one skill: `bigin-harness-setup` calls sibling ski
 
 **2. Every day after — "implement X" / "fix bug in Y."** [`task-workflow`](skills/task-workflow/SKILL.md) is the main driver: scope → spec gate → approved `PLAN.md` → implement/verify loop (capped at 3 rounds, independent verifier) → review → cleanup. It's the discipline `spec-gate-guard.mjs` and `bugfix-test-guard.mjs` actually enforce. You'll run setup once and this dozens of times.
 
+When a request is too big for one plan, [`epic-workflow`](skills/epic-workflow/SKILL.md) sits one level up: it decomposes the initiative into ordered, independently shippable units, gets that decomposition approved, and then hands them back to `task-workflow` one unit per session. It adds no gate of its own — each unit still passes the spec gate on its own merits.
+
 Everything else is situational:
 
 | You say | What runs |
 | --- | --- |
 | _(automatic, inside task-workflow)_ | `model-router` picks the executing tier; `write-tests` and `debug-workflow` supply test and bug-fix discipline |
+| "This is too big for one task" / "break this epic down" | `epic-workflow` — decomposes it into ordered units, then feeds them back to `task-workflow` one per session |
 | "Write tests for X" | `write-tests` — one function or component, no spec needed |
 | "Why is this flaky" / "debug this" | `debug-workflow` — a bug not yet tied to a plan |
 | "Sprint distill" / end of sprint | `sprint-distill` — merged PRs → `knowledge/` + harness updates |
@@ -80,6 +83,7 @@ Each scaffold skill's `SKILL.md` is the reference for what it generates. What se
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **bigin-harness-setup** | Scaffolds an AI workflow harness — CLAUDE.md brief, path-scoped rules, commit gates, optional Cursor mirror. Profiles: nuxt, go, nodejs, next, generic.      |
 | **task-workflow**       | On-demand task workflow (/task-workflow): scope → spec → plan (approved) → implement/verify loop (capped, independent verifier) → review → cleanup.          |
+| **epic-workflow**       | Decomposes an initiative into ordered, independently shippable units (/epic-workflow), then dispatches one per session through task-workflow.                |
 | **nuxt-scaffold**       | Scaffolds a Nuxt 4 BFF app from scratch via a deterministic Node.js script — npm create nuxt@latest + BFF preset + config/sample code. No GitHub clone.      |
 | **next-scaffold**       | Scaffolds a Next.js App Router BFF app from scratch via a deterministic Node.js script — create-next-app + BFF preset + shadcn/ui. No GitHub clone.          |
 | **go-scaffold**         | Scaffolds a Go modular-monolith REST API — Gin, contract-first oapi-codegen, GORM + Postgres, JWT access/refresh auth + RBAC, boundaries enforced by a test. |
