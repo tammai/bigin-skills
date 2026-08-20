@@ -386,8 +386,17 @@ function stage1bRefresh() {
     fail(`nuxt is now v${nuxtVersion} (expected v4) — stop, re-validate this skill before continuing`)
   }
   const nuxtConfig = fs.readFileSync(path.join(CFG.targetDir, 'nuxt.config.ts'), 'utf8')
-  if (!fs.existsSync(path.join(CFG.targetDir, 'app', 'app.config.ts')) || !fs.existsSync(path.join(CFG.targetDir, 'eslint.config.mjs')) || !nuxtConfig.includes('css:') || !nuxtConfig.includes('routeRules')) {
-    fail("create-nuxt@latest's template shape changed — re-verify artifacts.md merge instructions (nuxt.config.ts key order, app.config.ts) before continuing")
+  // `routeRules` is deliberately NOT part of this gate: 5 of the 8 cloned ui.nuxt.com templates
+  // (landing, docs, portfolio, chat, editor) ship no routeRules key at all, and requiring it here
+  // rejected them as "shape changed" when nothing had. insertRuntimeConfig() positions the merge
+  // by key order instead of anchoring on that key.
+  const missing = [
+    !fs.existsSync(path.join(CFG.targetDir, 'app', 'app.config.ts')) && 'app/app.config.ts',
+    !fs.existsSync(path.join(CFG.targetDir, 'eslint.config.mjs')) && 'eslint.config.mjs',
+    !nuxtConfig.includes('css:') && 'a css: key in nuxt.config.ts'
+  ].filter(Boolean)
+  if (missing.length) {
+    fail(`template shape changed — missing ${missing.join(', ')}; re-verify artifacts.md merge instructions (nuxt.config.ts key order, app.config.ts) before continuing`)
   }
   log('stage 1b done — nuxt v4 confirmed, template shape ok')
 }
@@ -424,6 +433,50 @@ function ensureModuleRegistered(moduleName) {
   }
 }
 
+// Top-level nuxt.config keys that nuxt/nuxt-config-keys-order ranks BEFORE runtimeConfig
+// (mirrors ORDER_KEYS in @nuxt/eslint-plugin, up to and including `appConfig`; `$`-prefixed
+// env keys rank there too). Every other key — ranked after, or unknown to the rule, which
+// sorts unknown keys last — must follow runtimeConfig. `pnpm lint` at stage 5 is not run
+// with --fix, so a misplacement fails the scaffold rather than self-healing.
+const KEYS_BEFORE_RUNTIME_CONFIG = new Set([
+  'appId', 'buildId', 'extends', 'theme', 'modules', 'plugins', 'ssr', 'pages', 'components',
+  'imports', 'devtools', 'app', 'css', 'vue', 'router', 'unhead', 'site', 'colorMode',
+  'content', 'mdc', 'ui', 'spaLoadingTemplate', 'appConfig'
+])
+
+/**
+ * Add `backendUrl` to nuxt.config.ts's runtimeConfig — the BFF proxy's only required setting.
+ *
+ * Anchoring on `routeRules` (the pre-v1.68.1 anchor) broke every template that ships without it
+ * (landing, docs, portfolio, chat, editor), and anchoring on `css` would land ahead of the
+ * client-module keys (`content`/`mdc`/`ui`) the order rule ranks earlier. So: scan top-level
+ * keys in file order and insert before the first one that must come after runtimeConfig.
+ * `editor` already ships a runtimeConfig (`public.partykitHost`) — that one gets backendUrl
+ * merged into it rather than a second key, which the old `includes('runtimeConfig')` check
+ * would have skipped silently, leaving the proxy without a backend URL.
+ */
+function insertRuntimeConfig(source) {
+  if (/backendUrl/.test(source)) return source
+  const comment = '// server-only; set via NUXT_BACKEND_URL env'
+  const existing = source.match(/^([ \t]*)runtimeConfig:\s*\{/m)
+  if (existing) {
+    const at = existing.index + existing[0].length
+    const indent = `${existing[1]}  `
+    return `${source.slice(0, at)}\n${indent}${comment}\n${indent}backendUrl: '',${source.slice(at)}`
+  }
+  const open = source.match(/defineNuxtConfig\(\{[ \t]*\n/)
+  if (!open) fail('cannot find defineNuxtConfig({ in nuxt.config.ts — template shape changed; re-verify artifacts.md')
+  const body = source.slice(open.index + open[0].length)
+  const key = [...body.matchAll(/^([ \t]{2})(\$?[A-Za-z_][\w$]*)\s*:/gm)]
+    .find((m) => !KEYS_BEFORE_RUNTIME_CONFIG.has(m[2]) && !m[2].startsWith('$'))
+  // Every template ends on keys that rank after runtimeConfig (`compatibilityDate`, `eslint`,
+  // …), so no anchor at all means a shape this script hasn't seen — fail rather than guess.
+  if (!key) fail('no nuxt.config.ts key ranks after runtimeConfig — template shape changed; re-verify artifacts.md')
+  const block = `${key[1]}${comment}\n${key[1]}runtimeConfig: { backendUrl: '' },\n`
+  const at = open.index + open[0].length + key.index
+  return source.slice(0, at) + block + source.slice(at)
+}
+
 function applyArtifacts() {
   log('stage 3: applying artifacts')
   const subs = {
@@ -452,17 +505,10 @@ function applyArtifacts() {
       writeFileEnsured(path.join(CFG.targetDir, rel), substitute(fs.readFileSync(src, 'utf8'), subs))
     }
   }
-  // nuxt.config.ts merge: insert runtimeConfig between css and routeRules (key
-  // order enforced by nuxt/nuxt-config-keys-order; comment on its own line —
-  // a trailing comment trips @stylistic/no-multi-spaces).
+  // nuxt.config.ts merge: runtimeConfig.backendUrl, placed per nuxt/nuxt-config-keys-order
+  // (comment on its own line — a trailing comment trips @stylistic/no-multi-spaces).
   const nuxtConfigPath = path.join(CFG.targetDir, 'nuxt.config.ts')
-  let nuxtConfig = fs.readFileSync(nuxtConfigPath, 'utf8')
-  if (!nuxtConfig.includes('runtimeConfig')) {
-    const m = nuxtConfig.match(/^([ \t]*)routeRules/m)
-    if (!m) fail('cannot find routeRules in nuxt.config.ts — template shape changed; re-verify artifacts.md')
-    const block = `${m[1]}// server-only; set via NUXT_BACKEND_URL env\n${m[1]}runtimeConfig: { backendUrl: '' },\n`
-    nuxtConfig = nuxtConfig.slice(0, m.index) + block + nuxtConfig.slice(m.index)
-  }
+  let nuxtConfig = insertRuntimeConfig(fs.readFileSync(nuxtConfigPath, 'utf8'))
   // devtools: BFF preset ships with devtools off by default.
   if (!nuxtConfig.includes('devtools: { enabled: false }')) {
     const before = nuxtConfig
@@ -641,6 +687,14 @@ function activateHooks() {
 }
 
 function verify() {
+  // Collapse duplicate transitive versions the staged `pnpm add` sequence leaves behind.
+  // Stages 1/1b/2 install in four passes, and pnpm keeps whatever a pass already resolved —
+  // on the `docs` template that stranded both h3 v1 (via nuxt-auth-utils) and h3 v2 (via
+  // nitro) in the server type graph, and `nuxt typecheck` failed on the template's OWN
+  // routes as well as ours. A single `pnpm install` of the same package set resolves one h3
+  // and type-checks clean, so this is an install-order artifact, not a version conflict.
+  log('stage 4b: pnpm dedupe — collapsing duplicate transitive versions from the staged installs')
+  must('pnpm', ['dedupe'], 'pnpm dedupe')
   log('stage 5: verify — lint, type-check, test must all pass')
   must('pnpm', ['lint'], 'pnpm lint')
   must('pnpm', ['type-check'], 'pnpm type-check')

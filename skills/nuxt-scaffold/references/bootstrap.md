@@ -79,7 +79,15 @@ pnpm add @pinia/nuxt nuxt-auth-utils @vueuse/nuxt
 
 followed by `ensureModuleRegistered()` for each (the same helper Stage 2 uses for `@pinia/colada-nuxt` when `nuxi module add` silently fails to register) — this puts the cloned-template path at parity with what `--modules` gives the `starter` path *before* Stage 1b runs, so Stage 1b's refresh + safety checks work unmodified across every template.
 
-Shape verified during authoring (fetched live from GitHub): only `nuxt-ui-templates/saas`. It has `app/app.config.ts` with `css:`/`routeRules` present in `nuxt.config.ts` (Stage 1b's safety check passes) and `ui: { colors: { primary, neutral } }` in `app.config.ts` (the theme regex in `applyArtifacts` matches `primary:\s*(['"])[a-z]+\1` anywhere in the file regardless of nesting, so no special-casing was needed). The other 7 slugs (`dashboard`, `landing`, `docs`, `portfolio`, `chat`, `changelog`, `editor`) were **not** individually fetched — they rely solely on Stage 1b's generic safety checks (`nuxt` v4, `app/app.config.ts` + `eslint.config.mjs` existing, `css:`/`routeRules` in `nuxt.config.ts`) to fail loudly rather than silently if their shape doesn't match. Re-verify a slug's shape the first time a real scaffold with that `template` value is attempted.
+Shape verified against all 8 slugs (fetched live from GitHub, v1.68.1). Every one ships `app/app.config.ts` with `ui: { colors: { primary, neutral } }`, `eslint.config.mjs`, `app/assets/css/main.css` with a quoted `--font-sans`, and `modules`/`devtools: { enabled: true }`/`css:`/`compatibilityDate` in `nuxt.config.ts` — so Stage 1b's checks and every `applyArtifacts` anchor hold. Two shape differences the scaffold has to absorb, both of which cost a release to learn:
+
+| Slug | `routeRules`? | Existing `runtimeConfig`? |
+| --- | --- | --- |
+| `saas`, `dashboard`, `changelog` | yes | no |
+| `landing`, `docs`, `portfolio`, `chat` | **no** | no |
+| `editor` | **no** | **yes** (`public.partykitHost`) |
+
+Before v1.68.1 Stage 1b required `routeRules` and `applyArtifacts` anchored the `runtimeConfig` insert on it, so 5 of the 8 templates aborted with "template shape changed" when nothing had; `editor` would additionally have been skipped by a bare `includes('runtimeConfig')` test and shipped without `backendUrl`. Both are now key-order-driven (see `artifacts.md`). End-to-end scaffolds (through Stage 5 lint/type-check/test) were run for `starter`, `landing`, `docs`, and `editor`; the remaining four rely on Stage 1b's generic checks to fail loudly rather than silently. Re-verify a slug's shape the first time a real scaffold with that `template` value is attempted.
 
 ---
 
@@ -115,7 +123,7 @@ execFileSync('pnpm', ['add'].concat(specs), { stdio: 'inherit' });
 ```sh
 NUXT_MAJOR=$(node -e "console.log(require('nuxt/package.json').version.split('.')[0])")
 [ "$NUXT_MAJOR" = "4" ] || { echo "nuxt is now v$NUXT_MAJOR (expected v4) — stop, re-validate this skill before continuing"; exit 1; }
-test -f app/app.config.ts && test -f eslint.config.mjs && grep -q "css:" nuxt.config.ts && grep -q "routeRules" nuxt.config.ts || { echo "create-nuxt@latest's template shape changed — re-verify Stage 3's merge instructions (nuxt.config.ts key order, app.config.ts) before continuing"; exit 1; }
+test -f app/app.config.ts && test -f eslint.config.mjs && grep -q "css:" nuxt.config.ts || { echo "template shape changed — re-verify Stage 3's merge instructions (nuxt.config.ts key order, app.config.ts) before continuing"; exit 1; }
 ```
 
 If any `pnpm add` fails, report which package and stop — do not continue with a partial install. (`ERR_PNPM_IGNORED_BUILDS` is the one exception — see "Build-script approval" above.)
@@ -165,9 +173,12 @@ Wires the `pre-commit` → `pnpm exec lint-staged` hook declared in `package.jso
 ## Stage 5 — Verify
 
 ```sh
+pnpm dedupe
 pnpm lint
 pnpm type-check
 pnpm test
 ```
+
+`pnpm dedupe` runs first (stage 4b in `scaffold.mjs`) because stages 1, 1b and 2 install in four separate passes and pnpm keeps whatever each pass already resolved. On `docs` that stranded two copies of `h3` in the server type graph — v1 via `nuxt-auth-utils`, v2 via nitro — and `nuxt typecheck` failed on the template's own `server/routes/**` as well as the scaffolded proxy. Installing the same package set in one pass resolves a single `h3` and type-checks clean, so it's an install-order artifact rather than a version conflict; `dedupe` collapses it.
 
 `lint`, `type-check`, and `test` must pass before the scaffold is considered complete. (`session.test.ts` is written in Stage 3, so `pnpm test` validates the Vitest + Nuxt + Pinia Colada chain.) Verify the Nuxt major version (`node -e "console.log(require('nuxt/package.json').version)"` — must start with `4`). Stop and fix any errors before the initial commit.

@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.68.1] - 2026-08-20
+
+### Fixed
+
+- **`nuxt-scaffold` rejected 5 of its 8 cloned templates as "template shape changed".** Stage 1b's safety check required a `routeRules` key in `nuxt.config.ts`, but `landing`, `docs`, `portfolio`, `chat` and `editor` ship none — so scaffolding any of them aborted with `create-nuxt@latest's template shape changed — re-verify artifacts.md merge instructions`, naming a cause (a changed upstream template) that had nothing to do with it. Only `saas` was ever shape-verified during authoring; the other seven were left to this check, and it was wrong about five of them.
+
+  `routeRules` was load-bearing because `applyArtifacts` anchored its `runtimeConfig: { backendUrl: '' }` insert on that key. Anchoring is now key-order-driven: `insertRuntimeConfig()` scans top-level keys and inserts before the first one `nuxt/nuxt-config-keys-order` ranks after `runtimeConfig` (`css` is the wrong anchor too — `content`/`mdc`/`ui` sit between it and `runtimeConfig`). The Stage 1b gate keeps only the three checks that hold for all 8 templates, and now names which one failed instead of listing every suspect.
+
+- **The `editor` template would have scaffolded without a backend URL.** It is the one template that already ships a `runtimeConfig` (`public.partykitHost`), and the old `if (!nuxtConfig.includes('runtimeConfig'))` guard read that as "already done" and skipped the insert — silently, since `routeRules` would have aborted the run first. `backendUrl` is now merged into an existing `runtimeConfig` block.
+
+- **The staged installs stranded duplicate transitive versions, and `docs` type-checked red because of it.** Stages 1, 1b and 2 install in four `pnpm add` passes and pnpm keeps whatever each pass already resolved. On `docs` that left both `h3` v1 (via `nuxt-auth-utils`) and `h3` v2 (via nitro) in the server type graph, and `nuxt typecheck` failed on the template's *own* `server/routes/**` as well as the scaffolded proxy — 8 errors, reproduced on two clean runs. Installing the same package set in one pass type-checks clean, so it was an install-order artifact, not a version conflict; a `pnpm dedupe` step (stage 4b) now runs before verify and collapses it. This was invisible before, because Stage 1b aborted `docs` long before verify.
+
+  All 8 template shapes were fetched and tabulated in `bootstrap.md`, and `starter`, `landing`, `docs` and `editor` were scaffolded end-to-end through Stage 5 (lint, type-check, test).
+
 ## [1.68.0] - 2026-08-20
 
 ### Fixed
