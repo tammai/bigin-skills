@@ -5,6 +5,121 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.68.0] - 2026-08-20
+
+### Fixed
+
+- **The Flutter format gate rewrote the working tree instead of checking it.** `dart format --set-exit-if-changed .` *reformats every unformatted file it finds* and then exits 1 — the flag controls the exit code, not whether it writes. As the first step of `scripts/pre-commit.sh` that meant a commit silently reformatted files the developer never staged, left the staged snapshot unformatted, and landed a commit that differed from the one the gate had checked. Flutter is the only profile with a formatter in its pre-commit gate; go, nuxt, next and nodejs all run read-only checks, so nothing else in the harness had this shape.
+
+  Fixed with `--output=none` in all five call sites — `pre-commit: flutter`, both CI templates, the profile's `## Commands` block, and the `format` row of the generated `CLAUDE.md`. Verified A/B on a 118-file app: the old command exits 1 and dirties one file, the new one exits 1 and dirties none.
+
+- **`spec-gate-guard.mjs` blocked every Flutter integration test.** Its trivial-path allowlist matched `test/` via a directory rule, but `integration_test/` is not `test/` — so a new flow test, which is never under the 20-line threshold, was gated behind an approved `PLAN.md` while the identical file under `test/` passed. v1.66.0 fixed exactly this gap in `bugfix-test-guard.mjs` with a `_test.dart` filename rule and a comment explaining why the directory rule was insufficient; the same reasoning was never carried across to the spec gate. The profile's own `testing.md` requires one integration test per acceptance criterion, so this fired on the work the profile asks for.
+
+  Same `_test.dart` rule added to `spec-gate-guard.mjs`. Verified on both payload shapes: a 40-line write to `integration_test/login_flow_test.dart` now exits 0, `test/**` still exits 0, `lib/**` still blocks, and the near-misses (`lib/notatest_dart.dart`, `lib/testing/foo.dart`) still block.
+
+- **`flutter analyze --fatal-infos` failed on generated code the profile forbids editing.** `--fatal-infos` promotes analyzer infos to build failures, and generated output reliably produces them — `freezed` emits `non_nullable_equals_parameter` per union, and generator output written against an older SDK carries `deprecated_member_use`. That code is committed, CI-diffed and explicitly never hand-edited, so the profile's own `{TYPECHECK}` gate was red on day one with no legal fix. Measured on a real 118-file app: 12 of 39 findings were in `*.freezed.dart`.
+
+  New `## analysis_options.yaml` section in `references/profile-flutter.md` (an `analyzer: exclude:` block, **merged** into the repo's existing file, never overwriting it) wired in as SKILL.md Phase 5-3b2, plus a line in the generated `CLAUDE.md` saying generated code is excluded and why. Verified: 39 findings → 27, all 12 generated-file findings gone, no source finding lost.
+
+- **The CI codegen gate failed on caret ranges instead of switching itself off.** The regenerate-and-diff step is only meaningful when generators are pinned exactly, and the template enforced that precondition with `exit 1`. Essentially every existing Flutter repo carries caret ranges — the test repo had four — so the generated workflow was red on the first push, which is the same day-one death the two lint plugins are conditional to avoid. Both CI templates now skip the diff with a named message saying what to pin; the gate still activates on its own once the pins are exact.
+
+- **The generated GitHub workflow could not resolve an SDK.** It reads `flutter-version-file: .fvmrc`, and `subosito/flutter-action` errors when that file is missing — which it is on any repo that hasn't adopted fvm. Phase 5.6 now writes `.fvmrc` from `flutter --version --machine` before writing the workflow, and says so in the summary when Flutter isn't on `PATH`. GitLab needed no change: its `image:` tag defaults to `stable` and runs as written.
+
+- **Phase 7 had nowhere to report any of this.** SKILL.md Phase 5.6 told the agent to "name both in the Phase 7 summary", but `summary-checklist.md`'s print template carried no flutter conditional at all — every other conditional is an explicit bracketed line, so the instruction had no landing site and the caveats reached the user only if the agent improvised them. Added: the written-files lines for `analysis_options.yaml` and `.fvmrc`, two `Next steps` items (SHA-pin the third-party action and the GitLab image tag; which two gates are off and what turns them on), and four Output Checklist rows.
+
+- **The `import_lint` SDK floor never reached a generated file.** `references/profile-flutter.md` recorded that it needs Dart 3.10+ / Flutter 3.38+, but the generated `CLAUDE.md` stated flatly that the import boundaries are "enforced by `dart run import_lint` — the *only* command that checks it", with no floor. On a repo below it — Flutter 3.27 is still common — the project's central structural invariant is enforced by nothing, and the always-loaded brief said otherwise. The floor and its consequence are now in that same line.
+
+```patch
+target: scripts/pre-commit.sh
+anchor: dart format --set-exit-if-changed .
+insert: replace
+---
+dart format --output=none --set-exit-if-changed .
+```
+
+```patch
+target: .github/workflows/ci.yml
+anchor: "- run: dart format --set-exit-if-changed ."
+insert: replace
+---
+- run: dart format --output=none --set-exit-if-changed .
+```
+
+```patch
+target: .gitlab-ci.yml
+anchor: "- dart format --set-exit-if-changed ."
+insert: replace
+---
+- dart format --output=none --set-exit-if-changed .
+```
+
+```patch
+target: .claude/guards/spec-gate-guard.mjs
+anchor: "  /(^|[/\\])tests?[/\\]/i,"
+insert: after
+---
+  // Dart/Flutter: `foo_test.dart`. Needed on its own for the same reason
+  // bugfix-test-guard.mjs needs it — `integration_test/` is not `test/`, so the
+  // directory rule above misses every flow test, and a flow test is never ≤20 lines.
+  /_test\.dart$/,
+```
+
+## [1.67.0] - 2026-08-20
+
+### Added
+
+- **A skill without `evals/evals.json` now fails the commit.** Trigger-case coverage has been a convention since the first harness audit and three separate new skills shipped without it — `bigin-harness-setup`/`nuxt-scaffold`/`sprint-distill` in July, `session-handoff` a week later, `epic-workflow` last week. Each time it was fixed by hand and reopened by the next skill, because nothing checked. `tools/docs_sync.mjs --check` now requires every `skills/*/` to carry a non-empty array of `{query, should_trigger}` objects with at least one case each way, and names the file and the exact defect (missing, unparseable, wrong shape, all-positive, all-negative) when it doesn't. `epic-workflow` gains the 13 cases it should have shipped with.
+
+- **`disallowed-tools` on the two propose-then-stop skills.** `sprint-distill` and `harness-audit` both promise to report and stop before changing anything, and both enforced it with prose alone. The frontmatter field restricts tools for exactly the turn that invokes the skill and clears when the user replies — which is precisely the propose-then-stop boundary — so `disallowed-tools: Edit Write NotebookEdit` makes the guarantee mechanical without touching either workflow's apply phase.
+
+### Changed
+
+- **`bigin-harness-setup/SKILL.md`: 497 → 397 lines.** The flutter profile pushed it to three lines under the 500-line cap, a limit four consecutive audits had flagged it approaching. Four sections moved out, chosen because they are reference material rather than per-run instruction: the Phase 0 detection ladder (`references/profile-detection.md`), the Phase 1.5 question bundle (`references/decision-bundle.md`), the Phase 3 rule-file mapping (`references/rule-files.md`), and Phase 8's verbatim print template plus Phase 5.6's spec-gate rationale (appended to `references/summary-checklist.md` and `references/ci.md`).
+
+  Two of those were also duplication, not just length. Phase 3 was five near-identical per-profile blocks each restating the same three shared-file rules — exactly what `skill-authoring.md` says to write as one table — and is now a per-profile matrix plus the shared rules stated once. The Idempotency Rules repeated "opt-in, decided once in Phase 1.5, skip if declined" five times and restated Phase 0 in full; both collapsed. No instruction was dropped.
+
+- **Sibling-skill citations go through `${CLAUDE_PLUGIN_ROOT}`.** Three skills pointed at another skill's reference file by bare repo-relative path, which only resolves when the plugin happens to be the working directory. The variable is substituted in skill content, so the path now resolves wherever the plugin is installed.
+
+- **Cursor's component paths are `./`-prefixed.** `plugins-reference.md` requires relative component paths to start with `./`; `.cursor-plugin/plugin.json` and its marketplace entry used bare `skills`/`agents`.
+
+### Fixed
+
+- Nothing user-facing — all five items above came from the 2026-08-20 harness audit against current Claude Code docs. Two doc/runtime discrepancies were checked and needed no change: `permissionDecision: 'ask'` (the docs page lists `escalate`, but the installed v2.1.237 binary declares `"allow" | "deny" | "ask"` and contains no `"escalate"` decision value), and the PostToolUse tool-output field (docs now say `tool_output`; `hook-io.mjs` already reads `tool_response ?? tool_output`).
+
+## [1.66.1] - 2026-08-20
+
+### Fixed
+
+- **`bigin-skills` no longer references another plugin.** `profile-flutter.md` named a `product-rebuild-skills` playbook as the architecture it writes conventions for, and said "section numbers cited below are that document's" — a citation that dangled (no such file exists in the installed `product-rebuild-skills`) and propped up nothing (no section number was cited anywhere in the file). More to the point it pointed the wrong way: the dependency direction is one-way, `product-rebuild-skills` → `bigin-skills`, never the reverse. The stack is now stated inline, and `.claude/rules/skill-authoring.md` carries the invariant so a future profile can't reintroduce it.
+
+- **The Flutter base-URL gate hard-failed every flavored Firebase repo.** v1.66.0 excluded `lib/firebase_options.dart` from the `no https:// literal in lib/` grep, because that file carries a `databaseURL` literal under a `// GENERATED CODE` header it cannot annotate. The exclusion was by exact filename — and the per-flavor FlutterFire recipe writes `firebase_options_dev.dart`, `firebase_options_staging.dart` and `firebase_options_prod.dart` instead, one per `flutterfire configure --out=`. This profile *requires* three flavors, so the flavored layout is the expected one, not a corner case: a repo following the profile's own flavor rule fails its first commit and its first CI run, on generated files it is forbidden to edit.
+
+  Excluded by glob (`firebase_options*.dart`) in all three copies — the pre-commit gate and both CI templates. Verified against a fixture tree: the per-flavor files pass, the single-file default still passes, a real `https://` literal in `lib/` is still caught, and `// url-literal-ok` still works. Same defect class as the four v1.66.0 corrected — a gate that fires on correct work — found one file-naming step further along.
+
+```patch
+target: scripts/pre-commit.sh
+anchor: --exclude='firebase_options.dart'
+insert: replace
+---
+--exclude='firebase_options*.dart'
+```
+
+```patch
+target: .github/workflows/ci.yml
+anchor: --exclude='firebase_options.dart'
+insert: replace
+---
+--exclude='firebase_options*.dart'
+```
+
+```patch
+target: .gitlab-ci.yml
+anchor: --exclude='firebase_options.dart'
+insert: replace
+---
+--exclude='firebase_options*.dart'
+```
+
 ## [1.66.0] - 2026-08-19
 
 ### Added

@@ -2,6 +2,7 @@
 name: harness-audit
 description: "Audits this bigin-skills plugin against current official Claude Code docs (skills, hooks, sub-agents, plugins, memory) — findings report only, never auto-fixes. Triggers: 'audit the harness', 'recheck against best practices', 'is this still current'."
 disable-model-invocation: true
+disallowed-tools: Edit Write NotebookEdit
 effort: high
 ---
 

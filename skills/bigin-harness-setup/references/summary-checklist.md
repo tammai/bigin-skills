@@ -98,6 +98,8 @@ Created:
   scripts/commit-msg.sh [skipped if a hook manager already exists]
   [Knowledge Bundle: .claude/rules/knowledge.md, knowledge/*, tools/knowledge_validate.mjs] (if opted in)
   [Cursor mirror: AGENTS.md, .cursor/rules/*.mdc, .cursor/hooks.json, tools/cursor_mirror.mjs] (if AGENT_HOSTS includes cursor)
+  [analysis_options.yaml — analyzer: exclude for generated code merged in / already present] (flutter only)
+  [.fvmrc — written from the local Flutter version so the CI action can resolve an SDK / not written, Flutter not on PATH] (flutter + CI_PROVIDER github/both)
   [.github/workflows/ci.yml] (if CI_PROVIDER is github/both)
   [.gitlab-ci.yml] (if CI_PROVIDER is gitlab/both)
   [PLAN.md — created to clear the active spec gate for the CI writes above, then deleted] (Phase 5.6 step 0 only)
@@ -123,8 +125,10 @@ Next steps:
   3. Read CLAUDE.md + use /task-workflow for the per-task workflow
   4. One scoped task through all gates — confirm the harness works.
   5. Use /code-review and /security-review for code/security review — not scaffolded as project-local agents.
-  [6. Add `node tools/knowledge_validate.mjs` to your existing CI — this skill only wires it into CI it generated itself.] (if opted in and CI_PROVIDER=no but foreign CI config detected)
-  [7. Working in Cursor: edit CLAUDE.md / .claude/rules/ and re-run `node tools/cursor_mirror.mjs` — never edit AGENTS.md or .cursor/rules/*.mdc directly. Add `node tools/cursor_mirror.mjs --check` to your existing CI if this skill didn't generate it.] (if AGENT_HOSTS includes cursor)
+  [6. Flutter + CI: pin `subosito/flutter-action@v2` to a commit SHA — it is a third-party action with full access to the job. On GitLab, move `image: ghcr.io/cirruslabs/flutter:stable` to the same version as .fvmrc; `stable` is a moving target.] (if PROFILE=flutter and CI_PROVIDER != no)
+  [7. Flutter: two gates are off until you configure them, and both say so when they skip — `dart run import_lint` (the *only* check on the layer/feature import boundaries; needs Dart 3.10+/Flutter 3.38+) and the CI codegen diff (needs build_runner, freezed, json_serializable and friends on exact versions, not caret ranges).] (if PROFILE=flutter)
+  [8. Add `node tools/knowledge_validate.mjs` to your existing CI — this skill only wires it into CI it generated itself.] (if opted in and CI_PROVIDER=no but foreign CI config detected)
+  [9. Working in Cursor: edit CLAUDE.md / .claude/rules/ and re-run `node tools/cursor_mirror.mjs` — never edit AGENTS.md or .cursor/rules/*.mdc directly. Add `node tools/cursor_mirror.mjs --check` to your existing CI if this skill didn't generate it.] (if AGENT_HOSTS includes cursor)
 ```
 
 ---
@@ -166,7 +170,10 @@ Next steps:
 - [ ] `.claude/model-routing.json` — subagent model ladder set to the Phase 1.5 `MODEL_ROUTING` profile (`new` mode: existing file left untouched)
 - [ ] **patch mode only** — only changelog `patch`-tagged changes since `FROM_VERSION` applied; `.claude/harness-version` advanced to `TO_VERSION`; summary lists applied vs skipped
 - [ ] **nuxt/next only** — `.vscode/settings.json` with ESLint format-on-save (Prettier disabled), merged if it existed — skipped for go/nodejs/flutter/generic
-- [ ] **flutter only** — the pre-commit gate and generated CI run **both** `dart run custom_lint` and `dart run import_lint`, each skipped-with-a-named-message when unconfigured; the base-URL grep and (CI only) the regenerate-and-diff step with its exact-pin precondition are present
+- [ ] **flutter only** — the pre-commit gate and generated CI run **both** `dart run custom_lint` and `dart run import_lint`, each skipped-with-a-named-message when unconfigured; the base-URL grep and (CI only) the regenerate-and-diff step are present, the latter skipping-with-a-message rather than failing when the generators aren't exactly pinned
+- [ ] **flutter only** — every `dart format` in a gate carries `--output=none`; without it the gate rewrites the working tree mid-commit instead of checking it
+- [ ] **flutter only** — `analysis_options.yaml` has an `analyzer: exclude:` covering `*.g.dart` / `*.freezed.dart` / `api/generated/**`, merged into the existing file rather than overwriting it; `flutter analyze --fatal-infos` fails on generated code without it
+- [ ] **flutter + CI github/both** — `.fvmrc` exists (written from the local Flutter version if it didn't), or the summary says it was skipped because Flutter isn't on PATH
 - [ ] git repo initialized (if it wasn't one) and `.git/hooks/pre-commit` installed (or foreign hook left untouched with confirmation)
 - [ ] `.git/hooks/commit-msg` installed via symlink, simple-git-hooks, or husky — and which one is named in the summary
 - [ ] `README.md` — AI Onboarding + runtime hygiene + Context Budget table appended (if README existed)
@@ -175,3 +182,28 @@ Next steps:
 - [ ] **if CI_PROVIDER = gitlab/both** — `.gitlab-ci.yml` runs lint + typecheck + test (+ knowledge validator and cursor-mirror check if opted in)
 - [ ] **if AGENT_HOSTS includes cursor** — `AGENTS.md` + `.cursor/rules/*.mdc` **generated** by `node tools/cursor_mirror.mjs` (never hand-written), one `.mdc` per `.claude/rules/*.md` with `paths:` translated to comma-separated `globs:` and brace sets expanded; `.cursor/hooks.json` registers all nine guards with no matchers and `failClosed: true` on the five blocking ones; `tools/cursor_mirror.mjs --check` wired into the pre-commit gate; `node tools/cursor_mirror.mjs --check` exits 0 on the freshly-scaffolded repo
 - [ ] **if AGENT_HOSTS = claude** — no `AGENTS.md`, no `.cursor/`, no `tools/cursor_mirror.mjs`; `tools/context_budget.mjs` prints only the Claude Code line
+
+---
+
+# Phase 8: Measure Context Budget
+
+After the summary, print this verbatim:
+
+```
+Harness installed. Now measure its token footprint:
+
+1. Run `/context` in Claude Code — look for CLAUDE.md and .claude/rules/ in the breakdown.
+   Record the result in README.md → Context Budget table: today's date, estimated harness tokens, Pass/Fail.
+
+2. Run `node tools/context_budget.mjs` for the automated verdict.
+   Pass = within the ~3 000-token always-loaded budget.
+   Fail = one or more files need trimming (see output for which).
+
+The path-scoped rule files (conventions-frontend.md, conventions-server.md, security.md,
+architecture.md, comments.md) only load when matching files are in context — they don't count against
+the always-loaded budget unless you're editing those paths.
+
+With Cursor parity installed the gate prints one line per host — Claude Code (CLAUDE.md +
+unscoped .claude/rules/ + skill descriptions) and Cursor (AGENTS.md + always-applied
+.cursor/rules/) — and each is capped separately, since only one loads in any given session.
+```

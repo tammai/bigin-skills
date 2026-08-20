@@ -47,7 +47,7 @@ repo is a bigger change than "distill a bundle," and it isn't yours to assume:
 - **Bundle only** — bootstrap here, then continue into Phase 0.
 
 On "bundle only": do exactly what `bigin-harness-setup` **Phase 5.5 steps 1–3** do, reading its
-templates from `bigin-skills skills/bigin-harness-setup/references/knowledge-bundle.md` and
+templates from `${CLAUDE_PLUGIN_ROOT}/skills/bigin-harness-setup/references/knowledge-bundle.md` and
 replacing `{DATE}` with today's date in ISO 8601. That phase holds the canonical file list —
 **do not restate it here**, or the two drift the first time one is edited. Skip any file that
 already exists.

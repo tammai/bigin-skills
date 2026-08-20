@@ -79,6 +79,26 @@ for (const dir of skillDirs) {
 for (const key of manifestSkills) {
   if (!skillDirs.includes(key)) fail(`tools/docs-manifest.json has a "skills" entry for "${key}" but skills/${key}/SKILL.md does not exist — remove the entry`);
 }
+// Every skill carries should-trigger/should-not-trigger cases. Gated rather than
+// conventional because it regressed three times: a new skill ships, nothing fails,
+// and the gap only surfaces at the next audit.
+for (const dir of skillDirs) {
+  const evals = `skills/${dir}/evals/evals.json`;
+  if (!existsSync(evals)) fail(`${evals} not found — every skill needs should-trigger/should-not-trigger cases`);
+  let cases;
+  try {
+    cases = JSON.parse(readFileSync(evals, "utf-8"));
+  } catch (e) {
+    fail(`${evals} is not valid JSON: ${e.message}`);
+  }
+  if (!Array.isArray(cases) || cases.length === 0) fail(`${evals}: expected a non-empty array of cases`);
+  for (const [i, c] of cases.entries()) {
+    if (typeof c?.query !== "string" || c.query.length === 0) fail(`${evals}[${i}]: "query" must be a non-empty string`);
+    if (typeof c?.should_trigger !== "boolean") fail(`${evals}[${i}]: "should_trigger" must be a boolean`);
+  }
+  if (!cases.some(c => c.should_trigger)) fail(`${evals}: no should_trigger:true case — the skill would never be exercised`);
+  if (!cases.some(c => !c.should_trigger)) fail(`${evals}: no should_trigger:false case — nothing checks over-triggering`);
+}
 for (const key of manifestSkills) {
   const entry = manifest.skills[key];
   validateSummary(entry.summary, key);

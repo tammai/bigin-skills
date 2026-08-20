@@ -249,11 +249,16 @@ if (!filePath) process.exit(0)
 // matcher (see cursor-parity.md), so a Read would otherwise arrive here and get gated.
 if (!isWriteShaped(call)) process.exit(0)
 
-// Trivial paths never require an approved plan: tests, docs, env examples, config
+// Trivial paths never require an approved plan: tests (both directory-named and
+// `*_test.dart`-named), docs, env examples, config
 // files, and generated graph artifacts (graphify-out/ is committed by design, so the
 // git-ignore check below can't cover it).
 const TRIVIAL_PATTERNS = [
   /(^|[/\\])tests?[/\\]/i,
+  // Dart/Flutter: `foo_test.dart`. Needed on its own for the same reason
+  // bugfix-test-guard.mjs needs it — `integration_test/` is not `test/`, so the
+  // directory rule above misses every flow test, and a flow test is never ≤20 lines.
+  /_test\.dart$/,
   /\.md$/i,
   /\.env\.example$/i,
   /(^|[/\\])graphify-out[/\\]/i,
@@ -1090,7 +1095,7 @@ echo "All gates passed."
 
 Write to `scripts/pre-commit.sh`.
 
-Three things differ from the other profiles, all deliberate. The two analyzer-plugin CLIs are **conditional**: a repo straight out of `flutter create` has neither dependency, and each skip prints which rules are therefore unenforced instead of passing quietly. The base-URL grep is here rather than in a lint rule because `import_lint` matches import paths, not string literals — a `// url-literal-ok` trailing comment is the escape hatch for a doc link. And `build_runner` is **not** run here: regenerating on every commit costs minutes, so the regenerate-and-diff gate lives in CI only (`references/ci.md` → `## github: flutter`).
+Three things differ from the other profiles, all deliberate. The two analyzer-plugin CLIs are **conditional**: a repo straight out of `flutter create` has neither dependency, and each skip prints which rules are therefore unenforced instead of passing quietly. The base-URL grep is here rather than in a lint rule because `import_lint` matches import paths, not string literals — a `// url-literal-ok` trailing comment is the escape hatch for a doc link. Generated Firebase config is excluded by **glob**, `firebase_options*.dart`, not by exact name: the per-flavor `flutterfire configure --out=lib/firebase_options_dev.dart` recipe that this profile's three flavors require writes one such file per flavor, each carrying a `databaseURL` literal and a `// GENERATED CODE` header it cannot annotate. Excluding only the single-file default hard-fails every flavored Firebase repo on its first commit. And `build_runner` is **not** run here: regenerating on every commit costs minutes, so the regenerate-and-diff gate lives in CI only (`references/ci.md` → `## github: flutter`).
 
 ```bash
 #!/bin/sh
@@ -1100,7 +1105,7 @@ set -e
 echo "Running pre-commit gates..."
 
 echo "  format..."
-dart format --set-exit-if-changed .
+dart format --output=none --set-exit-if-changed .
 
 echo "  analyze/typecheck..."
 flutter analyze --fatal-infos
@@ -1119,7 +1124,7 @@ fi
 
 echo "  no base URL literal in lib/..."
 if grep -rInE 'https?://' lib --include='*.dart' \
-     --exclude='*.g.dart' --exclude='*.freezed.dart' --exclude='firebase_options.dart' \
+     --exclude='*.g.dart' --exclude='*.freezed.dart' --exclude='firebase_options*.dart' \
      | grep -v 'url-literal-ok'; then
   echo "    ^ base URL literal in lib/ — read it from the flavor config, or mark a doc link // url-literal-ok"
   exit 1

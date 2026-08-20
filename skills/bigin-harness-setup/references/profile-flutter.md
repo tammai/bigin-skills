@@ -6,20 +6,22 @@ Marker file: `pubspec.yaml` — **and it alone is not enough.** A plain Dart pac
 
 Empty repo → scaffolded by **`flutter create`** itself (Phase 0.5, pinned arguments — see `references/scaffold-delegation.md`). There is no `flutter-scaffold` skill: what one would add beyond `flutter create` (flavors + the native half, the state layer, the local store, the boundary-lint config) is exactly what the project's architecture ADRs decide, so it is not a fixed template yet.
 
-The architecture this profile writes conventions for is BigIn's Flutter client playbook (`product-rebuild-skills` → `skills/rebuild-pipeline/references/playbooks/mobile-flutter.md`). Section numbers cited below are that document's.
+The architecture this profile writes conventions for is BigIn's Flutter client stack: feature-first layering with lint-enforced import boundaries, a frozen upstream contract behind a generated dio client, one Riverpod graph, one `go_router` table, one local store. **Every rule below is stated here in full.** This file is the source, not a summary of one — `bigin-skills` depends on no other plugin, so a profile must never defer to a document outside this repo for the conventions it writes.
 
 ---
 
 ## Commands
 
 ```
-lint:       dart format --set-exit-if-changed . && dart run custom_lint && dart run import_lint
+lint:       dart format --output=none --set-exit-if-changed . && dart run custom_lint && dart run import_lint
 typecheck:  flutter analyze --fatal-infos
 test:       flutter test
 integration: flutter test integration_test          # needs a device/simulator — not a plain CI runner
 dev:        flutter run --flavor dev -t lib/main_dev.dart --dart-define-from-file=config/dev.json
 generate:   dart run build_runner build --delete-conflicting-outputs
 ```
+
+**`--output=none` is not optional in a gate.** Plain `dart format --set-exit-if-changed .` *rewrites every unformatted file in the tree* and then exits 1. In a pre-commit hook that reformats files the developer never staged, leaves the staged snapshot unformatted, and lands a commit that differs from the one the gate checked. `--output=none` makes it a pure check — same exit code, no writes. Use the bare form only when you actually want the files rewritten.
 
 **Why the three harness slots map that way.** Dart has no separate typecheck binary — the analyzer *is* the type checker, so `flutter analyze --fatal-infos` takes the `{TYPECHECK}` slot and the formatter plus the two analyzer-plugin CLIs take `{LINT}`. `--fatal-infos` is deliberate: analyzer *infos* are where the unused-import and dead-null-check findings land, and without it they never fail anything.
 
@@ -44,7 +46,7 @@ The HTTP API is an existing service this repo does not own. Its contract is froz
 | test        | `flutter test`                                                 |
 | integration | `flutter test integration_test` (device/simulator required)     |
 | analyze     | `flutter analyze --fatal-infos`                                |
-| format      | `dart format --set-exit-if-changed .`                          |
+| format      | `dart format --output=none --set-exit-if-changed .`            |
 | lint        | `dart run custom_lint` **and** `dart run import_lint` — two mechanisms, both required |
 | generate    | `dart run build_runner build --delete-conflicting-outputs`      |
 
@@ -54,9 +56,9 @@ See `.claude/rules/` — path-scoped conventions, testing, security, architectur
 ## Hard Rules (non-negotiable)
 - **No `http(s)://` literal anywhere in `lib/`**, `core/network/` included — the base URL comes from the flavor config (`--dart-define-from-file`). Enforced by a grep step in the pre-commit gate and CI. A staging URL shipped to production is the most common mobile release incident.
 - **`--dart-define` is configuration, not secrecy.** Every value is recoverable from the shipped binary. Base URLs and flavor names: fine. Anything whose disclosure matters: server-side, or a per-user token stored per the security rule.
-- `api/generated/**` and every `*.g.dart` are generated — never hand-edit. Change the source (the contract, or the annotated file), regenerate, *then* write code against it. CI regenerates and fails on a diff.
+- `api/generated/**` and every `*.g.dart` are generated — never hand-edit. Change the source (the contract, or the annotated file), regenerate, *then* write code against it. CI regenerates and fails on a diff. They are also excluded from the analyzer (`analysis_options.yaml`), because `--fatal-infos` otherwise fails the build on code nobody is allowed to fix.
 - That diff gate only works if regeneration is deterministic: `pubspec.lock` is committed, `build_runner`/`json_serializable` are pinned to **exact** versions, and the API generator is pinned to a JAR version or Docker tag.
-- `features/*/domain/**` imports nothing from `data/`, nothing generated, and neither `package:dio` nor `package:drift`. No feature imports another feature's `data/` or `presentation/`. `core/` imports no feature. Enforced by `dart run import_lint` — the *only* command that checks it.
+- `features/*/domain/**` imports nothing from `data/`, nothing generated, and neither `package:dio` nor `package:drift`. No feature imports another feature's `data/` or `presentation/`. `core/` imports no feature. Enforced by `dart run import_lint` — the *only* command that checks it, and it needs Dart 3.10+ / Flutter 3.38+. Below that floor nothing enforces this rule: the gates skip it by name, and it is review discipline until the SDK moves.
 - Tokens live in `flutter_secure_storage`, never `SharedPreferences`, never Drift, never a logged provider.
 - One state library, one navigator, one object graph. A second one is an ADR, not a commit.
 - A Drift `schemaVersion` bump ships a migration step **and** a migration test. A crash-on-launch after upgrade cannot be hotfixed.
@@ -150,8 +152,10 @@ presentation ──▶ domain ◀── data
 - Drift (SQLite) for relational state, in `getApplicationSupportDirectory()` — not Documents (user-visible, App Review consequence), not Caches (the OS deletes it). `flutter_secure_storage` for secrets. `SharedPreferences` only for genuinely trivial preferences.
 - Offline policy is declared per feature — online-only, read-through cache with a stated TTL, or offline-first with an outbox — and written into that feature's spec. No feature gets an outbox by accident; an outbox nobody designed is a data-loss bug with a queue in front of it.
 
-## Formatting
-`dart format` is the formatter; there is no second style opinion. Run the gate rather than hand-aligning.
+## Formatting & the analyzer
+`dart format` is the formatter; there is no second style opinion. Run the gate rather than hand-aligning — and use `--output=none` in any gate, or it rewrites the tree instead of checking it.
+
+`analysis_options.yaml` excludes generated output from the analyzer. `flutter analyze --fatal-infos` is the typecheck gate, and generated code routinely trips analyzer infos and warnings (`freezed`'s `==` parameter types, deprecated members in older generator output) that nobody may fix by hand. Excluding them keeps the gate about *your* code; a finding that genuinely matters there is a generator-version problem, not a source edit.
 ```
 
 ---
@@ -220,6 +224,25 @@ Prepend `paths: ["lib/**", "api/openapi.yaml"]` as YAML frontmatter when writing
 - The platform floor is a fact about real users, not a preference: users below it cannot receive the app at all, so they are permanently frozen on whatever they have. It constrains any forced-upgrade or migration plan and belongs in an ADR with a number attached.
 - Store-submission artifacts (Apple privacy manifest with per-SDK required-reason declarations, Play data-safety, permission usage strings, minimum-OS declaration) are re-derived from *this* app's dependency set — never inherited from the app being replaced — and are due before the first internal build, not the first release.
 - Anything a user already has on their device (session, local data, files, granted permissions, deep links, entitlements) is migration surface, and migration work never runs on the launch path.
+```
+
+---
+
+## analysis_options.yaml
+
+**Not written fresh — merged into whatever the repo already has** (`flutter create` writes one, and an existing repo's is usually customized). Add the `analyzer:` block below if it is absent; leave any existing `linter:`/`include:` alone.
+
+`flutter analyze --fatal-infos` is the `{TYPECHECK}` slot, and `--fatal-infos` is what makes unused imports and dead null-checks fail. It also promotes every analyzer info in **generated** code to a build failure — `freezed` emits `non_nullable_equals_parameter` warnings for each union, and generator output written against an older SDK carries `deprecated_member_use` infos. That output is committed, CI-diffed, and explicitly never hand-edited, so without this exclude the profile's own typecheck gate is red on day one with no legal fix. (Measured on a real 118-file app: 12 of 39 findings were in `*.freezed.dart`.)
+
+Excluding is the right lever rather than downgrading the severities: a real problem in generated code is a generator-version or contract problem, and the regenerate-and-diff step in CI is what catches it.
+
+```yaml
+analyzer:
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+    - "**/*.gr.dart"
+    - "api/generated/**"
 ```
 
 ---

@@ -26,7 +26,7 @@ It adds no gate of its own. Every unit still goes through `task-workflow`'s spec
    - **One plan's worth** — one spec, one implement/verify loop, one reviewable diff. If a unit needs two specs, it's two units.
    - **Independently verifiable** — it has acceptance criteria that hold without any later unit existing. A unit whose only test is "unit 4 works" isn't a unit.
    - **Leaves the repo green and shippable** — `main` must be able to ship with units 1..k done and k+1..n absent. Dead-but-tested code behind a flag is fine; a half-applied migration or a contract with no implementation is not.
-   - **Ordered by artifact dependency, not by convenience** — contracts and migrations first, consumers after. Set `Blocked by` only where a real artifact dependency exists; units with none are parallelizable, and say so (see `bigin-skills skills/task-workflow/references/parallelization.md` for the worktree rule).
+   - **Ordered by artifact dependency, not by convenience** — contracts and migrations first, consumers after. Set `Blocked by` only where a real artifact dependency exists; units with none are parallelizable, and say so (see `${CLAUDE_PLUGIN_ROOT}/skills/task-workflow/references/parallelization.md` for the worktree rule).
 
    **Ceiling: ~8 units.** Past that the scope is a roadmap, not an epic. Say so, then propose the first epic-sized slice of it and note what you've deferred — don't queue twenty rows nobody will reach.
 

@@ -1,6 +1,7 @@
 ---
 name: sprint-distill
 description: "End-of-sprint distillation: merged PRs + touched knowledge/ concepts → proposal-first knowledge/ and bigin-skills updates. Compresses, never appends. Triggers: 'sprint distill', 'end of sprint', 'end-of-sprint review'."
+disallowed-tools: Edit Write NotebookEdit
 effort: high
 allowed-tools: Bash(git log *) Bash(git diff *) Bash(node tools/knowledge_validate.mjs)
 ---

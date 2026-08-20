@@ -1,0 +1,15 @@
+[
+  {"query":"break this epic down into units I can ship one at a time","should_trigger":true},
+  {"query":"this is too big for one task, help me sequence it","should_trigger":true},
+  {"query":"plan out multi-tenant billing across the API and the UI","should_trigger":true},
+  {"query":"split the payments migration into stories and tell me what order they land in","should_trigger":true},
+  {"query":"we need SSO — that's several PRs, where do we start","should_trigger":true},
+  {"query":"take the next unit off the epic queue","should_trigger":true},
+  {"query":"what's left in EPIC.md","should_trigger":true},
+  {"query":"implement the rate limiter for the public API endpoints","should_trigger":false},
+  {"query":"fix the double-submit bug on the checkout form","should_trigger":false},
+  {"query":"write tests for the discount calculator","should_trigger":false},
+  {"query":"why is this integration test flaky","should_trigger":false},
+  {"query":"set up the harness in this repo","should_trigger":false},
+  {"query":"sprint distill — we just closed the sprint","should_trigger":false}
+]
