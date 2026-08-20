@@ -37,6 +37,15 @@ paths:
 ---
 ```
 
+**flutter:**
+```yaml
+---
+paths:
+  - "lib/**"
+  - "api/openapi.yaml"
+---
+```
+
 **next:**
 ```yaml
 ---

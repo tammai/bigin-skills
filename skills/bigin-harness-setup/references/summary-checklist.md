@@ -64,19 +64,19 @@ Print a short summary of what was created and what's next:
 ```
 BigIn harness setup complete for profile: {PROFILE}
 
-[if PROFILE=generic] No stack profile matched (not nuxt/go/nodejs/next), so the stack-neutral harness was installed: no conventions/testing rules, no .vscode settings, no CI generated. Commands detected: lint={LINT}, typecheck={TYPECHECK}, test={TEST} — any shown as TODO need filling in, in CLAUDE.md, AI_REVIEW_CHECKLIST.md, and scripts/pre-commit.sh. For CI, run those commands plus `node tools/context_budget.mjs` in your own workflow.
+[if PROFILE=generic] No stack profile matched (not nuxt/go/nodejs/next/flutter), so the stack-neutral harness was installed: no conventions/testing rules, no .vscode settings, no CI generated. Commands detected: lint={LINT}, typecheck={TYPECHECK}, test={TEST} — any shown as TODO need filling in, in CLAUDE.md, AI_REVIEW_CHECKLIST.md, and scripts/pre-commit.sh. For CI, run those commands plus `node tools/context_budget.mjs` in your own workflow.
 
-[if SCAFFOLDED] Scaffolded the Nuxt 4 BFF app via the `nuxt-scaffold` skill. / Scaffolded the Next.js BFF app via the `next-scaffold` skill.
+[if SCAFFOLDED] Scaffolded the Nuxt 4 BFF app via the `nuxt-scaffold` skill. / Scaffolded the Next.js BFF app via the `next-scaffold` skill. / Created the Flutter app with `flutter create` (pinned args) — no flavors, state layer, local store, generated client or boundary lint config yet; those are the first slice's, and the generated gates skip the unconfigured lint plugins by name until then. Nothing is committed: this harness install is the first commit.
 
 Created:
   AI_TASK_GUIDE.md
   AI_REVIEW_CHECKLIST.md
-  .claude/rules/security.md       (paths: server/**,app/** — nuxt | src/app/**,src/components/**,src/hooks/** — next | **/*.go — go | src/** — nodejs | source-extension glob — generic)
+  .claude/rules/security.md       (paths: server/**,app/** — nuxt | src/app/**,src/components/**,src/hooks/** — next | **/*.go — go | src/** — nodejs | lib/**,api/openapi.yaml — flutter | source-extension glob — generic)
   .claude/rules/architecture.md   (paths: same as security; no profile addendum for generic)
   .claude/rules/conventions-frontend.md  [nuxt/next only] (paths: app/** — nuxt | src/app/**,src/components/**,src/hooks/** — next)
   .claude/rules/conventions-server.md    [nuxt/next only] (paths: server/** — nuxt | src/app/api/**,src/lib/** — next)
-  .claude/rules/testing.md        [nuxt/next only] (paths: tests/**, vitest.config.ts — nuxt | src/**/*.test.ts(x), vitest.config.ts — next)
-  .claude/rules/conventions.md    [go/nodejs only] (paths: scoped to source dir)
+  .claude/rules/testing.md        [nuxt/next/flutter only] (paths: tests/**, vitest.config.ts — nuxt | src/**/*.test.ts(x), vitest.config.ts — next | test/**, integration_test/** — flutter)
+  .claude/rules/conventions.md    [go/nodejs/flutter only] (paths: scoped to source dir; flutter adds pubspec.yaml + analysis_options.yaml)
   .claude/rules/comments.md       (all profiles; paths: source-extension glob, not profile-substituted)
   .claude/guards/lib/hook-io.mjs  (two-host payload adapter — every guard imports it)
   .claude/guards/bash-guard.mjs
@@ -133,13 +133,15 @@ Next steps:
 
 - [ ] **nuxt + empty repo** — `nuxt-scaffold` skill executed (Phase 0.5); `nuxt.config.ts` now present
 - [ ] **next + empty repo** — `next-scaffold` skill executed (Phase 0.5); `next.config.ts` now present
+- [ ] **flutter + empty repo** — `flutter create` executed with pinned args (Phase 0.5); `pubspec.yaml` now present, nothing committed, `analysis_options.yaml` left as `flutter create` wrote it
 - [ ] **existing repo matching no profile** — `PROFILE = generic`, no profile question asked; Phase 0.5, conventions/testing rules, `.vscode/settings.json` and CI all skipped
 - [ ] **re-run on a repo that already has the guards** (adding CI that was declined the first time) — Phase 5.6 step 0 clears the active spec gate with a throwaway `PLAN.md`, the CI files land, and `PLAN.md` is gone afterwards; with a mid-task `PLAN.md` present, CI is skipped instead and the summary says why
 - [ ] `CLAUDE.md` — profile-specific, ≤60 lines (generic: `{STACK}` line + detected commands, undetected ones dropped from the table)
 - [ ] **nuxt/next only** — `.claude/rules/conventions-frontend.md` — paths: app/** (nuxt) or src/app/**,src/components/**,src/hooks/** (next) (≤40 lines)
 - [ ] **nuxt/next only** — `.claude/rules/conventions-server.md` — paths: server/** (nuxt) or src/app/api/**,src/lib/** (next) (≤40 lines)
 - [ ] **nuxt/next only** — `.claude/rules/testing.md` — paths: tests/**, vitest.config.ts (nuxt) or src/**/*.test.ts(x), vitest.config.ts (next) (≤40 lines)
-- [ ] **go/nodejs** — `.claude/rules/conventions.md` — paths: scoped to source dir
+- [ ] **go/nodejs/flutter** — `.claude/rules/conventions.md` — paths: scoped to source dir (flutter: `lib/**`, `api/**`, `pubspec.yaml`, `analysis_options.yaml`)
+- [ ] **flutter only** — `.claude/rules/testing.md` — paths: `test/**`, `integration_test/**`; goldens' pinned-platform rule and the migration-test requirement both present
 - [ ] `.claude/rules/security.md` — shared security rules, paths: scoped per profile
 - [ ] `.claude/rules/architecture.md` — shared base + profile addendum, paths: scoped per profile
 - [ ] `.claude/rules/comments.md` — all profiles including generic, verbatim with its own source-extension `paths:` (no substitution)
@@ -163,7 +165,8 @@ Next steps:
 - [ ] `.claude/harness-version` — current version stamp (written fresh/overwrite; baseline for patch mode)
 - [ ] `.claude/model-routing.json` — subagent model ladder set to the Phase 1.5 `MODEL_ROUTING` profile (`new` mode: existing file left untouched)
 - [ ] **patch mode only** — only changelog `patch`-tagged changes since `FROM_VERSION` applied; `.claude/harness-version` advanced to `TO_VERSION`; summary lists applied vs skipped
-- [ ] **nuxt/next only** — `.vscode/settings.json` with ESLint format-on-save (Prettier disabled), merged if it existed
+- [ ] **nuxt/next only** — `.vscode/settings.json` with ESLint format-on-save (Prettier disabled), merged if it existed — skipped for go/nodejs/flutter/generic
+- [ ] **flutter only** — the pre-commit gate and generated CI run **both** `dart run custom_lint` and `dart run import_lint`, each skipped-with-a-named-message when unconfigured; the base-URL grep and (CI only) the regenerate-and-diff step with its exact-pin precondition are present
 - [ ] git repo initialized (if it wasn't one) and `.git/hooks/pre-commit` installed (or foreign hook left untouched with confirmation)
 - [ ] `.git/hooks/commit-msg` installed via symlink, simple-git-hooks, or husky — and which one is named in the summary
 - [ ] `README.md` — AI Onboarding + runtime hygiene + Context Budget table appended (if README existed)

@@ -5,6 +5,59 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.66.0] - 2026-08-19
+
+### Added
+
+- **A real `flutter` profile — the harness can now create a Flutter client repo instead of being run over one.** `bigin-harness-setup` offered exactly four stacks for an **empty** directory with no "none of these" answer, and its stack-neutral `generic` profile is only reachable from a directory that already contains code. For a mobile client that made the two rules unsatisfiable: the documented workaround was `flutter create` first, then the harness in `generic` mode — which installs no CI workflow at all, no stack conventions, no testing rule, and leaves a `TODO` wherever it couldn't detect a command. A repo whose harness wrote `TODO` where the test command goes has a commit hook that runs nothing. `flutter` is now the fifth profile, detected, scaffolded, and gated like the other four.
+
+  **Detection is deliberately narrower than "has a `pubspec.yaml`", and narrower again than "is Flutter".** A plain Dart package — a CLI, a server, a shared library — has a `pubspec.yaml` too, and a Flutter **package** or **plugin** has the `flutter:` marker as well; writing app conventions for a widget library is the same failure the `generic` profile exists to prevent. Phase 0 therefore needs both halves: the Flutter marker (a top-level `flutter:` key or the SDK dependency) **and** app evidence (`lib/main*.dart` plus `android/app/` or `ios/Runner/`), with `plugin:` under `flutter:` reading as not-an-app. Flavors, three entrypoints, a dio client and a local database are app concerns; all three library shapes fall through to `generic`, and the run says which one it detected so the choice is visible.
+
+  **Four gate corrections from an independent audit of this profile**, each the same class of
+  defect: a gate that does not fire, or one that fires on correct work.
+  - `bugfix-test-guard`'s `TEST_PATTERNS` had no Dart entry. `test/foo_test.dart` passed only by
+    accident, via the generic `test/` directory rule, and `integration_test/foo_test.dart` matched
+    nothing at all — so a bug fix shipping an integration test was blocked for shipping no test,
+    while `profile-flutter.md` claimed the rule was enforced. `_test\.dart$` is now matched
+    directly, and the claim names the layouts it actually recognizes.
+  - The base-URL grep had no legal escape for generated files. `lib/firebase_options.dart` is
+    written by the FlutterFire CLI and contains a `databaseURL` https literal, and you cannot add
+    a `// url-literal-ok` marker to a file that is regenerated — so the gate hard-failed every
+    repo using Firebase. `*.g.dart`, `*.freezed.dart` and `firebase_options.dart` are now excluded
+    in all three copies (GitHub CI, GitLab CI, pre-commit).
+  - The exact-pin precondition covered `build_runner`, `build_verify` and `json_serializable`
+    only, so `riverpod_generator` and `drift_dev` — both in this profile's own default stack —
+    could sit on caret ranges and flap the regenerate-and-diff gate on an unrelated transitive
+    bump. It now covers every generator the stack uses.
+  - The GitLab template's base-URL step was written as a shell line continuation inside a YAML
+    sequence item. A plain scalar folds newlines into spaces, which would have turned the
+    trailing `\` into an escaped space and broken the command; it is one physical line again, and
+    both templates are now parsed as YAML with a folded-continuation check as part of verifying
+    this change.
+
+  **Two rules the profile was missing against its own playbook:** explicit dio connect/receive/send
+  timeouts (Dio's default receive timeout is unbounded, which is how an app hangs forever on a
+  captive-portal Wi-Fi that accepts the connection and answers nothing), and the native half of a
+  flavor — three bundle IDs need Xcode schemes, Android `productFlavors` and per-flavor Firebase
+  files, none of which `flutter create` or this harness generates. A flavor that exists only in
+  Dart is half-built, and that is how a staging build reaches production users.
+
+  **Phase 0.5 delegates to `flutter create` itself, with pinned arguments** (`--project-name`, `--org`, `--platforms=ios,android`, `--empty`) — there is no `flutter-scaffold` skill and none is invented here. The phase's invariant was never "a skill in this plugin owns the scaffold", it was "a deterministic, prompt-free command line owns it, never a conversation", and the official CLI satisfies that. What a `flutter-scaffold` would add beyond it — flavors plus the native half, the state layer, the local store, the generated client, the `analysis_options.yaml` boundary rules — is exactly the set of decisions a project's architecture ADRs make, so freezing them into a script today would pre-empt a decision this plugin doesn't own. Two consequences are documented at the call site rather than discovered: `flutter create` verifies nothing and **commits nothing**, so `SCAFFOLDED = true` here means "files exist, uncommitted" and the harness install becomes the first commit; and the `analysis_options.yaml` it writes (bare `flutter_lints`) is pre-existing, not the overlay's to rewrite.
+
+  **Both lint mechanisms run, always, and a skip says which rules stopped being enforced.** `import_lint` is a standalone analyzer plugin on Dart's first-party `plugins:` mechanism with its own CLI; `custom_lint` is the older mechanism `riverpod_lint` is built on. **Only `import_lint` checks the layer/feature import boundaries** — the profile's central structural invariant — so every generated gate runs `dart run custom_lint` *and* `dart run import_lint`, and no template anywhere claims one covers the other. Both are conditional on the dependency being present, because a repo fresh out of `flutter create` has neither and a gate that dies on day one gets deleted; each skip prints which rules are therefore unenforced instead of passing quietly.
+
+  **The gates carry the two rules no off-the-shelf lint can express.** "No `http(s)://` literal anywhere in `lib/`" is a string-literal rule and `import_lint` matches import paths, so it ships as a grep step in both the pre-commit script and CI, with a `// url-literal-ok` trailing comment as the escape hatch for a doc link — a hardcoded staging URL reaching production is the most common mobile release incident, and `core/network/` is not an exemption. And the regenerate-and-diff step for committed generated code (`*.g.dart`, `api/generated/**`) ships **with its pins**, because it is worthless without them: `flutter pub get --enforce-lockfile`, a precondition that fails the job if `build_runner`/`json_serializable` carry a caret range instead of an exact version, and the API generator's JAR/Docker tag pinned inside the repo-owned script the step calls. Unpinned, the first transitive generator bump turns the safety gate red for reasons unrelated to the contract, and a gate that cries wolf gets deleted — which is worse than never having had it.
+
+  **What the profile refuses to claim is enforced.** `ref.watch` in `build` / `ref.read` in callbacks has no `riverpod_lint` rule, and nothing off the shelf flags a magic padding number or an inline `TextStyle`. Both are the most useful rules in their sections and both are review discipline until someone writes the `custom_lint` rule; the generated `CLAUDE.md` carries them under an explicit "not enforced by any tool" heading. A hard rule citing tooling that doesn't exist is worse than one that admits it's a review rule, because only one of the two gets noticed when it's skipped.
+
+  New `references/profile-flutter.md` (commands and why they map onto the three harness slots, `CLAUDE.md`, `conventions.md`, `testing.md`, architecture addendum, `settings.json`). Five rule files, not four: the go/nodejs single-`conventions.md` shape **plus** a testing rule, because this profile's two most expensive test-tree mistakes are unpinned goldens (font- and platform-sensitive, so they fail on every machine that isn't the author's and get deleted within a fortnight) and a `schemaVersion` bump with no migration test (a crash-on-launch after upgrade has no hotfix path). `permissions.allow` names the two lint CLIs individually rather than blanket `dart run:*`, which would pre-approve any executable in any dependency, and omits `dart fix --apply` and `flutter pub upgrade` — both rewrite committed files or the lockfile the codegen gate depends on. No `PostToolUse` formatter hook: `dart format` has no configuration to get wrong and already runs in two gates, so a tenth guard script would buy nothing.
+
+  Wired through every enumeration site: `SKILL.md` (Phase 0 detection + the now five-way empty-repo question, Phase 0.5 marker and delegation, Phase 1 reconciliation, Phase 1.5's CI question, Phase 2, Phase 3's new five-file block, Phase 4's checklist commands, Phase 5-1, 5-2, 5-2g, 5-3, 5-3b, Phase 5.6, the idempotency list, the references list), plus `references/ci.md` (GitHub + GitLab templates, and the "image ships no Node" note the knowledge-validate and cursor-mirror steps depend on now covers flutter alongside go), `references/hook-guard.md` (`## pre-commit: flutter`), `references/scaffold-delegation.md` (both tables + the no-commit caveat), `references/files-shared.md` (`paths:` substitution — `lib/**`, `api/openapi.yaml`), `references/summary-checklist.md` (Phase 7 template + Output Checklist), `README.md`, `docs/USER_GUIDE.md`, and this repo's own `harness-audit` skill.
+
+  **Two things this profile hands to the user rather than deciding for them**, both named in the Phase 7 summary: the GitHub workflow references the third-party Flutter setup action by major tag rather than a commit SHA (unlike `actions/checkout`, which is SHA-pinned — a SHA that can't be verified at authoring time fails the workflow on its first run, so pinning it is a post-install step), and the SDK version comes from `.fvmrc` (GitHub) or the image tag (GitLab), neither of which exists until the repo pins its SDK. `flutter test integration_test` is deliberately absent from the quality job: it needs a device or simulator, a plain `ubuntu-latest` runner has neither, and a step that always fails gets commented out within a week.
+
+  **No `patch` block.** Patch mode applies anchored edits to files a previous run generated; it cannot retarget an already-installed profile, and a Flutter repo currently carrying the `generic` harness needs a different `CLAUDE.md`, a different `settings.json`, a different pre-commit script and two rule files it doesn't have. Those repos adopt this by re-running `bigin-harness-setup` and answering `yes` at the existing-harness prompt — same precedent as v1.35.0/v1.37.0/v1.40.0 for interactive, multi-file changes.
+
 ## [1.65.0] - 2026-08-19
 
 ### Added

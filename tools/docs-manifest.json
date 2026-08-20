@@ -2,7 +2,7 @@
   "skills": {
     "bigin-harness-setup": {
       "group": "core",
-      "summary": "Scaffolds an AI workflow harness — CLAUDE.md brief, path-scoped rules, commit gates, optional Cursor mirror. Profiles: nuxt, go, nodejs, next, generic."
+      "summary": "Scaffolds an AI workflow harness — CLAUDE.md brief, path-scoped rules, commit gates, optional Cursor mirror. Profiles: nuxt, go, nodejs, next, flutter, generic."
     },
     "task-workflow": {
       "group": "core",

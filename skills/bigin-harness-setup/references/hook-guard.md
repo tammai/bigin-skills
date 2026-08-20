@@ -399,6 +399,9 @@ const TEST_PATTERNS = [
   /\.test\.[^/\\]+$/i,
   /\.spec\.[^/\\]+$/i,
   /_test\.go$/,
+  // Dart/Flutter: `foo_test.dart`. Needed on its own because `integration_test/` is not
+  // `test/` — without this a bug fix shipping an integration test is blocked for having no test.
+  /_test\.dart$/,
   /(^|[/\\])tests?[/\\]/i,
   /(^|[/\\])__tests__[/\\]/
 ]
@@ -1071,6 +1074,59 @@ echo "  typecheck..."
 
 echo "  tests..."
 {TEST}
+
+echo "  context budget..."
+if [ -f tools/context_budget.mjs ]; then node tools/context_budget.mjs; fi
+
+echo "  cursor mirror..."
+if [ -f tools/cursor_mirror.mjs ]; then node tools/cursor_mirror.mjs --check; fi
+
+echo "All gates passed."
+```
+
+---
+
+## pre-commit: flutter
+
+Write to `scripts/pre-commit.sh`.
+
+Three things differ from the other profiles, all deliberate. The two analyzer-plugin CLIs are **conditional**: a repo straight out of `flutter create` has neither dependency, and each skip prints which rules are therefore unenforced instead of passing quietly. The base-URL grep is here rather than in a lint rule because `import_lint` matches import paths, not string literals — a `// url-literal-ok` trailing comment is the escape hatch for a doc link. And `build_runner` is **not** run here: regenerating on every commit costs minutes, so the regenerate-and-diff gate lives in CI only (`references/ci.md` → `## github: flutter`).
+
+```bash
+#!/bin/sh
+# Pre-commit quality gates — flutter profile
+set -e
+
+echo "Running pre-commit gates..."
+
+echo "  format..."
+dart format --set-exit-if-changed .
+
+echo "  analyze/typecheck..."
+flutter analyze --fatal-infos
+
+echo "  lint plugins..."
+if grep -q 'custom_lint' pubspec.yaml; then
+  dart run custom_lint
+else
+  echo "    custom_lint not configured — riverpod_lint and any hand-written rules are NOT running"
+fi
+if grep -q 'import_lint' pubspec.yaml; then
+  dart run import_lint
+else
+  echo "    import_lint not configured — the layer/feature import boundaries are NOT enforced"
+fi
+
+echo "  no base URL literal in lib/..."
+if grep -rInE 'https?://' lib --include='*.dart' \
+     --exclude='*.g.dart' --exclude='*.freezed.dart' --exclude='firebase_options.dart' \
+     | grep -v 'url-literal-ok'; then
+  echo "    ^ base URL literal in lib/ — read it from the flavor config, or mark a doc link // url-literal-ok"
+  exit 1
+fi
+
+echo "  tests..."
+flutter test
 
 echo "  context budget..."
 if [ -f tools/context_budget.mjs ]; then node tools/context_budget.mjs; fi

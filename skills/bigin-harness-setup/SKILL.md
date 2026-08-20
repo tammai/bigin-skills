@@ -1,6 +1,6 @@
 ---
 name: bigin-harness-setup
-description: "Scaffolds BigIn's AI workflow harness into a repo — CLAUDE.md brief, path-scoped .claude/rules/, commit-time gates (guard hooks + context-budget check), optional Cursor mirror (AGENTS.md + .cursor/rules/). Profiles: nuxt, go, nodejs, next, generic. Triggers: 'set up harness', 'add AI rules', 'add Cursor support', 'migrate off Spec Kit'."
+description: "Scaffolds BigIn's AI workflow harness into a repo — CLAUDE.md brief, path-scoped .claude/rules/, commit-time guard + context-budget gates, optional Cursor mirror (AGENTS.md + .cursor/rules/). Profiles: nuxt, go, nodejs, next, flutter, generic. Triggers: 'set up harness', 'add AI rules', 'add Cursor support', 'migrate off Spec Kit'."
 effort: medium
 allowed-tools: Bash(git init) Bash(git rev-parse *) Bash(chmod +x *) Bash(ln -sf *)
 ---
@@ -18,7 +18,10 @@ Check for stack indicators, first match wins:
 2. `go.mod` → profile = `go`
 3. `package.json` with express/fastify/hono/koa in dependencies → profile = `nodejs`
 4. `next.config.ts`, `next.config.js`, or `next.config.mjs` → profile = `next`
-5. **Empty repo** (no source files, no manifest of any kind) → ask, since the answer picks the scaffold Phase 0.5 runs:
+5. `pubspec.yaml` → profile = `flutter`, **but only if it is a Flutter *app*.** Two checks, both needed:
+   - **Is it Flutter at all?** A top-level `flutter:` key, or `flutter:` with `sdk: flutter` under `dependencies:`. A plain Dart package (a CLI, a server, a shared library) has neither — fall through to `generic` rather than writing widget conventions for a package with no widgets.
+   - **Is it an app rather than a library?** An app has a runnable entrypoint and native host directories: `lib/main*.dart` plus `android/app/` or `ios/Runner/`. A **plugin** declares `plugin:` under its `flutter:` key; a **package** has neither the `plugin:` key nor the native app directories. Both are Flutter and neither is this profile — flavors, three entrypoints, a dio client and a local database are all app concerns, and a widget library that inherits them gets rules for code it will never contain. Fall through to `generic` for both, and say which one you detected so the choice is visible.
+6. **Empty repo** (no source files, no manifest of any kind) → ask, since the answer picks the scaffold Phase 0.5 runs:
 
 ```
 Which stack profile?
@@ -26,11 +29,12 @@ Which stack profile?
 2. go     — Go REST API backend
 3. nodejs — Node.js TypeScript REST API backend
 4. next   — Next.js App Router fullstack (Vercel): shadcn/ui, Zustand, TanStack Query, iron-session, Vitest, Zod — BFF proxy layer, no direct DB access
+5. flutter — Flutter mobile client against an existing HTTP API: Riverpod, go_router, Drift, generated dio client — the API is frozen input, not a decision made here
 
-Type 1, 2, 3, or 4.
+Type 1, 2, 3, 4, or 5.
 ```
 
-6. **Existing code, no marker matched** → `PROFILE = generic`. Do **not** ask and do not offer the four above — an existing repo that isn't one of them won't become one, and forcing a pick writes conventions for a stack that isn't there. Say one line ("no matching stack profile — installing the stack-neutral harness") and continue to the next phase.
+7. **Existing code, no marker matched** → `PROFILE = generic`. Do **not** ask and do not offer the five above — an existing repo that isn't one of them won't become one, and forcing a pick writes conventions for a stack that isn't there. Say one line ("no matching stack profile — installing the stack-neutral harness") and continue to the next phase.
 
 Store result as `PROFILE`. Load `references/profile-{PROFILE}.md` for all template content — `references/profile-generic.md` for `generic`, which states up front what that profile installs and skips.
 
@@ -38,9 +42,9 @@ Store result as `PROFILE`. Load `references/profile-{PROFILE}.md` for all templa
 
 ## Phase 0.5: Project Scaffold (empty repo only)
 
-Runs when the repo lacks the marker file for `PROFILE` — `nuxt.config.ts` (nuxt), `next.config.*` (next), `go.mod` (go), `package.json` (nodejs). Skip the phase entirely otherwise; that's onboarding an existing repo. Also skip it entirely for `PROFILE = generic` — there's no scaffold skill for an unknown stack, and generic is only ever reached from a repo that already has code.
+Runs when the repo lacks the marker file for `PROFILE` — `nuxt.config.ts` (nuxt), `next.config.*` (next), `go.mod` (go), `package.json` (nodejs), `pubspec.yaml` (flutter). Skip the phase entirely otherwise; that's onboarding an existing repo. Also skip it entirely for `PROFILE = generic` — there's no scaffold skill for an unknown stack, and generic is only ever reached from a repo that already has code.
 
-Scaffolding is delegated to that profile's own skill and its deterministic script — **not** done conversationally. All questions happen up front, in one batch; zero prompts once scaffolding starts. Per-profile invocation, decisions to gather, and the full procedure: `references/scaffold-delegation.md`.
+Scaffolding is delegated to a deterministic script — that profile's own scaffold skill for four of the five, and `flutter create` itself for `flutter`, since no `flutter-scaffold` skill exists (`references/scaffold-delegation.md` says what it would have to add and why that isn't a template yet). Either way it is a pinned command line, **not** done conversationally. All questions happen up front, in one batch; zero prompts once scaffolding starts. Per-profile invocation, decisions to gather, and the full procedure: `references/scaffold-delegation.md`.
 
 Set `SCAFFOLDED = true` when the script exits 0; the governance overlay then reconciles with what it provided (Phases 1 and 5).
 
@@ -56,7 +60,7 @@ Present → read `references/speckit-migration.md` for the layout table, the `mi
 
 ## Phase 1: Detect Existing Harness
 
-If `SCAFFOLDED = true`, `references/scaffold-delegation.md` → "What each scaffold leaves behind" lists what that profile's script already wrote and how to reconcile: treat it all as pre-existing, and for nuxt/next merge the governance guards the scaffold lacks into the `.claude/settings.json` it created (`bash-guard.mjs`, `spec-gate-guard.mjs`, `bugfix-test-guard.mjs`, `commit-msg-guard.mjs`, the `injection-scan-guard.mjs` / `injection-gate-guard.mjs` pair, `canary-seed.mjs`, governance rules, AI files) rather than writing fresh. For go/nodejs there is no `.claude/` to merge against — continue through Phases 2 onward normally.
+If `SCAFFOLDED = true`, `references/scaffold-delegation.md` → "What each scaffold leaves behind" lists what that profile's script already wrote and how to reconcile: treat it all as pre-existing, and for nuxt/next merge the governance guards the scaffold lacks into the `.claude/settings.json` it created (`bash-guard.mjs`, `spec-gate-guard.mjs`, `bugfix-test-guard.mjs`, `commit-msg-guard.mjs`, the `injection-scan-guard.mjs` / `injection-gate-guard.mjs` pair, `canary-seed.mjs`, governance rules, AI files) rather than writing fresh. For go/nodejs/flutter there is no `.claude/` to merge against — continue through Phases 2 onward normally. `flutter` also leaves an uncommitted tree and a bare `analysis_options.yaml`; both are pre-existing, neither is the overlay's to rewrite.
 
 Check for existing harness files:
 ```
@@ -106,6 +110,7 @@ Otherwise, ask **one bundled `AskUserQuestion` call**, before writing any files,
    Add CI config? (github/gitlab/both/no)
    Generates a workflow that runs {LINT} && {TYPECHECK} && {TEST} on push to main and on merge/pull requests.
    ```
+   For `flutter`, `{LINT}` is four commands (`dart format --set-exit-if-changed .`, then `flutter analyze --fatal-infos` in the `{TYPECHECK}` slot, then **both** `dart run custom_lint` and `dart run import_lint`) and the generated workflow adds a regenerate-and-diff step for committed generated code — say "lint, analyze, test, and a generated-code diff" rather than listing all of it in the question.
 3. **Model routing profile** (opus-centric/frontier/lean) — which model ladder `model-router` and `task-workflow` spawn subagents on. Written to `.claude/model-routing.json` at Phase 5-3d:
    ```
    Which model ladder should subagents use? (opus-centric/frontier/lean)
@@ -136,6 +141,8 @@ Store `KNOWLEDGE_BUNDLE`, `GRAPH`, `CI_PROVIDER`, `MODEL_ROUTING`, `AGENT_HOSTS`
 Read the content from `references/profile-{PROFILE}.md` → `## CLAUDE.md Template` section.
 
 For `generic`, that template needs `{STACK}` plus the `{LINT}`/`{TYPECHECK}`/`{TEST}` commands detected per `references/profile-generic.md` → `## Commands`; detect them once here and reuse the same values in Phases 4, 5-1 and 7.
+
+For `flutter`, the template is substitution-free but its Commands table carries the dev command with a flavor entrypoint (`-t lib/main_dev.dart --dart-define-from-file=config/dev.json`). On a repo that has no flavors yet — anything straight out of `flutter create` — write it as the template has it anyway: it states the convention the first slice must satisfy, and `flutter run` with no flavor is exactly the habit the "no URL literal in `lib/`" rule exists to prevent.
 
 Write to `CLAUDE.md` in the project root.
 Skip if `INSTALL_MODE=new` and `CLAUDE.md` already exists.
@@ -173,6 +180,14 @@ Create `.claude/rules/` if it doesn't exist.
 - **architecture.md** — from `references/files-shared.md` → `## architecture.md`, then append the profile block from `references/profile-{PROFILE}.md` → `## architecture addendum`. **Prepend** the profile-specific paths frontmatter.
 - **comments.md** — from `references/files-shared.md` → `## comments.md`, verbatim (stack-agnostic frontmatter already in the template — no paths substitution).
 
+**For flutter** — generate five files (each: skip if `INSTALL_MODE=new` and already exists). Same single-`conventions.md` shape as go/nodejs, **plus** a testing rule, because the test tree is where this profile's two most expensive mistakes live (unpinned goldens, an unmigrated `schemaVersion`):
+
+- **conventions.md** — from `references/profile-flutter.md` → `## conventions.md Template`. The template already includes `paths:` frontmatter (`lib/**`, `api/**`, `pubspec.yaml`, `analysis_options.yaml`).
+- **testing.md** — from `references/profile-flutter.md` → `## testing.md Template`. Includes `paths:` frontmatter scoping it to `test/**` + `integration_test/**`. Mirrored-tree convention like nuxt's, not co-located like next's.
+- **security.md** — from `references/files-shared.md` → `## security.md`. **Prepend** the flutter paths frontmatter from `## paths substitutions`.
+- **architecture.md** — from `references/files-shared.md` → `## architecture.md`, then append the profile block from `references/profile-flutter.md` → `## architecture addendum`. **Prepend** the flutter paths frontmatter.
+- **comments.md** — from `references/files-shared.md` → `## comments.md`, verbatim (stack-agnostic frontmatter already in the template — no paths substitution).
+
 **For generic** — generate three files only, no conventions and no testing rule (there is no known stack to write conventions for; `CLAUDE.md`'s "match the surrounding code" rule stands in for them). Each: skip if `INSTALL_MODE=new` and already exists:
 
 - **security.md** — from `references/files-shared.md` → `## security.md`. **Prepend** the `generic` paths frontmatter from `## paths substitutions`.
@@ -185,7 +200,7 @@ Create `.claude/rules/` if it doesn't exist.
 
 **AI_TASK_GUIDE.md** — from `references/files-shared.md` → `## AI_TASK_GUIDE.md`. Write to project root. Human orientation only — a pointer to `/task-workflow`, which owns the actual steps and formats. Never expand it back into a second copy of the workflow; the two drift the moment `task-workflow` changes.
 
-**AI_REVIEW_CHECKLIST.md** — from `references/files-shared.md` → `## AI_REVIEW_CHECKLIST.md`. Replace `{COMMANDS}` with the profile's lint/typecheck/test commands (from `references/profile-{PROFILE}.md` → `## Commands`). For `generic`, use the commands detected in Phase 2 and keep any undetected one as its literal `TODO: <lint|typecheck|test> command` placeholder — visible gap, not a guess.
+**AI_REVIEW_CHECKLIST.md** — from `references/files-shared.md` → `## AI_REVIEW_CHECKLIST.md`. Replace `{COMMANDS}` with the profile's lint/typecheck/test commands (from `references/profile-{PROFILE}.md` → `## Commands`). For `flutter`, list both lint CLIs (`dart run custom_lint` **and** `dart run import_lint`) — they are separate analyzer-plugin mechanisms and only the second one checks the import boundaries, so collapsing them to one line is the exact mistake the profile warns about. For `generic`, use the commands detected in Phase 2 and keep any undetected one as its literal `TODO: <lint|typecheck|test> command` placeholder — visible gap, not a guess.
 
 Skip each if `INSTALL_MODE=new` and file already exists.
 
@@ -197,7 +212,7 @@ Skip each if `INSTALL_MODE=new` and file already exists.
 
 **First check for an existing git-hook manager.** If the repo already gates commits via `simple-git-hooks` or `husky` (key in `package.json`), a `.husky/` dir, or an existing `.git/hooks/pre-commit` → **do NOT create `scripts/pre-commit.sh`**. The existing mechanism is the gate; skip to 5-2. (This is the case for `SCAFFOLDED = true` nuxt/next repos — the template uses `simple-git-hooks` → `pnpm lint-staged`.)
 
-Otherwise (go / nodejs / generic, or a nuxt/next repo without a hook manager): read `references/hook-guard.md` → `## pre-commit: {PROFILE}`. Write to `scripts/pre-commit.sh`, then `chmod +x scripts/pre-commit.sh`, and continue to 5-1b. The `generic` template carries the Phase 2 commands, with each undetected one degraded to a no-op `echo` per that section's note.
+Otherwise (go / nodejs / flutter / generic, or a nuxt/next repo without a hook manager): read `references/hook-guard.md` → `## pre-commit: {PROFILE}`. Write to `scripts/pre-commit.sh`, then `chmod +x scripts/pre-commit.sh`, and continue to 5-1b. The `generic` template carries the Phase 2 commands, with each undetected one degraded to a no-op `echo` per that section's note.
 
 ### 5-1b. Initialize git + install the hook
 
@@ -240,6 +255,8 @@ It normalizes the payload-field and response-envelope differences between Claude
 
 Read from `references/hook-guard.md` → `## bash-guard.mjs`. Write to `.claude/guards/bash-guard.mjs`.
 
+> `flutter` deliberately gets no `PostToolUse` formatter hook — `dart format` has no configuration to get wrong, and it runs in the pre-commit gate and CI (`references/profile-flutter.md` → `## settings.json Template` states this at the call site).
+>
 > nuxt/next auto-format also needs a guard script — `.claude/guards/lint-fix-file.mjs`, ESLint `--fix` scoped to the single touched file (a blanket `pnpm lint --fix` would rewrite every pre-existing lint violation in the repo on the first edit). If `SCAFFOLDED = true`, `nuxt-scaffold`/`next-scaffold` already wrote it. Otherwise (onboarding an existing nuxt or next repo), copy it now from `skills/nuxt-scaffold/scripts/templates/files/.claude/guards/lint-fix-file.mjs` (nuxt) or `skills/next-scaffold/scripts/templates/files/.claude/guards/lint-fix-file.mjs` (next) — same script body in both, single source of truth per profile, don't duplicate it here.
 
 ### 5-2b. Spec gate guard (blocks non-trivial edits before plan approval)
@@ -273,7 +290,7 @@ Enforces the Conventional Commits subject line that `bugfix-test-guard.mjs`'s `f
 2. **Install the git `commit-msg` hook.** Requires a git repo — if 5-1b didn't run (no `scripts/pre-commit.sh` was created), check `git rev-parse --is-inside-work-tree 2>/dev/null` first and `git init` if it fails. Then, matching whatever already gates commits in this repo:
    - **`simple-git-hooks`** (key in `package.json`) → add `"commit-msg": "node .claude/guards/commit-msg-guard.mjs $1"` to that object, then re-run `pnpm simple-git-hooks` (or `npx simple-git-hooks`) so it's written into `.git/hooks/`. This is the `SCAFFOLDED = true` nuxt/next case.
    - **`husky`** (`.husky/` dir) → write `.husky/commit-msg` containing `node .claude/guards/commit-msg-guard.mjs "$1"`, then `chmod +x .husky/commit-msg`.
-   - **Plain git** (go / nodejs / generic, or any repo with no hook manager) → read `references/hook-guard.md` → `## commit-msg: all profiles`, write `scripts/commit-msg.sh`, `chmod +x scripts/commit-msg.sh`, then install it the same way 5-1b installs pre-commit — `ln -sf ../../scripts/commit-msg.sh .git/hooks/commit-msg` if that path is absent or already our symlink; if it exists and is **not** ours, show it and ask before replacing, exactly as 5-1b does. Never clobber a foreign hook silently.
+   - **Plain git** (go / nodejs / flutter / generic, or any repo with no hook manager) → read `references/hook-guard.md` → `## commit-msg: all profiles`, write `scripts/commit-msg.sh`, `chmod +x scripts/commit-msg.sh`, then install it the same way 5-1b installs pre-commit — `ln -sf ../../scripts/commit-msg.sh .git/hooks/commit-msg` if that path is absent or already our symlink; if it exists and is **not** ours, show it and ask before replacing, exactly as 5-1b does. Never clobber a foreign hook silently.
 
    Say which of the three paths was taken in the Phase 7 summary. As with pre-commit, `.git/hooks/` isn't version-controlled — Phase 6's README onboarding covers the fresh-clone step.
 
@@ -287,7 +304,7 @@ For **nuxt** / **next** (same merge shape, different scaffold skill):
 - **If `SCAFFOLDED = true`**: the `nuxt-scaffold`/`next-scaffold` skill already wrote `.claude/settings.json` with `permissions.allow` + a `PostToolUse` `lint-fix-file.mjs` hook (and the script itself). Merge the `PreToolUse` `bash-guard.mjs` + `spec-gate-guard.mjs` + `injection-gate-guard.mjs` hooks (matcher `Bash|Write|Edit|WebFetch|mcp__.*`), `PreToolUse` `bugfix-test-guard.mjs` + `commit-msg-guard.mjs` hooks (matcher `Bash`, alongside `bash-guard.mjs`), a `SessionStart` block with both `canary-seed.mjs` and `session-resume-check.mjs` hooks, any missing `permissions.allow` entries, **and** a second `PostToolUse` entry for `injection-scan-guard.mjs` alongside the existing `lint-fix-file.mjs` one — do not replace or duplicate the existing `lint-fix-file.mjs` entry. Merge per-event; show additions before writing.
 - **Otherwise** (onboarding an existing nuxt or next repo): write `.claude/guards/lint-fix-file.mjs` per 5-2's note above if missing, then read the full settings.json template from `references/profile-nuxt.md` or `references/profile-next.md` → `## settings.json Template`. If `.claude/settings.json` exists, merge the `hooks` block + missing `permissions.allow` entries (per-event, never drop the user's); if not, write fresh.
 
-For **go** / **nodejs** / **generic**: read the template from `references/profile-{PROFILE}.md` → `## settings.json Template`. If the file exists, merge the `hooks` block + missing `permissions.allow` entries (per-event); otherwise write fresh. The `generic` template pre-approves git commands only — an unknown toolchain gets no blanket allowlist; let the user approve its commands as they come up.
+For **go** / **nodejs** / **flutter** / **generic**: read the template from `references/profile-{PROFILE}.md` → `## settings.json Template`. If the file exists, merge the `hooks` block + missing `permissions.allow` entries (per-event); otherwise write fresh. The `generic` template pre-approves git commands only — an unknown toolchain gets no blanket allowlist; let the user approve its commands as they come up.
 
 ### 5-3b. .vscode/settings.json (nuxt / next only)
 
@@ -296,7 +313,7 @@ Editor format-on-save via ESLint. Read `references/profile-nuxt.md` or `referenc
 - If `.vscode/settings.json` exists: **merge** the keys in (never overwrite; show additions first).
 - If not: write fresh.
 
-Other profiles (go, nodejs — backend-only, no editor-format concern; generic — formatter unknown): skip.
+Other profiles (go, nodejs — backend-only, no editor-format concern; flutter — the official Dart/Flutter extension already formats on save with `dart format`'s one style, nothing to configure or disable; generic — formatter unknown): skip.
 
 ### 5-3c. Harness version marker
 
@@ -343,7 +360,7 @@ If false, skip everything above — no other phase depends on it.
 
 Decided in Phase 1.5 (`CI_PROVIDER`, auto-detected default from `git remote get-url origin`). Skip everything below if `no` — which includes every `PROFILE = generic` run, since `references/ci.md` has no generic template and an inferred workflow for an unknown stack would be wrong more often than right.
 
-Read templates from `references/ci.md`.
+Read templates from `references/ci.md`. For `flutter`, two things in that template need the user's attention rather than a silent write, so name both in the Phase 7 summary: the Flutter setup action is referenced by major tag (pin it to a SHA), and the SDK version comes from `.fvmrc` (GitHub) or the image tag (GitLab), neither of which exists on a repo that hasn't pinned its SDK yet.
 
 0. **Clear the spec gate first, if it's active.** `spec-gate-guard.mjs` blocks any `Write` outside its trivial allowlist, and a CI workflow isn't on that list — so on a repo that *already* has the guard registered (a second harness run, or a first run where CI was declined and is being added later) every write below dies with `PLAN.md missing or not approved`. Two non-fixes to rule out: reordering this phase ahead of Phase 5 doesn't help, because a `PreToolUse` block is `exit 2` that nothing in this run can override and on a re-run the guard is live from the session's first tool call; and widening the guard's allowlist is worse than the bug, since a workflow file executes with access to CI secrets and defines which gates run at all — it's the single file most worth gating.
 
@@ -443,7 +460,8 @@ unscoped .claude/rules/ + skill descriptions) and Cursor (AGENTS.md + always-app
 - Cursor parity (Phase 5.8) — opt-in only, decided once in Phase 1.5 (`AGENT_HOSTS`); skip entirely if it's `claude`. Mirror files are always generated by `tools/cursor_mirror.mjs`, never hand-written, and a re-run is a no-op when they're current. `.cursor/hooks.json` merges per event like `.claude/settings.json`. `.claude/` stays canonical: the mirror is regenerated from it, never merged back into it. `.claude/guards/lib/hook-io.mjs` (Phase 5-1d) is **not** optional — it's written on every install, since every guard imports it.
 - `.claude/model-routing.json` (Phase 5-3d) — decided once in Phase 1.5 (`MODEL_ROUTING`); `new` mode never overwrites an existing ladder. Deleting the file is safe: `model-router` falls back to the `opus-centric` default.
 - Spec Kit (Phase 0.7) — detection only; `none` is the common case and skips the phase. On `migrate`, nothing is deleted until the user has seen the triage table, `git tag pre-harness-migration` is set first, and contract fragments are reconciled before `specs/` goes. On `coexist`, the spec-gate hook is left unregistered rather than the guard left unwritten. Never migrate a repo that didn't ask.
-- Profile detection (Phase 0) — the four-way question is asked **only** for an empty repo, where it picks the scaffold. Existing code that matches no marker is `PROFILE = generic`, never a question: it skips Phase 0.5, the conventions/testing rules, `.vscode/settings.json`, and Phase 5.6 CI, and installs everything else. Commands are detected, and an undetected one stays a visible `TODO` rather than a guess.
+- Profile detection (Phase 0) — the five-way question is asked **only** for an empty repo, where it picks the scaffold. `pubspec.yaml` matches `flutter` only for a Flutter **app**: it needs the Flutter marker (a `flutter:` key or the SDK dependency) *and* app evidence (`lib/main*.dart` plus `android/app/` or `ios/Runner/`). A plain Dart package, a Flutter package, and a Flutter plugin (`plugin:` under `flutter:`) all fall through to `generic`. Existing code that matches no marker is `PROFILE = generic`, never a question: it skips Phase 0.5, the conventions/testing rules, `.vscode/settings.json`, and Phase 5.6 CI, and installs everything else. Commands are detected, and an undetected one stays a visible `TODO` rather than a guess.
+- Project scaffold, `flutter` (Phase 0.5) — the one profile whose scaffold is the stack's own CLI rather than a skill in this plugin, and the one that neither verifies nor commits. Everything else about the phase is unchanged: pinned arguments, no prompts, whatever it wrote is pre-existing.
 - All user-facing questions (empty-repo profile choice, harness conflicts, Knowledge Bundle, CI, model routing profile, agent hosts, Spec Kit handling, foreign pre-commit hook) resolve before any file is written — see Phase 1.5, which splits into two `AskUserQuestion` calls when more than four apply.
 - Never delete files not part of the harness.
 - `.claude/harness-version` — written on every fresh/overwrite setup (Phase 5-3c) as a baseline for future patch runs; `new` mode only writes it if absent, since skipped pre-existing files may be older than the recorded version.
@@ -465,7 +483,8 @@ Read `references/summary-checklist.md` → `## Output Checklist` and verify ever
 - `references/profile-next.md` — templates for next profile (same shape as profile-nuxt.md)
 - `references/profile-go.md` — templates for go profile
 - `references/profile-nodejs.md` — templates for nodejs profile
-- `references/profile-generic.md` — fallback profile for a stack that matches none of the four: what it installs and skips, command detection, CLAUDE.md + settings.json templates, why no CI
+- `references/profile-flutter.md` — templates for flutter profile (mobile client against a frozen API): commands incl. the two separate lint mechanisms, CLAUDE.md, conventions, testing, architecture addendum, settings.json
+- `references/profile-generic.md` — fallback profile for a stack that matches none of the five: what it installs and skips, command detection, CLAUDE.md + settings.json templates, why no CI
 - `references/files-shared.md` — shared files: security, architecture, AI task guide pointer, review checklist, paths substitutions per profile
 - `references/patch-mode.md` — Phase 1a: version diffing + CHANGELOG patch-block application for `INSTALL_MODE=patch`
 - `references/hook-guard.md` — lib/hook-io.mjs (the two-host payload adapter every guard imports), bash-guard.mjs, spec-gate-guard.mjs, bugfix-test-guard.mjs, commit-msg-guard.mjs, injection-scan-guard.mjs, injection-gate-guard.mjs, session-resume-check.mjs, canary-seed.mjs, precompact-snapshot.mjs scripts + pre-commit scripts per profile

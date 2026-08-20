@@ -97,7 +97,8 @@ The skill detects your stack, asks a small batch of questions **before writing a
 | `go.mod` | `go` |
 | `package.json` with express/fastify/hono/koa | `nodejs` |
 | `next.config.*` | `next` |
-| none of the above, but the repo has code | `generic` — no question asked, setup keeps going |
+| `pubspec.yaml` with a `flutter:` key or SDK dependency | `flutter` |
+| none of the above, but the repo has code | `generic` — no question asked, setup keeps going (a plain Dart package lands here, not in `flutter`) |
 | empty repo | asks which stack, then scaffolds the app first |
 
 **The questions you'll be asked** (one bundled prompt, all optional to change):
@@ -109,7 +110,7 @@ The skill detects your stack, asks a small batch of questions **before writing a
 | Model ladder | `opus-centric` | Which models the three execution tiers spawn on — see [§7](#7-tuning-cost-and-depth) |
 | Agent hosts | auto-detected — `both` if `.cursor/` exists, else `claude` | Whether to also generate the Cursor mirror so the same rules and gates apply in Cursor — see [`GATES.md` §7](GATES.md#7-the-same-gates-in-cursor) |
 
-If the repo is empty, the app itself gets scaffolded first (by `nuxt-scaffold` / `next-scaffold` / `go-scaffold` / `nodejs-scaffold`), and the governance layer is overlaid on top additively.
+If the repo is empty, the app itself gets scaffolded first (by `nuxt-scaffold` / `next-scaffold` / `go-scaffold` / `nodejs-scaffold`, or by `flutter create` for the `flutter` profile), and the governance layer is overlaid on top additively.
 
 If the repo is on GitHub Spec Kit, you'll be offered `migrate` / `coexist` / `leave`. Migration always shows you a read-only triage table of everything under `specs/` before deleting a single file.
 
@@ -527,7 +528,7 @@ Probably the injection gate (stage 2) after a recent web fetch. Check what was f
 | Term | Meaning |
 | --- | --- |
 | **Harness** | The governance layer: `CLAUDE.md`, `.claude/rules/`, guard hooks, budget gate, CI. |
-| **Profile** | Which stack a repo is — `nuxt`, `next`, `go`, `nodejs`, or `generic`. Decides which templates get written. |
+| **Profile** | Which stack a repo is — `nuxt`, `next`, `go`, `nodejs`, `flutter`, or `generic`. Decides which templates get written. |
 | **Guard** | A hook script under `.claude/guards/` that blocks or confirms a tool call. The load-bearing part of the system. |
 | **Gate** | A checkpoint that fails closed — the spec gate, the pre-commit script, the budget gate. |
 | **Tier** | One of the three execution subagents: quick / standard / deep. |

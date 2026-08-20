@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "bigin plugins for Cursor",
-    "version": "1.65.0"
+    "version": "1.66.0"
   },
   "plugins": [
     {
       "name": "bigin-skills",
       "source": "./",
-      "description": "BigIn's skills for standardized AI-assisted development — harness setup (governance + enforcement gates for nuxt/go/nodejs/next, Claude Code and Cursor), Nuxt, Next.js, Go, and Node.js app scaffolding, end-of-sprint and pinned-library knowledge distillation, and session handoff.",
-      "version": "1.65.0",
+      "description": "BigIn's skills for standardized AI-assisted development — harness setup (governance + enforcement gates for nuxt/go/nodejs/next/flutter, Claude Code and Cursor), Nuxt, Next.js, Go, and Node.js app scaffolding, end-of-sprint and pinned-library knowledge distillation, and session handoff.",
+      "version": "1.66.0",
       "author": {
         "name": "Tam Mai",
         "email": "tam.mai@bigin.vn"

@@ -1,15 +1,70 @@
 [
-  {"query":"set up the AI workflow harness for this repo","should_trigger":true},
-  {"query":"add CLAUDE.md and governance rules to this project","should_trigger":true},
-  {"query":"scaffold the harness for our go backend","should_trigger":true},
-  {"query":"set up the AI workflow harness for our next.js frontend","should_trigger":true},
-  {"query":"onboard this existing repo with structured AI-assisted development conventions","should_trigger":true},
-  {"query":"add cursor support to our harness so the rules and gates work there too","should_trigger":true},
-  {"query":"generate .cursor/rules and AGENTS.md for this project","should_trigger":true},
-  {"query":"add a login button to the homepage","should_trigger":false},
-  {"query":"run the tests and tell me if anything fails","should_trigger":false},
-  {"query":"review this PR and check for security issues","should_trigger":false},
-  {"query":"distill this sprint's learnings into knowledge/","should_trigger":false},
-  {"query":"scaffold a new nuxt 4 app with the saas template","should_trigger":false},
-  {"query":"explain what CLAUDE.md is used for","should_trigger":false}
+  {
+    "query": "set up the AI workflow harness for this repo",
+    "should_trigger": true
+  },
+  {
+    "query": "add CLAUDE.md and governance rules to this project",
+    "should_trigger": true
+  },
+  {
+    "query": "scaffold the harness for our go backend",
+    "should_trigger": true
+  },
+  {
+    "query": "set up the AI workflow harness for our next.js frontend",
+    "should_trigger": true
+  },
+  {
+    "query": "onboard this existing repo with structured AI-assisted development conventions",
+    "should_trigger": true
+  },
+  {
+    "query": "add cursor support to our harness so the rules and gates work there too",
+    "should_trigger": true
+  },
+  {
+    "query": "generate .cursor/rules and AGENTS.md for this project",
+    "should_trigger": true
+  },
+  {
+    "query": "add a login button to the homepage",
+    "should_trigger": false
+  },
+  {
+    "query": "run the tests and tell me if anything fails",
+    "should_trigger": false
+  },
+  {
+    "query": "review this PR and check for security issues",
+    "should_trigger": false
+  },
+  {
+    "query": "distill this sprint's learnings into knowledge/",
+    "should_trigger": false
+  },
+  {
+    "query": "scaffold a new nuxt 4 app with the saas template",
+    "should_trigger": false
+  },
+  {
+    "query": "explain what CLAUDE.md is used for",
+    "should_trigger": false
+  },
+  {
+    "query": "set up the harness in this flutter app",
+    "should_trigger": true
+  },
+  {
+    "query": "add the AI rules and commit hooks to our flutter client",
+    "should_trigger": true
+  },
+  {
+    "query": "why is dart run import_lint not in my CI after installing the harness?",
+    "should_trigger": true
+  },
+  {
+    "query": "what's the best state management library for flutter?",
+    "should_trigger": false
+  }
 ]
