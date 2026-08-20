@@ -85,7 +85,7 @@ Requires a Conventional Commit subject: one of `feat` `fix` `docs` `style` `refa
 
 Blocks a fix-shaped `git commit` when no test file is staged. Fix-shaped means a conventional `fix:` prefix on any line, or `bugfix`/`hotfix` anywhere in the message.
 
-Test patterns that satisfy it: `*.test.*`, `*.spec.*`, `*_test.go`, anything under `tests/`/`test/`, or `__tests__/`.
+Test patterns that satisfy it: `*.test.*`, `*.spec.*`, `*_test.go`, `*_test.dart`, anything under `tests/`/`test/`, or `__tests__/`. `*_test.dart` is matched on its own rather than via the directory rule, because Flutter's flow tests live in `integration_test/` — which is not `test/`.
 
 **Three ways it stands down:**
 

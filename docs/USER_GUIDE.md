@@ -97,8 +97,8 @@ The skill detects your stack, asks a small batch of questions **before writing a
 | `go.mod` | `go` |
 | `package.json` with express/fastify/hono/koa | `nodejs` |
 | `next.config.*` | `next` |
-| `pubspec.yaml` with a `flutter:` key or SDK dependency | `flutter` |
-| none of the above, but the repo has code | `generic` — no question asked, setup keeps going (a plain Dart package lands here, not in `flutter`) |
+| `pubspec.yaml` with a `flutter:` key or SDK dependency **and** app evidence (`lib/main*.dart` plus `android/app/` or `ios/Runner/`) | `flutter` |
+| none of the above, but the repo has code | `generic` — no question asked, setup keeps going. A plain Dart package lands here, and so do a Flutter **package** and a Flutter **plugin** (`plugin:` under `flutter:`): flavors, a dio client and a local database are app concerns, and a widget library should not inherit rules for code it will never contain. The run says which one it detected. |
 | empty repo | asks which stack, then scaffolds the app first |
 
 **The questions you'll be asked** (one bundled prompt, all optional to change):
@@ -297,6 +297,7 @@ One `PLAN.md` per worktree. Spec-gate approval is **per-worktree** — approving
 | Write tests for one function | "write tests for `parseToken`" | `write-tests` |
 | Debug something not yet in a plan | "why is this flaky", "debug this" | `debug-workflow` |
 | Start a Nuxt / Next / Go / Node app from nothing | "scaffold nuxt", "create go rest api" | `*-scaffold` |
+| Start a Flutter app from nothing | "set up a harness" in an empty dir | `bigin-harness-setup` → `flutter create` (no scaffold skill — see below) |
 | Capture a sprint's learnings | "sprint distill" | `sprint-distill` |
 | Pin a fast-moving library's API | "distill knowledge for nuxt@4.0.3" | `knowledge-distill` |
 | Save state before hitting a limit | "save session" | `session-handoff` |
@@ -335,7 +336,7 @@ If the plan says `Status: amending`, the block is deliberate: a course correctio
 
 **Blocks:** `git commit -m "fix: …"` (or `bugfix`/`hotfix`) with no staged test file.
 
-**Allows:** once a `*.test.ts` / `*.spec.ts` / `*_test.go` / `tests/**` file is staged; when every staged file is docs/config; or when the message contains `[no-test]`.
+**Allows:** once a `*.test.ts` / `*.spec.ts` / `*_test.go` / `*_test.dart` / `tests/**` file is staged; when every staged file is docs/config; or when the message contains `[no-test]`. Dart is matched by filename, not by directory, so a fix shipping only `integration_test/checkout_test.dart` counts.
 
 **Fix:** stage the regression test. If there genuinely can't be one (a docs typo mislabeled `fix:`), add `[no-test]` — but that's an escape hatch, not a habit.
 
