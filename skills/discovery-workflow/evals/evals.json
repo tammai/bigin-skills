@@ -1,0 +1,18 @@
+[
+  {"query":"we want to build a client portal, not really sure what goes in it yet","should_trigger":true},
+  {"query":"write a PRD for the invoicing feature","should_trigger":true},
+  {"query":"help me figure out what we should even build here","should_trigger":true},
+  {"query":"the client asked for 'reporting' — turn that into requirements","should_trigger":true},
+  {"query":"we need a product brief before we start on this","should_trigger":true},
+  {"query":"work out what this repo does today and what the next version should be","should_trigger":true},
+  {"query":"discovery for the new onboarding flow","should_trigger":true},
+  {"query":"what are the acceptance criteria for the workspace invites feature","should_trigger":true},
+  {"query":"break this epic down into units I can ship one at a time","should_trigger":false},
+  {"query":"implement the rate limiter for the public API endpoints","should_trigger":false},
+  {"query":"fix the typo in the footer","should_trigger":false},
+  {"query":"why is this integration test flaky","should_trigger":false},
+  {"query":"write tests for the discount calculator","should_trigger":false},
+  {"query":"set up the harness in this repo","should_trigger":false},
+  {"query":"distill knowledge for nuxt@4.0.3","should_trigger":false},
+  {"query":"sprint distill — we just closed the sprint","should_trigger":false}
+]

@@ -95,7 +95,7 @@ Team conventions get **blended visibly**: a relevant `.claude/rules/*` rule is f
 
 Step 6 is the one to understand. `PLAN.md` is the only written record of *why* a task took its shape, and deleting it is the last chance to keep any of that. The prompt is deliberately narrow: **nothing durable is the common case** for routine work, and the skill says so rather than inventing a concept to justify the step. Concepts are per-invariant, not per-task — amending an existing file beats adding one, and any new file needs a summary line in `knowledge/index.md` or the validator flags it unreachable. If the plan carries an `## Amendments` section, the distill step reads it first: a plan that had to change usually changed because of something worth writing down.
 
-**The epic layer is the third entry point.** There are now three, at different altitudes: `task-workflow`'s cleanup (per task, usually nothing), `epic-workflow`'s cleanup (per epic — this is where durable decisions actually surface, because an epic that settled a contract or a boundary produced one), and `sprint-distill` (per sprint, across merged PRs). Same discipline in all three: propose a specific file and line, prefer amending to adding, and never bank a concept nobody asked for.
+**Knowledge about our own system enters at four altitudes.** `discovery-workflow` (per product decision, into `knowledge/architecture/` — the one that writes *ahead* of the code, which is why its concepts land `status: draft` with no `verified` entry: nothing has confirmed them against a running system yet), `task-workflow`'s cleanup (per task, usually nothing), `epic-workflow`'s cleanup (per epic — this is where durable decisions actually surface, because an epic that settled a contract or a boundary produced one), and `sprint-distill` (per sprint, across merged PRs). Same discipline in all four: propose a specific file and line, prefer amending to adding, and never bank a concept nobody asked for. None of the four creates a bundle as a side effect: three skip the step and say so, and `sprint-distill` asks whether to continue in skills-only mode.
 
 ---
 
@@ -109,6 +109,7 @@ flowchart TD
         A["task-workflow · Cleanup<br/>decision, invariant, contract"]
         B["sprint-distill · WHAT/WHY<br/>from merged PRs"]
         C["knowledge-distill<br/>library at a pinned SHA"]
+        E["discovery-workflow<br/>decisions the product forced"]
     end
 
     in --> K[("knowledge/<br/>concept files")]
@@ -142,21 +143,24 @@ flowchart TD
 
 ## 6. Where a fact belongs
 
-Four surfaces, one question each. Putting a fact in the wrong one is the most common way this convention goes wrong, because the wrong home has no mechanism to expire it.
+Five surfaces, one question each. Putting a fact in the wrong one is the most common way this convention goes wrong, because the wrong home has no mechanism to expire it.
 
 | Surface | Question | Lifetime |
 |---|---|---|
 | `knowledge/` | What is the system, and why? | Outlives sprints; expires on behavior change |
+| `docs/product/prd.md` | What did we promise a user, and how is it checked? | Outlives every epic derived from it; amended, never renumbered |
 | `.claude/rules/` | How do we work here? | Outlives projects; changes by decision |
 | `graphify-out/` | Where is the code, and what connects? | Regenerated; expires every commit |
 | `PLAN.md` | What are we doing right now? | Deleted at task end |
 
-Three mistakes worth naming:
+Four mistakes worth naming:
 
 **Structural facts in `knowledge/`.** "`AuthService` calls `TokenStore`" is true until the next refactor, and nothing in the bundle will catch it — that's what the graph is for, and `sprint-distill`'s sweep flags such files for deletion. Link to the code instead.
 
 **Conventions in `knowledge/`.** "We use conventional commits" is how-we-work. It belongs in `.claude/rules/` or the plugin, where `sprint-distill`'s net-neutral budget applies to it.
 
 **Per-task narrative in `knowledge/`.** "Added the export button" is not an invariant. Step 6's prompt exists to catch decisions, not to log features.
+
+**Requirements in `knowledge/`.** "A user can only see their own workspace's invoices" is a promise to a user that someone approves and someone later checks — that's the PRD. The invariant it forces — "every row belongs to one workspace and every read filters by it" — is what belongs here. `discovery-workflow` writes both, to the two different homes, and neither file restates the other.
 
 The inverse also holds: a graph, a rule file, and a `PLAN.md` together still can't say *why* the retry logic sits where it does. That sentence only has one home.

@@ -281,6 +281,40 @@ Three things to hold onto:
 
 Epic cleanup is also where the `knowledge/` distillation usually pays off. A single `PLAN.md` rarely establishes anything durable; an epic that settled a contract or a boundary did.
 
+### When nobody can say what the thing is yet
+
+`epic-workflow` assumes the initiative arrives already stated, and `task-workflow` assumes the task does. When neither is true — a client says "we want a portal", or the ask is a new product surface nobody has written acceptance criteria for — `discovery-workflow` runs first:
+
+```
+/discovery-workflow "we want a client portal"
+        ↓
+  triage — one-line change → task-workflow · settled initiative → epic-workflow · neither → continue
+        ↓
+  read the repo before asking anything (and run every command before writing it down)
+        ↓
+  structured elicitation, hard-capped — 3 rounds, 12 questions, then it writes anyway
+        ↓
+  YOU APPROVE THE BRIEF        ← nothing on disk before this
+        ↓
+  docs/product/brief.md
+        ↓
+  YOU APPROVE THE PRD          ← also the privacy checkpoint: roles, never people
+        ↓
+  docs/product/prd.md — numbered FR-n requirements, acceptance criteria each
+        ↓
+  knowledge/architecture/*.md for the decisions the product forced (skipped, loudly, with no bundle)
+        ↓
+  hands the PRD path to epic-workflow, then STOPS
+```
+
+Three things to hold onto:
+
+- **The PRD is a contract, not a document.** It is written so that `epic-workflow` can decompose from its requirement index and `Depends on:` lines and `write-tests` can generate from one acceptance criterion — **neither reads a PRD today**, so for now you hand over the path or quote the criterion. What already works is `task-workflow`'s full-spec `Covers` column, which takes requirement IDs. All three cite by ID, which is why requirement IDs are assigned once and never renumbered — a tidy-up silently re-points every citation at requirements nobody wrote.
+- **Two homes, and nothing crosses.** Product artifacts are human-facing docs under `docs/product/`; architecture decisions are agent-facing OKF concepts under `knowledge/architecture/`. A requirement never lands in `knowledge/`, and an invariant never lands in the PRD.
+- **It adds no gate either.** Approval is conversational, at those two stops. Nothing at commit time reads a brief or a PRD, and an approved one is never overwritten — re-invoking on a finished discovery reports state and hands off.
+
+Skipping it is fine and often right. A repo with no PRD keeps working exactly as before; a repo with one has the answers to the decomposition's questions already written down, and you point `epic-workflow` at them.
+
 ### Running several tasks at once
 
 One `PLAN.md` per worktree. Spec-gate approval is **per-worktree** — approving a plan in one instance never carries over to another. See [`skills/task-workflow/references/parallelization.md`](../skills/task-workflow/references/parallelization.md) for the worktree-per-instance pattern and the 3–4 task cascade.
@@ -294,6 +328,7 @@ One `PLAN.md` per worktree. Spec-gate approval is **per-worktree** — approving
 | Set up a new repo | "set up a harness" | `bigin-harness-setup` |
 | Build a feature / fix a tracked bug | "implement X", "fix Y" | `task-workflow` |
 | Break an initiative into shippable units | "this is too big for one task" | `epic-workflow` |
+| Work out what to build at all | "we want to build X", "write a PRD" | `discovery-workflow` |
 | Write tests for one function | "write tests for `parseToken`" | `write-tests` |
 | Debug something not yet in a plan | "why is this flaky", "debug this" | `debug-workflow` |
 | Start a Nuxt / Next / Go / Node app from nothing | "scaffold nuxt", "create go rest api" | `*-scaffold` |
@@ -304,11 +339,13 @@ One `PLAN.md` per worktree. Spec-gate approval is **per-worktree** — approving
 | Implement a Nuxt UI Figma handoff | paste the Figma URL | `nuxt-ui-figma-handoff` |
 | Decide which model runs a task | "route this task" | `model-router` |
 
-### The three that overlap most
+### The four that overlap most
 
 **`write-tests` vs `task-workflow`** — `write-tests` is for "I need tests for this one function, now." A full feature going through `task-workflow` calls `write-tests` internally for its test authoring; you don't need to invoke both.
 
 **`epic-workflow` vs `task-workflow`** — `task-workflow` takes one task to shipped code. `epic-workflow` decides what the tasks *are*: it decomposes an initiative into ordered units, each sized to one `PLAN.md`, and then hands them back to `task-workflow` one unit per session (`/clear` between units — the queue file in `.claude/memory/EPIC.md` is the handoff package). Use it only when the work genuinely needs 3+ plans, spans more than one PR, or crosses two-plus surfaces; below that bar, decomposing costs a session and buys nothing. Approving an epic approves the *decomposition* only — every unit still faces the spec gate on its own.
+
+**`discovery-workflow` vs `epic-workflow`** — both sit above the task loop, and the split is whether the *product* question is settled. If you can already write one testable acceptance criterion for the request exactly as stated, inventing nothing, it's an epic (or a task) and discovery would just manufacture paperwork. If writing that one criterion means deciding who the user is or what "done" means, that's discovery, and it ends by handing `epic-workflow` a PRD.
 
 **`debug-workflow` vs `task-workflow`** — if the bug already has a `PLAN.md`, `task-workflow` owns it and points at `debug-workflow` for the actual debugging. Use `debug-workflow` standalone when the failure isn't tied to a ticket yet: a flaky test, a stack trace, "works in staging not prod," a live incident.
 
@@ -441,7 +478,9 @@ Rationale per tier lives in [`skills/model-router/references/model-profiles.md`]
 
 ## 8. Knowledge: distilling what the team learns
 
-Two skills write into `knowledge/`. They cover different things and should not be confused.
+Two skills exist to **distill** into `knowledge/`, and this section covers both. They cover different things and should not be confused.
+
+They aren't the only writers. `discovery-workflow` records the architecture decisions a PRD forces ([§4](#when-nobody-can-say-what-the-thing-is-yet)), and `task-workflow` and `epic-workflow` each propose a concept at cleanup when a task or an epic settled something durable. The difference is what the writing *is*: for those, it's one step inside a larger job; for these two, it's the whole job.
 
 ### `knowledge-distill` — external library APIs
 
@@ -551,6 +590,7 @@ Probably the injection gate (stage 2) after a recent web fetch. Check what was f
 - Using a code graph alongside the harness — [`GRAPHIFY.md`](GRAPHIFY.md)
 - Running several tasks in parallel — [`skills/task-workflow/references/parallelization.md`](../skills/task-workflow/references/parallelization.md)
 - The epic queue format and dispatch protocol — [`skills/epic-workflow/references/epic-queue.md`](../skills/epic-workflow/references/epic-queue.md)
+- The brief and PRD formats, and the elicitation cap — [`skills/discovery-workflow/references/`](../skills/discovery-workflow/references/)
 - A filled-in full spec — [`skills/task-workflow/references/full-spec-example.md`](../skills/task-workflow/references/full-spec-example.md)
 - Model tier rationale — [`skills/model-router/references/model-profiles.md`](../skills/model-router/references/model-profiles.md)
 - Migrating off Spec Kit — [`skills/bigin-harness-setup/references/speckit-migration.md`](../skills/bigin-harness-setup/references/speckit-migration.md)

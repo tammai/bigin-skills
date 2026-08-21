@@ -1,6 +1,6 @@
 {
   "name": "bigin-skills",
-  "version": "1.68.1",
+  "version": "1.69.0",
   "description": "BigIn's collection of Claude Code skills for standardized AI-assisted development — harness setup (governance files + enforcement gates for nuxt/go/nodejs/next/flutter repos, Claude Code and Cursor), Nuxt, Next.js, Go, and Node.js app scaffolding, end-of-sprint and pinned-library knowledge distillation, and session handoff.",
   "author": {
     "name": "Tam Mai",
@@ -61,6 +61,9 @@
     "web-development",
     "task-workflow",
     "epic-workflow",
+    "discovery-workflow",
+    "product-discovery",
+    "prd",
     "write-tests",
     "debug-workflow",
     "systematic-debugging",

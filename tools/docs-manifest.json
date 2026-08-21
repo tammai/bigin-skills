@@ -12,6 +12,10 @@
       "group": "core",
       "summary": "Decomposes an initiative into ordered, independently shippable units (/epic-workflow), then dispatches one per session through task-workflow."
     },
+    "discovery-workflow": {
+      "group": "core",
+      "summary": "Vague ask → approved brief + PRD under docs/product/ and architecture decisions in knowledge/, then hands the PRD to epic-workflow."
+    },
     "nuxt-scaffold": {
       "group": "core",
       "summary": "Scaffolds a Nuxt 4 BFF app from scratch via a deterministic Node.js script — npm create nuxt@latest + BFF preset + config/sample code. No GitHub clone."
