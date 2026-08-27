@@ -48,7 +48,7 @@ Not this skill: a single PR, a single change, or a one-off code review — use `
 2. `git diff --stat SPRINT_START..HEAD -- knowledge/` (if `KB_MODE = full`) — concept files touched this sprint.
 3. Current `.claude/rules/*.md` — read so you don't re-propose a convention that's already documented.
 4. **Stale-rules scan**: for each file in `.claude/rules/` and `CLAUDE.md`, identify the most recent `git log` entry that touched it. Flag any file with no merged PR touching it in the 2 sprints since `SPRINT_START` as a deletion candidate. Output as a list: `{file} — last touched {date}, {N} sprints ago`.
-5. **If `graphify-out/graph.json` exists**: check whether any commit since the graph's last build touched an indexed path — if so, flag the graph as stale so Phase 2's checks run against a fresh rebuild. If `KB_MODE = full`, also check each concept file's referenced identifiers (functions/tables/routes it names) against `graph.json`; any that no longer resolve join Phase 2's stale-concept output with reason "symbol no longer in graph" (code-state expiry, not calendar).
+5. **If `graphify-out/graph.json` exists**: check whether any commit since the graph's last build touched an indexed path — if so, flag the graph as stale so Phase 2's checks run against a fresh rebuild. If `KB_MODE = full`, also check each concept file's referenced identifiers (functions/tables/routes it names) against `graph.json`; any that no longer resolve join Phase 2's stale-concept output with reason "symbol no longer in graph" (code-state expiry, not calendar). Concept files only — skip `knowledge/implementation/` entirely, for the reason Phase 2 states.
 
 Have the subagent return: the commit titles/bodies, the `knowledge/` diff stat, the stale-rules list, and (if a graph exists) the staleness flag + symbol-miss list — not raw `git log`/`git diff` output. This is a plain subagent delegation (Agent tool), not the skill-level `context: fork` frontmatter — only steps 1-5 need isolating, and `context: fork` would run the entire skill (including step 6's interactive question) as a subagent, where `AskUserQuestion` isn't available.
 
@@ -71,6 +71,7 @@ For every candidate learning gathered in Phase 1, apply the sorting rule strictl
 - **HOW we work** (a convention, a gate, a process change) → a `bigin-skills` update (`.claude/rules/*`, a `SKILL.md`, a reference file).
 - **Neither** (noise, a one-off, something already covered) → drop, but report it in the proposal so nothing silently vanishes.
 - **Never both.** If a candidate seems to span both, pick the side it primarily belongs to and link to the other rather than writing it twice.
+- **Never a record.** `knowledge/implementation/` is written only by `task-workflow` and `epic-workflow` at cleanup, one `Record` per finished task or epic. No candidate learning is ever routed there, and this skill never opens one to mine it: a record's narrative is not a candidate for distillation, it is what distillation already ran against.
 
 Bias toward DROP when uncertain — `knowledge/` concept files are terse by design; don't grow the bundle to record something obvious or already covered.
 
@@ -81,12 +82,17 @@ Bias toward DROP when uncertain — `knowledge/` concept files are terse by desi
 Proposals that just append without a corresponding compression are reclassified as neither-WHAT-nor-HOW and dropped.
 
 **Stale-concept detection** (if `KB_MODE = full`, first-class output, not an afterthought):
+
+**`knowledge/implementation/` is exempt from every sweep below, and from the net-neutral rule above.** The bundle spec's staleness policy exempts `Record` files outright, and each sweep fails on one for its own reason: a record cites the code as it stood when it shipped, so a moved citation or a vanished symbol is the history it exists to keep rather than a staleness signal; it hangs off its own nested `index.md`, so it is reachable without a root-index entry; and it is never edited after it is written, so "compress it" and "merge it into another file" aren't moves that exist here. Never propose deleting, shrinking, rewriting, or re-verifying one — a record edited to stay accurate is no longer a record of anything.
+
+The sweeps, over concept files only:
+
 - Any concept file whose `resource:`/citation target appears in this sprint's diff, but the concept file itself wasn't updated — flag as possibly stale.
-- Any concept file unreachable from `knowledge/index.md` — flag (mirrors what `tools/knowledge_validate.mjs` warns on).
+- Any concept file unreachable from any `index.md` — flag (mirrors what `tools/knowledge_validate.mjs` warns on; reachability seeds from every index, not only the bundle root's).
 - If a `graphify-out/graph.json` graph exists: Phase 1's symbol-miss list joins here with reason "symbol no longer in graph"; and any concept file whose content overlaps graph-extractable structure (call flow, dependency, schema shape) — flag as a deletion/merge candidate under the net-neutral rule above (this is the B1 sweep: structural facts belong in the graph, not restated in `knowledge/`). If Phase 1 flagged the graph itself as stale, propose a rebuild before trusting these checks, so knowledge updates and graph regeneration land together. This check is distill-only in v1 — `tools/knowledge_validate.mjs` stays unchanged until the false-positive rate is known. Negative test: this skill never writes into or reads `graphify-out/` as an update source, only compares symbol names already extracted by Phase 1's subagent.
 
 **Hard constraints while drafting** (non-negotiable, apply regardless of what a candidate learning suggests):
-- Concept files ≤ ~60 lines. Terse beats complete.
+- Concept files ≤ ~60 lines. Terse beats complete. The ceiling is a concept rule and does not reach records, which are verbatim by design and not written here anyway.
 - Link, don't copy — point at `openapi.yaml`, `.claude/rules/`, source code; never duplicate their content into `knowledge/`.
 - Never touch source code, `openapi.yaml`, or migrations. `sprint-distill` only writes to `knowledge/` and `bigin-skills`-side files.
 - Follow `knowledge/meta/knowledge-bundle-spec.md` for frontmatter and structure.
@@ -141,6 +147,7 @@ Only after explicit approval, and only the items approved:
 3. **Validator, best-effort:** if `KB_MODE = full` and `tools/knowledge_validate.mjs` exists at the repo root, run it (`node tools/knowledge_validate.mjs`). Repos scaffolded before v1.19.0 have the legacy `tools/knowledge_validate.py` instead — run that via `uv run tools/knowledge_validate.py`. If neither exists or the run errors, don't block — note in the Phase 5 summary that validation didn't run and should be checked manually.
 4. Write the `knowledge/log.md` entry **last**, only after the above succeed — as a new date
    heading directly under the file's title, since the log runs newest-first.
+   It may **cite** the records this sprint added ("three tasks and one epic recorded under `implementation/`", with links) but must never absorb them: `log.md` is a per-sprint index of what moved, one entry deep, and summarising a record into it recreates in the log the narrative the record was written to hold.
 
 ---
 

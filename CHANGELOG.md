@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.79.0] - 2026-08-27
+
+### Changed
+
+- **`sprint-distill` reads past `knowledge/implementation/` instead of sweeping it.** v1.76.0 through v1.78.0 gave finished tasks and epics a durable home; this stops the end-of-sprint compression pass from emptying it again. Every sweep in Phase 2 was written when `knowledge/` held nothing but concepts, and each one fires a false positive on a `Record`: the citation sweep sees a moved target and calls it stale, when a record cites the code *as it stood* and a moved citation is the history it exists to keep; the reachability sweep looked for a bundle-root index entry, which records deliberately don't have; and the graph-overlap sweep proposes "compress or merge", which isn't a move that exists for a file that is never edited after it is written. Three of those would have proposed deleting a record in the first sprint after one was written.
+
+  The exemption is stated once, at the head of the stale-concept sweep, with the reason each individual sweep fails on a record — and it covers the net-neutral rule and the ~60-line concept ceiling too, since a verbatim plan clears 60 lines routinely. Phase 1's graph symbol-miss scan skips the folder before it produces the list, rather than producing flags Phase 2 then has to discard. Classification gains a fourth rule to sit beside *never both*: **never a record** — `implementation/` is written only by `task-workflow` and `epic-workflow` at cleanup, no candidate learning is ever routed there, and a record is never opened to be mined, because it is what distillation already ran against.
+
+  The per-sprint `knowledge/log.md` entry may now cite the records a sprint added, with links, and must not absorb them — `log.md` is a one-entry-deep index of what moved, and summarising a record into it recreates in the log the narrative the record holds.
+
+  One stale claim fixed in the same pass: the reachability bullet said "unreachable from `knowledge/index.md`" and credited the validator with that behaviour, but `tools/knowledge_validate.mjs` seeds reachability from *every* `index.md` — which is the property that lets the record log exist without touching the always-loaded root index at all.
+
 ## [1.78.0] - 2026-08-27
 
 ### Changed
