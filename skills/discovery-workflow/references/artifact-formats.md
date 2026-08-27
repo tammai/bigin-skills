@@ -130,19 +130,18 @@ Acceptance criteria:
 
 ### The contract, stated
 
-Three readers address requirements by ID. **One of them does not read this file yet** — the
-format is fixed ahead of that wiring, deliberately, and this table says which is which so
-nobody mistakes the intent for the current behaviour:
+Three readers address requirements by ID, and all three read this file:
 
 | Reader | What it needs from this file | Reads it today? |
 | --- | --- | --- |
 | `epic-workflow` | the index for the unit candidates, `Depends on:` for ordering by artifact dependency, `Surface:` for its two-plus-surfaces triage bar, `Priority:` for which slice ships first, each FR's acceptance criteria quoted into the unit's `Acceptance` cell | **Yes** — its own `SKILL.md` step 2 reads an approved PRD directly and asks zero clarifying questions when one is on disk and covers the initiative |
-| `write-tests` | one acceptance criterion at a time, addressed as `FR-3/AC-2`, as the source for a test | **No** — a criterion is quoted to it by hand as the test's target |
+| `write-tests` | one acceptance criterion at a time, addressed as `FR-3/AC-2`, as the source for a test | **Yes** — its acceptance-criterion → E2E path resolves the citation here and quotes the criterion verbatim into the spec; a criterion may still be quoted to it inline instead, with no PRD read |
 | `task-workflow` | the ID in a `PLAN.md` `Covers` cell, and the acceptance criteria as the verifier's target | **Yes**, at full-spec tier — that column already takes requirement IDs |
 
-Fixing the format before the other two read it is the point rather than an accident: a contract
+Fixing the format before anything parsed it was the point rather than an accident: a contract
 that changes shape after something starts parsing it breaks every citation already written
-against it. Getting it right once, early, is cheaper than migrating it later.
+against it. Getting it right once, early, was cheaper than migrating it later — and now that
+all three readers are wired, the shape is load-bearing in three places at once.
 
 Which is why:
 

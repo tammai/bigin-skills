@@ -54,7 +54,7 @@ Everything else is situational:
 | _(automatic, inside task-workflow)_ | `model-router` picks the executing tier; `write-tests` and `debug-workflow` supply test and bug-fix discipline |
 | "This is too big for one task" / "break this epic down" | `epic-workflow` — decomposes it into ordered units, then feeds them back to `task-workflow` one per session |
 | "We want to build X" / "write a PRD" / "what should we even build" | `discovery-workflow` — brief + PRD under `docs/product/`, architecture decisions into `knowledge/`, then hands the PRD to `epic-workflow` |
-| "Write tests for X" | `write-tests` — one function or component, no spec needed |
+| "Write tests for X" / "e2e test for FR-3/AC-2" | `write-tests` — one function or component, or one E2E spec per PRD acceptance criterion; no spec needed |
 | "Why is this flaky" / "debug this" | `debug-workflow` — a bug not yet tied to a plan |
 | "Sprint distill" / end of sprint | `sprint-distill` — merged PRs → `knowledge/` + harness updates |
 | "Distill knowledge for nuxt@4.0.3" | `knowledge-distill` — a library's docs/source at a pinned version → audited `knowledge/libraries/<lib>/` |
@@ -95,7 +95,7 @@ Each scaffold skill's `SKILL.md` is the reference for what it generates. What se
 | **nodejs-scaffold**     | Scaffolds a Node.js modular-monolith REST API — users/posts, code-first OpenAPI (TypeBox) + Drizzle, JWT+argon2id, outbox/inbox + job queue.                     |
 | **sprint-distill**      | End-of-sprint distillation: merged PRs + touched knowledge/ concepts → proposal-first knowledge/ and bigin-skills updates. Compresses, never just appends.       |
 | **knowledge-distill**   | Distills a library's docs/source at a pinned version into audited knowledge/libraries/<lib>/ concept files, plus a version-drift commit guard.                   |
-| **write-tests**         | On-demand test authoring (/write-tests): style-matches the nearest test file, lists edge cases first, TDD-orders logic, mocks only true I/O boundaries.          |
+| **write-tests**         | On-demand test authoring (/write-tests): style-matched, edge-case-first unit tests for one unit, or an E2E spec from a PRD `FR-n/AC-m` criterion.                |
 | **debug-workflow**      | On-demand systematic debugging (/debug-workflow): triage → fast path for obvious bugs, full guarded workflow for flaky/env/repeat-failure bugs.                  |
 | **model-router**        | Scores capability and verification needs separately, then routes to the quick/standard/deep tier on a per-project model + effort ladder.                         |
 <!-- /gen:skills-core -->

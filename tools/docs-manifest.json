@@ -42,7 +42,7 @@
     },
     "write-tests": {
       "group": "core",
-      "summary": "On-demand test authoring (/write-tests): style-matches the nearest test file, lists edge cases first, TDD-orders logic, mocks only true I/O boundaries."
+      "summary": "On-demand test authoring (/write-tests): style-matched, edge-case-first unit tests for one unit, or an E2E spec from a PRD `FR-n/AC-m` criterion."
     },
     "debug-workflow": {
       "group": "core",

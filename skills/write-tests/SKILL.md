@@ -1,6 +1,6 @@
 ---
 name: write-tests
-description: "Writes scoped, style-matched tests for a specific file or function. Triggers: 'write tests for X', 'test this function', 'generate unit tests'."
+description: "Writes scoped, style-matched tests for a specific file or function, or one E2E spec per PRD acceptance criterion (`FR-3/AC-2`). Triggers: 'write tests for X', 'test this function', 'generate unit tests', 'e2e test for FR-3/AC-2', 'turn this acceptance criterion into a test'."
 effort: medium
 ---
 
@@ -8,6 +8,15 @@ effort: medium
 
 Authoring new test code only — not running an existing suite ("run the tests"), and not general
 testing-strategy questions.
+
+**Two paths, routed on what the request names:**
+
+| The request names | Path |
+| --- | --- |
+| a file, function, component, or module | the **unit path** below — the seven steps |
+| a PRD requirement or criterion ID (`FR-3`, `FR-3/AC-2`), or a Given/When/Then criterion quoted inline | the **acceptance-criterion → E2E path** at the end of this file |
+
+## Unit path
 
 Write tests for the unit named in the request. Before writing any test code:
 
@@ -50,3 +59,25 @@ Write tests for the unit named in the request. Before writing any test code:
 
 Report back with: which cases were covered, which were deliberately
 excluded and why, and the final test run output.
+
+## Acceptance-criterion → E2E path
+
+Read `references/acceptance-to-e2e.md` before writing anything on this path — it carries the
+resolution table, every refusal case, the per-profile style discovery, and the run-reporting
+rule. The essentials:
+
+- **`docs/product/prd.md` is a fixed, read-only contract.** Resolve `FR-n/AC-m` by reading it;
+  never write it, amend it, or renumber an ID. Quote the criterion into the spec **verbatim,
+  never paraphrased**, and name its ID there — the same citation style as `epic-workflow`'s
+  step 2. `FR-n` with no `/AC-m` means every active criterion under that requirement.
+- **Stop rather than invent.** No PRD, an absent ID, or a `Status: withdrawn` requirement or
+  criterion → say which, and stop. Never reconstruct a criterion from a requirement title.
+- **Find the repo's own E2E tree; never install one.** "The repo's existing E2E style" means the
+  target repo's, discovered from its `.claude/rules/testing.md` and its existing specs. If the
+  repo has **no** E2E tier, report that, name the nearest tier it does have, and stop — no
+  Playwright, no Cypress, no invented `e2e/` directory.
+- **Never claim green on a spec you did not run.** The unit path's TDD order (step 5) does not
+  transfer intact: an E2E spec usually cannot be driven red-then-green locally. Attempt the run,
+  then report its true state — passed, failed, or **not run** with what running it needs.
+- Then report as the unit path does: criteria covered by ID, criteria deliberately excluded and
+  why, and the run output or the explicit statement that it was not run.
