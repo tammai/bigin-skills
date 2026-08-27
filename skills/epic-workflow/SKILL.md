@@ -14,11 +14,14 @@ It adds no gate of its own. Every unit still goes through `task-workflow`'s spec
 
 - **The request fits one `PLAN.md`** — one spec, one implement/verify loop, one mergeable diff. That's `task-workflow`. Decomposing it costs a session and buys nothing.
 - **A bug, however tangled.** `debug-workflow` triages it; the fix is one task.
+- **Nobody can write acceptance criteria for it yet.** Rung 3 — `discovery-workflow` runs first, and its PRD comes back here.
 - **A roadmap.** More than ~8 units isn't an epic — see the ceiling in step 3.
 
 ## Steps
 
-1. **Triage.** An epic must clear this bar: **3+ units**, *or* it spans more than one mergeable PR, *or* it touches two-plus distinct surfaces (a contract *and* its consumers, a migration *and* the code reading it). If it fails the bar, say so in one sentence and hand straight to `task-workflow` — don't decompose to justify the invocation.
+1. **Triage.** Run the ladder in `${CLAUDE_PLUGIN_ROOT}/skills/discovery-workflow/references/triage-ladder.md`. It is stated once and shared by all three entry points, so a request typed here lands on the same rung it would have reached through `task-workflow` or `discovery-workflow`.
+
+   **Only rung 2 continues.** This skill *is* rung 2, and it refuses in both directions. Below the bar the work is rung 1 — say so in one sentence and hand straight to `task-workflow`, don't decompose to justify the invocation. Where the initiative is stated but its product shape isn't settled it is rung 3, and there is nothing here to decompose *from*: hand to `discovery-workflow`, whose PRD comes back to this skill at step 2.
 
 2. **Clarify — conditional on an approved PRD.** Check `docs/product/prd.md` first. `epic-workflow` only ever reads this file — it never writes or amends it, at any step.
 

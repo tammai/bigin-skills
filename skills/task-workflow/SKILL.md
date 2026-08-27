@@ -10,8 +10,9 @@ Follow this workflow for every non-trivial task.
 
 ## Steps
 
-1. **Scope** — state what you're changing and why in one sentence before touching any code.
-   If one sentence can't hold it — 3+ plans' worth of work, or more than one mergeable PR — the request is an epic, not a task. Stop here and run `epic-workflow` to decompose it; it hands each unit back to this workflow one at a time.
+1. **Scope** — state what you're changing and why in one sentence before touching any code, then check that sentence against the ladder in `${CLAUDE_PLUGIN_ROOT}/skills/discovery-workflow/references/triage-ladder.md`. The ladder is stated once and shared by all three entry points, so a request typed here lands on the same rung it would have reached through `epic-workflow` or `discovery-workflow`.
+
+   **Only rung 1 continues to step 2.** Rung 2 is an epic, not a task — stop here and run `epic-workflow` to decompose it; it hands each unit back to this workflow one at a time. Rung 3 means nobody can yet write an acceptance criterion for the request, and a spec written over that gap is a guess dressed as an approval — stop and run `discovery-workflow` instead. Being invoked here is not evidence the work is rung 1: read the ladder before you commit to the sentence, not after.
 
 2. **Spec gate** (non-trivial features only) — write and get approval for a spec before implementing.
    Skip for: bug fixes, copy changes, config tweaks, changes ≤20 lines of logic.

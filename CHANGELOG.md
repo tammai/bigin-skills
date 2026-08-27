@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.74.0] - 2026-08-27
+
+### Changed
+
+- **One triage ladder, so the same request lands at the same depth whichever door it was typed at.** `task-workflow`, `epic-workflow` and `discovery-workflow` each opened with their own statement of how much process the work deserves, and the three had drifted apart. `epic-workflow`'s bar counted **two-plus distinct surfaces** as a reason to decompose; `task-workflow`'s escalation clause counted only "3+ plans' worth" and "more than one mergeable PR". So a contract-and-its-consumers change that fits in one sentence became an epic at one door and stayed a task at the other — a genuine fork in how much a piece of work paid for, decided by nothing more than which skill the user happened to name. Neither of the two lower entry points could escalate *up* to discovery at all: a vague ask typed at `task-workflow` got a spec written over the gap.
+
+  **The ladder now lives in one file** — `skills/discovery-workflow/references/triage-ladder.md` — and the three step-1s reference it instead of restating it. Three rungs, numbered as `discovery-workflow` already numbered them: rung 1 is one plan's worth and runs `task-workflow`; rung 2 is 3+ units *or* more than one mergeable PR *or* two-plus distinct surfaces, with the product shape settled, and runs `epic-workflow`; rung 3 is a request nobody can yet write acceptance criteria for, and runs `discovery-workflow`. Two discriminators decide the two boundaries, each one question rather than a judgment about how big the work feels. Hosting it under `discovery-workflow/references/` follows the cross-skill precedent `write-tests` set in v1.73.0 and puts the ladder where its top rung lives; the other two reach it through `${CLAUDE_PLUGIN_ROOT}`.
+
+  **`task-workflow` is where the behaviour actually changes.** It gains the two-plus-surfaces trigger it never had, so some requests that previously stayed a single `PLAN.md` now escalate to `epic-workflow` — that is the fork closing, and it closes in the direction `epic-workflow` was already right about: a change small in lines can still need its units ordered, because the contract has to land before the code that reads it or `main` is unshippable in between. It also gains the rung-3 exit, and `epic-workflow` gains one too, with a matching `When not to use` bullet. Being invoked at a rung is not evidence the request belongs there, so both hand work *down* as readily as up.
+
+  **Two rules that existed in only one of the three now hold at all three.** A rung you exit from writes nothing to disk — no stub brief, no empty `docs/product/`, no one-row `EPIC.md`, no `PLAN.md` for something that was really an epic. And landing on a rung starts that skill at its own step 1, not mid-workflow: the ladder chooses which workflow runs and decides nothing after that.
+
+  **`write-tests` is deliberately not a fourth rung, and the ladder says so in place.** Its v1.73.0 routing picks between the unit path and the acceptance-criterion → E2E path on what the request *names* — a file or function against a `FR-3/AC-2` citation. That selects a path **within one skill**; the ladder selects **which workflow runs**. Different axis, neither feeding the other, and its routing table is untouched by this release. `debug-workflow` is likewise a qualifier on rung 1 rather than a rung: how hard a bug is to *find* says nothing about how much process the *fix* needs.
+
+  No new gate, no new guard, and no `description:` changed — the always-loaded surface is unmoved at 8267 chars. `docs/USER_GUIDE.md` is reconciled with the ladder in the same pass: both triage lines in its flow diagrams now name rungs, and §5's "the four that overlap most" opens by saying the doors are one ladder and links to it, while naming which two of its four pairs are ladder boundaries and which two are not.
+
 ## [1.73.0] - 2026-08-27
 
 ### Added

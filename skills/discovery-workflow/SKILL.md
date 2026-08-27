@@ -25,24 +25,18 @@ It writes exactly three kinds of artifact, into two homes that never cross:
 
 ## When not to use
 
-- **The product question is already answered.** See rung 2 of the ladder — that's `epic-workflow`, and manufacturing a brief for it wastes a session and dates the moment the epic starts.
+- **The product question is already answered.** See rung 2 of the ladder (`references/triage-ladder.md`) — that's `epic-workflow`, and manufacturing a brief for it wastes a session and dates the moment the epic starts.
 - **A bug, a copy change, a config tweak.** Rung 1. `task-workflow`, or `debug-workflow` if it needs diagnosis first.
 - **A library's API surface.** That's `knowledge-distill`, and it is not a product decision.
 - **A retrospective.** `sprint-distill` looks backwards over merged PRs. This looks forwards over nothing.
 
 ## Steps
 
-1. **Triage.** Three rungs, and only the third one continues here.
+1. **Triage.** Run the ladder in `references/triage-ladder.md`. It is stated once and shared by all three entry points, so a request typed here lands on the same rung it would have reached through `epic-workflow` or `task-workflow`.
 
-   | The request | Where it goes | What gets written |
-   | --- | --- | --- |
-   | A one-line change, a copy fix, a config tweak, or a bug — however tangled | `task-workflow`; `debug-workflow` if it needs diagnosis first | nothing |
-   | A named initiative whose product shape is settled — you can already say who it is for, what it must do, and what is explicitly out | `epic-workflow` | nothing |
-   | A vague ask, a new product surface, or a stated initiative nobody can yet write acceptance criteria for | continue to step 2 | brief, PRD, architecture concepts |
+   **Only rung 3 continues to step 2.** Rung 1 exits to `task-workflow`, rung 2 to `epic-workflow`, each in one sentence and each writing nothing to disk — the ladder's own rules cover that, and it applies here exactly as written. Rung 3 is the only rung that produces artifacts at all: the brief, the PRD, and the architecture concepts in the table above.
 
-   The discriminator between rungs 2 and 3, when it isn't obvious: **can you write one testable acceptance criterion for the request exactly as stated, inventing nothing?** If yes, the product question is answered and the work is an epic or a task. If writing that one criterion requires you to decide who the user is or what "done" means, it's discovery.
-
-   **Rungs 1 and 2 exit in one sentence naming the skill to run, and write nothing to disk** — no stub brief, no empty `docs/product/`, no placeholder concept. An artifact that exists because a skill was invoked rather than because someone needed it is the paperwork this ladder exists to avoid. This ladder governs entry into *this* skill; `task-workflow` and `epic-workflow` each state their own.
+   The rung-2/rung-3 boundary is the one this skill turns on, and the ladder's second discriminator is what decides it. Read that question there and answer it before continuing — it is not repeated here, because a second copy is a copy that can go stale.
 
 2. **Read before asking.** If the repo has anything in it, the repo answers some of the questions, and asking them anyway is how a discovery session loses the user's trust in the first five minutes. Follow `references/established-repo.md`: what to read and in what order, the run-it-before-you-write-it-down rule for every command a claim rests on, and the provenance-not-value rule for anything that touches a secret. On a genuinely empty repo, say there is nothing to derive from and go to step 3.
 

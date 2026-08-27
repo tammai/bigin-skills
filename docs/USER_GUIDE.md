@@ -258,7 +258,7 @@ If the request needs three or five plans rather than one, `epic-workflow` runs f
 ```
 /epic-workflow "multi-tenant billing"
         ↓
-  triage — is this really 3+ units, >1 PR, or 2+ surfaces?
+  triage — the shared ladder: rung 2 continues · rung 1 → task-workflow · rung 3 → discovery-workflow
         ↓
   approved PRD on disk? → zero questions, decompose from it · else → ≤3 questions, decomposition-level only
         ↓
@@ -288,7 +288,7 @@ Epic cleanup is also where the `knowledge/` distillation usually pays off. A sin
 ```
 /discovery-workflow "we want a client portal"
         ↓
-  triage — one-line change → task-workflow · settled initiative → epic-workflow · neither → continue
+  triage — the shared ladder: rung 1 → task-workflow · rung 2 → epic-workflow · rung 3 → continue
         ↓
   read the repo before asking anything (and run every command before writing it down)
         ↓
@@ -341,11 +341,13 @@ One `PLAN.md` per worktree. Spec-gate approval is **per-worktree** — approving
 
 ### The four that overlap most
 
+You don't have to get the door right. `task-workflow`, `epic-workflow` and `discovery-workflow` all triage through **one shared ladder** — [`triage-ladder.md`](../skills/discovery-workflow/references/triage-ladder.md), three rungs, written once and read by all three — so the same request reaches the same depth whichever one you invoke. Ask for a copy fix inside `discovery-workflow` and it hands you down to rung 1 rather than writing a brief; ask for "we want a portal" inside `task-workflow` and it hands you up to rung 3 rather than spec'ing over the gap. The two middle pairs below are that ladder's two boundaries in prose; the first and last are about skills that sit beside the ladder rather than on it — `write-tests` routes on what a request *names*, and `debug-workflow` is a qualifier on rung 1, not a rung of its own.
+
 **`write-tests` vs `task-workflow`** — `write-tests` is for "I need tests for this one function, now." A full feature going through `task-workflow` calls `write-tests` internally for its test authoring; you don't need to invoke both.
 
-**`epic-workflow` vs `task-workflow`** — `task-workflow` takes one task to shipped code. `epic-workflow` decides what the tasks *are*: it decomposes an initiative into ordered units, each sized to one `PLAN.md`, and then hands them back to `task-workflow` one unit per session (`/clear` between units — the queue file in `.claude/memory/EPIC.md` is the handoff package). Use it only when the work genuinely needs 3+ plans, spans more than one PR, or crosses two-plus surfaces; below that bar, decomposing costs a session and buys nothing. Approving an epic approves the *decomposition* only — every unit still faces the spec gate on its own.
+**`epic-workflow` vs `task-workflow`** — `task-workflow` takes one task to shipped code. `epic-workflow` decides what the tasks *are*: it decomposes an initiative into ordered units, each sized to one `PLAN.md`, and then hands them back to `task-workflow` one unit per session (`/clear` between units — the queue file in `.claude/memory/EPIC.md` is the handoff package). Use it only for rung 2 — 3+ plans, more than one PR, or two-plus surfaces; below that bar, decomposing costs a session and buys nothing. Approving an epic approves the *decomposition* only — every unit still faces the spec gate on its own.
 
-**`discovery-workflow` vs `epic-workflow`** — both sit above the task loop, and the split is whether the *product* question is settled. If you can already write one testable acceptance criterion for the request exactly as stated, inventing nothing, it's an epic (or a task) and discovery would just manufacture paperwork. If writing that one criterion means deciding who the user is or what "done" means, that's discovery, and it ends by handing `epic-workflow` a PRD.
+**`discovery-workflow` vs `epic-workflow`** — both sit above the task loop, and the split is the rung-2/rung-3 boundary: whether the *product* question is settled. If you can already write one testable acceptance criterion for the request exactly as stated, inventing nothing, it's an epic (or a task) and discovery would just manufacture paperwork. If writing that one criterion means deciding who the user is or what "done" means, that's discovery, and it ends by handing `epic-workflow` a PRD.
 
 **`debug-workflow` vs `task-workflow`** — if the bug already has a `PLAN.md`, `task-workflow` owns it and points at `debug-workflow` for the actual debugging. Use `debug-workflow` standalone when the failure isn't tied to a ticket yet: a flaky test, a stack trace, "works in staging not prod," a live incident.
 
