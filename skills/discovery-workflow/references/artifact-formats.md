@@ -130,13 +130,13 @@ Acceptance criteria:
 
 ### The contract, stated
 
-Three readers address requirements by ID. **Two of them do not read this file yet** — the format
-is fixed ahead of that wiring, deliberately, and this table says which is which so nobody
-mistakes the intent for the current behaviour:
+Three readers address requirements by ID. **One of them does not read this file yet** — the
+format is fixed ahead of that wiring, deliberately, and this table says which is which so
+nobody mistakes the intent for the current behaviour:
 
 | Reader | What it needs from this file | Reads it today? |
 | --- | --- | --- |
-| `epic-workflow` | the index for the unit candidates, `Depends on:` for ordering by artifact dependency, `Surface:` for its two-plus-surfaces triage bar, `Priority:` for which slice ships first | **No** — its `SKILL.md` mentions no PRD. It is handed the path as the initiative statement, and the relevant lines are pointed out to it (`SKILL.md` step 7) |
+| `epic-workflow` | the index for the unit candidates, `Depends on:` for ordering by artifact dependency, `Surface:` for its two-plus-surfaces triage bar, `Priority:` for which slice ships first, each FR's acceptance criteria quoted into the unit's `Acceptance` cell | **Yes** — its own `SKILL.md` step 2 reads an approved PRD directly and asks zero clarifying questions when one is on disk and covers the initiative |
 | `write-tests` | one acceptance criterion at a time, addressed as `FR-3/AC-2`, as the source for a test | **No** — a criterion is quoted to it by hand as the test's target |
 | `task-workflow` | the ID in a `PLAN.md` `Covers` cell, and the acceptance criteria as the verifier's target | **Yes**, at full-spec tier — that column already takes requirement IDs |
 
@@ -171,7 +171,7 @@ Which is why:
 | Field | Values | Notes |
 | --- | --- | --- |
 | `Priority:` | `must`, `should`, `could` | There is no `won't` — that's a brief non-goal, not a requirement |
-| `Surface:` | comma-separated surface names (`web`, `api`, `mobile`, `db`, `ci`, …) | Use the names the repo already uses. This is the field that shows a requirement crosses surfaces, which is `epic-workflow`'s triage bar once it is pointed at it |
+| `Surface:` | comma-separated surface names (`web`, `api`, `mobile`, `db`, `ci`, …) | Use the names the repo already uses. This is the field that shows a requirement crosses surfaces, which feeds `epic-workflow`'s own two-plus-surfaces triage bar |
 | `Depends on:` | requirement IDs, or `—` | IDs only, never prose. A dependency on something outside the PRD is a brief constraint |
 | `Status:` | `active`, `withdrawn` | A withdrawn requirement keeps its ID and its block, with the reason on the `Status:` line |
 

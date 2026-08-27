@@ -20,7 +20,31 @@ It adds no gate of its own. Every unit still goes through `task-workflow`'s spec
 
 1. **Triage.** An epic must clear this bar: **3+ units**, *or* it spans more than one mergeable PR, *or* it touches two-plus distinct surfaces (a contract *and* its consumers, a migration *and* the code reading it). If it fails the bar, say so in one sentence and hand straight to `task-workflow` — don't decompose to justify the invocation.
 
-2. **Clarify.** Up to 3 questions, and only about what changes the *decomposition*: sequencing, what's explicitly out, which surface is authoritative when two disagree. Not implementation detail — each unit's own spec gate asks those later, with the relevant code in front of it. Never invent a decomposition over an unasked question.
+2. **Clarify — conditional on an approved PRD.** Check `docs/product/prd.md` first. `epic-workflow` only ever reads this file — it never writes or amends it, at any step.
+
+   **A PRD exists, is `Status: approved` (or has no `Status:` line), and the initiative is what it covers:** read it and ask **zero** clarifying questions — the PRD already answers everything this step is allowed to ask about, through a fixed mapping:
+
+   | PRD field | Answers |
+   | --- | --- |
+   | The requirement index | The unit candidates — one unit per FR, or one unit per tight FR cluster sharing a `Surface:`; never one unit spanning two unrelated FRs |
+   | `Depends on:` | `Blocked by` — the only legitimate source of a Blocked-by edge when decomposing from a PRD |
+   | `Surface:` | The two-plus-surfaces half of step 1's triage bar |
+   | `Priority:` (`must`/`should`/`could`) | What the first epic-sized slice contains when the PRD exceeds the ~8-unit ceiling — `must` first |
+   | Each FR's acceptance criteria | That unit's `Acceptance` cell, **quoted from the PRD, never paraphrased**, so the unit's own spec gate is audited against the PRD's own words. A quoted criterion inherits the PRD's roles-never-people rule — a real name surfacing in one is fixed in the PRD, never edited out of `EPIC.md` |
+
+   Cite the FR IDs a unit covers so the decomposition is traceable back to the contract, and name out loud any active requirement no unit covers, as deferred.
+
+   Edge cases:
+   - **`Status: draft`** — not a decomposition source. Report it and ask: approve it through `discovery-workflow` first, or proceed with the questions below. Don't silently decompose a draft; a draft PRD's IDs can still move.
+   - **No `Status:` line** — treat as approved, same rule `discovery-workflow` already uses.
+   - **`Status: withdrawn` requirement** — never becomes a unit, and never becomes a `Blocked by`.
+   - **PRD exists but the initiative is unrelated to it** — say so in one sentence and fall through to the questions below. A PRD on disk is not a claim that every later epic derives from it.
+   - **PRD yields more than ~8 units** — the existing ceiling in step 3 still wins; slice by `Priority:`, `must` first, and say what was deferred.
+   - **Index and FR blocks disagree** — the block wins (already the PRD's own rule); say which line was stale rather than reconciling silently.
+   - **An FR's acceptance criteria can't hold without a later unit** — it is not one unit; split or reorder it. Step 3's four decomposition rules still govern; a PRD does not exempt a unit from them.
+   - **Resuming an in-flight `EPIC.md` (step 8)** — unchanged: never re-read a PRD to re-decompose an approved queue.
+
+   **No PRD, a draft one, or an unrelated one:** Up to 3 questions, and only about what changes the *decomposition*: sequencing, what's explicitly out, which surface is authoritative when two disagree. Not implementation detail — each unit's own spec gate asks those later, with the relevant code in front of it. Never invent a decomposition over an unasked question.
 
 3. **Decompose.** Every unit must satisfy all four:
    - **One plan's worth** — one spec, one implement/verify loop, one reviewable diff. If a unit needs two specs, it's two units.
@@ -32,7 +56,7 @@ It adds no gate of its own. Every unit still goes through `task-workflow`'s spec
 
 4. **Approval gate.** Present the unit table in chat and wait. This is the epic's one gate. Write nothing to disk before approval — an unapproved queue file on disk is indistinguishable from an approved one on the next session's resume.
 
-5. **Write the queue** to `.claude/memory/EPIC.md`. Format and worked example: `references/epic-queue.md`. If a file is already there with open rows, that's step 8, not this step.
+5. **Write the queue** to `.claude/memory/EPIC.md`. Format and worked example: `references/epic-queue.md`. When the decomposition came from a PRD, the queue gains a `PRD:` header line and a `Covers` column, both PRD-derived-only. If a file is already there with open rows, that's step 8, not this step.
 
 6. **Dispatch one unit.** Take the first row that isn't `Done` and whose every `Blocked by` row is `Done`. State the unit number, its acceptance criteria, and any epic-level constraint it inherits — then run `task-workflow` on that unit as the task statement. `task-workflow` owns it completely from there: its own spec gate, its own `PLAN.md`, its own verifier rounds.
 

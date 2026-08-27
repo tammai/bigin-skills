@@ -54,7 +54,7 @@ It writes exactly three kinds of artifact, into two homes that never cross:
 
 5. **PRD, then the second gate.** Derive `docs/product/prd.md` from the approved brief, again to the template, and again present it and wait.
 
-   This file is the **contract**, and it is the reason the format is not negotiable. Three readers address requirements by `FR-n`, and only one of them reads this file today: a task's `PLAN.md` cites requirement IDs in its `Covers` column at full-spec tier, which already works. `epic-workflow` and `write-tests` do **not** parse a PRD yet — neither skill mentions one — and the format is fixed now precisely so that they can later: the requirement index and the `Depends on:` lines are what a decomposition needs, one acceptance criterion is what a test needs. Until that wiring exists, step 7 hands the path over explicitly and a single criterion is quoted to `write-tests` by hand. Either way the citation is by ID, so an ID that silently moves invalidates every citation pointing at it. **IDs are assigned once, never renumbered, never reused** — a withdrawn requirement keeps its number and says it was withdrawn. `references/artifact-formats.md` has the full shape.
+   This file is the **contract**, and it is the reason the format is not negotiable. Three readers address requirements by `FR-n`, and two of them read this file today: a task's `PLAN.md` cites requirement IDs in its `Covers` column at full-spec tier, and `epic-workflow` now reads an approved PRD directly at its own step 2, decomposing from the requirement index and `Depends on:` lines with zero clarifying questions. `write-tests` does **not** parse a PRD yet — that wiring is a later epic unit, and until it exists a single acceptance criterion is quoted to it by hand. Either way the citation is by ID, so an ID that silently moves invalidates every citation pointing at it. **IDs are assigned once, never renumbered, never reused** — a withdrawn requirement keeps its number and says it was withdrawn. `references/artifact-formats.md` has the full shape.
 
    The gate is also the privacy checkpoint. Elicitation captures whatever the user says about their product, and this file is about to be committed: **the PRD names roles, never people**, and this is the read where a customer name, an email address, or a real account that slipped in during step 3 gets caught and replaced with the role.
 
@@ -65,8 +65,7 @@ It writes exactly three kinds of artifact, into two homes that never cross:
 7. **Hand off.** Discovery ends at the PRD; it does not decompose and it does not implement. Close by stating, explicitly:
 
    - the PRD path — `docs/product/prd.md`;
-   - that the next step is `epic-workflow`, with that path as the initiative statement;
-   - what in the PRD answers `epic-workflow`'s own clarifying questions, stated rather than assumed: the requirement index for the unit candidates, `Depends on:` for ordering by artifact dependency, `Surface:` for which units touch two-plus surfaces, `Priority:` for what the first epic-sized slice contains, and each requirement's acceptance criteria as its unit's acceptance criteria. It does not read the file itself, so pointing at these is the handoff, not a courtesy;
+   - that the next step is `epic-workflow`, with that path as the initiative statement. `epic-workflow` now reads an approved PRD itself at its own step 2 — the requirement index for the unit candidates, `Depends on:` for ordering by artifact dependency, `Surface:` for which units touch two-plus surfaces, `Priority:` for what the first epic-sized slice contains, and each requirement's acceptance criteria as its unit's acceptance criteria, quoted rather than paraphrased — so naming the path is the handoff now, not a substitute for it;
    - anything the brief left as an open question, because an unresolved product question becomes an unaskable decomposition question one layer down.
 
    Then **stop**. Do not start the decomposition in the same session — the brief, the PRD, and everything read to produce them are context the decomposition doesn't need, and the PRD on disk is the complete handoff package.
@@ -97,7 +96,7 @@ Every amendment goes through step 5's gate again, presented as a diff — the ch
 
 ## Interaction with the skills downstream
 
-`epic-workflow` and `task-workflow` are unchanged by this skill and neither requires it. A repo with no PRD keeps working exactly as before. A repo with one has the answers to `epic-workflow`'s clarifying questions already written down — but nothing in `epic-workflow` reads the file, so step 7's handoff is what puts them in front of it. The three states worth keeping straight:
+`task-workflow` is unchanged by this skill and doesn't require it. `epic-workflow` reads an approved PRD at its own step 2 when handed one — zero clarifying questions in that case, its own decomposition rules and ceiling still apply — and is otherwise unchanged: a repo with no PRD, or one it doesn't reach, keeps working exactly as before. The three states worth keeping straight:
 
 | File | Owner | Lifetime |
 | --- | --- | --- |

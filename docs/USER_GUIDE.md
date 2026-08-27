@@ -260,7 +260,7 @@ If the request needs three or five plans rather than one, `epic-workflow` runs f
         ↓
   triage — is this really 3+ units, >1 PR, or 2+ surfaces?
         ↓
-  ≤3 questions, decomposition-level only
+  approved PRD on disk? → zero questions, decompose from it · else → ≤3 questions, decomposition-level only
         ↓
   ordered units, each one plan's worth and independently shippable
         ↓
@@ -309,11 +309,11 @@ Epic cleanup is also where the `knowledge/` distillation usually pays off. A sin
 
 Three things to hold onto:
 
-- **The PRD is a contract, not a document.** It is written so that `epic-workflow` can decompose from its requirement index and `Depends on:` lines and `write-tests` can generate from one acceptance criterion — **neither reads a PRD today**, so for now you hand over the path or quote the criterion. What already works is `task-workflow`'s full-spec `Covers` column, which takes requirement IDs. All three cite by ID, which is why requirement IDs are assigned once and never renumbered — a tidy-up silently re-points every citation at requirements nobody wrote.
+- **The PRD is a contract, not a document.** It is written so that `epic-workflow` can decompose from its requirement index and `Depends on:` lines and `write-tests` can generate from one acceptance criterion. `epic-workflow` reads an approved PRD itself, at its own step 2 — zero clarifying questions when one exists and covers the initiative. `write-tests` doesn't parse a PRD yet, so for now you quote it the criterion by hand. `task-workflow`'s full-spec `Covers` column also takes requirement IDs. All three cite by ID, which is why requirement IDs are assigned once and never renumbered — a tidy-up silently re-points every citation at requirements nobody wrote.
 - **Two homes, and nothing crosses.** Product artifacts are human-facing docs under `docs/product/`; architecture decisions are agent-facing OKF concepts under `knowledge/architecture/`. A requirement never lands in `knowledge/`, and an invariant never lands in the PRD.
 - **It adds no gate either.** Approval is conversational, at those two stops. Nothing at commit time reads a brief or a PRD, and an approved one is never overwritten — re-invoking on a finished discovery reports state and hands off.
 
-Skipping it is fine and often right. A repo with no PRD keeps working exactly as before; a repo with one has the answers to the decomposition's questions already written down, and you point `epic-workflow` at them.
+Skipping it is fine and often right. A repo with no PRD keeps working exactly as before; a repo with one has the answers to the decomposition's questions already written down, and `epic-workflow` checks for the PRD itself at its own step 2 — no need to point it there.
 
 ### Running several tasks at once
 

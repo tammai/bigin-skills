@@ -11,6 +11,7 @@ Why there and not the repo root: units land on different branches, and a root-le
 
 Status: approved
 Approved: {YYYY-MM-DD}
+PRD: {path — optional, only when the decomposition was derived from a PRD}
 
 ## Goal
 
@@ -24,9 +25,9 @@ don't pad it with things a unit's own spec gate will decide better.}
 
 ## Units
 
-| # | Unit | Acceptance | Blocked by | Status | Notes |
-|---|------|-----------|------------|--------|-------|
-| 1 | {one plan's worth of work} | {what proves it works, without later units} | — | Not started | |
+| # | Unit | Acceptance | Blocked by | Status | Notes | Covers |
+|---|------|-----------|------------|--------|-------|--------|
+| 1 | {one plan's worth of work} | {what proves it works, without later units} | — | Not started | | {FR-n IDs — optional, only when PRD-derived} |
 
 ## Not in scope
 
@@ -36,6 +37,8 @@ don't pad it with things a unit's own spec gate will decide better.}
 
 {empty until step 9 writes here}
 ```
+
+`PRD:` (header) and `Covers` (column) are both **optional and PRD-derived-only** — write them only when the decomposition came from reading `docs/product/prd.md` (`SKILL.md` step 2). Omit both entirely for an epic with no PRD; don't pad either with a placeholder. `PRD:` is the path to the source PRD; `Covers` lists the `FR-n` IDs that unit's row cites, so the decomposition stays traceable back to the contract it came from.
 
 Valid row statuses: `Not started`, `In progress`, `Done`, `Blocked`. They mean the same things as `PLAN.md`'s task statuses — `In progress` means a `PLAN.md` for that unit exists right now.
 
