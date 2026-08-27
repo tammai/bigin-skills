@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.75.0] - 2026-08-27
+
+### Changed
+
+- **`task-workflow`'s fix loop stops paying a full implementer resume to change two words.** Step 4.3 had exactly one response to a verifier `FAIL`: resume the same implementer with the issue list. That is right for an implementation that missed the plan, and badly wrong for a wrong filename — the resume rebuilds the implementer's entire context to apply an edit the verifier already spelled out. Two rounds of a single unit in the BMAD-upstream epic each spent roughly 270k tokens doing exactly that.
+
+  **The orchestrator may now apply the fix itself, and a fresh verifier still audits the result.** That is the part worth being explicit about: the independence the loop exists for lives in the *audit*, not in who typed the fix. A self-applied fix is if anything the case where an unaudited diff is easiest to talk yourself into, so the verifier dispatch is unconditional, the round still counts against the cap of 3, and `PLAN.md`'s `Notes` records it as orchestrator-applied rather than silently looking like any other round.
+
+  **"Trivial" is bounded four ways so it cannot quietly grow into a real fix.** The issue must already name the correct value, so applying it takes no decision — a typo, a wrong path or version, a stale cross-reference. It must be text rather than behaviour: no logic, control flow, contract, schema, config value, or test assertion moves (a test's *name* is text; what it asserts is not). It must be one bounded hunk in a file the diff already touches, never a new file. And it is all-or-nothing — one issue that fails any bar sends the **whole** list back to the implementer, because splitting a list leaves the implementer re-deriving against a diff it did not write. An orchestrator-applied round that comes back `FAIL` goes to the implementer next; no self-fixing twice running.
+
+  `references/verify-contract.md` gains the matching requirement: an `issues` entry should name the correct value wherever the verifier knows it, since that string is now the whole input to the carve-out's first bar. The resume path is otherwise untouched, and the 3-round cap is unchanged.
+
 ## [1.74.1] - 2026-08-27
 
 ### Changed

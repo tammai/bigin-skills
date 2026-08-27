@@ -7,6 +7,6 @@ Single source of truth for the verifier's output schema in `task-workflow`'s imp
 ```
 
 - `verdict` — exactly `"PASS"` or `"FAIL"`, nothing else.
-- `issues` — empty array on `PASS`. On `FAIL`, one entry per problem found, each a self-contained one-sentence description (file/behavior/expectation), since the resumed implementer sees only this string, never the verifier's own reasoning.
+- `issues` — empty array on `PASS`. On `FAIL`, one entry per problem found, each a self-contained one-sentence description (file/behavior/expectation) that **names the correct value wherever you know it**, since whoever applies the fix sees only this string and never the verifier's own reasoning — the resumed implementer, or the orchestrator itself under `SKILL.md` step 4.3's trivial-fix carve-out, whose first bar is that the issue already names the value.
 
 The verifier's entire response must be this JSON object — no markdown code fence, no preamble, no summary line before or after. Main parses the response directly as JSON.

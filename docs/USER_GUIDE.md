@@ -215,16 +215,18 @@ model-router scores the task
   a FRESH verifier subagent audits the DIFF against PLAN.md
    (read-only, no memory, never sees the implementer's summary)
         ↓
-   PASS → Review          FAIL → same implementer resumed with the
-                                 issue list verbatim, then a NEW
+   PASS → Review          FAIL → the fix is applied (usually by the
+                                 same implementer, resumed with the
+                                 issue list verbatim), then a NEW
                                  memoryless verifier re-checks
                                  (capped at 3 rounds)
 ```
 
-Two properties worth knowing:
+Three properties worth knowing:
 
 - **The verifier reads the diff, not the report.** An implementer that says "done, all tests pass" gets audited on the actual code either way.
 - **The cap is real.** At 3 failed rounds it stops and asks you whether to adjust the plan, raise the cap, or take over. It does not loop forever.
+- **Who types the fix is not the independence.** For a genuinely trivial issue — one the verifier already names the correct value for, text rather than behaviour, a couple of lines in a file the diff already touches — the orchestrator applies it directly instead of paying a full implementer resume to change two words. Every issue on the list has to clear that bar or the whole list goes back to the implementer, and a fresh verifier still re-checks the result either way. The audit is where independence lives.
 
 ### Scope discipline
 
