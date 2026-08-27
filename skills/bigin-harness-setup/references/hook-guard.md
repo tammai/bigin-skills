@@ -50,13 +50,15 @@ Claude Code and Cursor agree on more than they differ: both send one JSON object
 | | Claude Code | Cursor |
 |---|---|---|
 | session identity | `session_id` | `conversation_id` (`session_id` only on `sessionStart`) |
-| tool output | `tool_response` | `tool_output` |
+| tool output | `tool_output` (`tool_response` on builds before ~2.1.24x) | `tool_output` |
 | project root | `cwd` | `workspace_roots[0]` |
 | compaction reason | `compaction_trigger` | `trigger` |
 | shell-only events | — | `command` at top level, no `tool_name` |
 | gate response | `hookSpecificOutput.permissionDecision` | `permission` |
 | context injection | `hookSpecificOutput.additionalContext` | `additional_context` |
 | `ask` verdict | supported | **not supported** on `preToolUse` — degraded to `deny` |
+
+**The tool-output row is a version difference, not a host difference.** Claude Code's `PostToolUse` field is `tool_output`, the same name Cursor uses; it was `tool_response` on older builds, which is why `toolOutput()` reads both. Keep the fallback — dropping either name breaks one build range — and don't "correct" the row back to a Claude-Code-vs-Cursor split.
 
 `sessionKey()` prefers `conversation_id` on purpose. Cursor sends it on *every* hook event while `session_id` appears only on `sessionStart`, so preferring it keeps the canary and injection-flag filenames stable across events on both hosts — Claude Code has no `conversation_id` and falls through to `session_id`. Get this precedence backwards and `canary-seed.mjs` seeds one filename while `injection-gate-guard.mjs` looks for another, which makes stage 3 inert under Cursor without failing anything visibly.
 
@@ -107,6 +109,8 @@ export function toolCall(data) {
 }
 
 export function toolOutput(data) {
+  // Both hosts call this `tool_output` today; `tool_response` is Claude Code's older
+  // name, kept so one guard body works across build ranges. Not a host difference.
   return data?.tool_response ?? data?.tool_output ?? ''
 }
 

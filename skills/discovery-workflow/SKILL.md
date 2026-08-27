@@ -1,6 +1,7 @@
 ---
 name: discovery-workflow
 description: "Turns a vague product ask into an approved brief and PRD under docs/product/, records the architecture decisions in knowledge/, then hands the PRD to epic-workflow. Triggers: 'we want to build X', 'write a PRD', 'what should we even build', /discovery-workflow."
+argument-hint: [product idea]
 disallowed-tools: Edit Write NotebookEdit
 effort: medium
 ---

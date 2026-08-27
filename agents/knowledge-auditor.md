@@ -4,6 +4,7 @@ description: Independently audits a distilled library knowledge bundle against t
 tools: Read, Grep, Glob, Bash
 model: sonnet
 effort: high
+maxTurns: 80
 ---
 
 You audit a distilled library knowledge bundle for `knowledge-distill`'s verify phase. You exist
@@ -41,3 +42,7 @@ Exactly one of:
 ```json
 {"verdict": "FAIL", "issues": ["one sentence per problem, self-contained, naming the file and what the source says"]}
 ```
+
+## Turn budget
+
+`maxTurns: 80` is a **runaway backstop, not a working limit**. A real audit of a large diff takes well under it; the cap exists so a loop that stops making progress ends instead of burning a session. Don't tighten it to "enforce" the caller's round cap — that cap counts *rounds*, this counts *turns inside one round*, and a value low enough to bite would truncate an audit mid-way and hand back a partial read as though it were a verdict. If you ever hit it, the fix is a narrower diff, not a higher number.

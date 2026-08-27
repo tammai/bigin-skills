@@ -1,6 +1,7 @@
 ---
 name: task-workflow
 description: "AI task workflow — scope → spec → approved PLAN.md → implement/verify loop (capped, independent verifier) → review → cleanup. Triggers: 'implement X', 'add a feature', 'fix bug in Z', /task-workflow, or any non-trivial feature/bug-fix work."
+argument-hint: [what to implement or fix]
 effort: low
 ---
 

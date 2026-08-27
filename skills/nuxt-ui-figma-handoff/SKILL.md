@@ -1,6 +1,7 @@
 ---
 name: nuxt-ui-figma-handoff
 description: "Turns a Nuxt UI Figma handoff into code — theme tokens into main.css, component overrides into app.config.ts. Requires a Figma file/frame URL. Triggers: 'implement this Figma design in our Nuxt UI app', 'sync our theme with the Figma handoff'."
+argument-hint: [figma file or frame url]
 effort: medium
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/generate_color_scale.mjs *)
 ---

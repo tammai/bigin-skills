@@ -205,6 +205,8 @@ Prepend `paths: ["**/*.go"]` as YAML frontmatter when writing `architecture.md` 
 
 ## settings.json Template
 
+`make` targets are enumerated rather than allowed as `Bash(make:*)`: a Makefile target can run anything, so a wildcard here pre-approves whatever the repo later adds to it. **`make migrate-up` is deliberately absent** — applying a migration changes schema state, and this harness treats schema changes as reviewable (see *Regeneration Discipline* above), so it should cost a prompt. `make migrate-create` only writes a new SQL file, so it stays pre-approved. Don't collapse these back into a wildcard.
+
 ```json
 {
   "permissions": {
@@ -220,10 +222,15 @@ Prepend `paths: ["**/*.go"]` as YAML frontmatter when writing `architecture.md` 
       "Bash(staticcheck:*)",
       "Bash(golangci-lint:*)",
       "Bash(air:*)",
-      "Bash(migrate:*)",
       "Bash(docker build:*)",
       "Bash(docker compose:*)",
-      "Bash(make:*)",
+      "Bash(make build:*)",
+      "Bash(make run:*)",
+      "Bash(make dev:*)",
+      "Bash(make lint:*)",
+      "Bash(make test:*)",
+      "Bash(make generate:*)",
+      "Bash(make migrate-create:*)",
       "Bash(git status:*)",
       "Bash(git diff:*)",
       "Bash(git log:*)",

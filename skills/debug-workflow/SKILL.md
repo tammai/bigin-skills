@@ -1,6 +1,7 @@
 ---
 name: debug-workflow
 description: "Systematic debugging with triage — fast path for obvious bugs, full guarded workflow (repro → evidence → hypothesis → fix → prevention) for hard ones. Triggers: 'why is this failing', 'debug this', 'this test is flaky', 'production incident'."
+argument-hint: [symptom or failing test]
 effort: medium
 ---
 

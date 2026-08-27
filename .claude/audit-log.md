@@ -92,3 +92,47 @@ Closed this run (user approved all 3, applied same pass):
 CHANGELOG.md entry added and version bumped to 1.35.1 in the same pass.
 
 Deferred (logged, not acted on): none — all 3 findings from this run were approved and applied.
+
+## 2026-08-27
+
+Docs checked: skills.md, best-practices.md, hooks.md, plugins-reference.md, sub-agents.md, memory.md — all fetched successfully. `skills.md` came back oversized and was read from the persisted tool-result file; `hooks.md`'s per-event output schemas were summarized and proved incomplete (see the SessionStart note below), so one claim was settled against the installed binary and one by direct test.
+
+Context: first audit since 2026-07-15, which was v1.35.1. This run audited v1.79.0 — 44 minor versions of accumulated change.
+
+New findings: 7 actionable (4 drift, 3 opportunity), 0 blocking.
+- drift: `profile-go.md` pre-approved `Bash(make:*)` (a Makefile target can run anything) and `Bash(migrate:*)` (schema changes with no prompt) — the only finding with downstream blast radius
+- drift: `hook-guard.md:53` + `cursor-parity.md:19` mapped `PostToolUse` tool output as a Claude-Code-vs-Cursor difference (`tool_response` → `tool_output`) when current docs make `tool_output` Claude Code's own field and `tool_response` its older name; behavior was never affected because `lib/hook-io.mjs` reads both
+- drift: `.claude-plugin/plugin.json` missing `repository`, `license`, `homepage` — present in both sibling manifests, absent only from the declared source of truth
+- drift: CLAUDE.md's pre-bump sweep named "the README tree diagram", which does not exist (README has no tree; CLAUDE.md's own Structure block is the real manual surface)
+- opportunity: `argument-hint` unused on all 15 skills despite ten having a clear typed-argument shape
+- opportunity: `maxTurns` unused on the three read-only auditors
+- opportunity (low): `when_to_use` unused; triggers packed into `description` instead
+
+Closed this run (user approved all, applied in one pass, shipped as v1.80.0):
+- go profile allowlist: `make:*` → seven enumerated targets, `migrate:*` removed, `make migrate-up` deliberately excluded (applying a migration should cost a prompt) with the rationale written above the template; CHANGELOG `patch` block ships it to already-scaffolded go repos, since setup merges missing allowlist entries and never removes one — Closed
+- tool-output mapping corrected in both references, with a note that the fallback exists for a version rename and must not be "fixed" back into a host split — Closed
+- `repository`/`license`/`homepage` added to `.claude-plugin/plugin.json` — Closed
+- CLAUDE.md sweep list now names its own Structure tree — Closed
+- `argument-hint` added to 10 skills; frontmatter re-validated on all 10; budget gate unmoved — Closed
+- `maxTurns` added: `verifier`/`verifier-medium` 60, `knowledge-auditor` 80 — Closed **with the finding's framing corrected**: it was reported as the deterministic form of the callers' 3-round cap, which is the wrong axis. `maxTurns` bounds turns inside one invocation, so a value low enough to enforce a round cap would truncate an audit and return a partial read as a verdict. Applied as a runaway backstop and documented as one in each agent file plus `skill-authoring.md`.
+
+Rejected on investigation, not deferred — do not re-propose:
+- `when_to_use` for trigger phrases. It is a Claude Code extension and **not** one of the Agent Skills spec's six fields (`name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools`), and `.cursor-plugin/` points at these same skill directories. Moving matching-critical text into a field a non-Claude host isn't guaranteed to read would weaken triggering there with nothing failing visibly, and it saves no budget — `description` and `when_to_use` share one 1,536-char listing cap. Recorded as a standing rule in `.claude/rules/skill-authoring.md`.
+
+Verified, no drift (recorded so the next run doesn't re-litigate):
+- `session-resume-check.mjs`'s `hookSpecificOutput.additionalContext` on `SessionStart` **works** on v2.1.247. The fetched `hooks.md` schema lists only `systemMessage`/`terminalSequence` for that event, and the binary's own SessionStart plugin examples use plain stdout, so this was tested empirically: a scratch repo with a SessionStart hook emitting a canary through `additionalContext`, then `claude -p` asked to echo it. The token came back. The guard is correct; the fetched summary was incomplete. Same species as the 2026-07-15 `tool_response` note — treat summarized per-event hook schemas as lossy and test rather than assert.
+- `bigin-harness-setup/SKILL.md` is 426 lines, above the ~400 heuristic but **down** from 433 at the last audit. The standing "re-flag only if it grows again" criterion (2026-07-06, re-affirmed 2026-07-13 and 2026-07-15) is not met, so this was not reported as a finding.
+- No orphaned `references/*.md` in any skill; all 15 skills have `evals/evals.json`; all agent frontmatter fields in use are valid against current `sub-agents.md`.
+- `disable-model-invocation` considered for the four scaffolds and `bigin-harness-setup` (the side-effecting skills) and rejected: their documented UX is plain-language invocation, which the flag would break.
+- Permission allowlists are otherwise consistent across all six profiles (git block identical; both `type-check` and `typecheck` present in all three pnpm profiles). `Bash(git push:*)` is pre-approved everywhere by the 2026-07-13 decision and was not re-litigated.
+- Prior-run findings reconfirmed closed: `session-handoff`'s stale "Integration with Harness Workflow" section is gone (now `## Mid-workflow saves`, line 195); `agents/standard-worker.md` still carries `skills: [debug-workflow, write-tests]` in YAML list form.
+
+Deferred (logged, not acted on): none.
+
+### Same-day addendum — pre-minor-bump docs sweep (not audit findings)
+
+CLAUDE.md requires a stale-docs sweep before a minor bump, so one ran after the audit fixes above and landed in the same v1.80.0 entry. Recorded here only so a later audit doesn't re-report these as new findings: CLAUDE.md's Structure tree gained `docs/`, `tools/docs_sync.mjs`, and `tools/docs-manifest.json` (and its pre-commit line now matches the Versioning section); `docs/GRAPHIFY.md` gained `epic-workflow` in four places and its adapting-skill count went four → five, with `knowledge-distill` named as explicitly *not* one; all four manifest `description` strings now lead with the task/epic/discovery workflow instead of omitting it; `docs/SPEC-GATE.md` now states that `.claude/memory/EPIC.md` deliberately doesn't satisfy the guard.
+
+One correction worth carrying forward: the Cursor manifest's shorter keyword list is **not** drift. `tools/docs_sync.mjs:202` records it as deliberate — "the Cursor list is deliberately the shorter, less stack-specific one." A first pass synced it to near-parity and was reverted. Only `mdc` and `agent-hosts` were genuinely missing (every other Cursor-specific sibling was present), and only those were added. Don't propose keyword parity across hosts; read that comment first.
+
+Also confirmed non-findings, so they don't get re-raised: bundle-root-relative links in `knowledge-bundle.md` (`/implementation/index.md`, `/meta/...`) resolve inside a *target* repo and are correct here; "nine guards" is accurate (9 guards, `lib/hook-io.mjs` is not one); `verify-gate.mjs` appears only in CHANGELOG and this log, both historical records.

@@ -13,8 +13,11 @@ A **plugin** (`bigin-skills`) for **Claude Code and Cursor** — a collection of
 skills/<name>/SKILL.md    ← one skill per directory
 skills/<name>/references/ ← supporting templates, relative to that skill
 agents/<name>.md          ← plugin-level subagent definitions (spawned via Agent tool, not invoked as skills)
-tools/context_budget.mjs   ← budget gate (also templated for target repos)
-scripts/git-hooks/        ← pre-commit running the budget gate
+docs/                     ← hand-maintained deep-dives (GATES, KNOWLEDGE, ROUTING, SPEC-GATE, USER_GUIDE, GRAPHIFY)
+tools/context_budget.mjs  ← budget gate (also templated for target repos)
+tools/docs_sync.mjs       ← generates README's skills/agents tables; --check fails the commit on drift
+tools/docs-manifest.json  ← its input; every new skill and agent needs an entry or --check fails closed
+scripts/git-hooks/        ← pre-commit running the budget gate + docs_sync.mjs --check
 ```
 
 Every skill's `description:` frontmatter is already loaded on every turn, so there's no inventory table here — the generated skills/agents tables live in [README.md](README.md), and each `SKILL.md` covers how that skill works. Authoring conventions: `.claude/rules/skill-authoring.md` (loads when editing `skills/` or `agents/`).
@@ -28,7 +31,7 @@ Every skill's `description:` frontmatter is already loaded on every turn, so the
 
 ## Versioning
 
-Version lives in `.claude-plugin/plugin.json` and is the source of truth for the other three manifests (`.cursor-plugin/plugin.json`, both `marketplace.json`s) — bump them together; `docs_sync.mjs --check` fails the commit on a mismatch. Bump when publishing changes and add a `CHANGELOG.md` entry. **Docs-only passes are exempt** — copy edits, restructuring, link fixes: ship them as a `docs:` commit with no bump and no changelog entry, and let the commit message be the record. Before a **major or minor** bump, find and fix all stale docs first — the skills/agents tables in `README.md` are generated (run `node tools/docs_sync.mjs`), so sweep only the remaining manual surfaces: prose, cross-references, the README tree diagram, `SKILL.md`s, and both `marketplace.json`s. Patch bumps don't require this sweep. Pre-commit gates: activate once with `git config core.hooksPath scripts/git-hooks` (runs the budget gate + `docs_sync.mjs --check`).
+Version lives in `.claude-plugin/plugin.json` and is the source of truth for the other three manifests (`.cursor-plugin/plugin.json`, both `marketplace.json`s) — bump them together; `docs_sync.mjs --check` fails the commit on a mismatch. Bump when publishing changes and add a `CHANGELOG.md` entry. **Docs-only passes are exempt** — copy edits, restructuring, link fixes: ship them as a `docs:` commit with no bump and no changelog entry, and let the commit message be the record. Before a **major or minor** bump, find and fix all stale docs first — the skills/agents tables in `README.md` are generated (run `node tools/docs_sync.mjs`), so sweep only the remaining manual surfaces: prose, cross-references, this file's own Structure tree, `SKILL.md`s, and both `marketplace.json`s. Patch bumps don't require this sweep. Pre-commit gates: activate once with `git config core.hooksPath scripts/git-hooks` (runs the budget gate + `docs_sync.mjs --check`).
 
 ## Session Handoff
 

@@ -16,7 +16,7 @@ The guards are **not** mirrored — one script body serves both hosts. `.claude/
 | `.claude/rules/<n>.md` + `paths:` | `.cursor/rules/<n>.mdc` + `globs:` | generated mirror, frontmatter translated |
 | `.claude/settings.json` → `hooks` | `.cursor/hooks.json` → `hooks` | written once, per the template below |
 | `PreToolUse` | `preToolUse` | same `tool_name` / `tool_input` field names |
-| `PostToolUse` | `postToolUse` | `tool_response` → `tool_output` |
+| `PostToolUse` | `postToolUse` | both use `tool_output`; `tool_response` is Claude Code's older name |
 | `SessionStart` | `sessionStart` | `session_id` → `conversation_id` |
 | `PreCompact` | `preCompact` | `compaction_trigger` → `trigger` |
 | `.claude/guards/*.mjs` | same files | `lib/hook-io.mjs` adapts the payload |

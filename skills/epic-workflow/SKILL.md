@@ -1,6 +1,7 @@
 ---
 name: epic-workflow
 description: "Breaks an initiative too big for one PLAN.md into ordered, independently shippable units, gets the decomposition approved, then dispatches one unit per session through task-workflow. Triggers: 'break this epic down', 'too big for one task', /epic-workflow."
+argument-hint: [initiative]
 effort: low
 ---
 

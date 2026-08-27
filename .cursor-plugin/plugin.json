@@ -1,7 +1,7 @@
 {
   "name": "bigin-skills",
-  "description": "BigIn's skills for standardized AI-assisted development — harness setup (governance files + enforcement gates for nuxt/go/nodejs/next/flutter repos, Claude Code and Cursor), Nuxt, Next.js, Go, and Node.js app scaffolding, end-of-sprint and pinned-library knowledge distillation, and session handoff.",
-  "version": "1.79.0",
+  "description": "BigIn's skills for standardized AI-assisted development — a spec-gated task/epic/discovery workflow (approved PLAN.md, independent verifier, PRD-driven decomposition), harness setup (governance + enforcement gates for nuxt/go/nodejs/next/flutter, Claude Code and Cursor), Nuxt/Next.js/Go/Node.js scaffolding, end-of-sprint and pinned-library knowledge distillation, and session handoff.",
+  "version": "1.80.0",
   "author": {
     "name": "Tam Mai",
     "email": "tam.mai@bigin.vn"
@@ -56,7 +56,9 @@
     "subagent-routing",
     "deterministic-enforcement",
     "conventional-commits",
-    "graphify"
+    "graphify",
+    "mdc",
+    "agent-hosts"
   ],
   "skills": "./skills",
   "agents": "./agents"

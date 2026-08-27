@@ -2,7 +2,7 @@
 
 The optional structural-graph convention: what turning it on gives you, where it shows up in the daily workflow, and how it divides work with `knowledge/`.
 
-`graphify` itself is third-party ([Graphify-Labs/graphify](https://github.com/Graphify-Labs/graphify)) — the plugin doesn't vendor it, and nothing in the harness requires it. But the harness *does* integrate it: `bigin-harness-setup` scaffolds the convention on opt-in, and four skills adapt their behavior when a graph exists.
+`graphify` itself is third-party ([Graphify-Labs/graphify](https://github.com/Graphify-Labs/graphify)) — the plugin doesn't vendor it, and nothing in the harness requires it. But the harness *does* integrate it: `bigin-harness-setup` scaffolds the convention on opt-in, and five skills adapt their behavior when a graph exists.
 
 This guide is the team-facing "why and when." The scaffolded **`docs/graph-usage.md` in your own repo is the operational reference** — install, query recipes, confidence tags, gitignore contract, large-graph caveats. Don't duplicate that content here; the two would drift.
 
@@ -82,6 +82,7 @@ flowchart TD
         H["task-workflow · Cleanup"]
         I["debug-workflow · Prevention"]
         J["sprint-distill · start"]
+        K["epic-workflow · Cleanup"]
     end
 
     C --> reads
@@ -122,7 +123,8 @@ Step 6's rebuild lands in the same commit as the code change — which is the po
 - **`debug-workflow` — Evidence (step 2).** Wired. When the symptom names a function, handler, or table and the graph exists, it queries callers/callees/dependents *first* and reads only the files that implicates, instead of opening everything plausible. This is the single biggest token saving of the whole convention. Step 5 (Prevention) then proposes a rebuild if code changed.
 - **`model-router`.** Wired, as above — graph presence travels in the spawn payload so subagents inherit it.
 - **`sprint-distill`.** Wired, and the most interesting use. It checks whether commits since the graph's last build touched indexed paths and flags a stale graph before trusting anything downstream. In `KB_MODE = full` it resolves the identifiers each concept file names against the graph — a concept referencing a symbol that no longer exists is flagged stale with reason *"symbol no longer in graph."* That's expiry driven by code state rather than by calendar. Its B1 sweep also flags concept files whose content overlaps graph-extractable structure as deletion candidates, which is the enforcement arm of the §5 split.
-- **`knowledge-distill`.** Treats structural facts as extracted, not distilled — it won't write them into a bundle.
+- **`epic-workflow` — Cleanup (step 10).** Wired, in the same one-line way `task-workflow` is: if the epic changed code and a graph exists, it proposes `graphify update .` before archiving `EPIC.md`. It never *reads* the graph — an epic is decomposition work, and the units underneath it are where structural navigation pays off.
+- **`knowledge-distill`.** Treats structural facts as extracted, not distilled — it won't write them into a bundle. This is a boundary, not an adaptation: it behaves the same whether a graph exists or not, which is why it isn't one of the five.
 
 ---
 
@@ -157,7 +159,7 @@ They fail differently, so they're protected differently. `knowledge/` is defende
 A stale graph lies about location, so freshness matters — but the harness deliberately **never rebuilds automatically**. Three mechanisms, all non-blocking:
 
 1. **`session-resume-check.mjs`** (a `SessionStart` hook) reports once per session whether the graph exists, its last-build commit, and — via a `git log` comparison against everything outside `graphify-out/` — whether anything has changed since. A warning, never a block.
-2. **Proposed rebuilds at completion points**: `task-workflow` Cleanup, `debug-workflow` Prevention, `sprint-distill` start.
+2. **Proposed rebuilds at completion points**: `task-workflow` Cleanup, `epic-workflow` Cleanup, `debug-workflow` Prevention, `sprint-distill` start.
 3. **Manual**: `graphify update .` any time. Incremental after the first run; a no-op takes well under a second.
 
 **Don't run `graphify hook install`.** It writes post-commit *and* post-checkout hooks into `core.hooksPath` — which in a harness repo is the tracked `scripts/git-hooks/`, so they'd get committed and shipped to teammates who may not have the tool. The three mechanisms above already cover freshness at the moments it matters.

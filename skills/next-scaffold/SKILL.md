@@ -1,6 +1,7 @@
 ---
 name: next-scaffold
 description: "Scaffolds a new Next.js App Router BFF app from scratch — empty repo or no next.config.ts. BFF preset (Zustand, TanStack Query, shadcn/ui, Zod, Vitest), plus dashboard and saas variants. Triggers: 'scaffold next', 'create next app', 'next saas template'."
+argument-hint: [variant]
 effort: low
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/scaffold.mjs *)
 ---

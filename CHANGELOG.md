@@ -5,6 +5,67 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.80.0] - 2026-08-27
+
+### Changed
+
+- **Harness audit against current docs: six drift/opportunity findings fixed.** First audit since v1.35.1 (2026-07-15), so the sweep covered 44 minor versions of accumulated drift.
+
+  **The go profile's permission allowlist was pre-approving a wildcard task runner.** `Bash(make:*)` let any Makefile target run unprompted — including whatever the repo adds to it later — and `Bash(migrate:*)` pre-approved golang-migrate directly. The seven documented targets are now enumerated (`build`, `run`, `dev`, `lint`, `test`, `generate`, `migrate-create`) and the bare `migrate` entry is gone. **`make migrate-up` is deliberately not on the list**: applying a migration changes schema state, and this harness already treats schema changes as reviewable, so it should cost a prompt. `make migrate-create` only writes a SQL file, so it stays. The rationale sits above the template so nobody collapses it back into a wildcard. This is the only finding with downstream blast radius — setup *merges* missing allowlist entries and never removes one, so an already-scaffolded go repo keeps `Bash(migrate:*)` until the patch block below runs.
+
+  **The `PostToolUse` tool-output field was documented as a host difference when it is a version difference.** `hook-guard.md`'s Claude-Code-vs-Cursor table mapped tool output as `tool_response` → `tool_output`; current `hooks.md` documents `tool_output` as Claude Code's own field name, with `tool_response` the older name (the 2026-07-15 audit verified `tool_response` against v2.1.209, so the rename landed between then and v2.1.247). Behavior was never affected — `lib/hook-io.mjs` reads `tool_response ?? tool_output`, so one guard body already spanned both — but the table taught the wrong mapping and `cursor-parity.md` repeated it. Both corrected, with a note that the fallback exists for the rename and must not be "fixed" back into a host split.
+
+  **`.claude-plugin/plugin.json` was missing `repository`, `license`, and `homepage`** — all three present in `.cursor-plugin/plugin.json` and in the `.claude-plugin/marketplace.json` entry, absent only from the file this repo calls the source of truth.
+
+  **CLAUDE.md's pre-bump sweep pointed at a README tree diagram that doesn't exist.** README has no tree; CLAUDE.md's own Structure block is the manual surface that can actually go stale, so the instruction now names that.
+
+  **`argument-hint:` added to the ten skills you can usefully type an argument after** (`knowledge-distill` → `[library@version]`, `nuxt-ui-figma-handoff` → `[figma file or frame url]`, and so on). Autocomplete-only and outside the always-loaded description, so the budget gate is unmoved at 8274 chars. No skill substitutes `$ARGUMENTS`; arguments arrive appended to the body, which is why the hint is worth having even where nothing interpolates.
+
+  **`maxTurns:` added to the three read-only auditors** — `verifier` and `verifier-medium` at 60, `knowledge-auditor` at 80 — as a **runaway backstop, not a working limit**. The audit finding originally framed this as the deterministic form of the callers' 3-round cap; that was wrong on the axis. `maxTurns` bounds turns inside one invocation, so a value low enough to enforce a round cap would truncate an audit mid-way and return a partial read as though it were a verdict. Each agent file now says so in place.
+
+  **Not done, deliberately: moving trigger phrases from `description:` to `when_to_use:`.** It looks like the tidier home and the audit listed it as an opportunity, but `when_to_use` is a Claude Code extension and not one of the Agent Skills spec's six fields — and the Cursor manifest points at these same skill directories. Moving matching-critical text into a field a non-Claude host isn't guaranteed to read would weaken triggering there with nothing failing visibly, and it saves no budget since both fields share one listing cap. Recorded as a standing rule in `skill-authoring.md` so it isn't re-proposed.
+
+  Also verified rather than assumed: `session-resume-check.mjs`'s `hookSpecificOutput.additionalContext` on `SessionStart`. The current `hooks.md` output schema for that event lists only `systemMessage`/`terminalSequence`, and the binary's own SessionStart examples use plain stdout — so it was tested empirically against v2.1.247 with a canary hook in a scratch repo. The token reached the model; the guard is correct and the docs summary was incomplete.
+
+```patch
+target: .claude/settings.json
+anchor: "Bash(air:*)",
+      "Bash(migrate:*)",
+      "Bash(docker build:*)",
+      "Bash(docker compose:*)",
+      "Bash(make:*)",
+insert: replace
+---
+"Bash(air:*)",
+      "Bash(docker build:*)",
+      "Bash(docker compose:*)",
+      "Bash(make build:*)",
+      "Bash(make run:*)",
+      "Bash(make dev:*)",
+      "Bash(make lint:*)",
+      "Bash(make test:*)",
+      "Bash(make generate:*)",
+      "Bash(make migrate-create:*)",
+```
+
+  The patch block above targets the **go** profile's allowlist only. Patching a nuxt/next/nodejs/flutter/generic repo will report it under "Skipped (anchor not found)" — that is expected, not a problem to chase.
+
+### Fixed
+
+- **Pre-minor-bump docs sweep** (required by CLAUDE.md before a minor). Five stale items across the manual surfaces:
+
+  **CLAUDE.md's own Structure tree** listed `tools/context_budget.mjs` and nothing else under `tools/`, omitting `docs_sync.mjs` (generates README's tables, runs in pre-commit) and `docs-manifest.json` — whose per-skill/per-agent entry requirement is the most common way `docs_sync --check` fails a commit, and which a contributor reading the tree had no way to learn about. `docs/` was missing entirely despite holding six hand-maintained deep-dives. The tree also said pre-commit runs "the budget gate" while the Versioning section two paragraphs later said "budget gate + `docs_sync.mjs --check`"; the tree now matches.
+
+  **`docs/GRAPHIFY.md` had never learned about `epic-workflow`** — zero mentions, though `epic-workflow` step 10 proposes `graphify update .` like `task-workflow` step 6 does. It was missing from the skill count, the §4 per-skill list, the mermaid rebuild cluster, and §6's list of rebuild points; all four now include it. The count went **four → five** adapting skills, and `knowledge-distill` is now explicitly named as *not* one of them: it treats structural facts as extracted rather than distilled whether a graph exists or not, which is a boundary, not an adaptation — the distinction the old count blurred.
+
+  **All four manifest `description` strings predated the workflow trio.** Every one described the plugin as harness setup + scaffolding + distillation + session handoff, never mentioning `task-workflow`, `epic-workflow`, or `discovery-workflow` — which README's own prose calls "the main driver" you run "dozens of times". All four now lead with the spec-gated workflow.
+
+  **`docs/SPEC-GATE.md` never mentioned `epic-workflow`.** A reader could finish it without learning that `.claude/memory/EPIC.md` deliberately doesn't satisfy the guard — a load-bearing invariant (`skill-authoring.md` states it, and it was documented only in USER_GUIDE). Stated in place now, next to the other `PLAN.md` field rules.
+
+  **One keyword gap, and one non-finding.** `.claude-plugin/marketplace.json` carried 91 of `plugin.json`'s 92 keywords, missing `conventional-commits` — added. The Cursor list's 45-term gap was **not** drift: `tools/docs_sync.mjs:202` records that keyword lists may diverge and that "the Cursor list is deliberately the shorter, less stack-specific one." An initial pass here synced it to near-parity and was reverted for violating that decision. What was genuinely incoherent is narrower: `mdc` and `agent-hosts` were absent while every one of their Cursor-specific siblings (`cursor`, `cursor-rules`, `cursor-hooks`, `agents-md`, `multi-host`) was present. Those two were added and the stack-specific terms deliberately left out, so the list is now short *and* internally consistent.
+
+  Checked and left alone, so the next sweep doesn't redo it: the 20 bundle-root-relative links a link-checker flags in `knowledge-bundle.md` and friends (`/implementation/index.md`, `/meta/knowledge-bundle-spec.md`) are template paths that resolve inside a target repo's `knowledge/`, not this one; "nine guards" is right (9 guards plus `lib/hook-io.mjs`, which isn't one); `verify-gate.mjs` survives only in CHANGELOG and the audit log, which are historical records and correctly still name it; "all five profiles" in `scaffold-delegation.md` and "three hooks, four scripts" in `GATES.md` §5 both hold; the ≤60-line `CLAUDE.md` claim is consistent across all seven places that assert it; and README's prose plus USER_GUIDE's what-you-get trees are current.
+
 ## [1.79.0] - 2026-08-27
 
 ### Changed
