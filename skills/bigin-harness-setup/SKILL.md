@@ -64,21 +64,30 @@ If any exist, show what was found and ask:
 ```
 Found existing harness files: [list them]
 
-Overwrite all? (yes) / Create missing only? (new) / Patch to latest? (patch) / Cancel? (cancel)
+Overwrite all? (yes) / Create missing only? (new) / Patch to latest? (patch) / Re-verify what's there? (verify) / Cancel? (cancel)
 ```
 
 - `yes` → overwrite all (show what will be replaced before writing)
 - `new` → create only files that don't exist; skip existing ones silently
 - `patch` → apply only the specific changes introduced since this repo's harness was last updated (see Phase 1a) — leaves everything else, including hand edits, untouched
+- `verify` → install nothing; re-check every claim in the existing `CLAUDE.md` against this repo and correct or remove what no longer holds (see Phase 1b)
 - `cancel` → stop immediately
 
-Store choice as `INSTALL_MODE`. If `INSTALL_MODE=patch`, skip directly to Phase 1a — do not fold this question into Phase 1.5's bundle, patch mode needs no further decisions. Otherwise, if this question fires, fold it into Phase 1.5's bundle below as a third question instead of asking it standalone here — resolve it in the same `AskUserQuestion` call.
+Store choice as `INSTALL_MODE`. If `INSTALL_MODE=patch`, skip directly to Phase 1a; if `INSTALL_MODE=verify`, skip directly to Phase 1b — do not fold this question into Phase 1.5's bundle for either one, neither mode needs any further decision. Otherwise, if this question fires, fold it into Phase 1.5's bundle below as a third question instead of asking it standalone here — resolve it in the same `AskUserQuestion` call.
 
 ---
 
 ## Phase 1a: Patch Mode (`INSTALL_MODE=patch` only)
 
 Self-contained — skip Phases 1.5 through 8 entirely when this runs; it ends with its own summary. Full procedure in `references/patch-mode.md` (read version, collect eligible `patch` blocks from CHANGELOG.md, apply each by anchor match, write `.claude/harness-version`, print summary).
+
+---
+
+## Phase 1b: Verify Mode (`INSTALL_MODE=verify` only)
+
+Self-contained — skip Phases 1.5 through 8 entirely when this runs; it ends with its own summary. Installs nothing: the only file it may edit is the repo's `CLAUDE.md`, and `.claude/harness-version` is left as it is because no version changed.
+
+Full procedure in **`references/verify-mode.md`**: inventory the checkable claims (`Stack:`-style header lines, each Commands row, every path the file names), re-run the recorded lint/typecheck/test commands one at a time within that file's execution bound, then correct or remove what no longer holds **in place** — a verify pass may shrink `CLAUDE.md` or leave it the same size, and one that grows it is a bug. The distinction that reference states in full and that decides every rewrite: a command that *cannot run* is a stale claim and gets rewritten to the `TODO:` placeholder that reference defines; a command that *runs and fails* is the repo's current state, so it is reported and the row is kept.
 
 ---
 
@@ -99,6 +108,15 @@ Store `KNOWLEDGE_BUNDLE`, `GRAPH`, `CI_PROVIDER`, `MODEL_ROUTING`, `AGENT_HOSTS`
 Read the content from `references/profile-{PROFILE}.md` → `## CLAUDE.md Template` section.
 
 For `generic`, that template needs `{STACK}` plus the `{LINT}`/`{TYPECHECK}`/`{TEST}` commands detected per `references/profile-generic.md` → `## Commands`; detect them once here and reuse the same values in Phases 4, 5-1 and 7.
+
+**Run each command before writing it down — every profile, not just `generic`.** Detection and a fixed template are both claims about this repo, and the five stack profiles ship a template that has checked nothing. Before `CLAUDE.md` is written, execute the **lint, typecheck and test** rows of that profile's Commands table, one at a time and non-interactively. Never execute a `dev`, `build`, `format`, `start`, `watch` or `deploy` row — those wait, rewrite the tree, or run forever; write them as the template has them and say in the Phase 7 summary that they were not checked.
+
+The distinction is the same one verify mode turns on (`references/verify-mode.md` states it in full, and Phase 1b is how an already-installed repo re-runs this):
+
+- The command **cannot run** (no such script/target/task, binary not on `PATH`) → a stale claim. Write the row's command as the `TODO:` placeholder instead — one notation, stated once in `references/verify-mode.md` → `## The TODO: placeholder` and not re-spelled here. For `generic`, that row is then dropped from the table per `references/profile-generic.md`, so the gap surfaces in the Phase 7 summary rather than as a placeholder row.
+- The command **runs and fails** (red tests, lint errors) → the repo's current state, not a false claim. Write the row exactly as the template has it and report the failure in the Phase 7 summary. Never delete a repo's test command because the suite is red.
+
+Same discipline for `{STACK}` and any header line naming a runtime, package manager or framework: read it from the manifests, claim only what a manifest actually says, and name in the Phase 7 summary every command run, every one rewritten to `TODO:`, and every one not checked.
 
 For `flutter`, the template is substitution-free but its Commands table carries the dev command with a flavor entrypoint (`-t lib/main_dev.dart --dart-define-from-file=config/dev.json`). On a repo that has no flavors yet — anything straight out of `flutter create` — write it as the template has it anyway: it states the convention the first slice must satisfy, and `flutter run` with no flavor is exactly the habit the "no URL literal in `lib/`" rule exists to prevent.
 
@@ -371,6 +389,7 @@ After the summary, print the measurement instructions from `references/summary-c
 - Spec Kit (Phase 0.7) — detection only; `none` is the common case. On `migrate`, nothing is deleted until the user has seen the triage table, `git tag pre-harness-migration` is set first, and contract fragments are reconciled before `specs/` goes. On `coexist`, the spec-gate hook is left unregistered rather than the guard left unwritten. Never migrate a repo that didn't ask.
 - `.claude/harness-version` — written on every fresh/overwrite setup (Phase 5-3c); `new` mode only writes it if absent, since skipped pre-existing files may be older than the recorded version.
 - Patch mode (Phase 1a) — only touches files/lines named in a changelog entry's `patch` block; never guesses at an anchor match; always advances `.claude/harness-version` even on partial application, logging what still needs manual review.
+- Verify mode (Phase 1b) — installs nothing and leaves `.claude/harness-version` alone; edits only `CLAUDE.md`, only in place, and only claims it checked. Never appends a correction, never reformats a hand-edited file, never executes a Commands row outside lint/typecheck/test.
 
 ---
 
@@ -392,6 +411,7 @@ Read `references/summary-checklist.md` → `## Output Checklist` and verify ever
 - `references/profile-generic.md` — fallback profile for a stack that matches none of the five: what it installs and skips, command detection, CLAUDE.md + settings.json templates, why no CI
 - `references/files-shared.md` — shared files: security, architecture, AI task guide pointer, review checklist, paths substitutions per profile
 - `references/patch-mode.md` — Phase 1a: version diffing + CHANGELOG patch-block application for `INSTALL_MODE=patch`
+- `references/verify-mode.md` — Phase 1b: re-checking every `CLAUDE.md` claim against the repo for `INSTALL_MODE=verify` — the cannot-run vs runs-and-fails distinction, the command-execution bound, the shrink-never-append rule, and the summary buckets
 - `references/hook-guard.md` — lib/hook-io.mjs (the two-host payload adapter every guard imports), bash-guard.mjs, spec-gate-guard.mjs, bugfix-test-guard.mjs, commit-msg-guard.mjs, injection-scan-guard.mjs, injection-gate-guard.mjs, session-resume-check.mjs, canary-seed.mjs, precompact-snapshot.mjs scripts + pre-commit scripts per profile
 - `references/budget-gate.md` — context_budget.mjs script (context budget gate)
 - `references/knowledge-bundle.md` — optional Knowledge Bundle: rule file, spec, starter concept files, validator script

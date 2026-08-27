@@ -66,5 +66,17 @@
   {
     "query": "what's the best state management library for flutter?",
     "should_trigger": false
+  },
+  {
+    "query": "re-verify our harness — check the CLAUDE.md commands still run",
+    "should_trigger": true
+  },
+  {
+    "query": "is our CLAUDE.md still true? some of those commands look stale",
+    "should_trigger": true
+  },
+  {
+    "query": "run the lint and typecheck commands from CLAUDE.md and show me the output",
+    "should_trigger": false
   }
 ]

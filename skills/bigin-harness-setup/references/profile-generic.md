@@ -17,7 +17,9 @@ There is no fixed command set — detect it, and leave what can't be detected as
 3. `justfile` / `Taskfile.yml` → same idea (`just <recipe>` / `task <task>`).
 4. Language-conventional defaults, only if the manifest is present: `pyproject.toml` → `ruff check .` / `mypy .` / `pytest`; `Cargo.toml` → `cargo clippy` / `cargo check` / `cargo test`; `composer.json` → `composer lint` / `composer test`; `Gemfile` → `bundle exec rubocop` / `bundle exec rspec`; `pom.xml` / `build.gradle` → `mvn verify` / `./gradlew check`.
 
-Record the result as `{LINT}` / `{TYPECHECK}` / `{TEST}`. Any command that isn't found stays the literal string `TODO: <lint|typecheck|test> command` — every template below, the pre-commit script, `AI_REVIEW_CHECKLIST.md`, and the Phase 7 summary carry that placeholder through verbatim so the gap is visible instead of guessed at. Say which commands were detected and which are `TODO` in the Phase 7 summary.
+**Detection is not verification — run each detected command before recording it**, per `SKILL.md` → Phase 2 ("Run each command before writing it down"). A `scripts` entry, a `Makefile` target or a conventional default is a claim about this repo, not a checked fact: the script can name a binary that isn't installed, and the `Makefile` target can call a task that was deleted. A command that **cannot run** is a stale claim and becomes the `TODO:` placeholder below; a command that **runs and fails** is the repo's current state, so it is recorded as detected and the failure is reported in the Phase 7 summary.
+
+Record the result as `{LINT}` / `{TYPECHECK}` / `{TEST}`. Any command that isn't found, or that was found and cannot run, stays the literal string `TODO: <lint|typecheck|test> command` — every template below, the pre-commit script, `AI_REVIEW_CHECKLIST.md`, and the Phase 7 summary carry that placeholder through verbatim so the gap is visible instead of guessed at. Say which commands were detected and which are `TODO` in the Phase 7 summary.
 
 ---
 

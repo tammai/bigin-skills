@@ -36,5 +36,5 @@ The six questions Phase 1.5 asks, with their auto-detected defaults and the exac
    See references/cursor-parity.md for what the mirror contains and the one behavior that degrades.
    ```
    Store `AGENT_HOSTS`. Options 2 and 3 are the same install — say so rather than pretending a Cursor-only layout exists, since `.cursor/rules/` is generated *from* `.claude/rules/` and deleting the source would break the gate on the next commit.
-5. **Install mode** — only if Phase 1 detected an existing-harness conflict in this run: the overwrite/new/cancel question from Phase 1 above.
+5. **Install mode** — only if Phase 1 detected an existing-harness conflict in this run: the `yes` / `new` / `patch` / `verify` / `cancel` question, worded in `SKILL.md` → Phase 1. Two of those five answers end the run in their own self-contained phase — `patch` at Phase 1a, `verify` at Phase 1b — so on either one the remaining answers in this bundle go unused: neither mode needs another decision, and Phases 1.5 through 8 are skipped entirely.
 6. **Spec Kit handling** — only if Phase 0.7 found Spec Kit: the `migrate | coexist | leave` question, worded in `references/speckit-migration.md` → "The decision". On `migrate`, `KNOWLEDGE_BUNDLE` stops being a free choice — it's where the `specs/` rationale lands, so if the user declines both, say the "why" has nowhere to go before accepting it.

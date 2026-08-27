@@ -171,6 +171,7 @@ Next steps:
 - [ ] `.claude/harness-version` — current version stamp (written fresh/overwrite; baseline for patch mode)
 - [ ] `.claude/model-routing.json` — subagent model ladder set to the Phase 1.5 `MODEL_ROUTING` profile (`new` mode: existing file left untouched)
 - [ ] **patch mode only** — only changelog `patch`-tagged changes since `FROM_VERSION` applied; `.claude/harness-version` advanced to `TO_VERSION`; summary lists applied vs skipped
+- [ ] **verify mode only** — nothing installed and `.claude/harness-version` untouched; `CLAUDE.md` no larger than it started (a grown file is a bug); summary leads with any recorded command that no longer runs, and quotes every claim corrected or removed alongside the rows kept because they ran and failed
 - [ ] **nuxt/next only** — `.vscode/settings.json` with ESLint format-on-save (Prettier disabled), merged if it existed — skipped for go/nodejs/flutter/generic
 - [ ] **flutter only** — the pre-commit gate and generated CI run **both** `dart run custom_lint` and `dart run import_lint`, each skipped-with-a-named-message when unconfigured; the base-URL grep and (CI only) the regenerate-and-diff step are present, the latter skipping-with-a-message rather than failing when the generators aren't exactly pinned
 - [ ] **flutter only** — every `dart format` in a gate carries `--output=none`; without it the gate rewrites the working tree mid-commit instead of checking it
