@@ -129,7 +129,7 @@ After the subagent returns, check it against the payload's `definition-of-done` 
 - **Met** — proceed to Step 7 (or use the result directly if nothing else applies).
 - **Partial/unmet** — resume the *same* subagent (`SendMessage` to its agent ID, not a fresh Agent call) naming the specific gap against the definition-of-done. Track the cycle count in your own working context — max **2 follow-up cycles** (3 dispatches total, including the original spawn).
 - **Cycle cap hit:**
-  - Quick-tier exhaustion → exactly one `standard-worker` attempt, with the full loop history (every prior return + the gaps named) folded into its payload.
+  - Quick-tier exhaustion → exactly one attempt at the **standard tier's resolved agent** (`routing.agents.standard` — `standard-worker-high` under `frontier` and `lean`, never assumed from the tier name), with the full loop history (every prior return + the gaps named) folded into its payload.
   - Standard-tier or Deep-tier exhaustion → surface to the user; don't retry further and don't escalate tiers on this path.
 - Never spawn `bigin-skills:verifier` from this step — that's a separate, `task-workflow`-only mechanism scoped to auditing a diff against `PLAN.md`. This evaluation is deliberately lighter than a verifier round.
 - Never auto-escalate into `deep-architect` from exhaustion — Deep is reachable via Step 3's capability score or its auto-overrides (`fullSpecDetected`, a breaking contract change or row-transforming migration), not by exhausting a lower tier.

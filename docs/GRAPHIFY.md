@@ -8,7 +8,7 @@ This guide is the team-facing "why and when." The scaffolded **`docs/graph-usage
 
 **Contents**
 
-1. [What it's for](#1-whats-its-for)
+1. [What it's for](#1-what-its-for)
 2. [Turning it on during harness setup](#2-turning-it-on-during-harness-setup)
 3. [Role in each task-workflow step](#3-role-in-each-task-workflow-step)
 4. [Role in the other skills](#4-role-in-the-other-skills)
@@ -93,7 +93,7 @@ flowchart TD
     S["session-resume-check<br/>SessionStart hook"] -.->|warns if stale,<br/>never blocks| R
 ```
 
-**The left side is automatic; the right side never is.** Once `graph.json` exists, the four consumers adopt it with no action from you. Every rebuild, by contrast, is proposed and waits — `session-resume-check.mjs` warns, the three skills offer, you say yes.
+**The left side is automatic; the right side never is.** Once `graph.json` exists, the three skills on the read side adopt it with no action from you. Every rebuild, by contrast, is proposed and waits — `session-resume-check.mjs` warns, the four skills offer, you say yes.
 
 Without a graph, every arrow into it degrades — see [§6](#6-keeping-it-fresh).
 
@@ -166,4 +166,4 @@ A stale graph lies about location, so freshness matters — but the harness deli
 
 If the graph is missing entirely, every adopting skill falls back to grep and read **silently** — no error, no nagging. Deleting `graphify-out/` is a safe way to opt out mid-project.
 
-> One gap worth knowing: `graphify affected "X"` — reverse traversal for blast radius, with `--depth` and `--relation` filters — is the most useful command for step 3 above, and the generated `docs/graph-usage.md` doesn't currently list it among its query recipes.
+> Worth knowing: `graphify affected "X"` — reverse traversal for blast radius, with `--depth` (default 2) and repeatable `--relation` filters — is the most useful command for step 3 above, and the generated `docs/graph-usage.md` lists it under its query recipes.

@@ -1514,9 +1514,14 @@
       After implementation, a <strong>fresh</strong> verifier subagent audits the
       diff against <code>PLAN.md</code>. It is passed the diff itself, never the
       implementer's summary of what it did — that self-report is exactly what the
-      independence exists to route around. On a fail, the original implementer is
+      independence exists to route around. On a fail the original implementer is
       resumed with the issue list; a <em>new</em> verifier checks the next round.
-      Capped at three rounds, then it stops and asks you.
+      Capped at three rounds, then it stops and asks you. One exception, because a
+      resume is expensive and some failures are two words: where every issue names
+      the correct value, changes text rather than behaviour, and fits one bounded
+      hunk, the orchestrator applies the fix itself. A fresh verifier still audits
+      it, the round still counts against the three, and it is never done twice
+      running on the same issue.
     </p>
 
     <h3>Two axes, not one</h3>
@@ -1622,14 +1627,18 @@
     <h3>Activate the gates — once per clone, per contributor</h3>
     <div class="code-block">
       <div class="code-head"><span class="code-lang">terminal</span></div>
-      <pre><code>git config core.hooksPath scripts/git-hooks</code></pre>
+      <pre><code>ln -sf ../../scripts/pre-commit.sh .git/hooks/pre-commit &amp;&amp; chmod +x scripts/pre-commit.sh
+ln -sf ../../scripts/commit-msg.sh .git/hooks/commit-msg &amp;&amp; chmod +x scripts/commit-msg.sh</code></pre>
     </div>
 
     <div class="callout warn">
       <span class="callout-label">Watch out</span>
-      Git hooks are not cloned. Skip this line and every commit-time gate is
+      Git hooks are not cloned. Skip this and every commit-time gate is
       silently inactive for that person — with no error and no visible
-      difference. It is the single most common setup miss.
+      difference. It is the single most common setup miss. Skip either line whose
+      script your repo doesn't have: where <code>simple-git-hooks</code> or
+      <code>husky</code> already manages a hook, its own install step covers it and
+      setup leaves it alone. The exact pair for your repo is in the setup summary.
     </div>
 
     <h3>Read what it wrote</h3>
@@ -1700,7 +1709,8 @@
       </svg>
       <figcaption>
         The dashed return is the fix loop: a failing verdict resumes the same
-        implementer, and a brand-new verifier checks the next round. Capped at
+        implementer — or, for a trivially textual fix, is applied in place — and a
+        brand-new verifier checks the next round either way. Capped at
         three. Review is your call — a human pass, <code>/code-review</code>, or
         both — and only then is the plan distilled and archived.
       </figcaption>
@@ -1794,7 +1804,7 @@ Fix the double-submit bug on the checkout form</code></pre>
     </p>
     <figure>
       <svg class="diagram" viewBox="0 0 780 648" xmlns="http://www.w3.org/2000/svg"
-           role="img" aria-label="An initiative meets a triage test; work below the bar is handed straight to task-workflow, work above it is clarified, decomposed, approved by you, and written to the queue file. Each session then runs one unit through the six-step loop and returns to the queue after a slash clear, until every row is done and the queue is distilled and archived.">
+           role="img" aria-label="An initiative meets a triage test; work below the bar is handed straight to task-workflow, work above it is clarified — or read straight from an approved PRD — then decomposed, approved by you, and written to the queue file. Each session then runs one unit through the six-step loop and returns to the queue after a slash clear, until every row is done and the queue is distilled and archived.">
         <defs>
           <marker id="hbEpicArrow" viewBox="0 0 10 10" refX="7" refY="5"
                   markerWidth="5" markerHeight="5" orient="auto-start-reverse">
@@ -1834,8 +1844,8 @@ Fix the double-submit bug on the checkout form</code></pre>
 
         <rect x="240" y="196" width="300" height="48" rx="12"
               fill="var(--dg-violet-fill)" stroke="var(--dg-violet)" stroke-width="1.75"/>
-        <text x="390" y="217" text-anchor="middle" font-size="13" font-weight="600" fill="var(--dg-text)">Up to 3 questions</text>
-        <text x="390" y="233" text-anchor="middle" font-size="10.5" fill="var(--dg-muted)">about the decomposition, not the code</text>
+        <text x="390" y="217" text-anchor="middle" font-size="13" font-weight="600" fill="var(--dg-text)">Up to 3 questions — or zero</text>
+        <text x="390" y="233" text-anchor="middle" font-size="10.5" fill="var(--dg-muted)">from an approved PRD; else about the decomposition, not the code</text>
 
         <rect x="240" y="268" width="300" height="56" rx="12"
               fill="var(--dg-violet-fill)" stroke="var(--dg-violet)" stroke-width="1.75"/>

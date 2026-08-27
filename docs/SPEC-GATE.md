@@ -63,7 +63,7 @@ This is the right format for nearly everything. It's short enough to read proper
 
 ### Full spec (opt-in)
 
-Marked `[full-spec]` in the heading. Seven sections, and **you omit the ones that don't apply** — no Component Tree for backend work, no API Contract for UI-only work, no Data Model if nothing new is persisted. Padding it defeats the purpose.
+Marked `[full-spec]` in the heading. Eight sections, and **you omit the ones that don't apply** — no Component Tree for backend work, no API Contract for UI-only work, no Data Model if nothing new is persisted. Padding it defeats the purpose.
 
 ```
 ## Spec: {feature name} [full-spec]
@@ -137,7 +137,7 @@ Statuses: `Not started`, `In progress`, `Done`, `Blocked`.
 
 **That's also the freeze switch.** If the requirement moves mid-task, `task-workflow`'s course-correction path sets `Status: amending` — the same gate then blocks non-trivial edits until the amended spec is re-approved, so nobody builds against a spec that's mid-rewrite. No second gate, no flag to remember: any value other than `approved` blocks. The amendment itself is logged in a `## Amendments` section, which is the only record of why the plan's shape changed — cleanup carries it forward verbatim into the archived plan.
 
-**An `EPIC.md` never satisfies the gate, deliberately.** When `epic-workflow` decomposes an initiative, approving that decomposition approves *what the units are* — not any unit's spec. The queue lives at `.claude/memory/EPIC.md`, outside the repo root where the guard looks, and carries no `Status:` or `Branch:` line, so one epic-level approval can never stand in for five unwritten specs. Every unit still writes its own root `PLAN.md` and faces this gate on its own merits. Don't try to make the queue file pass the guard — that's the exact drift the gate exists to stop.
+**An `EPIC.md` never satisfies the gate, deliberately.** When `epic-workflow` decomposes an initiative, approving that decomposition approves *what the units are* — not any unit's spec. The queue lives at `.claude/memory/EPIC.md` — outside the repo root, which is the only place `spec-gate-guard.mjs` looks for a plan. It does carry its own `Status:` line (`approved`, or `amending` mid-change), but no guard reads it; what it deliberately has no `Branch:` line for is that an epic legitimately spans branches. So one epic-level approval can never stand in for five unwritten specs. Every unit still writes its own root `PLAN.md` and faces this gate on its own merits. Don't try to make the queue file pass the guard — that's the exact drift the gate exists to stop.
 
 **`Branch:` stops a leftover plan from governing the wrong task.** If it disagrees with `HEAD`, non-trivial edits are blocked. Omit it when there's no branch to name (detached `HEAD`, not a repo) and the check is skipped — the guard never blocks on what git can't answer. On a deliberate rename or rebase, update the line rather than deleting it.
 
@@ -154,7 +154,7 @@ After the coverage check, tasks are mirrored into Claude Code's task list for vi
 `spec-gate-guard.mjs` runs on every `Edit`, `Write`, and `MultiEdit`, in this order. Knowing the order explains most surprises.
 
 1. **No `file_path`** → allow.
-2. **Trivial path** → allow, regardless of plan status. Anything under `tests/`, any `.md`, `.env.example`, `graphify-out/`, and the common config files (`eslint`, `prettier`, `tsconfig`, `vite`, `vitest`, `nuxt`, `.editorconfig`, `.gitignore`, `.npmrc`).
+2. **Trivial path** → allow, regardless of plan status. Anything under `tests/`, any `_test.dart` by filename (an `integration_test/` flow test is never ≤20 lines and no directory rule catches it), any `.md`, `.env.example`, `graphify-out/`, and the common config files (`eslint`, `prettier`, `tsconfig`, `vite`, `vitest`, `nuxt`, `.editorconfig`, `.gitignore`, `.npmrc`).
 3. **Git-ignored path** → allow. Build output isn't reviewable source. This check is deliberately **index-aware**: a *tracked* file that merely matches a `.gitignore` pattern is still gated, which is exactly why `graphify-out/` needs its own rule in step 2 — it's committed by design.
 4. **Approved plan for this branch** → allow.
 5. **Otherwise, measure the change.** Over 20 lines → block.
@@ -173,7 +173,7 @@ So creating a 50-line file needs a plan, and reformatting 200 lines into the sam
 
 The guard **fails closed**: an unparsable hook payload prints a diagnostic and exits 2. A bare parse error would exit 1, which Claude Code treats as non-blocking — the gate would silently stop gating.
 
-And you can't route around it: `bash-guard.mjs` blocks `--no-verify`, `git commit -n`, and `git push --force`.
+And you can't route around it: `bash-guard.mjs` blocks `--no-verify`, `git commit -n`, and both force-push spellings (`--force` and `-f`) on any branch — `--force-with-lease` is the sanctioned way through.
 
 ---
 

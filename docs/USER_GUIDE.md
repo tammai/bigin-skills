@@ -125,13 +125,26 @@ your-repo/
 │   ├── rules/                  ← path-scoped: load only when matching files are in context
 │   ├── guards/                 ← the hooks that actually enforce things
 │   ├── settings.json           ← pre-approved commands + hook wiring
-│   └── model-routing.json      ← which model each tier runs on
+│   ├── model-routing.json      ← which model each tier runs on
+│   └── harness-version         ← what `patch` mode diffs against on a later re-run
 ├── tools/context_budget.mjs    ← always-loaded token budget gate
 ├── scripts/pre-commit.sh       ← lint + typecheck + test, fails closed
 └── scripts/commit-msg.sh       ← Conventional Commits check, for every committer
 ```
 
-Plus, if you opted into Cursor:
+The knowledge bundle and the graph convention are **on by default**, so unless you turned them
+off you also get:
+
+```
+├── knowledge/                  ← index.md, the bundle spec, starter concepts, implementation/
+├── tools/knowledge_validate.mjs ← structure gate, wired into pre-commit and CI
+├── .claude/rules/knowledge.md  ← always loaded: the index-first read protocol
+├── .claude/rules/graph.md      ← how to query the graph, when one exists
+└── docs/graph-usage.md         ← query recipes for this repo
+```
+
+Plus CI (`.github/workflows/ci.yml` or `.gitlab-ci.yml`) if you let setup generate it, and if you
+opted into Cursor:
 
 ```
 ├── AGENTS.md                   ← generated from CLAUDE.md; what Cursor loads
@@ -148,11 +161,18 @@ Plus, if you opted into Cursor:
 Two things to do by hand:
 
 ```bash
-# 1. Activate the pre-commit hook (once per clone, per contributor)
-git config core.hooksPath scripts/git-hooks   # or whatever the summary printed
+# 1. Install the git hooks (once per clone, per contributor — setup did this for you,
+#    but a teammate cloning later has to, since .git/ isn't tracked)
+ln -sf ../../scripts/pre-commit.sh .git/hooks/pre-commit && chmod +x scripts/pre-commit.sh
+ln -sf ../../scripts/commit-msg.sh .git/hooks/commit-msg && chmod +x scripts/commit-msg.sh
 
 # 2. Read CLAUDE.md — it's short by design, and it's what every session sees
 ```
+
+Skip either line whose script your repo doesn't have — where `simple-git-hooks` or `husky` is
+already in use, its own install step covers that hook instead, and setup leaves it alone. The exact
+pair for your repo is in the Phase 7 summary; the onboarding block it prints is what to hand a new
+teammate.
 
 Re-running setup later is safe. It's idempotent: `settings.json` is merged, `README.md` is append-only, and nothing is clobbered without asking you first.
 
@@ -170,10 +190,10 @@ Trigger it with plain language — "implement X", "add a feature", "fix the bug 
 
 | Step | What the agent does | What **you** do |
 | --- | --- | --- |
-| **1. Scope** | States in one sentence what's changing and why | Skim it. If it misread you, correct it now — it's one sentence, not a diff. |
+| **1. Scope + triage** | States in one sentence what's changing and why, then checks it against the shared ladder. **Only rung 1 continues** — rung 2 stops and hands to `epic-workflow`, rung 3 to `discovery-workflow` | Skim it. If it misread you, correct it now — it's one sentence, not a diff. |
 | **2. Spec gate** | Drafts a spec and **stops** | **Approve, edit, or reject.** Nothing downstream can fix a spec you waved through. |
-| **3. Plan file** | Writes the approved spec + task table to `PLAN.md`, reads it back for coverage | Nothing. |
-| **4. Implement/verify** | Routes to a tier, implements, then spawns an independent verifier. Loops up to 3× on FAIL. | Nothing, unless the tier comes back `deep-architect` (it asks) or the round cap is hit. |
+| **3. Plan file** | Writes the approved spec + task table to `PLAN.md`, reads it back for coverage, then mirrors the rows into Claude Code's task list (3+ rows only — one-way and disposable; `PLAN.md` stays canonical) | Nothing. |
+| **4. Implement/verify** | Routes to a tier, implements, then spawns an independent verifier. Loops up to 3× on FAIL. Skipped entirely only when the spec gate was skipped **and** the verification bar came back "normal gates" — then it implements inline and just runs lint/typecheck/tests. | Nothing, unless the tier comes back `deep-architect` (it asks) or the round cap is hit. |
 | **5. Review** | Asks whether to run `/code-review` (+ `/security-review` if the change touches auth/secrets/PII/untrusted input) | Say yes or no. Neither runs automatically. |
 | **6. Cleanup** | Archives `PLAN.md` verbatim out of the repo root, proposes distilling anything durable into `knowledge/`, proposes a graph rebuild | Approve or decline the proposals. |
 
@@ -395,7 +415,7 @@ Unlike `bash-guard.mjs`, this one binds you too: the same script is installed as
 
 ### `bash-guard.mjs` — "you can't disable your own gates"
 
-**Blocks:** `--no-verify`, `git commit -n`, force-push to main. **Allows:** `--force-with-lease` on a feature branch, normal commits, and messages that merely contain `-n`.
+**Blocks:** `--no-verify`, `git commit -n`, and `git push --force` / `-f` **on any branch** — the guard has no branch check, so a force-push to your own feature branch is blocked too. **Allows:** `--force-with-lease` anywhere, normal commits, and messages that merely contain `-n`. (The block message says "use `--force-with-lease` on a feature branch", which is advice about where force-pushing is reasonable, not a description of what the guard inspects.)
 
 This one blocks the *agent*, not you. If you need to bypass a hook yourself, do it in your own terminal.
 

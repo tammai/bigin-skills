@@ -16,14 +16,14 @@ is just a slower `task-workflow`.
 This skill exists because there are many doors, not because routing needs a new definition. Both
 inputs already have a home:
 
-1. **The triage ladder** — [`../discovery-workflow/references/triage-ladder.md`](../discovery-workflow/references/triage-ladder.md).
+1. **The triage ladder** — `${CLAUDE_PLUGIN_ROOT}/skills/discovery-workflow/references/triage-ladder.md`.
    Three rungs, already read by `task-workflow`, `epic-workflow` and `discovery-workflow`. **Read
    it; never paraphrase it here.** You are its fourth reader, not a fourth bar. If your answer for
    build work disagrees with the ladder, the ladder is right and you are wrong.
 2. **The inventory** — every skill's `description:` frontmatter is already in your context on every
    turn. That *is* the list. Derive any listing from what you can see loaded, never from a table
    written here: a hardcoded inventory drifts the moment a skill is added, and the generated tables
-   in [`README.md`](../../README.md) are the human-facing copy that stays current mechanically.
+   in the plugin's `README.md` are the human-facing copy that stays current mechanically.
 
 ## Procedure
 
@@ -36,8 +36,9 @@ inputs already have a home:
 
    > Rung 2 — a contract and its consumers is two surfaces, so `epic-workflow` first.
 
-   Do not re-derive the bar from memory. Two-plus surfaces, 3+ units, and "is the product shape
-   settled" are the ladder's discriminators and they are written down.
+   Do not re-derive the bar from memory, and do not paraphrase its triggers here — rung 2 is a
+   three-way disjunction and a paraphrase that drops one of them silently lowers the bar. Read the
+   file and quote the trigger that actually fired.
 
 3. **Otherwise route on the named subject.** These are the non-ladder doors — each is a skill whose
    own `description:` you can already see, so check that description rather than trusting this list
@@ -60,7 +61,7 @@ inputs already have a home:
 
 4. **No arguments given?** List what's available — grouped as build work, knowledge, scaffolding,
    and setup — one line each, from the loaded descriptions. Then ask what they're trying to do.
-   Don't dump all fifteen with equal weight: lead with the ladder, since that's what most sessions
+   Don't dump all sixteen with equal weight: lead with the ladder, since that's what most sessions
    need.
 
 5. **Two candidates genuinely tied?** One `AskUserQuestion` with those two as the options and the

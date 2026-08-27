@@ -73,7 +73,7 @@ Overwrite all? (yes) / Create missing only? (new) / Patch to latest? (patch) / R
 - `verify` → install nothing; re-check every claim in the existing `CLAUDE.md` against this repo and correct or remove what no longer holds (see Phase 1b)
 - `cancel` → stop immediately
 
-Store choice as `INSTALL_MODE`. If `INSTALL_MODE=patch`, skip directly to Phase 1a; if `INSTALL_MODE=verify`, skip directly to Phase 1b — do not fold this question into Phase 1.5's bundle for either one, neither mode needs any further decision. Otherwise, if this question fires, fold it into Phase 1.5's bundle below as a third question instead of asking it standalone here — resolve it in the same `AskUserQuestion` call.
+Store choice as `INSTALL_MODE`. If `INSTALL_MODE=patch`, skip directly to Phase 1a; if `INSTALL_MODE=verify`, skip directly to Phase 1b — do not fold this question into Phase 1.5's bundle for either one, neither mode needs any further decision. Otherwise, if this question fires, fold it into Phase 1.5's bundle below instead of asking it standalone here (it's question 5 of the six there) — resolve it in the same `AskUserQuestion` call.
 
 ---
 

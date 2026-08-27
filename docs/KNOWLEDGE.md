@@ -8,7 +8,7 @@ For the structural graph it's often confused with, see [`GRAPHIFY.md`](GRAPHIFY.
 
 **Contents**
 
-1. [What it's for](#1-whats-its-for)
+1. [What it's for](#1-what-its-for)
 2. [Turning it on during harness setup](#2-turning-it-on-during-harness-setup)
 3. [Two kinds of knowledge](#3-two-kinds-of-knowledge)
 4. [Role in each task-workflow step](#4-role-in-each-task-workflow-step)
@@ -37,10 +37,10 @@ Every `.md` under `knowledge/` is a concept file with valid frontmatter, save th
 
 ## 2. Turning it on during harness setup
 
-Opt-in, decided as `KNOWLEDGE_BUNDLE` in **Phase 1.5** of `bigin-harness-setup`. **Phase 5.5** then does six things — note that only the first three are the bundle, and the last three are what stop it rotting:
+Opt-in, decided as `KNOWLEDGE_BUNDLE` in **Phase 1.5** of `bigin-harness-setup`. **Phase 5.5** then does seven things — note that only the first three are the bundle, and the last three are what stop it rotting:
 
 1. **`.claude/rules/knowledge.md`** — unscoped, so it's always loaded. It's short on purpose: it carries the what/why-vs-how split and the index-first protocol, and nothing else.
-2. **The starter bundle** — `index.md`, `meta/knowledge-bundle-spec.md` (the canonical spec), `contracts/openapi-contract.md`, `constraints/agent-rules.md`, and `log.md`.
+2. **The starter bundle** — `index.md`, `meta/knowledge-bundle-spec.md` (the canonical spec), `contracts/openapi-contract.md`, `constraints/agent-rules.md`, `log.md`, and `implementation/index.md` (empty of records; task and epic cleanup append to it).
 3. **`tools/knowledge_validate.mjs`** — zero-dependency Node, no install step.
 4. **Pre-commit wiring** — the validator is appended to `scripts/pre-commit.sh`, or to your existing `simple-git-hooks`/`husky` config rather than creating a second script.
 5. **CI wiring** — automatic if Phase 5.6 generates CI in the same run. If you already have *foreign* CI, setup won't edit it and instead tells you in the Phase 7 summary to add the validator step yourself.
@@ -50,7 +50,7 @@ Library bundles are **suggested, never scaffolded.** Setup names the dependencie
 
 > Steps 1–3 are the canonical install list. `knowledge-distill`'s Phase 0a reuses them verbatim to bootstrap a repo with no bundle, deliberately without restating the file list. If you change the starter files here, also update the index template that links them — a dropped file becomes a broken link and a validator error.
 
-Decline `KNOWLEDGE_BUNDLE` and nothing else in the harness cares. Unlike the graph, no skill probes for a `knowledge/` directory and adapts — `task-workflow`'s cleanup step skips its distill prompt when the bundle is absent, and that's the extent of it.
+Decline `KNOWLEDGE_BUNDLE` and nothing breaks — but four skills do probe for the bundle and adapt, and each says so rather than failing quietly: `task-workflow` and `epic-workflow` skip the distill prompt and route their archive to `.claude/memory/` instead, `discovery-workflow` skips writing its architecture concepts, and `sprint-distill` offers to continue in skills-only mode.
 
 ---
 
@@ -93,9 +93,9 @@ Team conventions get **blended visibly**: a relevant `.claude/rules/*` rule is f
 | 4. Implement/verify | manual | The implementer inherits the always-loaded rule, so the protocol travels — but no skill pushes specific concept files into the payload. |
 | 5. Review | **wired** | `AI_REVIEW_CHECKLIST.md` carries the behavior-change line, so review asks whether the concept file was updated. |
 | 6. Cleanup | **wired** | Two writes that don't overlap. If the task established or changed a **decision, invariant, contract, or constraint** — not merely "added a feature" — the specific concept edit is proposed: which file, what line. Then `PLAN.md` itself is archived verbatim as a `Record` under `knowledge/implementation/`. |
-| commit | **wired** | `knowledge_validate.mjs` and `knowledge_drift.mjs` run in pre-commit and CI. |
+| commit | **wired** | `knowledge_validate.mjs` runs in pre-commit and CI. `knowledge_drift.mjs` is pre-commit only, and `bigin-harness-setup` deliberately doesn't install it — it arrives with a `knowledge-distill` run, since there is nothing to drift against until a library bundle exists. |
 
-Step 6 is the one to understand, because it writes to two homes and the boundary between them is the point. `PLAN.md` is the only written record of *why* a task took its shape, so it is not deleted — it moves, verbatim, to `knowledge/implementation/`, or to `.claude/memory/PLAN.archive.<ISO>-<slug>.md` in a repo with no bundle. Distilling a concept is the separate question, and that prompt is deliberately narrow: **nothing durable is the common case** for routine work, and the skill says so rather than inventing a concept to justify the step. Concepts are per-invariant, not per-task — amending an existing file beats adding one, and any new file needs a summary line in `knowledge/index.md` or the validator flags it unreachable. If the plan carries an `## Amendments` section, the distill step reads it first: a plan that had to change usually changed because of something worth writing down. The two writes never restate each other — the narrative goes to the record, the invariant it established goes to a concept.
+Step 6 is the one to understand, because it writes to two homes and the boundary between them is the point. `PLAN.md` is the only written record of *why* a task took its shape, so it is not deleted — it moves, verbatim, to `knowledge/implementation/`, or to `.claude/memory/PLAN.archive.<ISO>-<slug>.md` when there's no bundle at all — or a bundle predating `implementation/`. Distilling a concept is the separate question, and that prompt is deliberately narrow: **nothing durable is the common case** for routine work, and the skill says so rather than inventing a concept to justify the step. Concepts are per-invariant, not per-task — amending an existing file beats adding one, and any new file needs a summary line in `knowledge/index.md` or the validator flags it unreachable. If the plan carries an `## Amendments` section, the distill step reads it first: a plan that had to change usually changed because of something worth writing down. The two writes never restate each other — the narrative goes to the record, the invariant it established goes to a concept.
 
 **Knowledge about our own system enters at four altitudes.** `discovery-workflow` (per product decision, into `knowledge/architecture/` — the one that writes *ahead* of the code, which is why its concepts land `status: draft` with no `verified` entry: nothing has confirmed them against a running system yet), `task-workflow`'s cleanup (per task, usually nothing), `epic-workflow`'s cleanup (per epic — this is where durable decisions actually surface, because an epic that settled a contract or a boundary produced one), and `sprint-distill` (per sprint, across merged PRs). Same discipline in all four: propose a specific file and line, prefer amending to adding, and never bank a concept nobody asked for. None of the four creates a bundle as a side effect: three skip the step and say so, and `sprint-distill` asks whether to continue in skills-only mode.
 
@@ -141,7 +141,7 @@ flowchart TD
 
 **Review** — catches *behavior* rot. The staleness policy is that any PR meaningfully changing behavior updates the related concept file **in the same PR**, and the checklist line is what makes someone check.
 
-**`sprint-distill`** — catches everything the other three miss, once per sprint. It flags concepts whose referenced identifiers no longer resolve in the graph (*"symbol no longer in graph"* — expiry by code state, not calendar), flags concept files that overlap graph-extractable structure as deletion candidates, and enforces a **net-neutral** rule: every addition names what it replaces or cites budget headroom. It compresses, never appends. Then it **stops** and shows you every proposed change before writing anything. `implementation/` is outside the sweep entirely: three of those checks misfire on a record — which cites the code *as it stood* — and the fourth's remedy is "compress or merge", which isn't available for a file that is never edited after it is written.
+**`sprint-distill`** — catches everything the other three miss, once per sprint. It flags concepts whose referenced identifiers no longer resolve in the graph (*"symbol no longer in graph"* — expiry by code state, not calendar), flags concept files that overlap graph-extractable structure as deletion candidates, and enforces a **net-neutral** rule: every addition names what it replaces or cites budget headroom. It compresses, never appends. Then it **stops** and shows you every proposed change before writing anything. `implementation/` is outside the sweep entirely, and the net-neutral rule too. Each check fails on a record for its own reason: a record cites the code *as it stood*, so a moved citation or a vanished symbol is the history it exists to keep; it hangs off its own nested `index.md`, so reachability is already satisfied; and it is never edited after it is written, so "compress it" and "merge it" aren't moves that exist here.
 
 `knowledge/log.md` gets one entry per sprint. Concept files not linked from `index.md` are stale by definition; records are the exception, reachable from their own nested index instead.
 

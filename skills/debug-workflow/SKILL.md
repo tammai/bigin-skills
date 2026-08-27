@@ -46,7 +46,7 @@ Gated — do not start step N+1 without step N's output recorded.
 
 3. **Hypothesis.** State exactly one hypothesis, supported by step-2 evidence, and **pre-register the probe's outcomes before running it**: "if the hypothesis is right, the probe shows X; if wrong, Y." The probe is the smallest possible disposable diagnostic — never the fix itself. "Symptom gone" is not "cause confirmed"; only the pre-registered X counts. If refuted, discard the probe and return to step 2 — never stack a second hypothesis on an unconfirmed one.
 
-4. **Fix + validation.** Implement only once the root cause is confirmed. Validate with the failing repro now passing plus a check that nothing adjacent broke — show the actual output, don't claim it passed without showing it (same discipline as `write-tests` and `task-workflow`'s Verify step). For timing-related bugs, one pass proves nothing: require repeated runs (≥5 consecutive passes) — see `references/race-conditions.md`.
+4. **Fix + validation.** Implement only once the root cause is confirmed. Validate with the failing repro now passing plus a check that nothing adjacent broke — show the actual output, don't claim it passed without showing it (same discipline as `write-tests` and `task-workflow`'s implement/verify loop). For timing-related bugs, one pass proves nothing: require repeated runs (≥5 consecutive passes) — see `references/race-conditions.md`.
 
 5. **Prevention — required output, not an afterthought.** Every full-workflow fix ships with (a) a regression test covering the bug, and (b) validation added at the layer that *should* have caught it — see `references/defense-in-depth.md`. If code changed and `graphify-out/graph.json` exists, propose a graph rebuild (`graphify update .`).
 

@@ -97,7 +97,7 @@ silently.
 | `Domain` | a **shape** decision — how the domain is modelled, named, and bounded | Is this "how we describe the world here", rather than a promise? Then it's Domain |
 
 Those are the only two this skill writes, and both are in every version of the allowed list. The
-others a bundle may allow — `System`, `Table`, `Metric`, `Playbook`, `Constraint` in our v0.2
+others a bundle may allow — `System`, `Domain`, `Table`, `Metric`, `Playbook`, `Constraint`, `Record` in our v0.2
 profile, and more in older v0.1-inspired ones — belong to producers with something already
 running to describe; a discovery has neither a running system nor a measurement to point at.
 **Read the bundle's own `meta/knowledge-bundle-spec.md` for its list before writing**, and follow

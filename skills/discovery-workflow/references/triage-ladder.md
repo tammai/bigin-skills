@@ -1,6 +1,8 @@
 # The triage ladder
 
-Three rungs, one statement. `task-workflow`, `epic-workflow` and `discovery-workflow` each enter their
+Three rungs, one statement. `ask-bigin` reads it too, to route a request it was handed — but it is a
+reader, not an entry point, and it never decides a rung the ladder wouldn't.
+`task-workflow`, `epic-workflow` and `discovery-workflow` each enter their
 work through this ladder, and the point of writing it once is that the *same request lands on the same
 rung whichever of the three it was typed at*. Three paragraphs in three files drift, and a request that
 gets a spec at one door and a decomposition at another is the drift that matters — it changes how much
