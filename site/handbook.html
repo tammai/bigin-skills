@@ -1530,7 +1530,7 @@
 
     <h3>Where a fact lives</h3>
     <p>
-      Five surfaces, one question each. Putting a fact in the wrong one is the
+      Six surfaces, one question each. Putting a fact in the wrong one is the
       most common way this convention degrades, because the wrong home has no
       mechanism to expire it.
     </p>
@@ -1539,10 +1539,11 @@
         <thead><tr><th>Surface</th><th>Answers</th><th>Lifetime</th></tr></thead>
         <tbody>
           <tr><td>knowledge/</td><td>What is the system, and why?</td><td>Outlives sprints; expires on behavior change</td></tr>
+          <tr><td>knowledge/implementation/</td><td>How did this piece come to be, and what was rejected?</td><td>Append-only; never expires, never edited</td></tr>
           <tr><td>docs/product/prd.md</td><td>What did we promise, and how is it checked?</td><td>Outlives every epic derived from it; amended, never renumbered</td></tr>
           <tr><td>.claude/rules/</td><td>How do we work here?</td><td>Outlives projects; changes by decision</td></tr>
           <tr><td>graphify-out/</td><td>Where is the code, what connects?</td><td>Regenerated; expires every commit</td></tr>
-          <tr><td>PLAN.md</td><td>What are we doing right now?</td><td>Deleted at task end</td></tr>
+          <tr><td>PLAN.md</td><td>What are we doing right now?</td><td>Archived verbatim at task end</td></tr>
         </tbody>
       </table>
     </div>
@@ -1701,7 +1702,7 @@
         The dashed return is the fix loop: a failing verdict resumes the same
         implementer, and a brand-new verifier checks the next round. Capped at
         three. Review is your call — a human pass, <code>/code-review</code>, or
-        both — and only then is the plan distilled and deleted.
+        both — and only then is the plan distilled and archived.
       </figcaption>
     </figure>
 
@@ -1793,7 +1794,7 @@ Fix the double-submit bug on the checkout form</code></pre>
     </p>
     <figure>
       <svg class="diagram" viewBox="0 0 780 648" xmlns="http://www.w3.org/2000/svg"
-           role="img" aria-label="An initiative meets a triage test; work below the bar is handed straight to task-workflow, work above it is clarified, decomposed, approved by you, and written to the queue file. Each session then runs one unit through the six-step loop and returns to the queue after a slash clear, until every row is done and the queue is distilled and deleted.">
+           role="img" aria-label="An initiative meets a triage test; work below the bar is handed straight to task-workflow, work above it is clarified, decomposed, approved by you, and written to the queue file. Each session then runs one unit through the six-step loop and returns to the queue after a slash clear, until every row is done and the queue is distilled and archived.">
         <defs>
           <marker id="hbEpicArrow" viewBox="0 0 10 10" refX="7" refY="5"
                   markerWidth="5" markerHeight="5" orient="auto-start-reverse">
@@ -1863,8 +1864,8 @@ Fix the double-submit bug on the checkout form</code></pre>
 
         <rect x="200" y="596" width="380" height="48" rx="12"
               fill="var(--dg-mint-fill)" stroke="var(--dg-mint)" stroke-width="1.75"/>
-        <text x="390" y="617" text-anchor="middle" font-size="13" font-weight="600" fill="var(--dg-text)">Distill into knowledge/, then delete the queue</text>
-        <text x="390" y="633" text-anchor="middle" font-size="10.5" fill="var(--dg-muted)">a working file for the epic, like PLAN.md is for a task</text>
+        <text x="390" y="617" text-anchor="middle" font-size="13" font-weight="600" fill="var(--dg-text)">Distill into knowledge/, then archive the queue</text>
+        <text x="390" y="633" text-anchor="middle" font-size="10.5" fill="var(--dg-muted)">archived verbatim, like PLAN.md is for a task</text>
       </svg>
       <figcaption>
         The skill refuses in both directions: below the bar it hands the request
@@ -1892,7 +1893,12 @@ Fix the double-submit bug on the checkout form</code></pre>
     <p>
       Epic cleanup is where <code>knowledge/</code> usually earns its keep. A single
       plan rarely establishes anything durable; an epic that settled a contract or a
-      boundary did.
+      boundary did. Two things are written, and they must not restate each other: the
+      <em>invariant</em> the epic settled goes into a concept file, and
+      <code>EPIC.md</code> itself is archived verbatim as a record — goal, constraints,
+      the unit table with each unit's notes, and the amendment log. That notes column is
+      where each unit recorded what it changed for the units after it, which is precisely
+      what a distilled concept throws away.
     </p>
 
     <h3>When nobody can say what the thing is yet</h3>
