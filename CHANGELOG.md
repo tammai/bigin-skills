@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.74.1] - 2026-08-27
+
+### Changed
+
+- **Skill authoring gains a verify-as-you-write rule, because auditing after the fact shipped the same defect nine times.** The "Absorb BMAD's upstream layer" epic's unit 1 went through six audit rounds and a behavioural test to produce nine defects, and every one of them was the same species: a sentence asserting a checkable fact about something outside the file it was written in. Three of the nine were introduced by fixes for earlier ones — the audit was finding them one at a time and creating new ones at roughly a third the rate it closed them. Nothing in the workflows those units were defining said to check a claim before writing it down.
+
+  `.claude/rules/skill-authoring.md` now says to, and says it as a timing rule rather than a quality one: the check happens **in the same edit that writes the sentence**, never deferred to a later pass. Four forms are named because each reads as authoritative while being the hardest kind to verify — **negative** claims ("its `SKILL.md` mentions no PRD"), **universal** claims ("all four profiles skip cleanly"), **superlatives with no denominator** ("the only one that…", which has no set to check against until you name one — two of the nine were this), and claims about **the file's own frontmatter**, where sharing a file with the thing being described makes it feel already-verified. A cross-file citation counts as a claim in its own right: a step number or section heading in another file is a fact about that file, and step numbering in particular moves under you.
+
+  The rule is scoped to `skills/**,agents/**` and adds nothing to the always-loaded budget, which is unchanged at 8267 chars. Drafting it caught one of its own defects: the first version asserted that all three rows of `artifact-formats.md`'s reader table had to be reversed, when only the two that shipped as `**No**` did — a universal claim, corrected by enumerating the set the rule says to enumerate.
+
 ## [1.74.0] - 2026-08-27
 
 ### Changed
