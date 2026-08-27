@@ -1,7 +1,9 @@
 # Epic: Implementation logs — keep the history, not just the distillate
 
-Status: approved
+Status: complete
 Approved: 2026-08-27
+Completed: 2026-08-27 (units 1-5, v1.76.0-v1.79.0; unit 5 shipped as a docs-only commit
+with no bump)
 
 ## Goal
 
