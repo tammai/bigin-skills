@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.78.0] - 2026-08-27
+
+### Changed
+
+- **A finished epic archives its `EPIC.md` instead of deleting it.** v1.77.0 did this for `task-workflow`; this closes the other half. Epic cleanup's last bullet used to read "nothing to preserve once the last unit ships and the distillation is in `knowledge/`" — which was the exact claim v1.76.0 and v1.77.0 disproved. An epic's queue is where each unit's `Notes` recorded what it changed for the units after it, and its `## Amendments` log is the only place the decomposition's own history exists. Both went in the bin.
+
+  Step 10 now leads with *archive* and routes to exactly one of two destinations, mirroring `task-workflow` step 6 rather than inventing a second dialect of the same convention. With `knowledge/implementation/` present it writes `{YYYY-MM-DD}-{slug}.md` from the `Record` template — `source: epic`, the list of versions its units landed in, and the `EPIC.md` **verbatim**: goal, constraints, the unit table with its `Notes`, `## Not in scope`, and the `## Amendments` log if there is one — then appends one line to the nested index, newest first. Without it, the same verbatim body goes to `.claude/memory/EPIC.archive.{ISO}-{slug}.md`. Creating `knowledge/implementation/` just to have a home for one record stays ruled out.
+
+  The distill bullet is unchanged in substance — it already expected to find something at this layer, and it already read the `## Amendments` log first. What's new after it is the boundary the archive makes possible, stated in place: the invariant goes into a concept, the narrative stays in the record, and a record that repeats its own concept means one of the two was written in the wrong place.
+
+  Two cross-references corrected in the same pass: `epic-queue.md`'s "deleted at step 10", and `discovery-workflow`'s working-file lifetime table — whose closing line, "only the first survives", was true of all three files when written and is now true of none but the PRD.
+
 ## [1.77.0] - 2026-08-27
 
 ### Changed

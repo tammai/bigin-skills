@@ -1,6 +1,6 @@
 # The epic queue file
 
-`.claude/memory/EPIC.md` — written by step 5 once the decomposition is approved, updated one row at a time, deleted at step 10.
+`.claude/memory/EPIC.md` — written by step 5 once the decomposition is approved, updated one row at a time, archived out of `.claude/memory/` at step 10.
 
 Why there and not the repo root: units land on different branches, and a root-level file rides along on every one of them and conflicts on every merge. `.claude/memory/` is already the cross-session state directory (`session-handoff` writes `SESSION.md` there, `precompact-snapshot.mjs` writes into it before a compaction), it's committed like the rest of `.claude/`, and it survives `/clear`. It carries **no `Branch:` line** — unlike `PLAN.md`, an epic legitimately spans branches, and `spec-gate-guard.mjs` never reads this file.
 

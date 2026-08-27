@@ -95,7 +95,7 @@ Every amendment goes through step 5's gate again, presented as a diff — the ch
 | File | Owner | Lifetime |
 | --- | --- | --- |
 | `docs/product/prd.md` | this skill | durable — outlives every epic derived from it |
-| `.claude/memory/EPIC.md` | `epic-workflow` | one epic, deleted at epic cleanup |
+| `.claude/memory/EPIC.md` | `epic-workflow` | one epic, archived out of `.claude/memory/` at epic cleanup |
 | `PLAN.md` | `task-workflow` | one task, archived out of the repo root at task cleanup |
 
-Only the first survives, which is why it is the only one of the three that is worth getting the format of exactly right.
+Only the first stays a live document; the other two survive as implementation records, read when someone needs to know why a past change took its shape. That is why the PRD is the only one of the three whose format is worth getting exactly right.

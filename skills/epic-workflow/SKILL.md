@@ -71,10 +71,21 @@ It adds no gate of its own. Every unit still goes through `task-workflow`'s spec
 
 9. **Amend, when the epic itself moves.** A unit's work sometimes invalidates a later unit — a contract lands differently, a dependency turns out unnecessary. Amend rather than restart: add, remove, or reorder rows, log it in the file's `## Amendments` section, and re-approve **only the changed rows** (don't re-paste the whole table). If the epic's *goal* moved rather than its units, stop and re-decompose from step 2 — a queue patched past recognition is worse than an honest second epic. **Cap: 2 amendments.** A third means the original decomposition was wrong; say that and re-decompose.
 
-10. **Epic cleanup.** Once every row is `Done`:
+10. **Epic cleanup.** Once every row is `Done`, archive `.claude/memory/EPIC.md`. It stops being a working file, but it doesn't stop being the only written record of *why* the initiative was cut into these units — so it moves rather than being deleted.
+
+    Two things happen before the archive, both proposed rather than run silently:
+
     - **Distill, and expect to find something.** This is the layer where durable decisions actually live — a single `PLAN.md` usually establishes nothing worth keeping, but an epic that settled a contract, a boundary, or an invariant did. Propose the specific `knowledge/` edit (which concept file, what line), preferring an amendment to an existing concept over a new file; every new file needs a summary line in `knowledge/index.md`. Read the `## Amendments` log before proposing — a decomposition that had to change usually changed because of something worth writing down. Skip if the repo has no `knowledge/` bundle.
     - **Rebuild the graph** if `graphify-out/graph.json` exists: propose `graphify update .`.
-    - **Delete `.claude/memory/EPIC.md`.** It's a working file for the epic, like `PLAN.md` is for a task. Nothing to preserve once the last unit ships and the distillation is in `knowledge/`.
+
+    **Then archive it**, to exactly one of two destinations — never both:
+
+    - **The repo has `knowledge/implementation/`** — write `knowledge/implementation/{YYYY-MM-DD}-{slug}.md` from the `Record` template in `bigin-harness-setup/references/knowledge-bundle.md`: `type: Record`, `source: epic`, `shipped:` the list of versions its units landed in, and a body that is the `EPIC.md` **verbatim** — goal, constraints, the unit table with its `Notes`, `## Not in scope`, and the `## Amendments` log if there is one. Append one line to `knowledge/implementation/index.md`, newest first. Then delete `.claude/memory/EPIC.md`.
+    - **It doesn't** — no `knowledge/` bundle at all, or a bundle predating `implementation/` — write `.claude/memory/EPIC.archive.{ISO}-{slug}.md` with the same verbatim body, then delete `.claude/memory/EPIC.md`. Don't create `knowledge/implementation/` just to have somewhere to put it: one record in a folder with no bundle around it is harder to find than the memory file, and it half-scaffolds a bundle nobody asked for.
+
+    Verbatim is the whole point, and more of it survives here than for a task: the `Notes` column is where each unit recorded what it changed for the units after it, and the `## Amendments` log is the only place the decomposition's own history exists. Slug from the epic's title; if that slug already exists for that date, suffix `-2`.
+
+    **The record and the concept must not restate each other.** The distill bullet moves the *invariant* into a concept — "rate limits are per-key, not per-IP". The record keeps the *narrative* that produced it — the unit that got reordered, the amendment that nearly hit the cap, the decomposition that lost. A record that repeats its own concept, or a concept that recounts the epic, means one of the two was written in the wrong place.
 
 ## Interaction with session-handoff
 
