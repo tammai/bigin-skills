@@ -1,6 +1,6 @@
 # BigIn Skills
 
-**A Claude Code plugin for AI-assisted development.**
+**A plugin for Claude Code and Cursor, for AI-assisted development.**
 
 The agent writes a spec before it writes code. A second, memoryless agent audits the diff against that spec — never against the first agent's account of what it did. Commit-time hooks enforce both mechanically, rather than as prose in a doc nobody reads.
 
@@ -39,11 +39,11 @@ Install the whole plugin, not one skill: `bigin-harness-setup` calls sibling ski
 
 ## The two things you run
 
-**1. Once per repo — "set up a harness."** [`bigin-harness-setup`](skills/bigin-harness-setup/SKILL.md) lays down the governance layer: a ≤60-line `CLAUDE.md`, path-scoped `.claude/rules/`, the guard hooks, and the context-budget gate. On an empty repo it scaffolds the app first, delegating to the matching stack skill, then overlays governance additively. Idempotent — re-running is safe. On a repo already using Spec Kit, it detects that and offers migrate / coexist / leave ([details](skills/bigin-harness-setup/references/speckit-migration.md)). If teammates work in Cursor, it also generates the Cursor mirror — `AGENTS.md`, `.cursor/rules/*.mdc`, `.cursor/hooks.json` — running the same guards off the same canonical files ([details](skills/bigin-harness-setup/references/cursor-parity.md)).
+**1. Once per repo — "set up a harness."** [`bigin-harness-setup`](skills/bigin-harness-setup/SKILL.md) lays down the governance layer: a ≤60-line `CLAUDE.md`, path-scoped `.claude/rules/`, the guard hooks, and the context-budget gate. On an empty repo it scaffolds the app first, delegating to the matching stack skill, then overlays governance additively. Idempotent — re-running is safe, and offers `patch` (apply only the changes since the version your repo was scaffolded with) or `verify` (install nothing; re-check every claim in the existing `CLAUDE.md` against the repo and correct what no longer holds). On a repo already using Spec Kit, it detects that and offers migrate / coexist / leave ([details](skills/bigin-harness-setup/references/speckit-migration.md)). If teammates work in Cursor, it also generates the Cursor mirror — `AGENTS.md`, `.cursor/rules/*.mdc`, `.cursor/hooks.json` — running the same guards off the same canonical files ([details](skills/bigin-harness-setup/references/cursor-parity.md)).
 
 **2. Every day after — "implement X" / "fix bug in Y."** [`task-workflow`](skills/task-workflow/SKILL.md) is the main driver: scope → spec gate → approved `PLAN.md` → implement/verify loop (capped at 3 rounds, independent verifier) → review → cleanup. It's the discipline `spec-gate-guard.mjs` and `bugfix-test-guard.mjs` actually enforce. Cleanup archives the finished `PLAN.md` verbatim rather than deleting it, so *why* a change took its shape outlives the task. You'll run setup once and this dozens of times.
 
-When a request is too big for one plan, [`epic-workflow`](skills/epic-workflow/SKILL.md) sits one level up: it decomposes the initiative into ordered, independently shippable units, gets that decomposition approved, and then hands them back to `task-workflow` one unit per session. It adds no gate of its own — each unit still passes the spec gate on its own merits.
+When a request is too big for one plan, [`epic-workflow`](skills/epic-workflow/SKILL.md) sits one level up: it decomposes the initiative into ordered, independently shippable units, gets that decomposition approved, and then hands them back to `task-workflow` one unit per session. With an approved PRD on disk it decomposes straight from the requirement index and asks nothing. It adds no gate of its own — each unit still passes the spec gate on its own merits.
 
 And when nobody can yet say what the thing *is*, [`discovery-workflow`](skills/discovery-workflow/SKILL.md) sits above both. Both skills below it take their subject as given — an initiative, a task — and this one produces it: an approved brief and a PRD with numbered, testable requirements under `docs/product/`, plus the architecture decisions the product forced, written into `knowledge/`. It triages the same way they do, so a one-line change goes straight to `task-workflow` with nothing written to disk.
 

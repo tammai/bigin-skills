@@ -71,7 +71,7 @@ rule. The essentials:
   never write it, amend it, or renumber an ID. Quote the criterion into the spec **verbatim,
   never paraphrased**, and name its ID there — the same citation style as `epic-workflow`'s
   step 2. `FR-n` with no `/AC-m` means every active criterion under that requirement.
-- **Stop rather than invent.** No PRD, an absent ID, or a `Status: withdrawn` requirement or
+- **Stop rather than invent.** No PRD, an absent ID, or a `Status: withdrawn` requirement (statuses are requirement-level; criteria have none) or
   criterion → say which, and stop. Never reconstruct a criterion from a requirement title.
 - **Find the repo's own E2E tree; never install one.** "The repo's existing E2E style" means the
   target repo's, discovered from its `.claude/rules/testing.md` and its existing specs. If the

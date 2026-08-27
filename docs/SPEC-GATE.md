@@ -33,6 +33,8 @@ It's enforced in two places, which is why it holds:
 
 Non-trivial feature work. **Skipped** for bug fixes, copy changes, config tweaks, and changes under ~20 lines of logic.
 
+Before any of that, `task-workflow` step 1 checks the request against the shared triage ladder, and **only rung 1 reaches the spec gate at all** — a rung-2 request stops and goes to `epic-workflow`, a rung-3 one to `discovery-workflow`. So everything below is about a request that already belongs to one plan; the question is only which format it needs.
+
 If the request doesn't carry enough information to fill the required sections with confidence, the workflow asks **up to three targeted questions** before drafting. It does not fill gaps with silent assumptions and hand you an approved-looking spec built on them — that's the failure the gate exists to prevent, reintroduced one level up.
 
 Two things are always required, in both formats:
@@ -143,7 +145,7 @@ Statuses: `Not started`, `In progress`, `Done`, `Blocked`.
 
 **Full-spec tier adds two things** the default tier must not have: a `Covers` column linking each task to its `FR-`, and one tracked row per manual Verification Checklist item. Cleanup can't run while any of those rows is open. Default-tier plans have no FR-IDs to reference, so adding the column there is noise.
 
-After the coverage check, tasks are mirrored into Claude Code's task list for visibility — **one-way and disposable**. `PLAN.md` is the source of truth. The guard and the verifier both read the file off disk and can't see session task state at all; that asymmetry is deliberate.
+After the coverage check, tasks are mirrored into Claude Code's task list for visibility — **one-way and disposable**, and skipped entirely for plans with fewer than 3 rows, where the overhead outweighs the visibility. `PLAN.md` is the source of truth. The guard and the verifier both read the file off disk and can't see session task state at all; that asymmetry is deliberate.
 
 `PLAN.md` leaves the repo root at step 6. It stops being a working file, but it isn't deleted: step 6 archives it verbatim as an implementation record, and separately proposes moving anything durable in it into a `knowledge/` concept (see [`KNOWLEDGE.md` §4](KNOWLEDGE.md#4-role-in-each-task-workflow-step)).
 
@@ -154,6 +156,7 @@ After the coverage check, tasks are mirrored into Claude Code's task list for vi
 `spec-gate-guard.mjs` runs on every `Edit`, `Write`, and `MultiEdit`, in this order. Knowing the order explains most surprises.
 
 1. **No `file_path`** → allow.
+1b. **Not write-shaped** → allow. A payload carrying no `content`/`old_string`/`edits` is a read, and `.cursor/hooks.json` registers `preToolUse` with no matcher, so every Read would otherwise arrive here and get gated. The filter is shape-driven rather than tool-name-driven because Cursor's tool names aren't Claude Code's.
 2. **Trivial path** → allow, regardless of plan status. Anything under `tests/`, any `_test.dart` by filename (an `integration_test/` flow test is never ≤20 lines and no directory rule catches it), any `.md`, `.env.example`, `graphify-out/`, and the common config files (`eslint`, `prettier`, `tsconfig`, `vite`, `vitest`, `nuxt`, `.editorconfig`, `.gitignore`, `.npmrc`).
 3. **Git-ignored path** → allow. Build output isn't reviewable source. This check is deliberately **index-aware**: a *tracked* file that merely matches a `.gitignore` pattern is still gated, which is exactly why `graphify-out/` needs its own rule in step 2 — it's committed by design.
 4. **Approved plan for this branch** → allow.

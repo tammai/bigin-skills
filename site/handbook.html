@@ -1648,6 +1648,19 @@ ln -sf ../../scripts/commit-msg.sh .git/hooks/commit-msg &amp;&amp; chmod +x scr
       in it is wrong for your team, fix it now — it is cheaper than any
       correction you will make later.
     </p>
+    <p>
+      Months later, when the repo has moved and the brief hasn't, run setup again and
+      choose <strong><code>verify</code></strong>. It installs nothing. It re-reads the
+      existing <code>CLAUDE.md</code> and checks each claim against the repo, running the
+      lint, typecheck and test commands the file names rather than trusting them — a
+      command that no longer exists is rewritten, a claim a manifest contradicts is
+      corrected, and anything it cannot verify is reported and left alone. It distinguishes
+      a command that <em>cannot run</em> from one that <em>runs and fails</em>: the second
+      means your suite is red, not that the brief is stale, and the row stays. A verify pass
+      may shrink the file or leave it the same size; one that grows it is a bug. Its sibling
+      <strong><code>patch</code></strong> is the other re-run mode — it applies only the
+      changes between the version your repo was scaffolded with and the current one.
+    </p>
   </section>
 
   <section class="chapter" id="daily">
@@ -1727,8 +1740,8 @@ Fix the double-submit bug on the checkout form</code></pre>
     <h3>What you do at each step</h3>
     <div class="steps">
       <div class="step">
-        <h4>Scope — read one sentence, before any code</h4>
-        <p>What is changing, and why, in a single line. If it doesn't match what you meant, say so now: this is the cheapest correction available anywhere in the loop.</p>
+        <h4>Scope and triage — read one sentence, before any code</h4>
+        <p>What is changing, and why, in a single line. If it doesn't match what you meant, say so now: this is the cheapest correction available anywhere in the loop. The same step checks that sentence against the shared triage ladder, and <strong>only rung 1 continues</strong> — a request that turns out to be three plans stops here and goes to <code>epic-workflow</code>, one whose product shape isn't settled to <code>discovery-workflow</code>. Being invoked here is not evidence the work belongs here.</p>
       </div>
       <div class="step">
         <h4>Spec gate — you read it and approve it</h4>
@@ -1798,7 +1811,10 @@ Fix the double-submit bug on the checkout form</code></pre>
 
     <h3>When the work is bigger than one task</h3>
     <p>
-      Some requests are three or five plans, not one. <code>epic-workflow</code> runs
+      Some requests are three or five plans, not one. With an approved PRD already on
+      disk, <code>epic-workflow</code> decomposes straight from its requirement index and
+      asks nothing — that file is the whole handoff from discovery, not a note to a human.
+      <code>epic-workflow</code> runs
       above the loop and feeds it: it decides what the tasks <em>are</em>, in what
       order, then hands them back one at a time.
     </p>
@@ -1878,9 +1894,10 @@ Fix the double-submit bug on the checkout form</code></pre>
         <text x="390" y="633" text-anchor="middle" font-size="10.5" fill="var(--dg-muted)">archived verbatim, like PLAN.md is for a task</text>
       </svg>
       <figcaption>
-        The skill refuses in both directions: below the bar it hands the request
-        straight back rather than decomposing a one-plan task, and above roughly
-        eight units it calls the scope a roadmap and proposes the first epic-sized
+        The skill refuses in both directions of the ladder: below the bar it hands the
+        request back to <code>task-workflow</code>, and where the initiative is stated but
+        its product shape isn't settled it hands up to <code>discovery-workflow</code>.
+        Separately, above roughly eight units it calls the scope a roadmap and proposes the first epic-sized
         slice instead. The return edge goes to the queue file, not to the session —
         after <code>/clear</code> it re-reads the queue and takes the next eligible row.
       </figcaption>
@@ -1896,7 +1913,8 @@ Fix the double-submit bug on the checkout form</code></pre>
       queue file is the complete handoff package, so <code>/clear</code> between
       units: a finished unit's spec, diff, and verify rounds are context the next
       unit does not need and should not pay for. The skill also refuses in both
-      directions — below the bar it hands straight back to the ordinary loop, and
+      directions of the ladder — below the bar back to the ordinary loop, and above it to
+      <code>discovery-workflow</code> when the product shape isn't settled. Separately,
       above about eight units it says the scope is a roadmap, proposes the first
       epic-sized slice, and names what it deferred.
     </p>
@@ -2029,7 +2047,11 @@ Fix the double-submit bug on the checkout form</code></pre>
       Requirements are numbered blocks carrying a priority, the surfaces they
       touch, what they depend on, and at least one acceptance criterion written so
       it can be checked from outside the system. Numbers are assigned once and
-      never renumbered — a tidy-up that closes a gap silently re-points every
+      never renumbered. Three things cite them: a full-spec <code>PLAN.md</code>'s
+      <code>Covers</code> column, <code>epic-workflow</code> at its step 2, and
+      <code>write-tests</code>, which resolves an <code>FR-3/AC-2</code> citation off disk
+      and quotes the criterion verbatim into an end-to-end spec. A tidy-up that closes a
+      gap silently re-points every
       citation written against the old numbering, and citations are how the layers
       below refer to a requirement at all.
     </p>
@@ -2270,7 +2292,7 @@ Fix the double-submit bug on the checkout form</code></pre>
       <dt>Tier</dt>
       <dd>Which subagent executes a task — quick, standard, or deep — chosen by capability scoring.</dd>
       <dt>Verification bar</dt>
-      <dd>How carefully a change must be checked. Scored separately from the tier, and it never changes which model runs.</dd>
+      <dd>How carefully a change must be checked. Scored on its own axis rather than derived from the tier — it changes what the spawned agent is asked to demonstrate, not what the tier score was. One place it does move the outcome: a <code>quick</code>-scored task with any bar trigger fired is spawned at the standard tier instead.</dd>
       <dt>Ladder</dt>
       <dd>A profile mapping each tier to a model and an effort level. Three of them; <code>opus-centric</code> is the default.</dd>
       <dt>Concept file</dt>

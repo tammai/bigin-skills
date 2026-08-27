@@ -101,7 +101,7 @@ The skill detects your stack, asks a small batch of questions **before writing a
 | none of the above, but the repo has code | `generic` — no question asked, setup keeps going. A plain Dart package lands here, and so do a Flutter **package** and a Flutter **plugin** (`plugin:` under `flutter:`): flavors, a dio client and a local database are app concerns, and a widget library should not inherit rules for code it will never contain. The run says which one it detected. |
 | empty repo | asks which stack, then scaffolds the app first |
 
-**The questions you'll be asked** (one bundled prompt, all optional to change):
+**The questions you'll be asked** (bundled, all optional to change — `AskUserQuestion` takes at most four at a time, so six applicable questions arrive as two back-to-back prompts):
 
 | Question | Default | What it means |
 | --- | --- | --- |
@@ -353,7 +353,7 @@ One `PLAN.md` per worktree. Spec-gate approval is **per-worktree** — approving
 | Build a feature / fix a tracked bug | "implement X", "fix Y" | `task-workflow` |
 | Break an initiative into shippable units | "this is too big for one task" | `epic-workflow` |
 | Work out what to build at all | "we want to build X", "write a PRD" | `discovery-workflow` |
-| Write tests for one function | "write tests for `parseToken`" | `write-tests` |
+| Write tests for one function, or one PRD criterion | "write tests for `parseToken`" / "e2e test for FR-3/AC-2" | `write-tests` — routed on what the request names |
 | Debug something not yet in a plan | "why is this flaky", "debug this" | `debug-workflow` |
 | Start a Nuxt / Next / Go / Node app from nothing | "scaffold nuxt", "create go rest api" | `*-scaffold` |
 | Start a Flutter app from nothing | "set up a harness" in an empty dir | `bigin-harness-setup` → `flutter create` (no scaffold skill — see below) |
@@ -424,7 +424,7 @@ This one blocks the *agent*, not you. If you need to bypass a hook yourself, do 
 Three stages, aimed at content the agent fetches rather than at you:
 
 1. `injection-scan-guard.mjs` (PostToolUse) heuristically scans `WebFetch` / MCP responses and `curl`/`wget` output for injected instructions, and sets a session-scoped flag.
-2. `injection-gate-guard.mjs` (PreToolUse) asks for confirmation on the next risky call if that flag is fresh (5-minute window), then clears it.
+2. `injection-gate-guard.mjs` (PreToolUse) asks for confirmation on the next risky call if that flag is fresh (5-minute window), then clears it. Under Cursor it **denies** instead of asking — `preToolUse` there has no `ask` verdict, so the guard degrades to the safe side rather than falling through to allow.
 3. `canary-seed.mjs` seeds a per-session random token the model is told never to reproduce. Any tool call containing it is **denied outright**, not asked — a per-session UUID has no legitimate reason to appear anywhere.
 
 If you get a confirmation prompt right after the agent fetched a web page, that's stage 2. Look at what it fetched before saying yes.
@@ -603,7 +603,7 @@ Probably the injection gate (stage 2) after a recent web fetch. Check what was f
 | **Ladder** | The model *and effort* assigned to each tier: `opus-centric` (default), `frontier`, or `lean`. |
 | **Effort variant** | A second copy of a tier's agent that differs only in its effort pin (`standard-worker-high`, `verifier-medium`). Exists because effort can't be passed at spawn time. |
 | **Verifier** | A fresh, read-only, memoryless subagent that audits a diff against `PLAN.md`. |
-| **Bundle** | The `knowledge/` directory — concept files holding decisions, invariants, and pinned library APIs. |
+| **Bundle** | The `knowledge/` directory — concept files holding decisions, invariants, and pinned library APIs, plus `implementation/`, the append-only record log written at task and epic cleanup. |
 | **Three-tier loading** | Always-loaded `CLAUDE.md` → path-scoped rules → on-demand skills. How the context budget stays small. |
 
 ---

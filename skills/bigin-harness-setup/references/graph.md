@@ -64,7 +64,7 @@ Relationships are tagged `EXTRACTED` (explicit in source) or `INFERRED` (resolve
 
 ## Degradation path
 
-If `graphify-out/graph.json` doesn't exist (never indexed, or deleted), every adopting skill falls back to grep/read silently — no error, no nagging to install. Rebuilding is always `graphify update .`, proposed at natural workflow completion points (task-workflow Cleanup, debug-workflow fix validation, sprint-distill start) — never auto-run.
+If `graphify-out/graph.json` doesn't exist (never indexed, or deleted), every adopting skill falls back to grep/read silently — no error, no nagging to install. Rebuilding is always `graphify update .`, proposed at natural workflow completion points (task-workflow Cleanup, epic-workflow Cleanup, debug-workflow fix validation, sprint-distill start) — never auto-run.
 
 `session-resume-check.mjs` (a `SessionStart` hook) also surfaces this once per session: whether the graph exists, its last-build commit, and — via a cheap `git log` comparison against everything outside `graphify-out/` — whether anything's changed since, as a warning to consider a rebuild. It never blocks anything.
 

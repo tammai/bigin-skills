@@ -2,7 +2,7 @@
 
 Every enforcement gate the harness installs: what each blocks, why it exists, and how to get past one legitimately.
 
-The gates are deterministic scripts, not prose the agent is asked to follow. That's the point — a rule an agent can talk itself out of isn't a gate. They run at two moments: **before a tool call** (`PreToolUse` hooks) and **at commit time** (the pre-commit script). Working in Cursor instead? Same scripts, same verdicts — see [§7](#7-the-same-gates-in-cursor).
+The gates are deterministic scripts, not prose the agent is asked to follow. That's the point — a rule an agent can talk itself out of isn't a gate. They run at two moments: **before a tool call** (`PreToolUse` hooks) and **at commit time** — where there are two separate git hooks, `pre-commit` for the file-level gates and `commit-msg` for the message, each with its own installed script. Working in Cursor instead? Same scripts, same verdicts — see [§7](#7-the-same-gates-in-cursor).
 
 The spec gate has [its own guide](SPEC-GATE.md) and isn't repeated here. The `knowledge/` validator and drift guard are covered in [`KNOWLEDGE.md` §5](KNOWLEDGE.md#5-what-keeps-it-honest). The scripts themselves live in [`references/hook-guard.md`](../skills/bigin-harness-setup/references/hook-guard.md).
 
@@ -36,7 +36,7 @@ flowchart TD
     F --> C
     I --> C
 
-    C --> G["pre-commit script<br/>lint · typecheck · tests<br/>context_budget · knowledge_validate · knowledge_drift"]
+    C --> G["pre-commit script<br/>lint · typecheck · tests<br/>context_budget · cursor_mirror --check<br/>knowledge_validate, if the bundle is installed"]
     G --> D["commit lands"]
 
     O["PostToolUse: injection-scan"] -.->|"flags"| I
@@ -77,7 +77,7 @@ These two interlock, and the order matters.
 
 Requires a Conventional Commit subject: one of `feat` `fix` `docs` `style` `refactor` `perf` `test` `build` `ci` `chore` `revert`, optional `(scope)`, optional `!`, then `: ` and a description. Subject capped at **100 characters**.
 
-**Passthroughs** — allowed without matching: `Merge branch '…'`, `Revert "…"`, `fixup! …`, `git commit --amend --no-edit`, and any case where there's no subject to read at all.
+**Passthroughs** — allowed without matching: `Merge branch '…'`, `Revert "…"`, `fixup! …`, `squash! …`, `git commit --amend --no-edit`, and any case where there's no subject to read at all.
 
 **Two entry points, one implementation.** With a path argument it validates a commit-message file (the git `commit-msg` hook — catches commits *you* type). With no argument it reads a `PreToolUse` payload (catches commits *Claude* makes). Same types, same cap, same passthroughs — which is exactly why it isn't two scripts that could drift apart.
 
@@ -87,11 +87,16 @@ Blocks a fix-shaped `git commit` when no test file is staged. Fix-shaped means a
 
 Test patterns that satisfy it: `*.test.*`, `*.spec.*`, `*_test.go`, `*_test.dart`, anything under `tests/`/`test/`, or `__tests__/`. `*_test.dart` is matched on its own rather than via the directory rule, because Flutter's flow tests live in `integration_test/` — which is not `test/`.
 
-**Three ways it stands down:**
+**Five ways it stands down:**
 
 - A staged test file matches. The normal path.
-- Every staged file is docs or config — no runtime surface to test.
+- Every staged file is docs or config — no runtime surface to test. The allowlist also covers
+  generated graph artifacts (`graphify-out/`), which are neither, but are never hand-written.
 - The message contains `[no-test]`. State the reason next to it.
+- **Nothing is staged at all** — there is no diff to demand a test for.
+- **The subject can't be read from the command** — a fix committed through an editor or a heredoc
+  rather than `-m` never reaches the fix-shape check. Not a loophole worth closing by hand: the
+  `commit-msg` hook still runs on the message itself.
 
 It respects `-a`/`--all` by folding tracked-modified files into the staged list, so `git commit -am "fix: x"` is measured against what will actually land. And it never blocks on its own failure — outside a git repo, or with git unavailable, it exits 0.
 
@@ -103,7 +108,7 @@ It respects `-a`/`--all` by folding tracked-modified files into the staged list,
 
 Three stages across three scripts. Worth understanding because the names don't reveal the design.
 
-**Stage 1 — `injection-scan-guard.mjs` (`PostToolUse`, observe-only).** After a tool returns, it scans the output for injection patterns: instructions to ignore prior instructions, text addressing the assistant directly with overrides, attempts to inject a new system prompt, role-override phrasing, exfiltration-to-URL instructions, long base64-like blocks, and **zero-width or bidi-control characters** — hidden text. `PostToolUse` cannot block, so it always exits 0 and instead writes a session-scoped flag file.
+**Stage 1 — `injection-scan-guard.mjs` (`PostToolUse`, observe-only).** After a **fetch-shaped** tool returns — `WebFetch`, any `mcp__*`, or a `Bash` command containing `curl`/`wget` — it scans the output for injection patterns (a local `ls` or `git status` is deliberately never scanned): instructions to ignore prior instructions, text addressing the assistant directly with overrides, attempts to inject a new system prompt, role-override phrasing, exfiltration-to-URL instructions, long base64-like blocks, and **zero-width or bidi-control characters** — hidden text. `PostToolUse` cannot block, so it always exits 0 and instead writes a session-scoped flag file.
 
 **Stage 2 — `injection-gate-guard.mjs` heuristic ask.** On the next `Bash`, `Write`, `Edit`, `WebFetch`, or `mcp__*` call, if a **fresh** flag exists it returns `permissionDecision: "ask"` and deletes the flag. Freshness window is **5 minutes** — an older flag passes through silently, because a stale suspicion shouldn't interrupt work half an hour later.
 
@@ -119,7 +124,7 @@ Pattern credited to [Lasso Security's PostToolUse Defender](https://www.lasso.se
 
 ## 5. The non-blocking hooks
 
-Three hooks that never block anything (four scripts, counting `injection-scan-guard` from §4). They're easy to forget precisely because they never interrupt you.
+Three hooks that never block anything (four scripts, counting `injection-scan-guard` from §4 — five in a `nuxt` or `next` repo, which also gets `lint-fix-file.mjs` on `PostToolUse` to format what was just written). They're easy to forget precisely because they never interrupt you.
 
 **`session-resume-check.mjs`** (`SessionStart`) — injects context when `.claude/memory/SESSION.md` exists with `status: in-progress`, so a handed-off session offers to resume. Also reports graph presence and freshness when `graphify-out/` exists (see [`GRAPHIFY.md` §6](GRAPHIFY.md#6-keeping-it-fresh)). `SessionStart` is deliberate here rather than a `Stop` hook.
 
@@ -197,6 +202,7 @@ Each guard's message names its own escape, and each is a real one:
 |---|---|
 | `spec-gate-guard` | approve a plan, keep it ≤20 lines, or check the trivial-path list — see [`SPEC-GATE.md` §7](SPEC-GATE.md#7-getting-blocked) |
 | `spec-gate-guard`, plan says `Status: amending` | the freeze working, not a false positive: re-approve the amended spec — [`SPEC-GATE.md` §7](SPEC-GATE.md#7-getting-blocked) |
+| `spec-gate-guard`, `PLAN.md is for branch 'X'` | a plan left over from another task: finish it, update its `Branch:` line after a deliberate rename or rebase, or delete it |
 | `commit-msg-guard` | rewrite the subject as a Conventional Commit under 100 chars |
 | `bugfix-test-guard` | stage the regression test, or `[no-test]` with the reason stated |
 | `bash-guard` | `--force-with-lease` instead of `--force`; for `--no-verify`, fix what's failing |

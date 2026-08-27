@@ -3,7 +3,7 @@ name: model-router
 description: "Scores task capability and verification needs on separate axes, then routes execution to the quick-executor, standard-worker, or deep-architect subagent; also sets the project's model ladder. Triggers: 'route this task', 'which model should handle this', 'quick or deep'."
 argument-hint: [task description]
 effort: medium
-allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/classify.mjs *), Bash(git status *), Bash(git diff *)
+allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/classify.mjs *) Bash(git status *) Bash(git diff *)
 ---
 
 # model-router

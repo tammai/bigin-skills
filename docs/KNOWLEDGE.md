@@ -31,7 +31,7 @@ Three things it is not. The first two have a home that does fit, and [§6](#6-wh
 - **Not a place for structural facts** — call flow, dependency, and schema shape are extracted into the graph, not written by hand.
 - **Not documentation.** Concept files **point at sources of truth** — `openapi.yaml`, `.claude/rules/`, the source itself — and never duplicate them. If you're about to paste a schema in, link to it instead.
 
-Every `.md` under `knowledge/` is a concept file with valid frontmatter, save the two filenames the format reserves — `index.md` (the directory listing) and `log.md` (the change history), which carry none. There are no freeform docs in there — that's what makes the validator able to check the whole tree.
+Every `.md` under `knowledge/` is a concept file with valid frontmatter, save the two filenames the format reserves — `index.md` (the directory listing) and `log.md` (the change history), which carry none — except the bundle-root `index.md`, which declares `okf_version: "0.2"` and nothing else. There are no freeform docs in there — that's what makes the validator able to check the whole tree.
 
 ---
 
@@ -143,13 +143,15 @@ flowchart TD
 
 **`sprint-distill`** — catches everything the other three miss, once per sprint. It flags concepts whose referenced identifiers no longer resolve in the graph (*"symbol no longer in graph"* — expiry by code state, not calendar), flags concept files that overlap graph-extractable structure as deletion candidates, and enforces a **net-neutral** rule: every addition names what it replaces or cites budget headroom. It compresses, never appends. Then it **stops** and shows you every proposed change before writing anything. `implementation/` is outside the sweep entirely, and the net-neutral rule too. Each check fails on a record for its own reason: a record cites the code *as it stood*, so a moved citation or a vanished symbol is the history it exists to keep; it hangs off its own nested `index.md`, so reachability is already satisfied; and it is never edited after it is written, so "compress it" and "merge it" aren't moves that exist here.
 
-`knowledge/log.md` gets one entry per sprint. Concept files not linked from `index.md` are stale by definition; records are the exception, reachable from their own nested index instead.
+The exemption runs the other way too: `sprint-distill` never *writes* to `implementation/`. Only `task-workflow` and `epic-workflow` cleanup do, and a record is never opened to be mined — it is what distillation already ran against.
+
+`knowledge/log.md` gets one entry per sprint, and it may cite the records a sprint added without absorbing them. Concept files not linked from `index.md` are stale by definition; records are the exception, reachable from their own nested index instead.
 
 ---
 
 ## 6. Where a fact belongs
 
-Six surfaces, one question each. Putting a fact in the wrong one is the most common way this convention goes wrong, because the wrong home has no mechanism to expire it.
+Seven surfaces, one question each. Putting a fact in the wrong one is the most common way this convention goes wrong, because the wrong home has no mechanism to expire it.
 
 | Surface | Question | Lifetime |
 |---|---|---|
@@ -159,6 +161,7 @@ Six surfaces, one question each. Putting a fact in the wrong one is the most com
 | `.claude/rules/` | How do we work here? | Outlives projects; changes by decision |
 | `graphify-out/` | Where is the code, and what connects? | Regenerated; expires every commit |
 | `PLAN.md` | What are we doing right now? | Archived verbatim at task end |
+| `.claude/memory/EPIC.md` | Which units, in what order, and which are done? | Archived verbatim at epic end |
 
 Four mistakes worth naming:
 

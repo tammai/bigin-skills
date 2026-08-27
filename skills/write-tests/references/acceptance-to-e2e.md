@@ -28,7 +28,7 @@ above it — so the trace from spec back to contract survives a file move.
 | Input | Resolves to |
 | --- | --- |
 | `FR-3/AC-2` | The second numbered criterion under the `### FR-3` block |
-| `FR-3` (no `/AC-m`) | Every **active** criterion under `### FR-3`, one spec case each |
+| `FR-3` (no `/AC-m`) | Every criterion under `### FR-3`, one spec case each — provided the requirement itself is `Status: active` |
 | `NFR-2/AC-1` | Same addressing. A threshold criterion is usually a performance-tier check rather than an E2E one — say so and name the tier it belongs in rather than asserting a millisecond budget from a browser driver |
 | A criterion quoted inline in the request | Itself. No PRD read is required, and none is invented — but a criterion given without an ID gets no ID in the spec either |
 
@@ -45,7 +45,7 @@ Two resolution rules, both the PRD's own:
 | --- | --- |
 | No `docs/product/prd.md` | Say the file is absent and stop. Ask for the criterion quoted inline if the user wants to proceed |
 | The cited `FR-n` or `AC-m` is absent from the file | Name what was cited and what the file actually holds, and stop. **Never** reconstruct a criterion from the requirement's title, the index row, or a neighbouring criterion |
-| `Status: withdrawn` on the requirement, or a criterion marked withdrawn | Refuse to generate, and say the citation is stale. A withdrawn requirement keeps its ID precisely so a stale citation is caught rather than silently honoured |
+| `Status: withdrawn` on the requirement (the PRD defines `Status:` at requirement level only — an individual criterion carries no status field) | Refuse to generate, and say the citation is stale. A withdrawn requirement keeps its ID precisely so a stale citation is caught rather than silently honoured |
 | The PRD is `Status: draft` | Generate — but say the IDs can still move, so the spec's citation may need re-pointing. Unlike a decomposition, one test is cheap to re-point, which is why a draft is not disqualifying here as it is for `epic-workflow` |
 | Index and `### FR-n` block disagree | The block wins; report the stale line |
 | The criterion is not observable from outside the system | Flag it as a **PRD defect** to fix in the PRD, and stop. Every criterion is meant to be externally observable; one that can only be checked by reading the implementation cannot become an E2E spec, and a unit test wearing an E2E spec's filename is worse than no spec — it reports coverage nobody has |
