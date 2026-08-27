@@ -96,6 +96,6 @@ Every amendment goes through step 5's gate again, presented as a diff — the ch
 | --- | --- | --- |
 | `docs/product/prd.md` | this skill | durable — outlives every epic derived from it |
 | `.claude/memory/EPIC.md` | `epic-workflow` | one epic, deleted at epic cleanup |
-| `PLAN.md` | `task-workflow` | one task, deleted at task cleanup |
+| `PLAN.md` | `task-workflow` | one task, archived out of the repo root at task cleanup |
 
 Only the first survives, which is why it is the only one of the three that is worth getting the format of exactly right.

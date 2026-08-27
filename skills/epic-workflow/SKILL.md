@@ -63,7 +63,7 @@ It adds no gate of its own. Every unit still goes through `task-workflow`'s spec
 
 6. **Dispatch one unit.** Take the first row that isn't `Done` and whose every `Blocked by` row is `Done`. State the unit number, its acceptance criteria, and any epic-level constraint it inherits — then run `task-workflow` on that unit as the task statement. `task-workflow` owns it completely from there: its own spec gate, its own `PLAN.md`, its own verifier rounds.
 
-7. **Close the unit, then stop.** Once `task-workflow` reaches cleanup and deletes `PLAN.md`, flip the row to `Done` and put a one-line outcome in `Notes` — what shipped, and anything it changed for a later unit (a renamed field, a decision the next unit inherits). Then **stop and hand off**: tell the user to `/clear` and re-invoke this skill for the next unit.
+7. **Close the unit, then stop.** Once `task-workflow` reaches cleanup and archives `PLAN.md` out of the repo root, flip the row to `Done` and put a one-line outcome in `Notes` — what shipped, and anything it changed for a later unit (a renamed field, a decision the next unit inherits). Then **stop and hand off**: tell the user to `/clear` and re-invoke this skill for the next unit.
 
    Do not start the next unit in the same session. The queue file is the complete handoff package, and everything the finished unit accumulated — its spec, its diff, its verify rounds — is context the next unit doesn't need and shouldn't pay for.
 

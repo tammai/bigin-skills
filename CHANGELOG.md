@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.77.0] - 2026-08-27
+
+### Changed
+
+- **A finished task archives its `PLAN.md` instead of deleting it.** v1.76.0 defined the record format; this is the first workflow that writes one. `task-workflow` step 6 kept the invariant and threw away the reasoning — the distill bullet moved a decision into a concept file, then the plan that argued for it was deleted. The concept said "every read filters by workspace"; nothing said why the two other designs lost.
+
+  Cleanup now moves `PLAN.md` out of the repo root rather than removing it, to exactly one of two destinations. With `knowledge/implementation/` present it writes `{YYYY-MM-DD}-{slug}.md` from the `Record` template — `source: plan`, the version it shipped in, and the plan **verbatim**: spec, tasks table with its `Notes`, and the `## Amendments` section if there was one — then appends one line to the nested index, newest first. Without it — no bundle at all, or a bundle predating `implementation/` — the same verbatim body goes to `.claude/memory/PLAN.archive.{ISO}-{slug}.md`. The fallback is not a lesser path: most repos have no bundle, and a bundle-only archive would mean "never delete a plan again" silently failing wherever it matters most. Creating `knowledge/implementation/` just to have a home for one record is explicitly ruled out — it half-scaffolds a bundle nobody asked for.
+
+  **Verbatim is load-bearing.** A summary keeps what won and drops what was considered, and what was considered is the half a record exists for. The step says so, and it draws the boundary the archive makes possible: the distill bullet moves the *invariant* into a concept, the record keeps the *narrative* that produced it, and a record that repeats its own concept means one of the two was written in the wrong place. The distill prompt itself is unchanged — this adds a second destination, it does not redirect the first.
+
+  Three cross-references that went stale the moment this landed are corrected in the same pass: `epic-workflow` step 7's "reaches cleanup and deletes `PLAN.md`", `discovery-workflow`'s working-file lifetime table, and the `AI_TASK_GUIDE.md` template line, which reaches already-scaffolded repos via the patch block below.
+
+```patch
+target: AI_TASK_GUIDE.md
+anchor: 6. **Cleanup** — `PLAN.md` is deleted once everything is `Done`. It's a working file, not docs.
+insert: replace
+---
+6. **Cleanup** — `PLAN.md` is archived out of the repo root once everything is `Done` — into
+   `knowledge/implementation/` if this repo has one, else `.claude/memory/`. It's a working file,
+   not docs, but it's the only record of *why* the task took its shape, so it's kept.
+```
+
 ## [1.76.0] - 2026-08-27
 
 ### Added

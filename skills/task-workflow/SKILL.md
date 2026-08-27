@@ -63,12 +63,21 @@ Follow this workflow for every non-trivial task.
 
 5. **Review** — ask whether to run `/code-review` (and `/security-review` too, if the change touches auth, sessions, secrets, PII, or untrusted input) on the diff — don't run either automatically. If the user says yes, check `AI_REVIEW_CHECKLIST.md` and don't mark this step done until it's clean. If they decline or want to defer, note that in `PLAN.md` and move on.
 
-6. **Cleanup** — once every task in `PLAN.md` is `Done` and review is resolved (clean, or explicitly declined by the user), delete `PLAN.md`. It's a working file for the task, not project documentation — nothing to preserve once the task ships. Close out any mirrored tasks in the same pass, so a finished task doesn't leave a stale list behind.
+6. **Cleanup** — once every task in `PLAN.md` is `Done` and review is resolved (clean, or explicitly declined by the user), archive `PLAN.md` out of the repo root. It stops being a working file for the task, but it doesn't stop being the only written record of *why* the task took this shape — so it moves rather than being deleted. Close out any mirrored tasks in the same pass, so a finished task doesn't leave a stale list behind.
 
-   Two things happen before the delete, both proposed rather than run silently:
+   Two things happen before the archive, both proposed rather than run silently:
 
-   - **Distill, if there's anything durable.** `PLAN.md` is the only written record of *why* this task took the shape it did, and deleting it is the last chance to keep any of that. If the task established or changed a decision, invariant, contract, or constraint — not merely "added a feature" — say so and propose the specific `knowledge/` edit (which concept file, what line). Read the `## Amendments` section first if there is one: a plan that had to be amended usually changed because of something worth writing down. Concepts are per-invariant, not per-task: prefer amending an existing file to adding one, and every new file needs a summary line in `knowledge/index.md` or the validator flags it unreachable. Nothing durable is the common case for routine work — say that and move on rather than inventing a concept to justify the step. Skip entirely if the repo has no `knowledge/` bundle.
+   - **Distill, if there's anything durable.** The archive below keeps the narrative — but a narrative isn't an invariant, and only an invariant belongs in a concept file. If the task established or changed a decision, invariant, contract, or constraint — not merely "added a feature" — say so and propose the specific `knowledge/` edit (which concept file, what line). Read the `## Amendments` section first if there is one: a plan that had to be amended usually changed because of something worth writing down. Concepts are per-invariant, not per-task: prefer amending an existing file to adding one, and every new file needs a summary line in `knowledge/index.md` or the validator flags it unreachable. Nothing durable is the common case for routine work — say that and move on rather than inventing a concept to justify the step. Skip entirely if the repo has no `knowledge/` bundle.
    - **Rebuild the graph, if the task changed code** and `graphify-out/graph.json` exists: propose `graphify update .` (AST-only, zero API cost).
+
+   **Then archive it**, to exactly one of two destinations — never both:
+
+   - **The repo has `knowledge/implementation/`** — write `knowledge/implementation/{YYYY-MM-DD}-{slug}.md` from the `Record` template in `bigin-harness-setup/references/knowledge-bundle.md`: `type: Record`, `source: plan`, `shipped:` the version this landed in, and a body that is the `PLAN.md` **verbatim** — spec, tasks table with its `Notes`, and the `## Amendments` section if there is one. Append one line to `knowledge/implementation/index.md`, newest first. Then delete `PLAN.md`.
+   - **It doesn't** — no `knowledge/` bundle at all, or a bundle predating `implementation/` — write `.claude/memory/PLAN.archive.{ISO}-{slug}.md` with the same verbatim body, then delete `PLAN.md`. Don't create `knowledge/implementation/` just to have somewhere to put it: one record in a folder with no bundle around it is harder to find than the memory file, and it half-scaffolds a bundle nobody asked for.
+
+   Verbatim is the whole point. A summary keeps what won and drops what was considered, and what was considered is the half a record exists for. Slug from the plan's title; if that slug already exists for that date, suffix `-2`.
+
+   **The record and the concept must not restate each other.** The distill bullet moves the *invariant* into a concept — "every read filters by workspace". The record keeps the *narrative* that produced it — the two designs that lost, and why. A record that repeats its own concept, or a concept that recounts the task, means one of the two was written in the wrong place.
 
 ## Spec format (when required)
 
@@ -155,7 +164,7 @@ For when the **requirement** moves while the plan is in flight — the user chan
    - **Invalidating** — something already `Done` is now wrong. Flip that row back to `Not started` with the reason in `Notes`, and decide revert-or-adapt explicitly. Never leave a `Done` row that no longer describes the code: the verifier audits the diff against the **whole** plan, so one stale row makes it either fail honest work or pass work nobody asked for.
    - **Premise change** — the goal moved, not the requirements under it. Don't amend. Stop, say so, and start over at step 2 with a fresh spec; the old `PLAN.md` is replaced, not patched. A plan patched past recognition is the worst of both — it reads as approved and describes something nobody agreed to.
 
-3. **Log it.** Append one line to `PLAN.md`'s `## Amendments` section: what changed, why, which rows moved. `PLAN.md` is deleted at cleanup, so this log is the only record that the plan's shape changed, and step 6's distill pass reads it.
+3. **Log it.** Append one line to `PLAN.md`'s `## Amendments` section: what changed, why, which rows moved. `PLAN.md` leaves the repo root at cleanup, so this log is the only record that the plan's shape changed — step 6's distill pass reads it, and the archive carries it forward verbatim.
 
 4. **Re-approve.** Present the amended spec sections and the row changes — a diff, not the whole spec re-pasted — and wait. Then set `Status: approved` again.
 

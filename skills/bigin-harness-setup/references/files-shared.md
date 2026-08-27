@@ -231,7 +231,9 @@ splits the initiative into ordered units and hands them back to `task-workflow` 
    verifier audits the diff against `PLAN.md`. Capped at 3 rounds, then it stops and asks you.
 5. **Review** — offers `/code-review`, plus `/security-review` for auth/secrets/PII/untrusted input.
    Neither runs without your say-so.
-6. **Cleanup** — `PLAN.md` is deleted once everything is `Done`. It's a working file, not docs.
+6. **Cleanup** — `PLAN.md` is archived out of the repo root once everything is `Done` — into
+   `knowledge/implementation/` if this repo has one, else `.claude/memory/`. It's a working file,
+   not docs, but it's the only record of *why* the task took its shape, so it's kept.
 
 ## Why `PLAN.md` matters to you
 
