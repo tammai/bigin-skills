@@ -85,6 +85,7 @@ Each scaffold skill's `SKILL.md` is the reference for what it generates. What se
 <!-- gen:skills-core -->
 | Skill                   | Purpose                                                                                                                                                          |
 | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **ask-bigin**           | Routes a request to the right skill and hands off (/ask-bigin): reads the shared triage ladder for build work, the named subject otherwise.                      |
 | **bigin-harness-setup** | Scaffolds an AI workflow harness — CLAUDE.md brief, path-scoped rules, commit gates, optional Cursor mirror. Profiles: nuxt, go, nodejs, next, flutter, generic. |
 | **task-workflow**       | On-demand task workflow (/task-workflow): scope → spec → plan (approved) → implement/verify loop (capped, independent verifier) → review → cleanup.              |
 | **epic-workflow**       | Decomposes an initiative into ordered, independently shippable units (/epic-workflow), then dispatches one per session through task-workflow.                    |

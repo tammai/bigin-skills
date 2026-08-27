@@ -1,5 +1,9 @@
 {
   "skills": {
+    "ask-bigin": {
+      "group": "core",
+      "summary": "Routes a request to the right skill and hands off (/ask-bigin): reads the shared triage ladder for build work, the named subject otherwise."
+    },
     "bigin-harness-setup": {
       "group": "core",
       "summary": "Scaffolds an AI workflow harness — CLAUDE.md brief, path-scoped rules, commit gates, optional Cursor mirror. Profiles: nuxt, go, nodejs, next, flutter, generic."

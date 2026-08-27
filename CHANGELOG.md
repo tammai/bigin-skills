@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.81.0] - 2026-08-27
+
+### Added
+
+- **`ask-bigin` — the door you use when you don't know which door.** Sixteen skills and three stacked workflow layers is a good problem to have and a bad first impression: a newcomer's real question is "which of these do I type?", and until now the only answer was the README's routing table, which you have to already be reading. `/ask-bigin` takes a plain-language ask, names the one skill that fits with the reason in a line, and hands off. It never does the work itself — a router that starts implementing is just a slower `task-workflow`.
+
+  **It adds no routing logic, which is the whole design.** Two definition homes already existed and it reads both rather than restating either. Build work goes through the shared triage ladder (`skills/discovery-workflow/references/triage-ladder.md`) — already read by `task-workflow`, `epic-workflow` and `discovery-workflow`, so `ask-bigin` is its *fourth reader, not a fourth bar*, and where the two disagree the ladder wins. Everything else routes on the subject the request names, checked against each skill's own always-loaded `description:` rather than a table written into the skill — because a hardcoded inventory drifts the moment a skill is added, which is exactly how `AI_TASK_GUIDE.md` and `task-workflow` drifted apart once before.
+
+  **Its description is deliberately scoped to meta-asks** — "which skill", "where do I start", "what can you do" — and carries no build verbs. `task-workflow` already owns "implement X" and "fix bug in Y"; a router that also matched those would insert a pointless hop in front of the most common request in the plugin. Twelve of the twenty eval cases are should-*not*-trigger, and the build-verb phrasings are in there by name.
+
+  Costs 220 chars of always-loaded surface (8730 → 8950 of 12000). `effort: low`: it is a classification step, and latency is the point.
+
 ## [1.80.0] - 2026-08-27
 
 ### Changed
