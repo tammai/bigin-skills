@@ -77,6 +77,8 @@ Three rules of `knowledge-distill` worth knowing before you invoke it:
 
 Team conventions get **blended visibly**: a relevant `.claude/rules/*` rule is folded in at the point of relevance, prefixed `Team convention:`, and the paths are listed in `conventions_blended`. Never silently merged into a library fact.
 
+**A third population sits on a different axis: records.** `knowledge/implementation/` holds one `type: Record` file per finished task or epic — the plan verbatim, its tasks table, its amendments. Both populations above answer *what the system is* and expire when behavior changes. A record answers *how one piece came to be, and what was rejected*: it was true when written and stays true, so it never expires and is never edited after it is written. Of the four honesty mechanisms in [§5](#5-what-keeps-it-honest) only the first applies to it: a record is structurally validated like any other file, and exempt from the three that exist to catch staleness. It carries its own nested `index.md`, so appending one never touches the bundle-root index the index-first protocol reads — a bundle with two hundred records costs the same per-session context as one with none. Where the line between a record and a concept falls: [§6](#6-where-a-fact-belongs).
+
 ---
 
 ## 4. Role in each task-workflow step
@@ -90,10 +92,10 @@ Team conventions get **blended visibly**: a relevant `.claude/rules/*` rule is f
 | 3. Plan file | manual | Nothing automatic. Worth a look when a task touches a documented contract. |
 | 4. Implement/verify | manual | The implementer inherits the always-loaded rule, so the protocol travels — but no skill pushes specific concept files into the payload. |
 | 5. Review | **wired** | `AI_REVIEW_CHECKLIST.md` carries the behavior-change line, so review asks whether the concept file was updated. |
-| 6. Cleanup | **wired** | Before `PLAN.md` is deleted, if the task established or changed a **decision, invariant, contract, or constraint** — not merely "added a feature" — the specific edit is proposed: which file, what line. |
+| 6. Cleanup | **wired** | Two writes that don't overlap. If the task established or changed a **decision, invariant, contract, or constraint** — not merely "added a feature" — the specific concept edit is proposed: which file, what line. Then `PLAN.md` itself is archived verbatim as a `Record` under `knowledge/implementation/`. |
 | commit | **wired** | `knowledge_validate.mjs` and `knowledge_drift.mjs` run in pre-commit and CI. |
 
-Step 6 is the one to understand. `PLAN.md` is the only written record of *why* a task took its shape, and deleting it is the last chance to keep any of that. The prompt is deliberately narrow: **nothing durable is the common case** for routine work, and the skill says so rather than inventing a concept to justify the step. Concepts are per-invariant, not per-task — amending an existing file beats adding one, and any new file needs a summary line in `knowledge/index.md` or the validator flags it unreachable. If the plan carries an `## Amendments` section, the distill step reads it first: a plan that had to change usually changed because of something worth writing down.
+Step 6 is the one to understand, because it writes to two homes and the boundary between them is the point. `PLAN.md` is the only written record of *why* a task took its shape, so it is not deleted — it moves, verbatim, to `knowledge/implementation/`, or to `.claude/memory/PLAN.archive.<ISO>-<slug>.md` in a repo with no bundle. Distilling a concept is the separate question, and that prompt is deliberately narrow: **nothing durable is the common case** for routine work, and the skill says so rather than inventing a concept to justify the step. Concepts are per-invariant, not per-task — amending an existing file beats adding one, and any new file needs a summary line in `knowledge/index.md` or the validator flags it unreachable. If the plan carries an `## Amendments` section, the distill step reads it first: a plan that had to change usually changed because of something worth writing down. The two writes never restate each other — the narrative goes to the record, the invariant it established goes to a concept.
 
 **Knowledge about our own system enters at four altitudes.** `discovery-workflow` (per product decision, into `knowledge/architecture/` — the one that writes *ahead* of the code, which is why its concepts land `status: draft` with no `verified` entry: nothing has confirmed them against a running system yet), `task-workflow`'s cleanup (per task, usually nothing), `epic-workflow`'s cleanup (per epic — this is where durable decisions actually surface, because an epic that settled a contract or a boundary produced one), and `sprint-distill` (per sprint, across merged PRs). Same discipline in all four: propose a specific file and line, prefer amending to adding, and never bank a concept nobody asked for. None of the four creates a bundle as a side effect: three skip the step and say so, and `sprint-distill` asks whether to continue in skills-only mode.
 
@@ -114,6 +116,9 @@ flowchart TD
     end
 
     in --> K[("knowledge/<br/>concept files")]
+    A -.->|"plan verbatim"| L[("knowledge/implementation/<br/>Record files")]
+    F -.->|"epic verbatim"| L
+    L --> V
 
     K --> V["knowledge_validate.mjs<br/>frontmatter · types · links"]
     K --> D["knowledge_drift.mjs<br/>pin vs declared dependency"]
@@ -136,23 +141,24 @@ flowchart TD
 
 **Review** — catches *behavior* rot. The staleness policy is that any PR meaningfully changing behavior updates the related concept file **in the same PR**, and the checklist line is what makes someone check.
 
-**`sprint-distill`** — catches everything the other three miss, once per sprint. It flags concepts whose referenced identifiers no longer resolve in the graph (*"symbol no longer in graph"* — expiry by code state, not calendar), flags concept files that overlap graph-extractable structure as deletion candidates, and enforces a **net-neutral** rule: every addition names what it replaces or cites budget headroom. It compresses, never appends. Then it **stops** and shows you every proposed change before writing anything.
+**`sprint-distill`** — catches everything the other three miss, once per sprint. It flags concepts whose referenced identifiers no longer resolve in the graph (*"symbol no longer in graph"* — expiry by code state, not calendar), flags concept files that overlap graph-extractable structure as deletion candidates, and enforces a **net-neutral** rule: every addition names what it replaces or cites budget headroom. It compresses, never appends. Then it **stops** and shows you every proposed change before writing anything. `implementation/` is outside the sweep entirely: three of those checks misfire on a record — which cites the code *as it stood* — and the fourth's remedy is "compress or merge", which isn't available for a file that is never edited after it is written.
 
-`knowledge/log.md` gets one entry per sprint. Concept files not linked from `index.md` are stale by definition.
+`knowledge/log.md` gets one entry per sprint. Concept files not linked from `index.md` are stale by definition; records are the exception, reachable from their own nested index instead.
 
 ---
 
 ## 6. Where a fact belongs
 
-Five surfaces, one question each. Putting a fact in the wrong one is the most common way this convention goes wrong, because the wrong home has no mechanism to expire it.
+Six surfaces, one question each. Putting a fact in the wrong one is the most common way this convention goes wrong, because the wrong home has no mechanism to expire it.
 
 | Surface | Question | Lifetime |
 |---|---|---|
 | `knowledge/` | What is the system, and why? | Outlives sprints; expires on behavior change |
+| `knowledge/implementation/` | How did this piece come to be, and what was rejected? | Append-only; never expires, never edited |
 | `docs/product/prd.md` | What did we promise a user, and how is it checked? | Outlives every epic derived from it; amended, never renumbered |
 | `.claude/rules/` | How do we work here? | Outlives projects; changes by decision |
 | `graphify-out/` | Where is the code, and what connects? | Regenerated; expires every commit |
-| `PLAN.md` | What are we doing right now? | Deleted at task end |
+| `PLAN.md` | What are we doing right now? | Archived verbatim at task end |
 
 Four mistakes worth naming:
 
@@ -160,8 +166,8 @@ Four mistakes worth naming:
 
 **Conventions in `knowledge/`.** "We use conventional commits" is how-we-work. It belongs in `.claude/rules/` or the plugin, where `sprint-distill`'s net-neutral budget applies to it.
 
-**Per-task narrative in `knowledge/`.** "Added the export button" is not an invariant. Step 6's prompt exists to catch decisions, not to log features.
+**Per-task narrative in a *concept* file.** "Added the export button" is not an invariant, and step 6's distill prompt exists to catch decisions rather than log features. The narrative is not homeless, though — it is a record's whole job. The boundary: the narrative and what was rejected go to `knowledge/implementation/`, the standing truth the task established goes to a concept file, and neither restates the other. A concept that reads like a changelog entry is in the wrong file, not merely badly written.
 
 **Requirements in `knowledge/`.** "A user can only see their own workspace's invoices" is a promise to a user that someone approves and someone later checks — that's the PRD. The invariant it forces — "every row belongs to one workspace and every read filters by it" — is what belongs here. `discovery-workflow` writes both, to the two different homes, and neither file restates the other.
 
-The inverse also holds: a graph, a rule file, and a `PLAN.md` together still can't say *why* the retry logic sits where it does. That sentence only has one home.
+The inverse also holds: a graph, a rule file, and the record of the task that moved it together still can't say *why* the retry logic sits where it does **today** — a record says why one change was made, not what is now true. That sentence only has one home.

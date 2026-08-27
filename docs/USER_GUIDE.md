@@ -173,7 +173,7 @@ Trigger it with plain language — "implement X", "add a feature", "fix the bug 
 | **3. Plan file** | Writes the approved spec + task table to `PLAN.md`, reads it back for coverage | Nothing. |
 | **4. Implement/verify** | Routes to a tier, implements, then spawns an independent verifier. Loops up to 3× on FAIL. | Nothing, unless the tier comes back `deep-architect` (it asks) or the round cap is hit. |
 | **5. Review** | Asks whether to run `/code-review` (+ `/security-review` if the change touches auth/secrets/PII/untrusted input) | Say yes or no. Neither runs automatically. |
-| **6. Cleanup** | Deletes `PLAN.md`, proposes distilling anything durable into `knowledge/`, proposes a graph rebuild | Approve or decline the proposals. |
+| **6. Cleanup** | Archives `PLAN.md` verbatim out of the repo root, proposes distilling anything durable into `knowledge/`, proposes a graph rebuild | Approve or decline the proposals. |
 
 ### The spec gate is the whole point
 
@@ -248,7 +248,7 @@ What you'll see, in order:
 
 1. **The plan freezes.** `Status:` in `PLAN.md` flips to `amending`, and the spec gate — which only passes `approved` — blocks non-trivial edits until you re-approve. No new gate; the existing one just stops letting work through against a spec that's mid-rewrite.
 2. **The change gets classified out loud**, because the three cost different amounts: **additive** (new rows, nothing done is invalidated), **invalidating** (a `Done` row is now wrong and gets flipped back with a reason), or a **premise change** (the goal moved, not the requirements — the plan is replaced from the spec gate, not patched).
-3. **It's logged** to an `## Amendments` section in `PLAN.md`. That's the only record of why the plan's shape changed, and cleanup's distill step reads it before deleting the file.
+3. **It's logged** to an `## Amendments` section in `PLAN.md`. That's the only record of why the plan's shape changed; cleanup's distill step reads it before the plan leaves the repo root, and the archive then carries it forward verbatim.
 4. **You re-approve** — the changed sections and rows, as a diff, not the whole spec re-pasted. Then `Status:` goes back to `approved` and the loop resumes.
 
 Two limits worth knowing: amendment rounds **don't** count against the 3-round fix-loop cap (different failure mode), and there's a cap of **2 amendments per plan** — a third means the scope was wrong from the start, so it stops and re-scopes instead of looping.
@@ -485,6 +485,8 @@ Rationale per tier lives in [`skills/model-router/references/model-profiles.md`]
 Two skills exist to **distill** into `knowledge/`, and this section covers both. They cover different things and should not be confused.
 
 They aren't the only writers. `discovery-workflow` records the architecture decisions a PRD forces ([§4](#when-nobody-can-say-what-the-thing-is-yet)), and `task-workflow` and `epic-workflow` each propose a concept at cleanup when a task or an epic settled something durable. The difference is what the writing *is*: for those, it's one step inside a larger job; for these two, it's the whole job.
+
+Cleanup also writes a second, different thing. Beside any concept it proposes, `task-workflow` and `epic-workflow` archive the finished `PLAN.md` or `EPIC.md` **verbatim** into `knowledge/implementation/` as a `type: Record` — the plan, its tasks table, its amendments — or to `.claude/memory/PLAN.archive.<ISO>-<slug>.md` in a repo with no bundle. Concepts say what the system is and expire when behavior changes; records say how one piece came to be and never expire. Records sit behind their own nested index, so they never load for routine work — you go looking when you need to know why a past change took the shape it did. The boundary: [`KNOWLEDGE.md` §6](KNOWLEDGE.md#6-where-a-fact-belongs).
 
 ### `knowledge-distill` — external library APIs
 

@@ -135,7 +135,7 @@ Statuses: `Not started`, `In progress`, `Done`, `Blocked`.
 
 **`Status: approved` is what the guard greps for.** A plan you're still drafting doesn't let edits through.
 
-**That's also the freeze switch.** If the requirement moves mid-task, `task-workflow`'s course-correction path sets `Status: amending` — the same gate then blocks non-trivial edits until the amended spec is re-approved, so nobody builds against a spec that's mid-rewrite. No second gate, no flag to remember: any value other than `approved` blocks. The amendment itself is logged in a `## Amendments` section, which is the only record of why the plan's shape changed once cleanup deletes the file.
+**That's also the freeze switch.** If the requirement moves mid-task, `task-workflow`'s course-correction path sets `Status: amending` — the same gate then blocks non-trivial edits until the amended spec is re-approved, so nobody builds against a spec that's mid-rewrite. No second gate, no flag to remember: any value other than `approved` blocks. The amendment itself is logged in a `## Amendments` section, which is the only record of why the plan's shape changed — cleanup carries it forward verbatim into the archived plan.
 
 **`Branch:` stops a leftover plan from governing the wrong task.** If it disagrees with `HEAD`, non-trivial edits are blocked. Omit it when there's no branch to name (detached `HEAD`, not a repo) and the check is skipped — the guard never blocks on what git can't answer. On a deliberate rename or rebase, update the line rather than deleting it.
 
@@ -143,7 +143,7 @@ Statuses: `Not started`, `In progress`, `Done`, `Blocked`.
 
 After the coverage check, tasks are mirrored into Claude Code's task list for visibility — **one-way and disposable**. `PLAN.md` is the source of truth. The guard and the verifier both read the file off disk and can't see session task state at all; that asymmetry is deliberate.
 
-`PLAN.md` is deleted at step 6. It's a working file, not documentation — and step 6's distill prompt is the last chance to move anything durable in it into `knowledge/` (see [`KNOWLEDGE.md` §4](KNOWLEDGE.md#4-role-in-each-task-workflow-step)).
+`PLAN.md` leaves the repo root at step 6. It stops being a working file, but it isn't deleted: step 6 archives it verbatim as an implementation record, and separately proposes moving anything durable in it into a `knowledge/` concept (see [`KNOWLEDGE.md` §4](KNOWLEDGE.md#4-role-in-each-task-workflow-step)).
 
 ---
 
