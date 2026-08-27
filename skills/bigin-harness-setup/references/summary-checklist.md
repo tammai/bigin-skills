@@ -78,6 +78,7 @@ Created:
   .claude/rules/testing.md        [nuxt/next/flutter only] (paths: tests/**, vitest.config.ts — nuxt | src/**/*.test.ts(x), vitest.config.ts — next | test/**, integration_test/** — flutter)
   .claude/rules/conventions.md    [go/nodejs/flutter only] (paths: scoped to source dir; flutter adds pubspec.yaml + analysis_options.yaml)
   .claude/rules/comments.md       (all profiles; paths: source-extension glob, not profile-substituted)
+  .claude/rules/product.md        (all profiles; paths: docs/product/**, not profile-substituted)
   .claude/guards/lib/hook-io.mjs  (two-host payload adapter — every guard imports it)
   .claude/guards/bash-guard.mjs
   .claude/guards/spec-gate-guard.mjs
@@ -149,6 +150,7 @@ Next steps:
 - [ ] `.claude/rules/security.md` — shared security rules, paths: scoped per profile
 - [ ] `.claude/rules/architecture.md` — shared base + profile addendum, paths: scoped per profile
 - [ ] `.claude/rules/comments.md` — all profiles including generic, verbatim with its own source-extension `paths:` (no substitution)
+- [ ] `.claude/rules/product.md` — all profiles including generic, verbatim with its own `paths: ["docs/product/**"]` (no substitution)
 - [ ] `AI_TASK_GUIDE.md` — human-facing pointer to /task-workflow (not a second copy of the workflow)
 - [ ] `AI_REVIEW_CHECKLIST.md` — profile commands filled in
 - [ ] `scripts/pre-commit.sh` — lint + typecheck + test + context budget check, executable
@@ -200,7 +202,7 @@ Harness installed. Now measure its token footprint:
    Fail = one or more files need trimming (see output for which).
 
 The path-scoped rule files (conventions-frontend.md, conventions-server.md, security.md,
-architecture.md, comments.md) only load when matching files are in context — they don't count against
+architecture.md, comments.md, product.md) only load when matching files are in context — they don't count against
 the always-loaded budget unless you're editing those paths.
 
 With Cursor parity installed the gate prints one line per host — Claude Code (CLAUDE.md +

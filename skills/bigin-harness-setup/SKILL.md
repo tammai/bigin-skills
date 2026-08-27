@@ -111,9 +111,9 @@ Skip if `INSTALL_MODE=new` and `CLAUDE.md` already exists.
 
 ## Phase 3: Generate .claude/rules/
 
-Create `.claude/rules/` if it doesn't exist, then write that profile's rule files per **`references/rule-files.md`** — a per-profile matrix (which conventions files, whether a `testing.md` exists, whether an architecture addendum is appended) plus the three files every profile gets: `security.md`, `architecture.md`, `comments.md`.
+Create `.claude/rules/` if it doesn't exist, then write that profile's rule files per **`references/rule-files.md`** — a per-profile matrix (which conventions files, whether a `testing.md` exists, whether an architecture addendum is appended) plus the four files every profile gets: `security.md`, `architecture.md`, `comments.md`, `product.md`.
 
-Two things that catch people, both stated there in full: `security.md` and `architecture.md` need the profile's `paths:` frontmatter **prepended** from `references/files-shared.md` → `## paths substitutions`, while `comments.md` is taken verbatim because its frontmatter is deliberately stack-agnostic. Every file: skip if `INSTALL_MODE=new` and it already exists.
+Two things that catch people, both stated there in full: `security.md` and `architecture.md` need the profile's `paths:` frontmatter **prepended** from `references/files-shared.md` → `## paths substitutions`, while `comments.md` and `product.md` are taken verbatim because their frontmatter is deliberately stack-agnostic. Every file: skip if `INSTALL_MODE=new` and it already exists.
 
 ---
 
@@ -401,5 +401,5 @@ Read `references/summary-checklist.md` → `## Output Checklist` and verify ever
 - `references/ci.md` — optional CI config: GitHub Actions + GitLab CI templates per profile, plus the knowledge-validate step
 - `references/profile-detection.md` — Phase 0: the full first-match-wins ladder, the two-stage Flutter app test, and the empty-repo question text
 - `references/decision-bundle.md` — Phase 1.5: the six questions, their auto-detected defaults, and the exact option wording
-- `references/rule-files.md` — Phase 3: per-profile matrix of which `.claude/rules/` files get written, plus the three shared ones and their paths-frontmatter rules
+- `references/rule-files.md` — Phase 3: per-profile matrix of which `.claude/rules/` files get written, plus the four shared ones and their paths-frontmatter rules
 - `references/summary-checklist.md` — Phase 7 summary print template, Phase 8 budget-measurement template, Phase 6 README templates + Output Checklist

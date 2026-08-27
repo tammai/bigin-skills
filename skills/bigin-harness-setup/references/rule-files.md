@@ -2,7 +2,7 @@
 
 Create `.claude/rules/` if it doesn't exist. **Every file below: skip if `INSTALL_MODE=new` and it already exists.**
 
-Three of these files are the same for every profile and are described once, under [The three shared files](#the-three-shared-files). Only the conventions and testing rules differ per profile.
+Four of these files are the same for every profile and are described once, under [The four shared files](#the-four-shared-files). Only the conventions and testing rules differ per profile.
 
 ## Per-profile matrix
 
@@ -28,7 +28,7 @@ Only the things a matrix cell can't hold:
 - **`go` / `nodejs`** — one `conventions.md`, no testing rule.
 - **`flutter`** — the go/nodejs single-`conventions.md` shape **plus** a testing rule, because the test tree is where this profile's two most expensive mistakes live: unpinned goldens and an unmigrated `schemaVersion`. `conventions.md` scopes to `lib/**`, `api/**`, `pubspec.yaml`, `analysis_options.yaml`; `testing.md` to `test/**` + `integration_test/**`, a mirrored tree like nuxt's rather than co-located like next's.
 
-## The three shared files
+## The four shared files
 
 Written for **every** profile, `generic` included, all from `references/files-shared.md`:
 
@@ -37,5 +37,11 @@ Written for **every** profile, `generic` included, all from `references/files-sh
 | `security.md` | `## security.md` | **prepend** the profile's block from `## paths substitutions` |
 | `architecture.md` | `## architecture.md`, then append `references/profile-{PROFILE}.md` → `## architecture addendum` (except `generic`, which gets no addendum) | **prepend** the profile's block from `## paths substitutions` |
 | `comments.md` | `## comments.md`, verbatim | **none** — its frontmatter is stack-agnostic and already in the template |
+| `product.md` | `## product.md`, verbatim | **none** — always scopes to `docs/product/**`, the same on every profile |
 
-`comments.md` is the one to not get clever with: it applies to any source file, including scripts and tooling outside the app directories, which is why it carries its own frontmatter and why `generic` gets it even though it gets no conventions rules. Substituting a profile's paths into it would narrow it wrongly.
+`comments.md` and `product.md` are the two to not get clever with. `comments.md` applies to any
+source file, including scripts and tooling outside the app directories, which is why it carries
+its own frontmatter and why `generic` gets it even though it gets no conventions rules.
+`product.md` is stack-agnostic for a different reason: `docs/product/**` names no app directory
+at all, so there is no profile path to substitute in. Substituting a profile's paths into either
+would narrow it wrongly.

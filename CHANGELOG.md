@@ -5,6 +5,50 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.71.0] - 2026-08-22
+
+### Added
+
+- **A fourth shared rule, `.claude/rules/product.md`, so a hand-edited brief or PRD gets the same guardrails a fresh discovery gives it.** `discovery-workflow` fixed the brief/PRD contract in v1.69.0 and `epic-workflow` started reading it in v1.70.0, but nothing loaded when someone went back and edited `docs/product/brief.md` or `docs/product/prd.md` by hand — the invariants that make the contract worth trusting (permanent requirement IDs, the FR blocks outranking the index, `—` for an empty field, a Given/When/Then criterion observable from outside the system, no solution design, roles never people, amend-don't-overwrite, the two-homes split with `knowledge/`) lived only in `discovery-workflow`'s own reference and in whoever wrote the file remembering them. `product.md` scopes to `docs/product/**` and loads exactly when one of those two files is open, then points at `discovery-workflow`'s `artifact-formats.md` for the actual templates instead of restating them — the same pointer discipline that keeps `AI_TASK_GUIDE.md` from drifting against `task-workflow`.
+
+  **Written once, registered against all six profiles — not six copies.** Like `comments.md`, it carries its own stack-agnostic frontmatter and is written verbatim with no `paths:` substitution, because `docs/product/**` is the same path regardless of stack; `generic` gets it for the same reason `generic` gets `comments.md`. `files-shared.md` gains the template section, `rule-files.md`'s shared-files section and anchor go from three to four, `SKILL.md`'s two counts follow, `summary-checklist.md`'s generated-file list, checklist, and path-scoped-rules line all gain the entry, and `profile-generic.md`'s install list names it. A `create-if-missing` patch block below lets an already-scaffolded repo pick it up on its next patch-mode run, same as any other verbatim-copied file.
+
+  No commit-time guard, no new gate — the rule is context for a human or agent editing those files, not enforcement. `cursor-parity.md`'s mirror-wiring and brace-expansion claims were checked against the mirror script's own source rather than assumed: it `readdirSync`s `.claude/rules/*.md` generically, so the new file needs no wiring, and it carries no brace set, so that note needed no edit.
+
+  Also folded in: `docs/KNOWLEDGE.md` §5's mermaid diagram was missing an `epic-workflow` node, a gap carried over from v1.70.0's handoff — added alongside the other three knowledge-entering sources.
+
+```patch
+target: .claude/rules/product.md
+mode: create-if-missing
+---
+---
+paths:
+  - "docs/product/**"
+---
+# Product Artifact Rules
+
+Applies to `docs/product/brief.md` and `docs/product/prd.md`. Full templates and field
+definitions live in `discovery-workflow` (`references/artifact-formats.md`) — this rule states
+only what must still hold when one of those files is edited by hand.
+
+- **Requirement IDs are permanent.** Assigned once, in order, never renumbered or reused. A
+  withdrawn requirement keeps its ID and its block — change its `Status:` line, don't delete it.
+- **The `### FR-n` / `### NFR-n` blocks are authoritative; the Requirement index is navigation.**
+  If the two disagree, the block wins — but keep the index in sync by hand at every edit.
+- **Field lines are fixed, one per line, `—` for empty.** Never omit a field because it has
+  nothing in it; an absent line reads as "forgotten," not "empty."
+- **Every requirement needs at least one Given/When/Then acceptance criterion, observable from
+  outside the system.** Not a claim that can only be checked by reading the implementation.
+- **No solution design in either file.** No table names, endpoint paths, component names, or
+  library choices — those belong to an architecture decision or the task's own spec.
+- **Roles, never people.** Both files name roles ("workspace owner"), never a real person, email
+  address, or account.
+- **An approved artifact is amended, not overwritten.** Edit a `Status: approved` file in place;
+  don't replace it wholesale.
+- **Two homes, never crossed.** A requirement never lands in `knowledge/`; an invariant never
+  lands in the PRD.
+```
+
 ## [1.70.0] - 2026-08-21
 
 ### Added

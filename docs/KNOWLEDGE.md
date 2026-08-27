@@ -110,6 +110,7 @@ flowchart TD
         B["sprint-distill · WHAT/WHY<br/>from merged PRs"]
         C["knowledge-distill<br/>library at a pinned SHA"]
         E["discovery-workflow<br/>decisions the product forced"]
+        F["epic-workflow · Cleanup<br/>decision, boundary, invariant"]
     end
 
     in --> K[("knowledge/<br/>concept files")]

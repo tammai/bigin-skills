@@ -6,7 +6,7 @@ Templates for files that are identical (or nearly identical) across all stack pr
 
 ## paths substitutions
 
-When writing `.claude/rules/security.md` and `.claude/rules/architecture.md`, prepend the profile-specific `paths:` frontmatter before the template content. `.claude/rules/comments.md` is the exception — it carries its own stack-agnostic frontmatter (source-file extensions, every profile), because comment rules apply to any source file including scripts and tooling outside the app directories.
+When writing `.claude/rules/security.md` and `.claude/rules/architecture.md`, prepend the profile-specific `paths:` frontmatter before the template content. `.claude/rules/comments.md` and `.claude/rules/product.md` are the two exceptions — each carries its own stack-agnostic frontmatter and is written verbatim, no substitution: `comments.md` scopes by source-file extension (every profile), because comment rules apply to any source file including scripts and tooling outside the app directories; `product.md` scopes to `docs/product/**`, which is the same path on every profile regardless of stack.
 
 Every profile's list includes its OpenAPI contract file: `architecture.md` owns the versioning rule (additive changes, `/v2/` on a break), so it has to load when the contract itself is the file being edited — not only when source files are.
 
@@ -166,6 +166,42 @@ The two that get skipped most:
 
     // ✗ // TODO: clean this up
     // ✓ // TODO(dana): drop this fallback once every client is on /v2 (#318).
+```
+
+---
+
+## product.md
+
+Written verbatim — frontmatter included, no paths substitution. Every profile gets it,
+`generic` included, same as `comments.md`.
+
+```markdown
+---
+paths:
+  - "docs/product/**"
+---
+# Product Artifact Rules
+
+Applies to `docs/product/brief.md` and `docs/product/prd.md`. Full templates and field
+definitions live in `discovery-workflow` (`references/artifact-formats.md`) — this rule states
+only what must still hold when one of those files is edited by hand.
+
+- **Requirement IDs are permanent.** Assigned once, in order, never renumbered or reused. A
+  withdrawn requirement keeps its ID and its block — change its `Status:` line, don't delete it.
+- **The `### FR-n` / `### NFR-n` blocks are authoritative; the Requirement index is navigation.**
+  If the two disagree, the block wins — but keep the index in sync by hand at every edit.
+- **Field lines are fixed, one per line, `—` for empty.** Never omit a field because it has
+  nothing in it; an absent line reads as "forgotten," not "empty."
+- **Every requirement needs at least one Given/When/Then acceptance criterion, observable from
+  outside the system.** Not a claim that can only be checked by reading the implementation.
+- **No solution design in either file.** No table names, endpoint paths, component names, or
+  library choices — those belong to an architecture decision or the task's own spec.
+- **Roles, never people.** Both files name roles ("workspace owner"), never a real person, email
+  address, or account.
+- **An approved artifact is amended, not overwritten.** Edit a `Status: approved` file in place;
+  don't replace it wholesale.
+- **Two homes, never crossed.** A requirement never lands in `knowledge/`; an invariant never
+  lands in the PRD.
 ```
 
 ---
