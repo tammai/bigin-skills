@@ -5,6 +5,75 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.76.0] - 2026-08-27
+
+### Added
+
+- **`knowledge/implementation/` — an append-only record of how the system got here, not just what it currently is.** Until now the only thing that survived a finished task or epic was whatever got distilled into a concept file: the invariant, never the reasoning that produced it. `PLAN.md` and `EPIC.md` were deleted at cleanup, taking the alternatives considered, the amendments, and the `Notes` with them. A concept says "every read filters by workspace"; nothing said why the two other designs lost.
+
+  The bundle gains a `Record` type and an `implementation/` folder holding one file per finished task or epic — the working file's own content, verbatim, rather than a summary of it, because the value is in what was considered and not only in what won. `Record` is the one type that is not a concept: it describes a past change rather than a standing truth, lives only under `implementation/`, and is never edited after it is written. It is exempt from the whole staleness policy for the same reason — a record of what shipped in March does not go stale in April, and a record edited to stay accurate is no longer a record of anything.
+
+  **It is deliberately not in the way.** Reachability seeds from every `index.md`, so `implementation/` carries its own nested index and appending a record touches that file rather than the bundle-root `index.md` that the index-first protocol actually reads. The root index gets one line saying the log exists and is not for routine reads. A bundle with two hundred records costs the same per-session context as a bundle with none.
+
+  **No OKF v0.2 divergence.** `RESERVED` still holds exactly `index.md` and `log.md`; records are ordinary concept files under a new allowed `type`, so the validator's shape is unchanged and the only code change is one entry in `ALLOWED_TYPES`. `Record` rather than `Log` because `Log` is a v0.1 legacy type the validator already warns on, and `implementation/` rather than `logs/` because `knowledge/log.md` is OKF's per-sprint change history and two homes one character apart will be confused.
+
+  This release only defines the format. `task-workflow` and `epic-workflow` start writing records in the releases that follow; a scaffold today creates an empty index and nothing appends to it yet.
+
+```patch
+target: knowledge/meta/knowledge-bundle-spec.md
+anchor: - Folders group by kind: `contracts/`, `domains/`, `constraints/`, `meta/`, etc. Add folders as needed.
+insert: after
+---
+- **`implementation/` is the append-only record** of how the system got here — one `Record` file per finished task or epic, carrying the plan, the tasks table and any amendments. Concepts answer *what the system is*; records answer *how this piece came to be, and what was considered*. It carries its own `index.md`, so appending a record never touches the bundle-root index that the index-first protocol reads.
+```
+
+```patch
+target: knowledge/meta/knowledge-bundle-spec.md
+anchor: - `type` — one of: `Contract`, `System`, `Domain`, `Table`, `Metric`, `Playbook`, `Constraint`
+insert: replace
+---
+- `type` — one of: `Contract`, `System`, `Domain`, `Table`, `Metric`, `Playbook`, `Constraint`, `Record`
+
+`Record` is the implementation-log type and the one type that is **not** a concept: it describes one past change rather than a standing truth, lives only under `implementation/`, and is never edited after it is written.
+```
+
+```patch
+target: knowledge/meta/knowledge-bundle-spec.md
+anchor: - A passed `stale_after` date is a warning, not a failure. Re-verify and bump it, or let it keep nagging.
+insert: after
+---
+- **`Record` files are exempt from all of the above.** A record of what shipped in March does not go stale in April — it was true when written and stays true. Never set `stale_after` on one, never re-verify one, and never rewrite one to match current behavior: a record that has been edited to stay accurate is no longer a record of anything.
+```
+
+```patch
+target: tools/knowledge_validate.mjs
+anchor: 'Metric', 'Playbook', 'Constraint'
+insert: replace
+---
+'Metric', 'Playbook', 'Constraint', 'Record'
+```
+
+```patch
+target: knowledge/index.md
+anchor: * [Agent Rules](/constraints/agent-rules.md) - what agents must check before touching handlers, migrations, or security-sensitive code
+insert: after
+---
+
+## Implementation
+* [Implementation Records](/implementation/index.md) - append-only log of finished tasks and epics; not read for routine work, consult when you need why a past change took its shape
+```
+
+```patch
+target: knowledge/implementation/index.md
+mode: create-if-missing
+---
+# Implementation Records
+
+Append-only. One record per finished task or epic — what was planned, what shipped, and what was considered and rejected. Records are never edited after they are written; a wrong record is corrected by the next record, not by a rewrite.
+
+Not part of routine reads. Consult a record when you need to know *why* a past change took the shape it did — the concept files say what is true now, and this says how it got that way.
+```
+
 ## [1.75.0] - 2026-08-27
 
 ### Changed

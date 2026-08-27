@@ -65,12 +65,15 @@ Our profile of [Open Knowledge Format v0.2](https://github.com/GoogleCloudPlatfo
 - **Reserved filenames:** `index.md` (directory listing) and `log.md` (change history). They carry **no frontmatter** — except the bundle-root `index.md`, which declares `okf_version: "0.2"` and nothing else.
 - **Every other** `.md` file under `knowledge/` is a concept file with valid frontmatter — no freeform docs, no exceptions.
 - Folders group by kind: `contracts/`, `domains/`, `constraints/`, `meta/`, etc. Add folders as needed.
+- **`implementation/` is the append-only record** of how the system got here — one `Record` file per finished task or epic, carrying the plan, the tasks table and any amendments. Concepts answer *what the system is*; records answer *how this piece came to be, and what was considered*. It carries its own `index.md`, so appending a record never touches the bundle-root index that the index-first protocol reads.
 - Filenames: kebab-case, singular concept per file (`openapi-contract.md`, not `contracts.md`).
 - Bundle-relative links resolve against `knowledge/` (e.g. `/contracts/openapi-contract.md` = `knowledge/contracts/openapi-contract.md`).
 
 ## Frontmatter schema
 Required:
-- `type` — one of: `Contract`, `System`, `Domain`, `Table`, `Metric`, `Playbook`, `Constraint`
+- `type` — one of: `Contract`, `System`, `Domain`, `Table`, `Metric`, `Playbook`, `Constraint`, `Record`
+
+`Record` is the implementation-log type and the one type that is **not** a concept: it describes one past change rather than a standing truth, lives only under `implementation/`, and is never edited after it is written.
 
 Recommended:
 - `title`, `description`, `resource` (external URL/path this concept documents), `tags` (array)
@@ -96,6 +99,7 @@ Extension keys are allowed but must not collide with the above.
 - `knowledge/log.md` gets one entry per sprint summarizing what changed in the bundle.
 - Concept files not linked from an `index.md` are stale by definition — the validator warns on these.
 - A passed `stale_after` date is a warning, not a failure. Re-verify and bump it, or let it keep nagging.
+- **`Record` files are exempt from all of the above.** A record of what shipped in March does not go stale in April — it was true when written and stays true. Never set `stale_after` on one, never re-verify one, and never rewrite one to match current behavior: a record that has been edited to stay accurate is no longer a record of anything.
 
 ## Validation
 `tools/knowledge_validate.mjs` enforces: valid frontmatter + `type` on every non-reserved file, `type` in the allowed list, all bundle-relative links resolve, and well-formed `generated`/`verified`/`status`/`stale_after`/`sources` when present. Missing `description`/`tags`, index-unreachable files, leftover v0.1 keys, and passed `stale_after` dates are warnings.
@@ -126,6 +130,48 @@ Root map of everything under `knowledge/`. Read this before non-trivial changes.
 
 ## Constraints
 * [Agent Rules](/constraints/agent-rules.md) - what agents must check before touching handlers, migrations, or security-sensitive code
+
+## Implementation
+* [Implementation Records](/implementation/index.md) - append-only log of finished tasks and epics; not read for routine work, consult when you need why a past change took its shape
+```
+
+---
+
+## knowledge/implementation/index.md
+
+The nested index for the append-only record log. It exists so that appending a record touches this file and not the bundle-root `index.md` — the root index is the index-first read target, and a log that grew it would put every past task in front of every future one. Reachability seeds from **every** `index.md`, so records linked here are reachable without any root-index entry.
+
+Reserved filename, so no frontmatter. Newest first. Scaffolds **empty of records** — the entry list below starts blank and grows one line per cleanup, in the form `* [Title](/implementation/{DATE}-{slug}.md) - source, scale; the decision worth remembering`. Don't seed it with an example: a link to a record that doesn't exist is a broken link, which the validator treats as an error.
+
+```markdown
+# Implementation Records
+
+Append-only. One record per finished task or epic — what was planned, what shipped, and what was considered and rejected. Records are never edited after they are written; a wrong record is corrected by the next record, not by a rewrite.
+
+Not part of routine reads. Consult a record when you need to know *why* a past change took the shape it did — the concept files say what is true now, and this says how it got that way.
+```
+
+---
+
+## knowledge/implementation/{DATE}-{slug}.md
+
+One per finished task or epic, written at cleanup from the `PLAN.md` or `EPIC.md` about to be removed. `source` is `plan` or `epic`. The body is the working file's own content — spec, tasks table, amendments — not a summary of it, because the value is in what was considered and not just what won.
+
+```markdown
+---
+type: Record
+title: Rate limiting on the public API
+description: Epic, 4 units - token bucket over sliding window, per-key not per-IP
+source: epic
+shipped: ["1.12.0", "1.13.0"]
+generated: { by: "human:alice", at: "2026-03-14" }
+tags: [api, rate-limiting]
+---
+
+# Rate limiting on the public API
+
+{the EPIC.md or PLAN.md content, verbatim: goal, constraints, the units or tasks
+table with its Notes, and the Amendments section if there was one}
 ```
 
 ---
@@ -238,7 +284,7 @@ const RESERVED = new Set(['index.md', 'log.md'])
 
 const ALLOWED_TYPES = new Set([
   'Contract', 'System', 'Domain', 'Table',
-  'Metric', 'Playbook', 'Constraint'
+  'Metric', 'Playbook', 'Constraint', 'Record'
 ])
 
 // v0.1 types for the two files v0.2 reserves. Accepted so an existing bundle

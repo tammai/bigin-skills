@@ -286,6 +286,7 @@ Decided in Phase 1.5 (`KNOWLEDGE_BUNDLE`). If true, read all templates from `ref
    - `## knowledge/index.md` → `knowledge/index.md`
    - `## knowledge/contracts/openapi-contract.md` → `knowledge/contracts/openapi-contract.md`
    - `## knowledge/constraints/agent-rules.md` → `knowledge/constraints/agent-rules.md`
+   - `## knowledge/implementation/index.md` → `knowledge/implementation/index.md` (empty of records — `task-workflow` and `epic-workflow` append to it at cleanup)
    - `## knowledge/log.md` → `knowledge/log.md`
 3. **Validator** — `## tools/knowledge_validate.mjs` → `tools/knowledge_validate.mjs`. Zero-dependency Node script — no chmod, no package install.
 4. **Wire into the enforcement gate.** If `scripts/pre-commit.sh` exists (created in Phase 5-1), append a step running `node tools/knowledge_validate.mjs`. If the repo instead uses `simple-git-hooks`/`husky` (Phase 5-1 skipped creating our script), add the same command to that existing hook config rather than creating a second script.
