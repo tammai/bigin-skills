@@ -1646,7 +1646,7 @@
 
     <figure>
       <svg class="diagram" viewBox="0 0 700 518" xmlns="http://www.w3.org/2000/svg"
-           role="img" aria-label="Six-step loop: scope, spec gate, PLAN.md, implement, verify — with a dashed fix loop back to implement — then review and cleanup, by a human or /code-review, before the plan is distilled and deleted">
+           role="img" aria-label="Six-step loop: scope, spec gate, PLAN.md, implement, verify — with a dashed fix loop back to implement — then review and cleanup, by a human or /code-review, before the plan is distilled and archived">
         <defs>
           <marker id="hbLoopArrow" viewBox="0 0 10 10" refX="7" refY="5"
                   markerWidth="5" markerHeight="5" orient="auto-start-reverse">
@@ -1695,7 +1695,7 @@
               fill="var(--dg-mint-fill)" stroke="var(--dg-mint)" stroke-width="1.75"/>
         <text x="370" y="452" text-anchor="middle" font-size="14" font-weight="600" fill="var(--dg-text)">Review and Cleanup</text>
         <text x="370" y="470" text-anchor="middle" font-size="11" fill="var(--dg-muted)">by a human or /code-review</text>
-        <text x="370" y="486" text-anchor="middle" font-size="11" fill="var(--dg-muted)">then distill and delete the plan</text>
+        <text x="370" y="486" text-anchor="middle" font-size="11" fill="var(--dg-muted)">then distill and archive the plan</text>
       </svg>
       <figcaption>
         The dashed return is the fix loop: a failing verdict resumes the same
@@ -1738,7 +1738,7 @@ Fix the double-submit bug on the checkout form</code></pre>
       <div class="step">
         <h4>Review and Cleanup — one decision</h4>
         <p><strong>Review first, and it is your call how.</strong> A human pass, <code>/code-review</code>, or both — it is offered, never run automatically. Say yes to the AI pass for anything touching auth, money, or data you can't reconstruct; a human pass is worth it wherever the consequence of being wrong lands on someone outside the team. If the change touches auth, sessions, secrets, PII, or untrusted input, <code>/security-review</code> is offered alongside it.</p>
-        <p>Cleanup only runs once review is resolved — clean, or explicitly declined. If the task established a decision, invariant, or constraint, a specific <code>knowledge/</code> edit is proposed; then <code>PLAN.md</code> is deleted, because it is a working file rather than documentation. <strong>"Nothing durable here" is the correct answer most of the time</strong> — routine work doesn't produce concepts.</p>
+        <p>Cleanup only runs once review is resolved — clean, or explicitly declined. If the task established a decision, invariant, or constraint, a specific <code>knowledge/</code> edit is proposed; then <code>PLAN.md</code> is archived — it stops being a working file, but it stays the only record of <em>why</em> the task took this shape, so it moves verbatim into <code>knowledge/implementation/</code> (or <code>.claude/memory/</code> in a repo with no bundle) rather than being deleted. <strong>"Nothing durable here" is the correct answer most of the time</strong> — routine work doesn't produce concepts.</p>
       </div>
     </div>
 
@@ -1778,8 +1778,8 @@ Fix the double-submit bug on the checkout form</code></pre>
     </p>
     <p>
       Every amendment is logged to an <code>## Amendments</code> section, which is the
-      only record that the plan's shape changed once cleanup deletes the file — and
-      which the distill step reads before it does. Amendment rounds do not count
+      only record that the plan's shape changed — the distill step reads it, and the
+      archive then carries it forward verbatim. Amendment rounds do not count
       against the three-round fix-loop cap; they are a different failure mode. There
       is a cap of <strong>two amendments per plan</strong>, after which the honest
       conclusion is that the scope was wrong from the start, and it says so.
@@ -2047,11 +2047,11 @@ Fix the double-submit bug on the checkout form</code></pre>
     <h2>Knowledge that <em>compounds</em></h2>
     <p class="h-sub">The part with the slowest payback and the highest ceiling.</p>
 
-    <h3>Two kinds, one bundle</h3>
+    <h3>Two kinds of concept, plus a record log</h3>
     <p>
       <code>knowledge/</code> holds concept files answering <strong>what the
       system is and why</strong> — decisions, contracts, boundaries, constraints
-      that outlive a sprint. Two populations live there with different lifecycles:
+      that outlive a sprint. Two populations of concept live there with different lifecycles:
     </p>
     <dl class="deflist">
       <dt>Your own system</dt>
@@ -2059,6 +2059,15 @@ Fix the double-submit bug on the checkout form</code></pre>
       <dt>A third-party library</dt>
       <dd>Written by <code>/knowledge-distill</code> from the library's own repo at a pinned commit, then audited by a subagent against that clone. Expires when the dependency moves a minor version — enforced by a commit-time drift guard.</dd>
     </dl>
+    <p>
+      A third population sits on a different axis. <code>knowledge/implementation/</code> is an
+      append-only <strong>record log</strong> — one file per finished task or epic, carrying the plan
+      verbatim with its task table and any amendments. Both populations above answer what the system
+      <em>is</em> and expire when behavior changes; a record answers how one piece came to be, and
+      never expires, because it was true when written. Records are never edited after they are
+      written, and they sit behind their own nested index, so they never load for routine work — you
+      go looking when you need to know why a past change took the shape it did.
+    </p>
 
     <p>
       The library case exists because models have a training cutoff and libraries

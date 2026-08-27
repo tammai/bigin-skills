@@ -14,6 +14,7 @@ skills/<name>/SKILL.md    ← one skill per directory
 skills/<name>/references/ ← supporting templates, relative to that skill
 agents/<name>.md          ← plugin-level subagent definitions (spawned via Agent tool, not invoked as skills)
 docs/                     ← hand-maintained deep-dives (GATES, KNOWLEDGE, ROUTING, SPEC-GATE, USER_GUIDE, GRAPHIFY)
+site/                     ← landing page + handbook, published to bigin-skills.pages.dev; hand-maintained too
 tools/context_budget.mjs  ← budget gate (also templated for target repos)
 tools/docs_sync.mjs       ← generates README's skills/agents tables; --check fails the commit on drift
 tools/docs-manifest.json  ← its input; every new skill and agent needs an entry or --check fails closed
