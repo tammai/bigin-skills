@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.83.0] - 2026-08-28
+
+### Changed
+
+- **`ask-bigin` is typed, never automatic.** It now sets `disable-model-invocation: true`, so it runs only when you write `/ask-bigin <what you want>`. v1.81.0 tried to get this with prose — a description scoped to meta-asks and twelve should-not-trigger eval cases naming build verbs — on the theory that keeping "implement X" out of the description was enough to stop the router shadowing `task-workflow`. The flag makes it mechanical, which is the same trade this repo already made for the spec gate and the guards: a rule the model can talk itself out of is a suggestion.
+
+  It also settles the thing `USER_GUIDE.md` §5 had to explain in prose: routing a request you can already state costs a turn to answer a question you'd answered. Now Claude cannot insert that turn at all.
+
+  **The flag broke a gate, and the gate was right to break.** `tools/docs_sync.mjs` required every skill's `evals/evals.json` to carry at least one `should_trigger: true` case, on the reasoning that a skill with none "would never be exercised". That reasoning doesn't hold for a user-invoked-only skill: the model can never select it, so a `should_trigger: true` case asserts the flag is *broken*. The gate now branches — a `disable-model-invocation` skill must be **all-false**, and its cases become the regression test that the flag is still present. `ask-bigin`'s suite is 19 all-false cases, seven of them the meta-asks it used to claim it should match.
+
+  Found while writing that branch: `parseFrontmatter()` in the same file keys on `/^([a-zA-Z_]+):/`, which cannot match a hyphenated key like `disable-model-invocation` at all. The first version of the detector called it and regex-tested the returned object, which coerces to `[object Object]` and is always false — the new branch would have been dead code that passed its own check. It reads the raw frontmatter block instead, and the detector is unit-tested over `true`/`yes`/`false`/absent.
+
+  Verified both directions end to end: the gate passes on the all-false suite, and fails with an explaining message when a `should_trigger: true` case is added back.
+
+  The `description` is reworded, since it is no longer a matching surface — it leads with the command form and drops the trigger list, which is what a `/`-menu label wants. Surfaces updated: README's routing table and `USER_GUIDE.md` §5's both show the typed form; §5's overlap entry and the handbook's *Starting work* paragraph say the constraint is enforced rather than advised; `.claude/rules/skill-authoring.md` records the convention and both current holders (`ask-bigin`, and the project-local `harness-audit`, which already set the flag and supplied the precedent).
+
 ## [1.82.0] - 2026-08-28
 
 ### Changed

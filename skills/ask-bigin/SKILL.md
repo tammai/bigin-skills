@@ -1,7 +1,8 @@
 ---
 name: ask-bigin
-description: "Routes a request to the right bigin-skills skill and hands off. Use when you don't know which one applies, or want the inventory. Triggers: 'which skill should I use', 'where do I start', 'what can you do', /ask-bigin."
+description: "Explicit only — type /ask-bigin <what you want>. Names the one bigin-skills skill that fits and hands off, reading the shared triage ladder for build work and the named subject otherwise. Use when you don't know which skill applies, or want the inventory."
 argument-hint: [what you want to do]
+disable-model-invocation: true
 effort: low
 ---
 

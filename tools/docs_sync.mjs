@@ -96,8 +96,23 @@ for (const dir of skillDirs) {
     if (typeof c?.query !== "string" || c.query.length === 0) fail(`${evals}[${i}]: "query" must be a non-empty string`);
     if (typeof c?.should_trigger !== "boolean") fail(`${evals}[${i}]: "should_trigger" must be a boolean`);
   }
-  if (!cases.some(c => c.should_trigger)) fail(`${evals}: no should_trigger:true case — the skill would never be exercised`);
-  if (!cases.some(c => !c.should_trigger)) fail(`${evals}: no should_trigger:false case — nothing checks over-triggering`);
+  // A `disable-model-invocation: true` skill is reachable only as `/name`, so the model
+  // never selects it and a should_trigger:true case would assert the flag is broken. Its
+  // suite is all-false on purpose: those cases are the regression test that the flag is
+  // still there. Every other skill keeps the both-ways requirement.
+  // Read the raw frontmatter block, not parseFrontmatter(): its key pattern is
+  // /^([a-zA-Z_]+):/ and would never match a hyphenated key like this one.
+  const skillText = readFileSync(`skills/${dir}/SKILL.md`, "utf-8");
+  const fmEnd = skillText.indexOf("\n---\n", 4);
+  const fmBlock = fmEnd === -1 ? "" : skillText.slice(4, fmEnd);
+  const userOnly = /^disable-model-invocation:\s*(true|yes|on|1)\s*$/mi.test(fmBlock);
+  if (userOnly) {
+    const wrong = cases.filter(c => c.should_trigger).length;
+    if (wrong) fail(`skills/${dir}/evals/evals.json: ${wrong} should_trigger:true case(s), but the skill sets disable-model-invocation — the model can never select it, so every case must be should_trigger:false`);
+  } else {
+    if (!cases.some(c => c.should_trigger)) fail(`${evals}: no should_trigger:true case — the skill would never be exercised`);
+    if (!cases.some(c => !c.should_trigger)) fail(`${evals}: no should_trigger:false case — nothing checks over-triggering`);
+  }
 }
 for (const key of manifestSkills) {
   const entry = manifest.skills[key];

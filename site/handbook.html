@@ -1743,7 +1743,9 @@ Fix the double-submit bug on the checkout form</code></pre>
       <code>/ask-bigin</code> takes the request in plain language, names the one skill
       that fits with the reason in a line, and hands off — it reads the same ladder for
       build work, so it cannot send you somewhere the ladder wouldn't, and it never does
-      the work itself.
+      the work itself. It runs only when you type it: the skill sets
+      <code>disable-model-invocation</code>, so it can never wedge itself in front of a
+      request you already stated plainly.
     </p>
 
     <h3>What you do at each step</h3>

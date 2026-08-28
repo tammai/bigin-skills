@@ -350,7 +350,7 @@ One `PLAN.md` per worktree. Spec-gate approval is **per-worktree** — approving
 
 | You want to… | Say | Skill |
 | --- | --- | --- |
-| Not know which of these you want | "which skill should I use", "where do I start" | `ask-bigin` — routes and hands off; it never does the work itself |
+| Not know which of these you want | `/ask-bigin where do I start` — typed explicitly; it never triggers on its own | `ask-bigin` — routes and hands off; it never does the work itself |
 | Set up a new repo | "set up a harness" | `bigin-harness-setup` |
 | Build a feature / fix a tracked bug | "implement X", "fix Y" | `task-workflow` |
 | Break an initiative into shippable units | "this is too big for one task" | `epic-workflow` |
@@ -377,7 +377,7 @@ You don't have to get the door right. `task-workflow`, `epic-workflow` and `disc
 
 **`debug-workflow` vs `task-workflow`** — if the bug already has a `PLAN.md`, `task-workflow` owns it and points at `debug-workflow` for the actual debugging. Use `debug-workflow` standalone when the failure isn't tied to a ticket yet: a flaky test, a stack trace, "works in staging not prod," a live incident.
 
-**`ask-bigin` vs just saying what you want** — this is the one worth being clear about, because the wrong choice costs a turn for nothing. If you can state the work ("implement X", "fix Y", "write tests for `parseToken`"), say that: the skill you need triggers on it directly, and going through a router first adds a hop and answers a question you'd already answered. `ask-bigin` is for the other case — you don't know what's available, you're between two skills, or you want the inventory. It routes and stops; it never does the work, so it is never the faster path to work you can already name.
+**`ask-bigin` vs just saying what you want** — this is the one worth being clear about, because the wrong choice costs a turn for nothing. If you can state the work ("implement X", "fix Y", "write tests for `parseToken`"), say that: the skill you need triggers on it directly, and going through a router first adds a hop and answers a question you'd already answered. `ask-bigin` is for the other case — you don't know what's available, you're between two skills, or you want the inventory. It routes and stops; it never does the work, so it is never the faster path to work you can already name. This is enforced rather than advised: it sets `disable-model-invocation`, so it only ever runs when you type `/ask-bigin`, and Claude cannot insert it in front of a request you already stated clearly.
 
 `debug-workflow` triages first: obvious bugs take a fast path, while flaky / environment-dependent / repeat failures take the full repro → evidence → hypothesis → fix → prevention workflow. **Every path ends with a regression test** — and in a harnessed repo that's enforced at commit time, not requested politely.
 
