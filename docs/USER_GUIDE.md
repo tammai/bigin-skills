@@ -365,7 +365,7 @@ One `PLAN.md` per worktree. Spec-gate approval is **per-worktree** — approving
 | Implement a Nuxt UI Figma handoff | paste the Figma URL | `nuxt-ui-figma-handoff` |
 | Decide which model runs a task | "route this task" | `model-router` |
 
-### The four that overlap most
+### The five that overlap most
 
 You don't have to get the door right. `task-workflow`, `epic-workflow` and `discovery-workflow` all triage through **one shared ladder** — [`triage-ladder.md`](../skills/discovery-workflow/references/triage-ladder.md), three rungs, written once and read by all three — so the same request reaches the same depth whichever one you invoke. Ask for a copy fix inside `discovery-workflow` and it hands you down to rung 1 rather than writing a brief; ask for "we want a portal" inside `task-workflow` and it hands you up to rung 3 rather than spec'ing over the gap. The two middle pairs below are that ladder's two boundaries in prose; the first and last are about skills that sit beside the ladder rather than on it — `write-tests` routes on what a request *names*, and `debug-workflow` is a qualifier on rung 1, not a rung of its own.
 
@@ -376,6 +376,8 @@ You don't have to get the door right. `task-workflow`, `epic-workflow` and `disc
 **`discovery-workflow` vs `epic-workflow`** — both sit above the task loop, and the split is the rung-2/rung-3 boundary: whether the *product* question is settled. If you can already write one testable acceptance criterion for the request exactly as stated, inventing nothing, it's an epic (or a task) and discovery would just manufacture paperwork. If writing that one criterion means deciding who the user is or what "done" means, that's discovery, and it ends by handing `epic-workflow` a PRD.
 
 **`debug-workflow` vs `task-workflow`** — if the bug already has a `PLAN.md`, `task-workflow` owns it and points at `debug-workflow` for the actual debugging. Use `debug-workflow` standalone when the failure isn't tied to a ticket yet: a flaky test, a stack trace, "works in staging not prod," a live incident.
+
+**`ask-bigin` vs just saying what you want** — this is the one worth being clear about, because the wrong choice costs a turn for nothing. If you can state the work ("implement X", "fix Y", "write tests for `parseToken`"), say that: the skill you need triggers on it directly, and going through a router first adds a hop and answers a question you'd already answered. `ask-bigin` is for the other case — you don't know what's available, you're between two skills, or you want the inventory. It routes and stops; it never does the work, so it is never the faster path to work you can already name.
 
 `debug-workflow` triages first: obvious bugs take a fast path, while flaky / environment-dependent / repeat failures take the full repro → evidence → hypothesis → fix → prevention workflow. **Every path ends with a regression test** — and in a harnessed repo that's enforced at commit time, not requested politely.
 
