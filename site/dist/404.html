@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Page not found — BigIn Skills</title>
+<meta name="description" content="That page does not exist. The landing page and the handbook are both one click away.">
+<link rel="canonical" href="https://bigin-skills.pages.dev/404.html">
+<meta property="og:title" content="Page not found — BigIn Skills">
+<meta property="og:description" content="That page does not exist. The landing page and the handbook are both one click away.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://bigin-skills.pages.dev/404.html">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/assets/favicon.ico" sizes="any">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:ital,opsz,wght@0,17..18,400..700;1,17..18,400..700&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/chrome.css">
+<link rel="stylesheet" href="/assets/index.css">
+</head>
+<body>
+<!-- The tail of the nav varies by page: a page never links to itself, so the
+     handbook swaps its own CTA for GitHub and drops the handbook link. Which
+     tail is used comes from the page's `nav_end` frontmatter, resolved to a
+     nav-end-*.html partial by tools/site_build.mjs. -->
+<header class="nav">
+  <a class="brand" href="/"><img class="brand-mark" src="/assets/favicon.ico" alt="" width="22" height="22"><span><strong>BigIn</strong> Skills</span></a>
+  <nav class="nav-links">
+    <a href="/#how">How it works</a>
+    <a href="/#inside">What's inside</a>
+    <a href="https://github.com/tammai/bigin-skills">GitHub</a>
+    <a class="btn btn-ghost btn-sm" href="/handbook.html">Handbook <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+  </nav>
+</header>
+
+<main>
+  <section class="hero">
+    <span class="eyebrow">404</span>
+    <h1>That page isn't <em>here</em></h1>
+    <p class="lede center">The link may be out of date, or the page may have moved. Everything this site holds is on the two pages below.</p>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/">Landing page <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+      <a class="btn btn-ghost" href="/handbook.html">Read the handbook</a>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="foot-in">
+    <div class="foot-brand">
+      <div class="brand"><img class="brand-mark" src="/assets/favicon.ico" alt="" width="22" height="22"><span><strong>BigIn</strong> Skills</span></div>
+      <p class="foot-note">A plugin for Claude Code and Cursor — AI-assisted engineering with guardrails.</p>
+    </div>
+    <div class="foot-links">
+      <a href="/handbook.html">Handbook</a>
+      <a href="https://github.com/tammai/bigin-skills">GitHub</a>
+      <a href="https://github.com/tammai/bigin-skills/blob/main/CHANGELOG.md">Changelog</a>
+    </div>
+  </div>
+  <div class="foot-legal">
+    Open source under the MIT&nbsp;License &middot; &copy; 2026 BigIn
+  </div>
+</footer>
+
+
+<!-- Floating controls. Styles in assets/chrome.css, behavior in assets/site.js.
+
+     One bottom-right column rather than a button in each corner. Back-to-top
+     comes first in the DOM and renders above the theme toggle, so the toggle
+     — the control that is always there — keeps the same spot whether or not
+     back-to-top is showing, and tab order follows what the eye sees. -->
+<div class="float-stack">
+  <button id="backToTop" aria-label="Back to top" title="Back to top">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>
+    </svg>
+  </button>
+
+  <button id="themeToggle" class="float-btn" aria-label="Toggle dark/light mode" title="Toggle dark/light mode (T)">
+    <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>
+    </svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+    </svg>
+  </button>
+</div>
+
+<script src="/assets/site.js"></script>
+<script src="/assets/index.js"></script>
+</body>
+</html>

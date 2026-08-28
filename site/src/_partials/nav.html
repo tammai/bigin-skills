@@ -1,0 +1,12 @@
+<!-- The tail of the nav varies by page: a page never links to itself, so the
+     handbook swaps its own CTA for GitHub and drops the handbook link. Which
+     tail is used comes from the page's `nav_end` frontmatter, resolved to a
+     nav-end-*.html partial by tools/site_build.mjs. -->
+<header class="nav">
+  <a class="brand" href="/"><img class="brand-mark" src="/assets/favicon.ico" alt="" width="22" height="22"><span><strong>BigIn</strong> Skills</span></a>
+  <nav class="nav-links">
+    <a href="/#how">How it works</a>
+    <a href="/#inside">What's inside</a>
+    {{ nav_end }}
+  </nav>
+</header>

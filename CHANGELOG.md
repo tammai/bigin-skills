@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.86.0] - 2026-08-28
+
+### Added
+
+- **The site is a real static site.** `site/` was two hand-maintained HTML files, each carrying its own copy of the `<head>`, the nav, the footer, the palette, the floating chrome, a 20KB base64 favicon, and a hand-typed count of how many skills the plugin ships. It is now sources plus a build:
+
+  ```
+  site/src/_layouts/base.html      one skeleton, both pages
+  site/src/_partials/              nav, footer, floating controls
+  site/src/assets/                 tokens.css, chrome.css, per-page css + js, favicon.ico
+  site/src/pages/                  index, handbook, 404 — frontmatter + content
+  site/dist/                       generated, committed, served
+  tools/site_build.mjs             the build; --check gates it
+  ```
+
+  `node tools/site_build.mjs` writes `site/dist/`; `--check` diffs without writing and now runs in the pre-commit hook alongside the budget and docs-sync gates. Node stdlib only — no `package.json`, no dependencies, same constraint as every other script here.
+
+- **Facts on the site come from the plugin's own manifests.** The skill and agent counts, the version, the release date and the copyright year are read from `.claude-plugin/plugin.json`, `tools/docs-manifest.json` and `CHANGELOG.md` at build time. The build also fails closed when a skill exists on disk but not in the manifest, and when `CHANGELOG.md`'s newest entry disagrees with `plugin.json`. v1.85.1 had to fix a page that said "16 skill descriptions" while saying "17 skills" twice elsewhere; that class of drift is now unrepresentable.
+
+- **404 page, `sitemap.xml` and `robots.txt`**, all generated. The 404 opts out of the sitemap via `noindex: true` in its frontmatter.
+
+### Changed
+
+- **One palette for both pages.** The landing page and the handbook had been authored separately and each shipped its own scale — `#ff6400` against `#f97316`, `--ink-*` against `--slate-*`. They now render from one set of tokens in `tokens.css`; the handbook's own token names survive as aliases rather than being rewritten across 1,300 lines of its stylesheet. **The handbook's accent changes** from `#f97316` to the site orange `#ff6400`, and its light-mode page background now matches the landing page's.
+- **Shared chrome and behavior are shared files.** The theme toggle, back-to-top, skip link and drawer button had two near-identical definitions; they are now one `chrome.css` and one `site.js`. The theme's localStorage key moves from `workshop-handbook-theme` to `bigin-site-theme`, reading the old key as a fallback so nobody's saved preference is lost.
+- **The favicon is a file.** `assets/favicon.ico` replaces the same 20KB base64 data URI that appeared three times across the two pages; `site/dist/index.html` drops from 90KB to 15KB.
+
+### Deploy
+
+`site/dist/` is committed, so no build step is needed on Cloudflare Pages — but **the Pages "build output directory" must change from `site` to `site/dist`**, or the deploy will serve a directory that no longer contains `index.html`.
+
 ## [1.85.1] - 2026-08-28
 
 ### Fixed

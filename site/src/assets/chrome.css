@@ -1,0 +1,127 @@
+/* ─────────────────────────────────────────────────────────────
+   CHROME — the page furniture every page shares: the site header,
+   the buttons it uses, and the floating controls (theme toggle,
+   back-to-top, the handbook's drawer trigger, skip link).
+
+   The two pages each carried their own near-identical copy of the
+   floating controls, and only the landing page had a header at all.
+   This is the one definition that renders now, on canonical tokens.
+   ───────────────────────────────────────────────────────────── */
+
+/* ── Site header ───────────────────────────────────────────── */
+
+/* The header is shared, so it cannot lean on a page's own base styles. The
+   landing page resets `a { color: inherit }` globally; the handbook does
+   not, which left the brand rendering as a default browser link — blue,
+   then purple once visited. Scope the reset to the header itself. */
+.nav a { color: inherit; text-decoration: none; }
+
+.nav {
+  display: flex; align-items: center; justify-content: space-between; gap: 1.5rem;
+  max-width: var(--wrap); margin: 0 auto; padding: 1.4rem var(--gutter);
+}
+.brand { display: inline-flex; align-items: center; gap: .6rem; font-size: 1.02rem; text-decoration: none; letter-spacing: -.01em; }
+.brand strong { font-weight: 600; }
+.brand-mark { width: 22px; height: 22px; border-radius: 5px; flex: none; display: block; }
+.nav-links { display: flex; align-items: center; gap: 1.7rem; font-size: .95rem; }
+.nav-links a { color: var(--ink-3); text-decoration: none; transition: color .15s; }
+.nav-links a:hover { color: var(--ink); }
+.nav-links a.btn { color: var(--ink); }
+
+.btn {
+  display: inline-flex; align-items: center; gap: .55rem;
+  padding: .78rem 1.35rem; border-radius: 10px; text-decoration: none;
+  font-size: .97rem; font-weight: 500; border: 1px solid transparent;
+  transition: background .15s, border-color .15s, color .15s;
+  white-space: nowrap;
+}
+.btn svg { width: 17px; height: 17px; flex: none; }
+.btn-primary { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+.btn-primary:hover { background: #ff7f2e; }
+:root[data-theme="light"] .btn-primary:hover { background: #e05600; }
+.btn-ghost { border-color: var(--line-2); color: var(--ink); background: color-mix(in srgb, var(--ink) 3%, transparent); }
+.btn-ghost:hover { border-color: var(--accent-line); background: var(--accent-soft); }
+.btn-sm { padding: .5rem .95rem; font-size: .9rem; border-radius: 8px; }
+.btn-sm svg { width: 15px; height: 15px; }
+
+/* Small screens: the section links fold away and only the CTA survives.
+   Lives with the header rather than in a page stylesheet — both pages carry
+   this header, and the rules were previously stranded on the landing page,
+   so the handbook's header kept its full-width padding on a phone. */
+@media (max-width: 720px) {
+  .nav { padding: 1.1rem 1.2rem; }
+  .nav-links { gap: .8rem; }
+  .nav-links a:not(.btn) { display: none; }
+}
+
+/* ── Floating controls ─────────────────────────────────────── */
+
+/* One fixed column in the bottom-right corner. The buttons inside it are
+   static — the stack owns the placement, so adding or removing one cannot
+   leave a hole where a fixed button used to be. */
+.float-stack {
+  position: fixed;
+  right: 26px;
+  bottom: 24px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.float-btn,
+#backToTop {
+  width: 38px;
+  height: 38px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--bg) 85%, transparent);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--line-2);
+  border-radius: 9px;
+  color: var(--ink-3);
+  transition: color .15s, border-color .15s, opacity .2s;
+}
+.float-btn:hover,
+#backToTop:hover { color: var(--accent); border-color: var(--accent); }
+.float-btn svg { width: 16px; height: 16px; flex: none; }
+
+/* Placed by .float-stack, not by itself. Moving out of the top-right corner
+   is also what retires the collision with the header's GitHub button — the
+   toggle is no longer anywhere near the header, at any width. */
+#themeToggle .icon-moon { display: none; }
+:root[data-theme="light"] #themeToggle .icon-sun { display: none; }
+:root[data-theme="light"] #themeToggle .icon-moon { display: flex; }
+
+/* Handbook only: revealed by its own media query, where the sidebar
+   collapses into a drawer. Hidden everywhere else. The one control still
+   pinned top-left — it opens the sidebar, so it belongs beside it rather
+   than in the bottom-right stack. */
+#menuToggle { position: fixed; top: 20px; left: 22px; z-index: 50; display: none; }
+
+#backToTop { display: none; }
+#backToTop.is-visible { display: flex; }
+#backToTop svg { width: 18px; height: 18px; }
+
+/* Keyboard users reach the content without tabbing through the whole TOC. */
+#skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 90;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: var(--bg-2);
+  color: var(--ink);
+  font-size: .85rem;
+  text-decoration: none;
+  transform: translateY(-200%);
+  transition: transform .15s;
+}
+#skip-link:focus { transform: translateY(0); }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}

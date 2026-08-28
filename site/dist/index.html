@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BigIn Skills — an AI workflow that holds its shape</title>
+<meta name="description" content="A plugin for Claude Code and Cursor that makes AI-assisted engineering reviewable: an approved spec before code, an independent verifier, and commit gates that can't be switched off.">
+<link rel="canonical" href="https://bigin-skills.pages.dev/">
+<meta property="og:title" content="BigIn Skills — an AI workflow that holds its shape">
+<meta property="og:description" content="An approved spec before code, an independent verifier that never reads the implementer's own summary, and commit gates that can't be switched off.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://bigin-skills.pages.dev/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/assets/favicon.ico" sizes="any">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:ital,opsz,wght@0,17..18,400..700;1,17..18,400..700&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/chrome.css">
+<link rel="stylesheet" href="/assets/index.css">
+</head>
+<body>
+
+<!-- The tail of the nav varies by page: a page never links to itself, so the
+     handbook swaps its own CTA for GitHub and drops the handbook link. Which
+     tail is used comes from the page's `nav_end` frontmatter, resolved to a
+     nav-end-*.html partial by tools/site_build.mjs. -->
+<header class="nav">
+  <a class="brand" href="/"><img class="brand-mark" src="/assets/favicon.ico" alt="" width="22" height="22"><span><strong>BigIn</strong> Skills</span></a>
+  <nav class="nav-links">
+    <a href="/#how">How it works</a>
+    <a href="/#inside">What's inside</a>
+    <a href="https://github.com/tammai/bigin-skills">GitHub</a>
+    <a class="btn btn-ghost btn-sm" href="/handbook.html">Handbook <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+  </nav>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="eyebrow">Plugin for Claude Code and Cursor</div>
+    <h1>An AI workflow that<br><em>holds its shape</em></h1>
+    <p class="lede">
+      An unconstrained coding agent produces code that <em>looks</em> right — plausible,
+      large, and wrong in ways you only find at review. BigIn Skills adds the structure
+      that makes AI work reviewable: an approved spec before code, an independent
+      verifier that never reads the implementer's own summary, and commit gates that
+      can't be switched off.
+    </p>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/handbook.html">Read the handbook <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+      <a class="btn btn-ghost" href="https://github.com/tammai/bigin-skills"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.37.5 0 5.87 0 12.5c0 5.3 3.44 9.8 8.2 11.39.6.11.82-.26.82-.58v-2.03c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.83 2.81 1.3 3.5.99.11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.11-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.29-1.55 3.3-1.23 3.3-1.23.65 1.66.24 2.88.12 3.18.77.84 1.23 1.91 1.23 3.22 0 4.61-2.8 5.63-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58A12.01 12.01 0 0 0 24 12.5C24 5.87 18.63.5 12 .5z"/></svg>View on GitHub</a>
+    </div>
+    <div class="hero-meta">
+      <span>6 stack profiles — Nuxt · Next · Go · Node · Flutter · generic</span>
+      <span class="dot"></span>
+      <span>17 skills, 7 agents</span>
+      <span class="dot"></span>
+      <span>No runtime dependencies</span>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="section-head">
+      <h2>Three ways AI coding <em>goes wrong</em></h2>
+      <p>Each one has a mechanism pointed at it — not a prompt asking nicely.</p>
+    </div>
+    <div class="grid-3">
+      <article class="card">
+        <div class="card-num">01</div>
+        <h3>It starts before the shape is agreed</h3>
+        <p>You get a large diff built on an assumption nobody stated, and you find out at review.</p>
+        <div class="card-fix"><span>Spec gate</span> — an approved <code>PLAN.md</code>, enforced by a hook, before any non-trivial edit lands.</div>
+      </article>
+      <article class="card">
+        <div class="card-num">02</div>
+        <h3>It marks its own homework</h3>
+        <p>&quot;I implemented the feature and it works&quot; is a self-report, not evidence.</p>
+        <div class="card-fix"><span>Independent verifier</span> — a fresh agent reads the diff itself, never the implementer's account of it.</div>
+      </article>
+      <article class="card">
+        <div class="card-num">03</div>
+        <h3>It forgets, expensively</h3>
+        <p>Every session re-derives the same context, and re-derives it differently each time.</p>
+        <div class="card-fix"><span>Knowledge bundle</span> — versioned concept files with an index-first read protocol, validated at commit.</div>
+      </article>
+    </div>
+  </section>
+
+  <section class="band" id="how">
+    <div class="section-head">
+      <h2>Six steps, <em>two decisions</em></h2>
+      <p>The loop every non-trivial task runs through. Most of it is automatic — you answer twice.</p>
+    </div>
+    <ol class="flow">
+      <li class="flow-step">
+        <span class="flow-dot"></span>
+        <div><h4>Scope and triage</h4><p>One sentence, before any code — then which rung: task, epic, or discovery. Only the first continues here.</p></div>
+      </li>
+      <li class="flow-step is-you">
+        <span class="flow-dot"></span>
+        <div><h4>Spec gate <span class="pill">you approve</span></h4><p>What changes, edge cases, security, and an explicit <em>not in scope</em>.</p></div>
+      </li>
+      <li class="flow-step">
+        <span class="flow-dot"></span>
+        <div><h4>PLAN.md </h4><p>The approved spec plus a task table, on disk. The working contract.</p></div>
+      </li>
+      <li class="flow-step">
+        <span class="flow-dot"></span>
+        <div><h4>Implement </h4><p>Routed to the cheapest tier that can do the job — quick, standard, or deep.</p></div>
+      </li>
+      <li class="flow-step">
+        <span class="flow-dot"></span>
+        <div><h4>Verify <span class="pill pill-loop">capped fix loop</span></h4><p>A fresh agent audits the diff against the plan. On a fail, back to implement. Three rounds maximum.</p></div>
+      </li>
+      <li class="flow-step is-you">
+        <span class="flow-dot"></span>
+        <div><h4>Review and Cleanup <span class="pill">you decide</span></h4><p>A human pass, <code>/code-review</code>, or both — then distil what's durable and archive the plan verbatim, so the reasoning survives.</p></div>
+      </li>
+    </ol>
+  </section>
+
+  <section class="band" id="inside">
+    <div class="section-head">
+      <h2>What's <em>inside</em></h2>
+      <p>Seventeen skills and seven subagents. You invoke almost none of them by name — they trigger on intent. If you would rather ask than guess, <code>/ask-bigin</code> names the one that fits and hands off.</p>
+    </div>
+    <div class="grid-2">
+      <article class="card">
+        <div class="card-num">01</div>
+        <h3>Governance</h3>
+        <p><code>bigin-harness-setup</code> scaffolds a <code>CLAUDE.md</code> brief, path-scoped rules, and commit-time gates into an existing repo — or, on an empty one, scaffolds the app first and layers governance on top. Six stack profiles, and it generates the Cursor mirror when teammates work there.</p>
+      </article>
+      <article class="card">
+        <div class="card-num">02</div>
+        <h3>The task loop</h3>
+        <p><code>task-workflow</code> takes one task from spec to verified diff; <code>epic-workflow</code> sits above it, splitting an initiative into shippable units and feeding them back one at a time; <code>discovery-workflow</code> sits above both, turning a vague ask into the approved brief and PRD they assume already exists — plus the architecture decisions the product forced, written into <code>knowledge/</code>. <code>debug-workflow</code> supplies bug triage, and <code>write-tests</code> writes either unit tests for one function or an end-to-end spec straight from a PRD acceptance criterion.</p>
+      </article>
+      <article class="card">
+        <div class="card-num">03</div>
+        <h3>Cost routing</h3>
+        <p><code>model-router</code> scores capability and verification separately, then routes to the tier that fits. Three ladders, from cost-first to frontier.</p>
+      </article>
+      <article class="card">
+        <div class="card-num">04</div>
+        <h3>Knowledge</h3>
+        <p><code>knowledge-distill</code> pins a library's docs at an exact commit and audits the result. <code>sprint-distill</code> compresses what the team learned — never appends. Finished plans and epics are archived verbatim as an append-only record log, so <em>why</em> a change took its shape outlives it.</p>
+      </article>
+      <article class="card">
+        <div class="card-num">05</div>
+        <h3>Scaffolding</h3>
+        <p>New-project generators for Nuxt 4, Next App Router, Go (Gin + GORM), and Fastify — each wired to the same harness on the way out.</p>
+      </article>
+      <article class="card">
+        <div class="card-num">06</div>
+        <h3>Enforcement</h3>
+        <p>Deterministic Node guards: spec gate, Conventional Commits, a regression test on every fix, and a three-stage prompt-injection gate with a canary. One guard body serves both hosts — Cursor teammates get the same gates off the same files, generated from <code>CLAUDE.md</code> and never hand-written.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="section-head">
+      <h2>Built on one <em>principle</em></h2>
+    </div>
+    <blockquote class="quote">
+      Every rule here is enforced by something that isn't the model.
+      <span>A rule an agent can talk itself out of is a suggestion — and suggestions decay.</span>
+    </blockquote>
+    <div class="grid-3 tight">
+      <div class="stat"><div class="stat-n">~1k</div><div class="stat-l">tokens the plugin adds to every session — 17 skill descriptions, capped by a commit gate</div></div>
+      <div class="stat"><div class="stat-n">0</div><div class="stat-l">runtime dependencies — guards are plain Node</div></div>
+      <div class="stat"><div class="stat-n">3</div><div class="stat-l">verify rounds maximum, then it stops and asks</div></div>
+    </div>
+  </section>
+
+  <section class="band cta-band">
+    <h2>Start with the <em>handbook</em></h2>
+    <p class="lede center">
+      Why the harness exists, the five concepts behind it, setting up a repo,
+      the daily loop, and the practices that decide whether it works for a team.
+      One page, no signup.
+    </p>
+    <div class="cta-row center">
+      <a class="btn btn-primary" href="/handbook.html">Read the handbook <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+      <a class="btn btn-ghost" href="https://github.com/tammai/bigin-skills"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.37.5 0 5.87 0 12.5c0 5.3 3.44 9.8 8.2 11.39.6.11.82-.26.82-.58v-2.03c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.83 2.81 1.3 3.5.99.11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.11-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.29-1.55 3.3-1.23 3.3-1.23.65 1.66.24 2.88.12 3.18.77.84 1.23 1.91 1.23 3.22 0 4.61-2.8 5.63-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58A12.01 12.01 0 0 0 24 12.5C24 5.87 18.63.5 12 .5z"/></svg>View on GitHub</a>
+    </div>
+    <div class="code-block">
+      <div class="code-head">
+        <span class="code-lang">claude code</span>
+        <button class="copy-btn" type="button" data-copy>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          <span>Copy</span>
+        </button>
+      </div>
+      <pre><code>/plugin marketplace add tammai/bigin-skills
+/plugin install bigin-skills@bigin</code></pre>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="foot-in">
+    <div class="foot-brand">
+      <div class="brand"><img class="brand-mark" src="/assets/favicon.ico" alt="" width="22" height="22"><span><strong>BigIn</strong> Skills</span></div>
+      <p class="foot-note">A plugin for Claude Code and Cursor — AI-assisted engineering with guardrails.</p>
+    </div>
+    <div class="foot-links">
+      <a href="/handbook.html">Handbook</a>
+      <a href="https://github.com/tammai/bigin-skills">GitHub</a>
+      <a href="https://github.com/tammai/bigin-skills/blob/main/CHANGELOG.md">Changelog</a>
+    </div>
+  </div>
+  <div class="foot-legal">
+    Open source under the MIT&nbsp;License &middot; &copy; 2026 BigIn
+  </div>
+</footer>
+
+
+<!-- Floating controls. Styles in assets/chrome.css, behavior in assets/site.js.
+
+     One bottom-right column rather than a button in each corner. Back-to-top
+     comes first in the DOM and renders above the theme toggle, so the toggle
+     — the control that is always there — keeps the same spot whether or not
+     back-to-top is showing, and tab order follows what the eye sees. -->
+<div class="float-stack">
+  <button id="backToTop" aria-label="Back to top" title="Back to top">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>
+    </svg>
+  </button>
+
+  <button id="themeToggle" class="float-btn" aria-label="Toggle dark/light mode" title="Toggle dark/light mode (T)">
+    <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>
+    </svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+    </svg>
+  </button>
+</div>
+
+<script src="/assets/site.js"></script>
+<script src="/assets/index.js"></script>
+</body>
+</html>

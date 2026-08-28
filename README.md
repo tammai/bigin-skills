@@ -6,7 +6,7 @@ The agent writes a spec before it writes code. A second, memoryless agent audits
 
 | | |
 | --- | --- |
-| **Start here** | [Handbook](https://bigin-skills.pages.dev/handbook) — why the harness exists and the five concepts behind it, in one readable pass (source: [`site/handbook.html`](site/handbook.html)) |
+| **Start here** | [Handbook](https://bigin-skills.pages.dev/handbook) — why the harness exists and the five concepts behind it, in one readable pass (source: [`site/src/pages/handbook.html`](site/src/pages/handbook.html)) |
 | **Day to day** | [User Guide](docs/USER_GUIDE.md) — setup, the daily loop, what each gate blocks and how to unblock it, troubleshooting |
 | **Going deeper** | [Spec gate](docs/SPEC-GATE.md) · [Enforcement gates](docs/GATES.md) · [Model routing](docs/ROUTING.md) · [Knowledge bundle](docs/KNOWLEDGE.md) · [Code graph](docs/GRAPHIFY.md) |
 
@@ -166,7 +166,14 @@ A new skill or agent needs a matching manifest entry — the generator fails clo
 
 **Plugin manifests** — four files, two hosts. `.claude-plugin/plugin.json`'s `version` is the source of truth; `.cursor-plugin/plugin.json` and both `marketplace.json`s must match, and `docs_sync.mjs --check` fails the commit if they drift. The same check enforces Cursor's stricter component rules (a skill's `name` must equal its folder name; skills and agents both need a `description`), since Claude Code accepts files Cursor would reject.
 
-**Pre-commit gate** — activate once per clone; runs the budget gate + docs-sync check:
+**Site** — `site/src/` holds the sources (pages, layout, partials, assets); `site/dist/` is generated and committed, and is what Cloudflare Pages serves. Counts, the version and the copyright year come from `.claude-plugin/plugin.json`, `tools/docs-manifest.json` and `CHANGELOG.md` at build time, so the site can't drift from the plugin the way it did before v1.86.0. Edit `site/src/`, never `site/dist/`.
+
+```bash
+node tools/site_build.mjs          # rebuild site/dist/
+node tools/site_build.mjs --check  # diff-only; exits 1 when dist/ is stale
+```
+
+**Pre-commit gate** — activate once per clone; runs the budget gate + docs-sync check + site check:
 
 ```bash
 git config core.hooksPath scripts/git-hooks

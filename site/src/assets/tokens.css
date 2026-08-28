@@ -1,0 +1,117 @@
+/* ─────────────────────────────────────────────────────────────
+   TOKENS — the single palette both pages render from.
+
+   The landing page and the handbook were authored separately and each
+   carried its own scale (#ff6400 vs #f97316, --ink-* vs --slate-*). They
+   are one site, so there is one palette here. The handbook's own token
+   names survive as aliases of the canonical ones rather than being
+   rewritten across 1,300 lines of its stylesheet — the names differ, the
+   colors no longer can.
+   ───────────────────────────────────────────────────────────── */
+
+:root {
+  --accent: #ff6400;
+  --accent-soft: rgba(255, 100, 0, .14);
+  --accent-line: rgba(255, 100, 0, .34);
+  --on-accent: #1a0d02;
+  --bg: #020617;
+  --bg-1: #0b1220;
+  --bg-2: #0f172a;
+  --line: rgba(148, 163, 184, .16);
+  --line-2: rgba(148, 163, 184, .28);
+  --ink: #f1f5f9;
+  --ink-2: #cbd5e1;
+  --ink-3: #94a3b8;
+  --glow-1: rgba(255, 100, 0, .11);
+  --glow-2: rgba(99, 102, 241, .07);
+  --font: 'Google Sans', system-ui, -apple-system, sans-serif;
+  --mono: 'Fira Code', ui-monospace, monospace;
+  /* One page measure for the whole site: the header, the landing page's
+     bands and the handbook's shell all lay out on it, so the brand and the
+     content edges line up when you move between pages.
+
+     The floor is set by the handbook, the wider of the two layouts:
+     262px sidebar + 56px gap + 800px reading column = 1118px, plus two
+     gutters = 1174px. 1180 clears it. */
+  --wrap: 1180px;
+  --gutter: 28px;
+  --r: 14px;
+}
+:root[data-theme="light"] {
+  --accent: #ff6400;
+  --accent-soft: rgba(255, 100, 0, .10);
+  --accent-line: rgba(255, 100, 0, .30);
+  --on-accent: #ffffff;
+  --bg: #ffffff;
+  --bg-1: #f8fafc;
+  --bg-2: #f1f5f9;
+  --line: rgba(15, 23, 42, .10);
+  --line-2: rgba(15, 23, 42, .18);
+  --ink: #0f172a;
+  --ink-2: #334155;
+  --ink-3: #64748b;
+  --glow-1: rgba(255, 100, 0, .09);
+  --glow-2: rgba(99, 102, 241, .05);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   HANDBOOK ALIASES — handbook.css speaks --brand-* / --slate-*.
+   These map that vocabulary onto the canonical tokens above, so the
+   accent and page background can only ever be set in one place.
+   ───────────────────────────────────────────────────────────── */
+:root {
+  --brand-accent: var(--accent);
+  --brand-bg: var(--bg);
+  --brand-font-main: var(--font);
+  --brand-font-body: var(--font);
+  --brand-font-code: var(--mono);
+}
+
+/* ============================================================
+   DESIGN TOKENS — Tailwind CSS slate scale
+   https://tailwindcss.com/docs/colors
+============================================================ */
+:root {
+  --slate-50:  #f8fafc;
+  --slate-100: #f1f5f9;
+  --slate-200: #e2e8f0;
+  --slate-300: #cbd5e1;
+  --slate-400: #94a3b8;
+  --slate-500: #64748b;
+  --slate-600: #475569;
+  --slate-700: #334155;
+  --slate-800: #1e293b;
+  --slate-900: #0f172a;
+  --slate-950: #020617;
+
+  /* Layout — the one place to change the reading measure. */
+  --content-width: 800px;
+  --sidebar-width: 262px;
+
+  /* Drawer backdrop. A near-black scrim is right on the dark theme and
+     jarring on light, where a soft slate wash matches the palette. */
+  --backdrop: rgba(2, 6, 23, 0.55);
+}
+
+/* ============================================================
+   LIGHT MODE — reverses the slate scale + page background.
+   Toggled via [data-theme="light"] on <html> (see #themeToggle).
+============================================================ */
+:root[data-theme="light"] {
+  /* --brand-bg is deliberately absent: it aliases --accent's neighbour --bg
+     above, so the handbook and the landing page cannot disagree about the
+     page background in either theme. The slate scale below is genuinely the
+     handbook's own — it reverses for light mode. */
+  --slate-50:  #020617;
+  --slate-100: #0f172a;
+  --slate-200: #1e293b;
+  --slate-300: #334155;
+  --slate-400: #475569;
+  --slate-500: #64748b;
+  --slate-600: #94a3b8;
+  --slate-700: #cbd5e1;
+  --slate-800: #e2e8f0;
+  --slate-900: #f1f5f9;
+  --slate-950: #f8fafc;
+  --backdrop:  rgba(100, 116, 139, 0.35);
+}

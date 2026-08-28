@@ -2,7 +2,7 @@
 
 A practical, task-oriented guide to using the `bigin-skills` plugin day to day.
 
-**Never used this before?** Start with the [handbook](https://bigin-skills.pages.dev/handbook) (source: [`site/handbook.html`](../site/handbook.html)). It covers why the harness exists, the concepts behind it, and the practices that make it work, in one readable pass. This guide is the task-oriented companion you come back to.
+**Never used this before?** Start with the [handbook](https://bigin-skills.pages.dev/handbook) (source: [`site/src/pages/handbook.html`](../site/src/pages/handbook.html)). It covers why the harness exists, the concepts behind it, and the practices that make it work, in one readable pass. This guide is the task-oriented companion you come back to.
 
 This guide is written for the person *using* the harness in a project, and it's the longest read you should need. [`README.md`](../README.md) is the short front door — install, the two commands, the skill and agent inventory. For a specific subsystem in depth, the guides linked from each section below go further than either. If you're changing the plugin itself, read [`CLAUDE.md`](../CLAUDE.md) and `.claude/rules/skill-authoring.md`.
 

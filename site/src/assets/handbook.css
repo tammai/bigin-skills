@@ -1,0 +1,1190 @@
+/* Handbook. Palette in tokens.css; floating controls in chrome.css. */
+
+/* ============================================================
+   RESET & BASE
+============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 32px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  * { transition: none !important; animation: none !important; }
+}
+
+body {
+  background: var(--brand-bg);
+  color: var(--slate-200);
+  font-family: var(--brand-font-body);
+  font-size: 1.0625rem;
+  line-height: 1.75;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  transition: background 0.25s ease, color 0.25s ease;
+  /* Figures are the only auto-numbered thing left. Chapters and sections
+     are deliberately unnumbered: the heading carries an accented key word
+     instead, and the sidebar distinguishes its two levels by weight. */
+  counter-reset: figure;
+}
+
+/* ============================================================
+   BACKGROUND DECORATION — fixed, so it does not scroll away
+============================================================ */
+#bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+#bg::before {
+  content: '';
+  position: absolute;
+  width: 700px;
+  height: 700px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--brand-accent) 7%, transparent) 0%,
+    transparent 70%
+  );
+  top: -280px;
+  right: -220px;
+}
+#bg::after {
+  content: '';
+  position: absolute;
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--slate-700) 30%, transparent) 0%,
+    transparent 70%
+  );
+  bottom: -180px;
+  left: -120px;
+}
+
+/* ============================================================
+   READING PROGRESS — 2px bar across the top
+============================================================ */
+#progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 2px;
+  width: 0;
+  background: var(--brand-accent);
+  z-index: 40;
+  transition: width 0.08s linear;
+}
+
+/* ============================================================
+   SHELL — sticky sidebar + flowing document.
+
+   The *window* scrolls, not an inner pane. That is what keeps Ctrl-F,
+   deep links and print pagination all working normally; an
+   overflow:auto content pane breaks the last two.
+============================================================ */
+#shell {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-start;
+  gap: 56px;
+  max-width: var(--wrap);
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+}
+
+/* #shell has `position: relative; z-index: 1`, which makes it a stacking
+   context — so #sidebar's z-index is only ever compared *inside* it, and
+   from the outside the whole shell is just "1". Bumping the shell to 65
+   while the drawer is open is what puts the open drawer and its backdrop
+   over both #backToTop (30) and the floating .float-btn pair (50) — the
+   backdrop is meant to dim everything else on the page, floating chrome
+   included, so this value has to beat both outright rather than tie with
+   either (a tie goes to whichever is later in the DOM, not to whichever
+   "should" win).
+
+   This is also why #scrim lives inside #shell rather than beside it: as a
+   body-level sibling it would out-rank the entire shell and paint over
+   the drawer no matter how high the drawer's own z-index went. */
+#shell.drawer-open { z-index: 65; }
+
+#scrim {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: var(--backdrop);
+  transition: background 0.25s ease;
+}
+#scrim.is-open { display: block; }
+
+/* ============================================================
+   SIDEBAR — brand, bookmarks, theme switch.
+
+   No right border and no panel background: on desktop the bookmarks
+   sit in open space and are held together by alignment alone.
+============================================================ */
+#sidebar {
+  position: sticky;
+  top: 0;
+  z-index: 80;
+  flex: none;
+  width: var(--sidebar-width);
+  height: 100vh;
+  height: 100dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 44px 6px 44px 0;
+  display: flex;
+  flex-direction: column;
+  scrollbar-width: thin;
+}
+
+/* Two columns: a text column (title + subtitle, stacked) that grows to
+   fill the available width, and the close button pinned to its right. */
+.sidebar-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 26px;
+}
+
+.sidebar-head-text { flex: 1; min-width: 0; }
+
+#sidebar-title {
+  font-family: var(--brand-font-main);
+  font-size: 0.98rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--slate-50);
+  text-wrap: balance;
+}
+
+#sidebar-sub {
+  font-size: 0.71rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--slate-500);
+  margin-top: 3px;
+}
+
+/* Close button — only meaningful on the off-canvas drawer, so it is
+   hidden on the desktop sidebar, which never needs dismissing. */
+#closeToc {
+  display: none;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: none;
+  border: 1px solid var(--slate-700);
+  border-radius: 7px;
+  color: var(--slate-400);
+  transition: color 0.15s, border-color 0.15s;
+}
+#closeToc:hover { color: var(--slate-100); border-color: var(--slate-500); }
+#closeToc svg { width: 13px; height: 13px; }
+
+/* ============================================================
+   BOOKMARKS
+
+   One flat list. Chapters and sections sit at the same indent and
+   are told apart by weight and colour alone — no numbers, no nesting,
+   no rules, no fills. Everything that could add visual noise to a
+   twenty-row list has been taken out on purpose.
+============================================================ */
+/* Grows to fill the sidebar's remaining height — inside the flex column,
+   that's what pins #watermark to the true bottom edge for a short list,
+   rather than leaving it stranded right under the last row. A long list
+   still scrolls normally: #sidebar carries the overflow, not this. */
+#toc { flex: 1; }
+
+#toc a {
+  display: block;
+  padding: 4px 0;
+  font-size: 0.855rem;
+  line-height: 1.5;
+  color: var(--slate-500);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+#toc a:hover { color: var(--slate-100); }
+
+/* Chapter rows */
+#toc a.toc-h2 {
+  font-family: var(--brand-font-main);
+  font-weight: 600;
+  color: var(--slate-200);
+  margin-top: 16px;
+}
+#toc a.toc-h2:first-child { margin-top: 0; }
+
+/* Section rows — same indent, lighter weight. */
+#toc a.toc-h3 { font-weight: 400; }
+
+/* Scrollspy — colour only. */
+#toc a.is-current { color: var(--brand-accent); }
+
+#toc a:focus-visible,
+.anchor:focus-visible,
+#skip-link:focus {
+  outline: 2px solid var(--brand-accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* ============================================================
+   FLOATING CONTROLS — the rules now live in chrome.css, shared with
+   the landing page. The reasoning that keeps them correct is here,
+   next to the #shell stacking context it depends on.
+
+   z-index 50 is deliberately *below* #shell.drawer-open's 65: with the
+   open drawer's scrim living inside #shell, #shell's own stacking value
+   is what a body-level sibling like those buttons compares against. At
+   an equal value the later sibling wins ties regardless of the numbers,
+   so they would paint over the dimmed backdrop instead of being dimmed
+   with everything else — the gap makes the backdrop win outright.
+
+   #menuToggle is revealed by the drawer media query further down; at
+   every wider viewport chrome.css keeps it hidden. */
+
+/* ============================================================
+   MAIN COLUMN
+============================================================ */
+#handbook {
+  flex: 1;
+  min-width: 0;
+  max-width: var(--content-width);
+  padding: 44px 0 140px;
+}
+
+/* ============================================================
+   HERO — the title block at the top of the document
+============================================================ */
+.cover { margin-bottom: 76px; }
+
+.cover-kicker {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--brand-accent);
+  margin-bottom: 14px;
+}
+
+.cover h1 {
+  font-family: var(--brand-font-main);
+  font-size: clamp(2.2rem, 5vw, 3.4rem);
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  color: var(--slate-50);
+  text-wrap: balance;
+}
+
+.cover h1 em { color: var(--brand-accent); font-style: normal; }
+
+.cover-lede {
+  margin-top: 18px;
+  font-size: 1.12rem;
+  line-height: 1.65;
+  color: var(--slate-400);
+  max-width: 60ch;
+  text-wrap: pretty;
+}
+
+/* Accent rule, rather than a full-width divider — lighter, and it reads
+   as part of the title block instead of a boundary around it. */
+.cover::after {
+  content: '';
+  display: block;
+  width: 40px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--brand-accent);
+  margin-top: 26px;
+}
+
+.cover-meta {
+  margin-top: 22px;
+  font-size: 0.85rem;
+  color: var(--slate-500);
+  letter-spacing: 0.04em;
+}
+
+/* ============================================================
+   CHAPTERS & HEADINGS — unnumbered.
+
+   Emphasis comes from an accented key word inside the heading
+   (`<em>`), not from a numeral in front of it.
+============================================================ */
+.chapter {
+  margin-bottom: 76px;
+  scroll-margin-top: 32px;
+}
+
+/* Optional part marker above a chapter title */
+.part-label {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--slate-500);
+  border: 1px solid var(--slate-700);
+  border-radius: 4px;
+  padding: 4px 10px;
+  margin-bottom: 14px;
+}
+
+.chapter > h2 {
+  position: relative;
+  font-family: var(--brand-font-main);
+  font-size: 1.9rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  color: var(--slate-50);
+  text-wrap: balance;
+}
+
+.chapter > h2 em { color: var(--brand-accent); font-style: normal; }
+
+/* One line under a heading, framing what follows. */
+.h-sub {
+  margin-top: 8px;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--slate-400);
+  max-width: 62ch;
+  text-wrap: pretty;
+}
+
+.chapter h3 {
+  position: relative;
+  font-family: var(--brand-font-main);
+  font-size: 1.22rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--slate-100);
+  margin: 40px 0 12px;
+  scroll-margin-top: 32px;
+  text-wrap: balance;
+}
+
+.chapter h4 {
+  position: relative;
+  font-family: var(--brand-font-main);
+  font-size: 1.04rem;
+  font-weight: 600;
+  color: var(--slate-100);
+  margin: 28px 0 8px;
+  scroll-margin-top: 32px;
+}
+
+/* Copy-a-bookmark affordance — appears on hover, hidden from print. */
+.anchor {
+  position: absolute;
+  left: -0.85em;
+  top: 0;
+  opacity: 0;
+  font-weight: 400;
+  color: var(--slate-600);
+  text-decoration: none;
+  transition: opacity 0.15s, color 0.15s;
+}
+h2:hover > .anchor,
+h3:hover > .anchor,
+h4:hover > .anchor,
+.anchor:focus-visible { opacity: 1; }
+.anchor:hover { color: var(--brand-accent); }
+
+/* ============================================================
+   PROSE
+============================================================ */
+#handbook p {
+  margin: 14px 0;
+  color: var(--slate-300);
+  max-width: 70ch;
+  text-wrap: pretty;
+}
+
+#handbook strong { color: var(--slate-100); font-weight: 600; }
+
+/* <em> means "accent this term", not "italicise it" — the same rule the
+   slide deck uses, so an author moving between the two is never surprised. */
+#handbook em { color: var(--brand-accent); font-style: normal; }
+
+#handbook i, #handbook cite { font-style: italic; color: inherit; }
+
+#handbook a:not(.anchor) {
+  color: var(--brand-accent);
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--brand-accent) 40%, transparent);
+}
+#handbook a:not(.anchor):hover {
+  border-bottom-color: var(--brand-accent);
+}
+
+/* --- Lists --- */
+.list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.list li {
+  position: relative;
+  padding-left: 20px;
+  color: var(--slate-300);
+  font-size: 0.98rem;
+  text-wrap: pretty;
+}
+
+.list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.62em;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--brand-accent);
+}
+
+.list li strong { color: var(--slate-100); font-weight: 600; }
+
+/* Nested list — one level, smaller dot in a muted tone */
+.list .list { margin: 10px 0 0; gap: 7px; }
+.list .list li { font-size: 0.95em; }
+.list .list li::before { background: var(--slate-600); width: 5px; height: 5px; }
+
+.list.numbered { counter-reset: item; }
+.list.numbered li { padding-left: 28px; }
+.list.numbered li::before {
+  content: counter(item);
+  counter-increment: item;
+  background: none;
+  left: 0;
+  top: 0;
+  width: 18px;
+  height: auto;
+  text-align: right;
+  line-height: 1.78;
+  border-radius: 0;
+  font-size: 0.8em;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--brand-accent);
+}
+
+/* Checklist — a real Lucide `square` / `square-check` icon per item,
+   injected at load (see the script) so the author only ever writes
+   `<li class="done">…</li>`, same as the code block's copy button.
+
+   A flex row with a real icon as its first child centres exactly via
+   `align-items: center`, which is what a hand-tuned absolute-position
+   offset on a ::before/::after pair kept landing a pixel or two off no
+   matter how it was re-measured. Overriding the base bullet with
+   `content: none` clears it rather than layering a second mark. */
+.list.check li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-left: 0;
+}
+.list.check li::before { content: none; }
+
+.check-icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--slate-600);
+}
+.check-icon svg { width: 100%; height: 100%; }
+.list.check li.done .check-icon { color: var(--brand-accent); }
+
+/* --- Definition list --- */
+.deflist {
+  display: grid;
+  grid-template-columns: minmax(120px, 200px) 1fr;
+  gap: 2px 24px;
+  margin: 20px 0;
+  font-size: 0.98rem;
+}
+.deflist dt {
+  font-family: var(--brand-font-main);
+  font-weight: 600;
+  color: var(--slate-100);
+  padding: 9px 0;
+  border-top: 1px solid var(--slate-800);
+}
+.deflist dd {
+  color: var(--slate-400);
+  padding: 9px 0;
+  border-top: 1px solid var(--slate-800);
+}
+.deflist dt:first-of-type, .deflist dd:first-of-type { border-top: none; }
+@media (max-width: 620px) {
+  .deflist { grid-template-columns: 1fr; gap: 0; }
+  .deflist dd { padding-top: 0; border-top: none; }
+}
+
+kbd {
+  font-family: var(--brand-font-code);
+  font-size: 0.82em;
+  color: var(--slate-200);
+  background: var(--slate-800);
+  border: 1px solid var(--slate-700);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  padding: 1px 7px;
+  white-space: nowrap;
+}
+
+/* ============================================================
+   CALLOUTS — note / tip / warn / key.
+
+   Four types rather than one: a handbook is read alone, with nobody
+   in the room to say "this next bit matters".
+============================================================ */
+.callout {
+  --co: var(--brand-accent);
+  background: color-mix(in srgb, var(--co) 8%, transparent);
+  border-left: 3px solid var(--co);
+  border-radius: 0 8px 8px 0;
+  padding: 14px 20px;
+  margin: 22px 0;
+  font-size: 0.97rem;
+  color: var(--slate-200);
+}
+
+.callout > :last-child { margin-bottom: 0; }
+.callout p { margin: 0; max-width: none; }
+
+.callout-label {
+  display: block;
+  font-family: var(--brand-font-main);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--co);
+  margin-bottom: 4px;
+}
+
+.callout.note { --co: var(--dg-blue); }
+.callout.tip  { --co: var(--dg-mint); }
+.callout.warn { --co: var(--dg-amber); }
+.callout.key  { --co: var(--brand-accent); }
+.callout.info { --co: var(--slate-500); color: var(--slate-300); }
+
+/* Pull quote */
+.quote {
+  margin: 30px 0;
+  padding: 2px 0 2px 24px;
+  border-left: 3px solid var(--brand-accent);
+  font-family: var(--brand-font-main);
+  font-size: 1.28rem;
+  line-height: 1.55;
+  color: var(--slate-100);
+  text-wrap: pretty;
+}
+.quote cite {
+  display: block;
+  margin-top: 10px;
+  font-family: var(--brand-font-body);
+  font-size: 0.85rem;
+  font-style: normal;
+  color: var(--slate-500);
+}
+
+/* ============================================================
+   STEPS — a numbered procedure with a connecting rail
+============================================================ */
+.steps { counter-reset: step; margin: 22px 0; }
+
+.step {
+  position: relative;
+  counter-increment: step;
+  padding: 0 0 26px 52px;
+}
+
+.step:last-child { padding-bottom: 0; }
+
+.step::before {
+  content: counter(step);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--brand-font-main);
+  font-size: 0.9rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--brand-accent);
+  background: color-mix(in srgb, var(--brand-accent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-accent) 45%, transparent);
+}
+
+/* The rail runs between markers rather than behind them, so it never
+   shows through the translucent circle fill. */
+.step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: 38px;
+  bottom: 4px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--slate-800);
+}
+
+.step h4 {
+  font-family: var(--brand-font-main);
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--slate-100);
+  padding-top: 3px;
+  margin: 0;
+}
+
+.step p { margin: 6px 0 0; font-size: 0.97rem; }
+
+/* ============================================================
+   CODE
+
+   Unlike the slide deck, this IS a <pre>. A handbook is read at
+   arm's length and copied from, so real whitespace, real wrapping
+   and a real selection beat the deck's one-div-per-line clipping.
+============================================================ */
+code {
+  font-family: var(--brand-font-code);
+  font-size: 0.86em;
+  background: color-mix(in srgb, var(--slate-700) 34%, transparent);
+  border: 1px solid var(--slate-800);
+  border-radius: 5px;
+  padding: 0.1em 0.38em;
+  color: var(--slate-100);
+  word-break: break-word;
+}
+
+.code-block {
+  background: var(--slate-900);
+  border: 1px solid var(--slate-700);
+  border-radius: 12px;
+  margin: 20px 0;
+  overflow: hidden;
+}
+
+/* A header bar rather than a hover-only button: on a printed or
+   touch-only reading there is no hover, and the language label is
+   part of the content either way. */
+.code-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 18px;
+  border-bottom: 1px solid var(--slate-800);
+}
+
+.code-lang {
+  font-family: var(--brand-font-body);
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--brand-accent);
+}
+
+.code-path {
+  font-family: var(--brand-font-code);
+  font-size: 0.72rem;
+  color: var(--slate-500);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.copy-btn {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  font-family: var(--brand-font-body);
+  font-size: 0.72rem;
+  color: var(--slate-400);
+  background: none;
+  border: 1px solid var(--slate-700);
+  border-radius: 5px;
+  padding: 3px 10px;
+  transition: color 0.15s, border-color 0.15s;
+}
+.copy-btn svg { width: 13px; height: 13px; flex: none; }
+.copy-btn .icon-check { display: none; }
+.copy-btn:hover { color: var(--slate-100); border-color: var(--slate-500); }
+.copy-btn.done { color: var(--brand-accent); border-color: var(--brand-accent); }
+.copy-btn.done .icon-copy  { display: none; }
+.copy-btn.done .icon-check { display: block; }
+
+.code-block pre {
+  padding: 18px 22px;
+  overflow-x: auto;
+  font-family: var(--brand-font-code);
+  font-size: 0.875rem;
+  line-height: 1.8;
+  color: var(--slate-200);
+  /* Tabs render at 8 columns by default, which shreds indented snippets. */
+  tab-size: 2;
+  scrollbar-width: thin;
+}
+
+.code-block pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+  color: inherit;
+  white-space: pre;
+}
+
+.code-block.wrap pre code { white-space: pre-wrap; word-break: break-word; }
+
+.code-block .kw  { color: var(--brand-accent); }
+.code-block .str { color: var(--slate-300); }
+.code-block .cmt { color: var(--slate-500); }
+.code-block .fn  { color: var(--slate-100); }
+
+/* ============================================================
+   TABS — for per-platform or per-variant instructions
+============================================================ */
+.tabs { margin: 22px 0; }
+
+.tab-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: -1px;
+  position: relative;
+  z-index: 2;
+}
+
+.tab-btn {
+  cursor: pointer;
+  font-family: var(--brand-font-main);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--slate-400);
+  background: color-mix(in srgb, var(--slate-800) 55%, transparent);
+  border: 1px solid var(--slate-700);
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+  padding: 9px 22px;
+  transition: color 0.15s, background 0.15s;
+}
+.tab-btn.active { color: var(--brand-accent); background: var(--slate-900); }
+
+.tab-panel {
+  display: none;
+  border: 1px solid var(--slate-700);
+  border-radius: 0 12px 12px 12px;
+  background: color-mix(in srgb, var(--slate-900) 60%, transparent);
+  padding: 6px 24px 18px;
+}
+.tab-panel.active { display: block; }
+
+/* ============================================================
+   TABLES
+============================================================ */
+.table-wrap { margin: 20px 0; overflow-x: auto; scrollbar-width: thin; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.93rem;
+}
+
+th, td {
+  text-align: left;
+  vertical-align: top;
+  padding: 10px 16px 10px 0;
+  border-bottom: 1px solid var(--slate-800);
+  line-height: 1.55;
+}
+
+thead th {
+  font-family: var(--brand-font-main);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--slate-500);
+  border-bottom: 2px solid var(--slate-700);
+  padding-bottom: 8px;
+  white-space: nowrap;
+}
+
+td { color: var(--slate-300); }
+tbody tr:last-child td { border-bottom: none; }
+td strong, th strong { color: var(--slate-100); }
+
+/* First column reads as the row's label */
+table.keyed td:first-child {
+  font-family: var(--brand-font-main);
+  font-weight: 600;
+  color: var(--slate-100);
+  white-space: nowrap;
+}
+
+/* A command reference: the thing you type, accented and unwrapped */
+table.cmd td:first-child code {
+  color: var(--brand-accent);
+  background: none;
+  border: none;
+  padding: 0;
+  white-space: nowrap;
+}
+
+/* Recommended / alternative pairing, same convention as the deck's
+   .cmp-table: the column you are advocating goes second. */
+table.cmp thead th:nth-child(2) { color: var(--brand-accent); }
+table.cmp td:nth-child(3) { color: var(--slate-400); }
+
+/* ============================================================
+   CARDS
+============================================================ */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 14px;
+  margin: 22px 0;
+}
+
+.card {
+  border: 1px solid var(--slate-800);
+  border-radius: 12px;
+  padding: 18px 20px;
+  background: color-mix(in srgb, var(--slate-800) 28%, transparent);
+}
+
+.card-title {
+  font-family: var(--brand-font-main);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--slate-100);
+  margin-bottom: 6px;
+}
+
+.card p, .card .list { font-size: 0.92rem; margin: 0; max-width: none; }
+
+.card.accent {
+  border-color: color-mix(in srgb, var(--brand-accent) 45%, transparent);
+  background: color-mix(in srgb, var(--brand-accent) 8%, transparent);
+}
+.card.accent .card-title { color: var(--brand-accent); }
+
+.stat-number {
+  font-family: var(--brand-font-main);
+  font-size: 2.4rem;
+  font-weight: 600;
+  color: var(--brand-accent);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+.stat-label { font-size: 0.87rem; color: var(--slate-400); letter-spacing: 0.04em; }
+
+/* --- Tags --- */
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 22px 0;
+}
+
+.tag {
+  font-size: 0.78rem;
+  font-weight: 500;
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--slate-700);
+  color: var(--slate-300);
+  background: color-mix(in srgb, var(--slate-700) 30%, transparent);
+  white-space: nowrap;
+}
+
+.tag.accent {
+  border-color: var(--brand-accent);
+  color: var(--brand-accent);
+  background: color-mix(in srgb, var(--brand-accent) 10%, transparent);
+}
+
+/* ============================================================
+   FIGURES
+============================================================ */
+figure { margin: 26px 0; }
+
+figure img { max-width: 100%; height: auto; border-radius: 10px; }
+
+figcaption {
+  margin-top: 12px;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: var(--slate-500);
+  text-wrap: pretty;
+}
+
+figcaption::before {
+  content: 'Fig. ' counter(figure) ' · ';
+  counter-increment: figure;
+  color: var(--brand-accent);
+  font-weight: 600;
+}
+
+figure.plain figcaption::before { content: none; counter-increment: none; }
+
+.src { font-size: 0.8em; color: var(--slate-500); font-style: italic; }
+
+hr { border: none; border-top: 1px solid var(--slate-800); margin: 40px 0; }
+
+/* --- Diagram (soft, flat style) ---
+   Tokens for inline-SVG diagrams: rounded cards, pastel tinted fills,
+   neutral rounded connectors. Inline SVG keeps the handbook
+   self-contained (no image files) and theme-aware.
+
+   Hue fills are deliberately *translucent* rather than per-theme solids:
+   a 16% wash reads as a muted tint over the dark page and as a pastel
+   over the light one, so one value works in both modes.
+
+   FLAT BY DESIGN — no shadows, and never `filter:`/feDropShadow:
+     · a filtered region forces Chrome's print-to-PDF to rasterise that
+       area into a bitmap, so the page stops being pure vector
+     · a blurred shadow is invisible on a dark background anyway
+     · a faked offset-rect shadow peeks out under the card's own border
+       in light mode and reads as a misaligned fill
+*/
+.diagram { width: 100%; height: auto; display: block; }
+
+/* This token set is shared verbatim with the `soft-visuals` and
+   `workshop-slides` skills, so an <svg> generated there can be pasted into
+   a handbook with no edits. Keep all three in sync — a missing token
+   silently renders as no fill. */
+:root {
+  --dg-text:    var(--slate-100);
+  --dg-muted:   var(--slate-400);
+  --dg-line:    var(--slate-500);
+  --dg-border:  var(--slate-700);
+  --dg-surface: color-mix(in srgb, var(--slate-800) 55%, transparent);
+
+  --dg-blue:        #60a5fa;
+  --dg-blue-fill:   color-mix(in srgb, #60a5fa 16%, transparent);
+  --dg-violet:      #a78bfa;
+  --dg-violet-fill: color-mix(in srgb, #a78bfa 16%, transparent);
+  --dg-mint:        #34d399;
+  --dg-mint-fill:   color-mix(in srgb, #34d399 16%, transparent);
+  --dg-amber:       #fbbf24;
+  --dg-amber-fill:  color-mix(in srgb, #fbbf24 16%, transparent);
+  --dg-rose:        #fb7185;
+  --dg-rose-fill:   color-mix(in srgb, #fb7185 16%, transparent);
+  --dg-cyan:        #22d3ee;
+  --dg-cyan-fill:   color-mix(in srgb, #22d3ee 16%, transparent);
+  --dg-accent-fill: color-mix(in srgb, var(--brand-accent) 16%, transparent);
+}
+
+/* ============================================================
+   FOOTER
+============================================================ */
+#handbook footer {
+  margin-top: 80px;
+  padding-top: 24px;
+  border-top: 1px solid var(--slate-800);
+  font-size: 0.85rem;
+  color: var(--slate-500);
+}
+
+/* ============================================================
+   WATERMARK — brand logo, foot of the sidebar.
+   Rendered at full strength: a faded logo reads as a rendering
+   fault on a document, where it sits at the base of the bookmark
+   list rather than behind presentation content.
+============================================================ */
+#watermark { margin-top: 22px; pointer-events: none; }
+
+#watermark svg,
+#watermark img { height: 46px; width: auto; opacity: 1; }
+
+
+/* ============================================================
+   RESPONSIVE — below 1080px the sidebar becomes a drawer
+============================================================ */
+@media (max-width: 1080px) {
+  #shell { gap: 0; padding: 0 22px; }
+
+  /* #menuToggle is fixed at top-left, exactly where the header's brand
+     starts. Indent the header past it so the two never overlap at the top
+     of the page (once scrolled, the header is gone and only the button
+     remains). */
+  .handbook .nav { padding-left: 74px; padding-right: 22px; }
+  #sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100dvh;
+    width: min(82vw, 300px);
+    padding: 26px 22px;
+    background: var(--brand-bg);
+    transform: translateX(-100%);
+    transition: transform 0.24s ease;
+  }
+  #sidebar.is-open {
+    transform: translateX(0);
+    box-shadow: 30px 0 60px rgba(0, 0, 0, 0.35);
+  }
+  #closeToc { display: flex; }
+  #menuToggle { display: flex; }
+  /* No topbar reserves space above the fold here, so without this the
+     cover's kicker line would start at y:32 — inside the floating
+     buttons' own y:20–58 band — and render half-hidden underneath them. */
+  #handbook { max-width: 100%; padding: 74px 0 110px; }
+}
+
+/* Higher specificity than the media-query rule above (two ids + a class
+   vs. one id), so this wins regardless of source order: the floating
+   trigger hides once the drawer it opens is already open, since
+   #closeToc — right there in the open panel — is how it gets dismissed. */
+#shell.drawer-open ~ #menuToggle { display: none; }
+
+@media (max-width: 720px) {
+  body { font-size: 1rem; }
+  #handbook { padding: 26px 0 100px; }
+  .chapter > h2 { font-size: 1.55rem; }
+  .chapter h3 { font-size: 1.12rem; }
+  .quote { font-size: 1.1rem; }
+  .anchor { display: none; }
+  .step { padding-left: 44px; }
+}
+
+/* ============================================================
+   PRINT / PDF EXPORT
+
+   A handbook prints as a document: the bookmark list becomes a
+   contents page, then chapters flow, each starting a new page.
+   Chrome's Cmd-P is the whole export path.
+============================================================ */
+@media print {
+  @page { margin: 16mm 15mm; }
+
+  html, body {
+    background: #fff;
+    color: #111;
+    font-size: 10.5pt;
+    line-height: 1.6;
+  }
+
+  /* Force the light palette: a dark handbook wastes a cartridge and
+     reads worse on paper. Values are the light-mode scale, restated
+     because [data-theme] may be "dark" at print time. */
+  :root, :root[data-theme="dark"], :root[data-theme="light"] {
+    --brand-bg:  #ffffff;
+    --slate-50:  #020617;
+    --slate-100: #0f172a;
+    --slate-200: #1e293b;
+    --slate-300: #334155;
+    --slate-400: #475569;
+    --slate-500: #64748b;
+    --slate-600: #94a3b8;
+    --slate-700: #cbd5e1;
+    --slate-800: #e2e8f0;
+    --slate-900: #f1f5f9;
+    --slate-950: #ffffff;
+  }
+
+  /* Every control is a <button> and lives outside the content, so one
+     rule covers them — except #skip-link, which has to be a real <a href>
+     for keyboard users and would otherwise print as a grey pill on page
+     one (a fixed, transform-hidden element still lays out on paper). */
+  /* .nav is screen chrome: a printed handbook has no use for a site header
+     (and its GitHub button would print as a dead icon). */
+  #bg, #progress, #scrim, #skip-link, button, .anchor, .nav, .float-stack {
+    display: none !important;
+  }
+
+  #shell { display: block; max-width: none; padding: 0; }
+
+  /* The bookmark list becomes a printed contents page.
+
+     `transform: none` is load-bearing, not tidying. A printed page is
+     ~816 CSS px wide (US Letter at 96dpi), which is *inside* the
+     `max-width: 1080px` breakpoint above — so the drawer rule applies
+     while printing and translates the sidebar 100% off its own box.
+     Measured: without this line the contents page prints completely
+     blank, and the only symptom is a mysterious empty first page. */
+  #sidebar {
+    position: static;
+    transform: none !important;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    background: none;
+    box-shadow: none;
+    padding: 0;
+    display: block;
+    break-after: page;
+    page-break-after: always;
+  }
+  #watermark svg, #watermark img { height: 46px; }
+  #toc a { color: #111; }
+  #toc a.is-current { color: #111; }
+
+  #handbook { padding: 0; max-width: none; }
+
+  .chapter {
+    break-before: page;
+    page-break-before: always;
+    margin-bottom: 0;
+  }
+  .cover { break-after: page; page-break-after: always; }
+
+  /* Keep a heading with the text it introduces */
+  h2, h3, h4, .card-title, .part-label {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  /* Never split an atom of content across a page boundary */
+  .callout, .quote, .code-block, figure, .card, .step, tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  figure img, .diagram { max-width: 100% !important; height: auto !important; }
+
+  /* A wrapped scroll container prints its visible slice only. */
+  .table-wrap, .code-block pre { overflow: visible !important; }
+  .code-block pre code { white-space: pre-wrap; word-break: break-word; }
+
+  /* Every tab panel prints — on paper there is nothing to click. */
+  .tab-bar { display: none !important; }
+  .tab-panel { display: block !important; border-radius: 12px; margin-bottom: 12px; }
+
+  a:not(.anchor) { color: #111; text-decoration: underline; border-bottom: none; }
+}
