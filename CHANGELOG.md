@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.84.0] - 2026-08-28
+
+### Added
+
+- **`eli5` — explain a topic as a picture, with an embeddable diagram option.** Adapted from Thariq Shihipar's MIT-licensed `eli5` plugin, which is 11 lines and does one thing well: HTML artifact, big visuals, few words. That default is unchanged. Two things are added.
+
+  **An SVG/PNG path, for a diagram going somewhere.** The artifact is right for understanding something; it is the wrong output when the answer has to live in a handbook, a README, or a Slack message. `/eli5` now picks output from where the diagram is going — artifact by default, standalone SVG for a doc, PNG for a slide or chat. PNG needs a converter, so the skill probes `rsvg-convert` → `magick` → `inkscape` → `resvg` → macOS `qlmanage`, and if none exists it hands over the SVG and says which would work rather than claiming a PNG it didn't produce.
+
+  **Seven diagram rules, each of which shipped as a visible defect first.** They all follow from one fact — SVG `<text>` does not wrap — and they are written down because this repo's own handbook broke on every one of them in the last two days: a label running past both rounded corners of its box; a box widened to fit its label, which broke the alignment of the column it was in; an edge attached at a coordinate that was the centre when it was written and stopped being one when a height changed; and a three-way decision drawn as three arrows off one diamond when the third branch turned on a different question and needed its own node.
+
+  **`scripts/check_diagram.mjs`, so the next one is caught rather than screenshotted.** Zero dependencies. Reports label overflow, mixed widths in a centred column, overlapping boxes, geometry outside the viewBox, and edges that miss a face's centre; exits 1 on any finding. It is verified against this repo's own history: run it on the handbook as it stood before each fix and it reproduces the exact defects, including the edge sitting at y=672 against a computed centre of 652.
+
+  One thing it got wrong first, worth recording. The column check originally grouped boxes by left edge, which never fires — widening a box to fit its label also moves its `x` to keep it centred, so the wide box and its neighbours look like different columns. It groups by centre now, and only then does it catch the defect it was written for. It also skips `<svg>` markup that is really a JavaScript string, and it *estimates* label widths at 0.5 × font-size per character, so a near-miss deserves an eye rather than trust in either direction.
+
+  `disable-model-invocation: true`, like the original and like `ask-bigin`: typed as `/eli5 <topic>`, never inserted on its own.
+
 ## [1.83.0] - 2026-08-28
 
 ### Changed

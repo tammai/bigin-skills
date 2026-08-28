@@ -105,10 +105,11 @@ Each scaffold skill's `SKILL.md` is the reference for what it generates. What se
 **Handoff skills** — add-ons for a specific cross-role handoff or mid-session handoff. Not required for the core harness; opt in per project.
 
 <!-- gen:skills-handoff -->
-| Skill                     | Purpose                                                                                                                                    |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| **session-handoff**       | Saves session state (tasks, decisions, uncommitted changes) to SESSION.md and restores it on resume.                                       |
-| **nuxt-ui-figma-handoff** | Turns a Nuxt UI Figma design handoff into code — theme tokens into main.css, component overrides into app.config.ts. Requires a Figma URL. |
+| Skill                     | Purpose                                                                                                                                      |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| **session-handoff**       | Saves session state (tasks, decisions, uncommitted changes) to SESSION.md and restores it on resume.                                         |
+| **nuxt-ui-figma-handoff** | Turns a Nuxt UI Figma design handoff into code — theme tokens into main.css, component overrides into app.config.ts. Requires a Figma URL.   |
+| **eli5**                  | Explains a topic as a picture with few words (/eli5): an HTML artifact by default, or an embeddable SVG/PNG diagram with a geometry checker. |
 <!-- /gen:skills-handoff -->
 
 ## Agents

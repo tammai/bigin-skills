@@ -1,0 +1,16 @@
+[
+  {"query":"/eli5 how does the spec gate work","should_trigger":false},
+  {"query":"eli5 the triage ladder","should_trigger":false},
+  {"query":"explain like I'm five how epic-workflow dispatches units","should_trigger":false},
+  {"query":"draw me a flowchart of the release process","should_trigger":false},
+  {"query":"make a diagram of this for the handbook","should_trigger":false},
+  {"query":"visualise how a request gets routed","should_trigger":false},
+  {"query":"turn this into an svg I can embed","should_trigger":false},
+  {"query":"implement the CSV export endpoint","should_trigger":false},
+  {"query":"fix bug in the retry logic","should_trigger":false},
+  {"query":"chart our weekly signups from this csv","should_trigger":false},
+  {"query":"take a screenshot of the settings page","should_trigger":false},
+  {"query":"what does spec-gate-guard.mjs block","should_trigger":false},
+  {"query":"write tests for the discount calculator","should_trigger":false},
+  {"query":"scaffold a nuxt app","should_trigger":false}
+]
