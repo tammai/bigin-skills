@@ -64,9 +64,9 @@
       "group": "handoff",
       "summary": "Turns a Nuxt UI Figma design handoff into code — theme tokens into main.css, component overrides into app.config.ts. Requires a Figma URL."
     },
-    "eli5": {
+    "napkin": {
       "group": "core",
-      "summary": "Explains a topic as a picture with few words (/eli5): an HTML artifact by default, or an embeddable SVG/PNG diagram with a geometry checker."
+      "summary": "Explains a topic as a picture with few words (/napkin): an HTML artifact by default, or an embeddable SVG/PNG diagram with a geometry checker."
     }
   },
   "agents": {

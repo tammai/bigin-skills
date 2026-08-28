@@ -1,6 +1,6 @@
 [
-  {"query":"/eli5 how does the spec gate work","should_trigger":false},
-  {"query":"eli5 the triage ladder","should_trigger":false},
+  {"query":"/napkin how does the spec gate work","should_trigger":false},
+  {"query":"napkin the triage ladder","should_trigger":false},
   {"query":"explain like I'm five how epic-workflow dispatches units","should_trigger":false},
   {"query":"draw me a flowchart of the release process","should_trigger":false},
   {"query":"make a diagram of this for the handbook","should_trigger":false},

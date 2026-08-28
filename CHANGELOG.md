@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.84.1] - 2026-08-28
+
+### Changed
+
+- **`eli5` is now `napkin`.** It shipped in v1.84.0 under the name it was adapted from, which collides with the community `eli5` plugin: with both installed, bare `/eli5` resolves to whichever registered first and only `/bigin-skills:eli5` is unambiguous. Since the skill sets `disable-model-invocation`, its name is a command you type rather than a surface the model matches, so the cost of a vague name is one meeting and the cost of a colliding one is permanent.
+
+  `napkin` is what the skill actually does — a napkin sketch is the simplest drawing that makes something clear. Six characters, no spelling trap (`visualize`/`visualise` would have had one), and distinctive enough to be unlikely to clash again; checked against the 35 skill names installed here. Renamed everywhere it appears: the directory, the frontmatter `name` (Cursor requires it equal the folder name), the manifest key, the eval queries, and the README and `USER_GUIDE.md` rows. The attribution still names `eli5`, because that is what the source plugin is called.
+
+  Patch rather than minor: the skill is one release old, so nothing can depend on the old command yet.
+
 ## [1.84.0] - 2026-08-28
 
 ### Fixed

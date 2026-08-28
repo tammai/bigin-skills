@@ -1,15 +1,17 @@
 ---
-name: eli5
-description: "Explicit only — type /eli5 <topic>. Explains a topic as a picture with few words: an HTML artifact by default, or a standalone SVG/PNG when you ask for a diagram to embed. Use for flowcharts, decision trees, and how-does-this-work explainers."
+name: napkin
+description: "Explicit only — type /napkin <topic>. Explains a topic as a picture with few words: an HTML artifact by default, or a standalone SVG/PNG when you ask for a diagram to embed. Use for flowcharts, decision trees, and how-does-this-work explainers."
 argument-hint: [topic]
 disable-model-invocation: true
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/check_diagram.mjs *)
 effort: medium
 ---
 
-# eli5
+# napkin
 
 Explain like the reader knows nothing about this topic — big picture, few words.
+
+A napkin sketch: the simplest drawing that makes something clear.
 
 Adapted from the MIT-licensed `eli5` plugin v1.0.0 by Thariq Shihipar, installed from the
 claude-community marketplace; no repository URL is published with it, so none is linked here.
