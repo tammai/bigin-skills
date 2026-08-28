@@ -51,6 +51,7 @@ Everything else is situational:
 
 | You say | What runs |
 | --- | --- |
+| "Which skill should I use" / "where do I start" / "what can you do" | `ask-bigin` — names the one that fits, says why in a line, and hands off |
 | _(automatic, inside task-workflow)_ | `model-router` picks the executing tier; `write-tests` and `debug-workflow` supply test and bug-fix discipline |
 | "This is too big for one task" / "break this epic down" | `epic-workflow` — decomposes it into ordered units, then feeds them back to `task-workflow` one at a time |
 | "We want to build X" / "write a PRD" / "what should we even build" | `discovery-workflow` — brief + PRD under `docs/product/`, architecture decisions into `knowledge/`, then hands the PRD to `epic-workflow` |

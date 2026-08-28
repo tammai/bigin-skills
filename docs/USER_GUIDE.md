@@ -350,6 +350,7 @@ One `PLAN.md` per worktree. Spec-gate approval is **per-worktree** — approving
 
 | You want to… | Say | Skill |
 | --- | --- | --- |
+| Not know which of these you want | "which skill should I use", "where do I start" | `ask-bigin` — routes and hands off; it never does the work itself |
 | Set up a new repo | "set up a harness" | `bigin-harness-setup` |
 | Build a feature / fix a tracked bug | "implement X", "fix Y" | `task-workflow` |
 | Break an initiative into shippable units | "this is too big for one task" | `epic-workflow` |

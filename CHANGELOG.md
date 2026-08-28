@@ -25,6 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`ask-bigin` was missing from every hand-maintained surface.** v1.81.0 added the skill and regenerated the README tables, which is mechanical — `docs_sync.mjs` reads the manifest. What it did not do is the docs sweep a minor bump is supposed to trigger, so the only mention of `ask-bigin` anywhere was that generated table row. For a skill whose entire purpose is "you don't have to know which skill", being absent from the docs is a functional defect, not just missing coverage.
+
+  Now named where a reader would look for it: first row of README's routing table and of `USER_GUIDE.md` §5's, the landing page's skills paragraph, and the handbook's *Starting work* section — which is also where the handbook now says you don't have to pick the right door at all, since every entry point triages through the same ladder. The landing page's "Fifteen skills" in that paragraph was stale too; the hero meta had been corrected to 16 and this had not.
+
 - **Uniform step widths in both workflow diagrams.** A column of steps reads as a column only if the steps line up, and in each diagram two of the main-flow boxes were 380 wide against the rest at 300 — widened at some point to stop a long label overflowing, which trades a text bug for an alignment one. All main-flow boxes in the epic and discovery diagrams are now 300 at `x=240`; the labels that no longer fit wrap onto a second line with the box growing to suit, or are reworded where the shorter wording is also the more precise one. The four side boxes went 176 → 184, which takes their 31-character labels off ~6px of slack.
 
   The checker that verifies this now asserts uniform column width, no overlapping rects, nothing outside the viewBox, every label fitting its box, and each return edge attaching at its boxes' computed centres — the last of which caught the epic diagram's edge sitting 6px and 14px off at its two ends.
