@@ -51,7 +51,7 @@ Everything else is situational:
 
 | You say | What runs |
 | --- | --- |
-| `/napkin how does the spec gate work` | `napkin` — a picture explainer: an HTML artifact by default, or an SVG/PNG diagram when you say where it is going |
+| `/napkin how does the spec gate work` | `napkin` — a picture explainer: offers a few candidate shapes, then draws the one you pick as an HTML artifact, or as an SVG/PNG diagram when you say where it is going |
 | `/ask-bigin which skill should I use` | `ask-bigin` — names the one that fits, says why in a line, and hands off. **Typed, never automatic**: if you can name the work, name it and skip the hop |
 | _(automatic, inside task-workflow)_ | `model-router` picks the executing tier; `write-tests` and `debug-workflow` supply test and bug-fix discipline |
 | "This is too big for one task" / "break this epic down" | `epic-workflow` — decomposes it into ordered units, then feeds them back to `task-workflow` one at a time |
@@ -101,7 +101,7 @@ Each scaffold skill's `SKILL.md` is the reference for what it generates. What se
 | **write-tests**         | On-demand test authoring (/write-tests): style-matched, edge-case-first unit tests for one unit, or an E2E spec from a PRD `FR-n/AC-m` criterion.                |
 | **debug-workflow**      | On-demand systematic debugging (/debug-workflow): triage → fast path for obvious bugs, full guarded workflow for flaky/env/repeat-failure bugs.                  |
 | **model-router**        | Scores capability and verification needs separately, then routes to the quick/standard/deep tier on a per-project model + effort ladder.                         |
-| **napkin**              | Explains a topic as a picture with few words (/napkin): an HTML artifact by default, or an embeddable SVG/PNG diagram with a geometry checker.                   |
+| **napkin**              | Explains a topic as a picture (/napkin): offers 2-4 candidate shapes, then draws your pick as an HTML artifact or an embeddable SVG/PNG, geometry-checked.       |
 <!-- /gen:skills-core -->
 
 **Handoff skills** — add-ons for a specific cross-role handoff or mid-session handoff. Not required for the core harness; opt in per project.

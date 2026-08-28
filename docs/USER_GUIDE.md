@@ -350,7 +350,7 @@ One `PLAN.md` per worktree. Spec-gate approval is **per-worktree** — approving
 
 | You want to… | Say | Skill |
 | --- | --- | --- |
-| Understand something as a picture | `/napkin <topic>` — typed explicitly | `napkin` — HTML artifact by default; SVG or PNG when the diagram has to live in a doc or a message |
+| Understand something as a picture | `/napkin <topic>` — typed explicitly | `napkin` — offers 2-4 candidate shapes first, then draws your pick: HTML artifact by default, SVG or PNG when the diagram has to live in a doc or a message |
 | Not know which of these you want | `/ask-bigin where do I start` — typed explicitly; it never triggers on its own | `ask-bigin` — routes and hands off; it never does the work itself |
 | Set up a new repo | "set up a harness" | `bigin-harness-setup` |
 | Build a feature / fix a tracked bug | "implement X", "fix Y" | `task-workflow` |

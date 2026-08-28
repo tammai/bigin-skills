@@ -66,7 +66,7 @@
     },
     "napkin": {
       "group": "core",
-      "summary": "Explains a topic as a picture with few words (/napkin): an HTML artifact by default, or an embeddable SVG/PNG diagram with a geometry checker."
+      "summary": "Explains a topic as a picture (/napkin): offers 2-4 candidate shapes, then draws your pick as an HTML artifact or an embeddable SVG/PNG, geometry-checked."
     }
   },
   "agents": {

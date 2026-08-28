@@ -1,9 +1,9 @@
 ---
 name: napkin
-description: "Explicit only — type /napkin <topic>. Explains a topic as a picture with few words: an HTML artifact by default, or a standalone SVG/PNG when you ask for a diagram to embed. Use for flowcharts, decision trees, and how-does-this-work explainers."
+description: "Explicit only — type /napkin <topic>. Explains a topic as a picture with few words: an HTML artifact by default, or a standalone SVG/PNG when you ask for a diagram to embed. Use for flowcharts, decision trees, and how-does-this-work explainers. Offers candidate shapes to pick from before drawing."
 argument-hint: [topic]
 disable-model-invocation: true
-allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/check_diagram.mjs *)
+allowed-tools: AskUserQuestion Bash(node ${CLAUDE_SKILL_DIR}/scripts/check_diagram.mjs *)
 effort: medium
 ---
 
@@ -38,6 +38,50 @@ that doesn't match its neighbours reads as imported.
 `inkscape in.svg -o out.png -w 1600` · `resvg in.svg out.png` · on macOS,
 `qlmanage -t -s 1600 -o . in.svg` (writes `in.svg.png`). If none is installed, deliver the SVG,
 say which converters would work, and don't pretend a PNG was produced.
+
+## Then pick the shape — offer it, don't assume it
+
+A shape is a claim. A flow says *this happens after that*; a comparison says *these differ along
+the same axes*; a timeline says *the distance between them means something*. Pick the wrong one
+and the diagram is confidently wrong before a single label is written — the one defect careful
+geometry never catches.
+
+| Shape | What it asserts | Wrong when |
+| --- | --- | --- |
+| **Flow** | One thing happens after another; every branch is a decision | The order is arbitrary |
+| **Comparison** | Two or more things differ along the *same* axes | An axis doesn't apply to both |
+| **Timeline** | Order is calendar order, and the gaps carry meaning | You don't know the dates |
+| **Hierarchy** | Children belong to parents — containment or reporting | The links are peer-to-peer |
+| **Cycle** | The last step feeds the first, and it runs again | It terminates |
+| **Layers** | Each level rests on the one below and talks only to its neighbours | Anything skips a level |
+| **Anatomy** | One thing, called out in parts | There is more than one thing |
+
+**Offer 2–4, then draw one — inline.** Ask with `AskUserQuestion`, header `Shape`, one option per
+candidate. Each option's `preview` is an ASCII sketch of the structure: eight marks at most,
+placeholder labels of a word or two, no real content. They render side by side in the terminal and
+answer in a keystroke.
+
+Do not write a chooser file. A picture that costs a file open and a window switch is slower than
+the question it was asking, and it leaves a stray artifact behind for a decision that took two
+seconds.
+
+Put the *claim* in each option's `description`, not just the shape's name — "asserts one thing
+follows another; answers **how a task gets routed**". The name says what it will look like; the
+description says what it would commit you to, which is the thing actually being chosen.
+
+In the message above the question, name the shapes you rejected and why, one line each. That is
+where the table does its visible work, and it is often what changes the pick.
+
+Skip the chooser — and say you skipped it — when:
+
+- They named the shape: "a timeline of", "flowchart of", "compare X and Y".
+- Only one shape is honest. Steps with a decision in the middle are a flow; there is no second
+  reading to offer, and inventing one to look thorough spends a turn on nothing.
+- They asked for a change to a diagram that already exists.
+
+The answer usually arrives as a pick plus an edit; the free-text **Other** option carries it — "B,
+but colour the reject path". Take both.
+Then draw that one at full fidelity, and run the checker on it.
 
 ## Diagram rules
 

@@ -143,7 +143,12 @@ for (const file of files) {
       if (host && est > host.w - PAD) {
         add('overflow', `"${label.slice(0, 52)}" needs ~${Math.round(est)}px in a ${host.w}px box — wrap it onto another <text> line and grow the box (SVG text does not wrap)`)
       }
-      if (!host && (x - est / 2 < 0 || x + est / 2 > VW)) {
+      // text-anchor decides which side of x the label grows from; SVG defaults to start,
+      // and a left-anchored label read as centred looks like it runs off the left edge.
+      const anchor = (attr(tag, "text-anchor") ?? (/text-anchor\s*:\s*([a-z]+)/.exec(tag) || [])[1] ?? "start").trim()
+      const x0 = anchor === "middle" ? x - est / 2 : anchor === "end" ? x - est : x
+      const x1 = x0 + est
+      if (!host && (x0 < 0 || x1 > VW)) {
         add('bounds', `free label "${label.slice(0, 40)}" extends past the viewBox`)
       }
     }

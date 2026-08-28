@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.85.0] - 2026-08-28
+
+### Added
+
+- **`napkin` offers the shape before it draws one.** Every diagram asserts something structural before it says a word: a flow claims one thing follows another, a comparison claims two things differ along the same axes, a timeline claims the gaps carry meaning. That claim used to be made silently, on the first reading of the topic that came to mind — and it is the one defect `check_diagram.mjs` cannot catch, because a confidently wrong shape is geometrically perfect.
+
+  The skill now names 2-4 candidates from a seven-row table of what each shape asserts and when it is wrong, and asks inline with `AskUserQuestion` — one option per shape, an ASCII structure sketch as its `preview`, and the *claim* rather than the shape name as its `description`, since the claim is what is actually being chosen. The rejected shapes are named with their reason in the message above the question; that is where the table does its visible work. It draws at full fidelity only after the pick, which usually arrives with an edit attached through the free-text option. It skips the offer, and says so, when the shape is already named, when only one shape is honest, or when the request is a change to a diagram that exists.
+
+  No chooser file is written. The first cut rendered thumbnails to a scratch `.html`; a picture that costs a file open and a window switch is slower than the question it was asking.
+
+### Fixed
+
+- **`check_diagram.mjs` read every free label as centred on its `x`.** The viewBox bounds check computed `x - width/2` regardless of `text-anchor`, so a left-anchored caption near the left margin was reported as running off the left edge — SVG's default anchor is `start`, not `middle`. It now resolves the anchor from the attribute or an inline style and measures from the correct side. Found by running the skill's own output through it, which is where a checker that flags correct work does the most damage.
+
 ## [1.84.1] - 2026-08-28
 
 ### Changed
