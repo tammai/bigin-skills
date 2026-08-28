@@ -12,6 +12,8 @@ A **plugin** (`bigin-skills`) for **Claude Code and Cursor** — a collection of
 .claude/rules/            ← this repo's own path-scoped authoring rules
 skills/<name>/SKILL.md    ← one skill per directory
 skills/<name>/references/ ← supporting templates, relative to that skill
+skills/<name>/evals/      ← should-trigger cases; docs_sync.mjs --check fails closed without one
+skills/<name>/scripts/    ← that skill's own executables (8 skills have one), cited via ${CLAUDE_SKILL_DIR}
 agents/<name>.md          ← plugin-level subagent definitions (spawned via Agent tool, not invoked as skills)
 docs/                     ← hand-maintained deep-dives (GATES, KNOWLEDGE, ROUTING, SPEC-GATE, USER_GUIDE, GRAPHIFY)
 site/                     ← landing page + handbook, published to bigin-skills.pages.dev; hand-maintained too

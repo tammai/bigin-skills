@@ -11,9 +11,10 @@ effort: medium
 
 Explain like the reader knows nothing about this topic — big picture, few words.
 
-Adapted from the MIT-licensed [`eli5`](https://github.com/thariq-shihipar) plugin by Thariq
-Shihipar. What this version adds: an embeddable SVG/PNG output, and the diagram rules below,
-each of which is here because it shipped as a visible defect first.
+Adapted from the MIT-licensed `eli5` plugin v1.0.0 by Thariq Shihipar, installed from the
+claude-community marketplace; no repository URL is published with it, so none is linked here.
+What this version adds: an embeddable SVG/PNG output, and the diagram rules below — each of
+which is here because it shipped as a visible defect first.
 
 Topic: $ARGUMENTS
 

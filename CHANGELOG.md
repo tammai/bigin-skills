@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.84.0] - 2026-08-28
 
+### Fixed
+
+- **Stale-docs sweep for v1.81.0–v1.84.0.** Four releases in two days, and the manual surfaces lagged all of them.
+
+  **The skill count was stale again**, in both places on the landing page — 16 and "Sixteen" against 17. It went stale the same way last time: a release adds a skill, `docs_sync` regenerates the tables it owns, and the hand-written numbers two sections away are nobody's job.
+
+  **`eli5` was in exactly one place — README's generated table row.** Precisely the gap `ask-bigin` had one release earlier, from the same cause: shipping a skill without the docs sweep a minor bump is supposed to trigger. It now appears in README's routing table and `USER_GUIDE.md` §5's.
+
+  **`eli5` was filed under "Handoff Skills"**, beside `session-handoff` and `nuxt-ui-figma-handoff` — both handoffs by name and by job. An explainer is neither; moved to core.
+
+  **`CLAUDE.md`'s Structure tree listed neither `skills/<name>/evals/` nor `skills/<name>/scripts/`** — the first is commit-gated (`docs_sync --check` fails closed without it) and the second exists in 8 of 17 skills. A contributor reading the tree to learn the layout would have found neither.
+
+  **An enumeration in `skill-authoring.md` was wrong on the day it was written.** v1.83.0 added "Current holders: `ask-bigin`, and the project-local `harness-audit`" — it was already missing `skill-bench`, and `eli5` made it wronger a release later. Replaced with the grep that answers it, since the list was never the point and this is the exact species the same file warns about three bullets above.
+
+  **A fabricated URL in `eli5`'s attribution.** It credited "the MIT-licensed `eli5` plugin" with a link to `github.com/thariq-shihipar`, which I invented — the source publishes no repository URL in its `plugin.json` or anywhere in its directory. The attribution now states only what is checkable: name, version, author, licence, and the marketplace it came from.
+
 ### Added
 
 - **`eli5` — explain a topic as a picture, with an embeddable diagram option.** Adapted from Thariq Shihipar's MIT-licensed `eli5` plugin, which is 11 lines and does one thing well: HTML artifact, big visuals, few words. That default is unchanged. Two things are added.
