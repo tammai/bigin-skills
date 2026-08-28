@@ -1820,7 +1820,7 @@ Fix the double-submit bug on the checkout form</code></pre>
     </p>
     <figure>
       <svg class="diagram" viewBox="0 0 780 790" xmlns="http://www.w3.org/2000/svg"
-           role="img" aria-label="An initiative meets two triage questions. First, does it clear the bar of three-plus units, more than one PR, or two-plus surfaces? If no, it goes down to task-workflow. If yes, second question: is the product shape settled? If no, it goes up to discovery-workflow. If yes, epic-workflow clarifies or reads an approved PRD, decomposes into ordered units, you approve the decomposition, and the queue is written to .claude/memory/EPIC.md. Each session runs one unit and returns to the queue after a slash clear, until every row is done and the queue is distilled and archived. Separately, above roughly eight units the scope is called a roadmap and the first epic-sized slice is proposed.">
+           role="img" aria-label="An initiative meets two triage questions. First, does it clear the bar of three-plus units, more than one PR, or two-plus surfaces? If no, it goes down to task-workflow. If yes, second question: is the product shape settled? If no, it goes up to discovery-workflow. If yes, epic-workflow clarifies or reads an approved PRD, decomposes into ordered units, you approve the decomposition, and the queue is written to .claude/memory/EPIC.md. Each unit runs through task-workflow and returns to the queue, continuing to the next unit unless it changed what a later unit inherits, until every row is done and the queue is distilled and archived. Separately, above roughly eight units the scope is called a roadmap and the first epic-sized slice is proposed.">
         <defs>
           <marker id="hbEpicArrow" viewBox="0 0 10 10" refX="7" refY="5"
                   markerWidth="5" markerHeight="5" orient="auto-start-reverse">
@@ -1902,11 +1902,11 @@ Fix the double-submit bug on the checkout form</code></pre>
 
         <rect x="240" y="634" width="300" height="64" rx="12"
               fill="var(--dg-violet-fill)" stroke="var(--dg-violet)" stroke-width="1.75" stroke-dasharray="6 4"/>
-        <text x="390" y="660" text-anchor="middle" font-size="13" font-weight="600" fill="var(--dg-text)">One session, one unit</text>
+        <text x="390" y="660" text-anchor="middle" font-size="13" font-weight="600" fill="var(--dg-text)">One unit at a time</text>
         <text x="390" y="678" text-anchor="middle" font-size="10.5" fill="var(--dg-muted)">the six-step loop above runs inside</text>
 
-        <text x="142" y="618" text-anchor="end" font-size="10.5" font-weight="600" fill="var(--dg-muted)">row marked done,</text>
-        <text x="142" y="633" text-anchor="end" font-size="10.5" font-weight="600" fill="var(--dg-muted)">/clear, re-invoke</text>
+        <text x="142" y="618" text-anchor="end" font-size="10.5" font-weight="600" fill="var(--dg-muted)">row done → next unit</text>
+        <text x="142" y="633" text-anchor="end" font-size="10.5" font-weight="600" fill="var(--dg-muted)">/clear only when it stops</text>
 
         <text x="402" y="716" font-size="10.5" font-weight="600" fill="var(--dg-muted)">every row done</text>
 
@@ -1931,10 +1931,19 @@ Fix the double-submit bug on the checkout form</code></pre>
       for five unwritten specs is precisely the drift the gate exists to stop.
     </p>
     <p>
-      <strong>One unit per session is the point, not an inconvenience.</strong> The
-      queue file is the complete handoff package, so <code>/clear</code> between
-      units: a finished unit's spec, diff, and verify rounds are context the next
-      unit does not need and should not pay for. The skill also refuses in both
+      <strong>One unit at a time, and it usually keeps going.</strong> Most of a
+      unit's weight never reaches your session — <code>task-workflow</code>'s
+      implementer and verifier are both subagents — so what accumulates per unit is a
+      scope sentence, a spec, a plan, some verdicts and a review. Small, not nothing.
+      So the skill continues to the next unit by default and stops on a condition
+      instead of a schedule: when context is genuinely tight, when the finished unit
+      changed something a later unit inherits and you should see it before the next
+      spec is drafted against it, or when the next spec gate needs a decision the last
+      unit just changed. The queue file is the complete handoff package either way, so
+      a <code>/clear</code> whenever you like costs nothing. A genuinely independent
+      tail — rows with no <code>Blocked by</code> between them, touching disjoint
+      surfaces — can run as one worktree per unit instead; the skill names the rows and
+      stops rather than orchestrating that itself. The skill also refuses in both
       directions of the ladder — below the bar back to the ordinary loop, and above it to
       <code>discovery-workflow</code> when the product shape isn't settled. Separately,
       above about eight units it says the scope is a roadmap, proposes the first
@@ -1961,7 +1970,7 @@ Fix the double-submit bug on the checkout form</code></pre>
       to decompose or implement.
     </p>
     <figure>
-      <svg class="diagram" viewBox="0 0 780 792" xmlns="http://www.w3.org/2000/svg"
+      <svg class="diagram" viewBox="0 0 780 802" xmlns="http://www.w3.org/2000/svg"
            role="img" aria-label="A vague ask meets a three-rung triage test: a one-line change or bug exits left to task-workflow and a settled initiative exits right to epic-workflow, both writing nothing. Otherwise the repo is read, elicitation is capped, you approve the brief before it is written, you approve the PRD before it is written, the architecture decisions the product forced go to the knowledge bundle, and the PRD path is handed to epic-workflow.">
         <defs>
           <marker id="hbDiscArrow" viewBox="0 0 10 10" refX="7" refY="5"
@@ -1973,8 +1982,8 @@ Fix the double-submit bug on the checkout form</code></pre>
         <g fill="none" stroke="var(--dg-line)" stroke-width="1.75"
            stroke-linecap="round" marker-end="url(#hbDiscArrow)">
           <path d="M390 60 V80"/>
-          <path d="M530 128 H600"/>
-          <path d="M250 128 H180"/>
+          <path d="M530 128 H592"/>
+          <path d="M250 128 H188"/>
           <path d="M390 176 V196"/>
           <path d="M390 248 V272"/>
           <path d="M390 324 V348"/>
@@ -1982,7 +1991,7 @@ Fix the double-submit bug on the checkout form</code></pre>
           <path d="M390 472 V496"/>
           <path d="M390 548 V572"/>
           <path d="M390 620 V644"/>
-          <path d="M390 696 V720"/>
+          <path d="M390 706 V730"/>
         </g>
 
         <rect x="240" y="16" width="300" height="44" rx="12" fill="none"
@@ -1994,15 +2003,15 @@ Fix the double-submit bug on the checkout form</code></pre>
         <text x="390" y="124" text-anchor="middle" font-size="13" font-weight="600" fill="var(--dg-text)">Which rung?</text>
         <text x="390" y="141" text-anchor="middle" font-size="10.5" fill="var(--dg-muted)">one criterion, inventing nothing?</text>
 
-        <rect x="4" y="104" width="176" height="48" rx="12" fill="none"
+        <rect x="4" y="104" width="184" height="48" rx="12" fill="none"
               stroke="var(--dg-border)" stroke-width="1.75"/>
-        <text x="92" y="124" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--dg-text)">A change or a bug</text>
-        <text x="92" y="140" text-anchor="middle" font-size="10.5" fill="var(--dg-muted)">task-workflow · nothing written</text>
+        <text x="96" y="124" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--dg-text)">A change or a bug</text>
+        <text x="96" y="140" text-anchor="middle" font-size="10.5" fill="var(--dg-muted)">task-workflow · nothing written</text>
 
-        <rect x="600" y="104" width="176" height="48" rx="12" fill="none"
+        <rect x="592" y="104" width="184" height="48" rx="12" fill="none"
               stroke="var(--dg-border)" stroke-width="1.75"/>
-        <text x="688" y="124" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--dg-text)">A settled initiative</text>
-        <text x="688" y="140" text-anchor="middle" font-size="10.5" fill="var(--dg-muted)">epic-workflow · nothing written</text>
+        <text x="684" y="124" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--dg-text)">A settled initiative</text>
+        <text x="684" y="140" text-anchor="middle" font-size="10.5" fill="var(--dg-muted)">epic-workflow · nothing written</text>
 
         <text x="402" y="192" font-size="11" font-weight="600" fill="var(--dg-muted)">neither</text>
 
@@ -2035,15 +2044,16 @@ Fix the double-submit bug on the checkout form</code></pre>
         <text x="390" y="594" text-anchor="middle" font-size="12.5" font-weight="600" font-family="var(--brand-font-code)" fill="var(--dg-text)">docs/product/prd.md</text>
         <text x="390" y="610" text-anchor="middle" font-size="10.5" fill="var(--dg-muted)">FR-n requirements, acceptance criteria each</text>
 
-        <rect x="200" y="644" width="380" height="52" rx="12"
+        <rect x="240" y="644" width="300" height="62" rx="12"
               fill="var(--dg-mint-fill)" stroke="var(--dg-mint)" stroke-width="1.75"/>
-        <text x="390" y="666" text-anchor="middle" font-size="13" font-weight="600" fill="var(--dg-text)">The decisions the product forced</text>
-        <text x="390" y="683" text-anchor="middle" font-size="10.5" fill="var(--dg-muted)">knowledge/architecture/ — skipped, loudly, with no bundle</text>
+        <text x="390" y="665" text-anchor="middle" font-size="13" font-weight="600" fill="var(--dg-text)">The decisions the product forced</text>
+        <text x="390" y="682" text-anchor="middle" font-size="10.5" fill="var(--dg-muted)">knowledge/architecture/</text>
+        <text x="390" y="696" text-anchor="middle" font-size="10.5" fill="var(--dg-muted)">skipped, loudly, with no bundle</text>
 
-        <rect x="200" y="720" width="380" height="48" rx="12" fill="none"
+        <rect x="240" y="730" width="300" height="48" rx="12" fill="none"
               stroke="var(--dg-border)" stroke-width="1.75" stroke-dasharray="6 4"/>
-        <text x="390" y="741" text-anchor="middle" font-size="13" font-weight="600" fill="var(--dg-text)">Hand the PRD path to epic-workflow</text>
-        <text x="390" y="757" text-anchor="middle" font-size="10.5" fill="var(--dg-muted)">then stop — the file is the whole handoff package</text>
+        <text x="390" y="751" text-anchor="middle" font-size="13" font-weight="600" fill="var(--dg-text)">Hand the PRD path to epic-workflow</text>
+        <text x="390" y="767" text-anchor="middle" font-size="10.5" fill="var(--dg-muted)">then stop — the file is the whole handoff package</text>
       </svg>
       <figcaption>
         Both early exits are the common case, and both write nothing at all — no

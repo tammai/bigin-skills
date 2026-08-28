@@ -1,6 +1,6 @@
 ---
 name: epic-workflow
-description: "Breaks an initiative too big for one PLAN.md into ordered, independently shippable units, gets the decomposition approved, then dispatches one unit per session through task-workflow. Triggers: 'break this epic down', 'too big for one task', /epic-workflow."
+description: "Breaks an initiative too big for one PLAN.md into ordered, independently shippable units, gets the decomposition approved, then dispatches them one at a time through task-workflow. Triggers: 'break this epic down', 'too big for one task', /epic-workflow."
 argument-hint: [initiative]
 effort: low
 ---
@@ -64,9 +64,17 @@ It adds no gate of its own. Every unit still goes through `task-workflow`'s spec
 
 6. **Dispatch one unit.** Take the first row that isn't `Done` and whose every `Blocked by` row is `Done`. State the unit number, its acceptance criteria, and any epic-level constraint it inherits — then run `task-workflow` on that unit as the task statement. `task-workflow` owns it completely from there: its own spec gate, its own `PLAN.md`, its own verifier rounds.
 
-7. **Close the unit, then stop.** Once `task-workflow` reaches cleanup and archives `PLAN.md` out of the repo root, flip the row to `Done` and put a one-line outcome in `Notes` — what shipped, and anything it changed for a later unit (a renamed field, a decision the next unit inherits). Then **stop and hand off**: tell the user to `/clear` and re-invoke this skill for the next unit.
+7. **Close the unit, then decide whether to continue.** Once `task-workflow` reaches cleanup and archives `PLAN.md` out of the repo root, flip the row to `Done` and put a one-line outcome in `Notes` — what shipped, and anything it changed for a later unit (a renamed field, a decision the next unit inherits).
 
-   Do not start the next unit in the same session. The queue file is the complete handoff package, and everything the finished unit accumulated — its spec, its diff, its verify rounds — is context the next unit doesn't need and shouldn't pay for.
+   Then go straight to step 6 for the next eligible unit **unless one of these holds** — in which case stop, say which one, and tell the user to `/clear` and re-invoke:
+
+   - **Context is actually tight.** Most of a unit's weight is already isolated: step 4 spawns the implementer and the verifier as subagents, so what lands in this session is the scope sentence, the spec, the plan, the verdicts and the review. That is small per unit and not zero — a unit whose review pulled a lot of code into the main thread, or a session already several units deep, has spent it.
+   - **The unit changed something a later unit inherits.** A renamed field, a contract that landed differently, a `Blocked by` that turned out unnecessary. The user should see that in `Notes` before the next spec is drafted against it, and an amendment (step 9) may be the real next move rather than the next unit.
+   - **The next unit's spec gate now needs a decision the last unit just changed.** Drafting a spec in the same breath as the outcome that invalidated its premise is how a plan gets approved against a stale assumption.
+
+   **The stop is a condition, not a schedule.** Continuing is the common case, and `/clear` between every pair of units was the old default for a reason that step 4's subagents already handle. What has not changed: one unit at a time, each through its own spec gate, `task-workflow` owning it end to end. Step 8's resume path is unchanged, so a `/clear` at any point — asked for or not — costs nothing.
+
+   **A genuinely independent tail can run in parallel worktrees instead.** When two or more remaining rows have no `Blocked by` between them and touch disjoint surfaces, they can run as one instance per worktree rather than in sequence here — the rules are in `${CLAUDE_PLUGIN_ROOT}/skills/task-workflow/references/parallelization.md`, and they are not optional: one worktree and one branch per instance, never two instances in one working tree. Say the row numbers and stop; this skill dispatches sequentially and does not orchestrate that fan-out. Two things make it the exception rather than the default — each unit still needs its own human spec gate, and `spec-gate-guard.mjs` reads `PLAN.md` at the repo root, so two units sharing a working tree would compete for one path.
 
 8. **Resume.** On invocation, check `.claude/memory/EPIC.md` first. If it exists with rows not `Done`: report the queue state in one table, then go to step 6 for the next eligible unit. Never re-decompose over an in-flight epic, and never overwrite the file without asking — if the user wants a different decomposition, that's step 9.
 

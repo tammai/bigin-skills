@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.82.0] - 2026-08-28
+
+### Changed
+
+- **`epic-workflow` stops on a condition, not on a schedule.** Step 7 used to end every unit with "stop and hand off — `/clear` and re-invoke", which meant a five-unit epic cost five sessions and five re-invocations. The defence was context hygiene: a finished unit's spec, diff and verify rounds are weight the next unit shouldn't pay for. That argument was written before `task-workflow` step 4 moved the expensive half into subagents, and it hasn't been re-examined since.
+
+  What actually accumulates in the session per unit is a scope sentence, a spec, a plan, some verifier verdicts and a review — the implementer and the verifier are both Agent-tool subagents, so the diff and the verify rounds never land there at all. Small, and not nothing. So the default inverts: **continue to the next eligible unit**, and stop only when one of three things holds, naming which one:
+
+  - context is genuinely tight — a review that pulled a lot of code into the main thread, or a session already several units deep;
+  - the finished unit changed something a later unit inherits (a renamed field, a contract that landed differently, a `Blocked by` that turned out unnecessary), which the user should see in `Notes` before the next spec is drafted against it — and which may make an amendment the real next move;
+  - the next unit's spec gate now needs a decision the last unit just changed.
+
+  **What did not change, because it is what makes the epic layer safe:** one unit at a time, each through its own human spec gate, `task-workflow` owning each unit end to end, and step 8's resume path. A `/clear` at any point still costs nothing — the queue file was always the complete handoff package, and that is exactly why the stop can be conditional rather than mandatory.
+
+  **Parallel fan-out is documented as the exception it is.** A genuinely independent tail — rows with no `Blocked by` between them, touching disjoint surfaces — can run as one instance per worktree, per `task-workflow/references/parallelization.md`. The queue format's own worked example already referenced "parallel worktrees" without the skill ever explaining them. Two things keep it from being the default, and both are hard: every unit needs its own human spec gate, which a subagent cannot run; and `spec-gate-guard.mjs` reads `PLAN.md` at the repo root, so two units in one working tree compete for a single path. The skill names the eligible rows and stops rather than orchestrating the fan-out itself.
+
+  Surfaces updated with it: the skill's always-loaded `description` (which asserted "one unit per session"), the `docs-manifest.json` summary and the README tables it generates, `README.md`'s two prose mentions, `docs/USER_GUIDE.md`'s epic flow diagram and its three-bullet summary, and the handbook's epic section — including the diagram, whose return edge read `row marked done, /clear, re-invoke` and now reads `row done → next unit` with `/clear only when it stops`, and whose dashed box is `One unit at a time` rather than `One session, one unit`.
+
+### Fixed
+
+- **Uniform step widths in both workflow diagrams.** A column of steps reads as a column only if the steps line up, and in each diagram two of the main-flow boxes were 380 wide against the rest at 300 — widened at some point to stop a long label overflowing, which trades a text bug for an alignment one. All main-flow boxes in the epic and discovery diagrams are now 300 at `x=240`; the labels that no longer fit wrap onto a second line with the box growing to suit, or are reworded where the shorter wording is also the more precise one. The four side boxes went 176 → 184, which takes their 31-character labels off ~6px of slack.
+
+  The checker that verifies this now asserts uniform column width, no overlapping rects, nothing outside the viewBox, every label fitting its box, and each return edge attaching at its boxes' computed centres — the last of which caught the epic diagram's edge sitting 6px and 14px off at its two ends.
+
 ## [1.81.0] - 2026-08-27
 
 ### Added

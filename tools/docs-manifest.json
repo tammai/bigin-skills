@@ -14,7 +14,7 @@
     },
     "epic-workflow": {
       "group": "core",
-      "summary": "Decomposes an initiative into ordered, independently shippable units (/epic-workflow), then dispatches one per session through task-workflow."
+      "summary": "Decomposes an initiative into ordered, independently shippable units (/epic-workflow), then dispatches them one at a time through task-workflow."
     },
     "discovery-workflow": {
       "group": "core",

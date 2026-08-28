@@ -294,13 +294,14 @@ If the request needs three or five plans rather than one, `epic-workflow` runs f
         ↓
   unit 1 → task-workflow (its own spec gate, its own PLAN.md)
         ↓
-  row flipped to Done, then it STOPS — /clear and re-invoke for unit 2
+  row flipped to Done → next unit, unless it changed what unit 2 inherits
+                          (then it stops: /clear and re-invoke)
 ```
 
 Three things to hold onto:
 
 - **Approving an epic approves the decomposition, nothing else.** Every unit still faces the spec gate on its own merits. `EPIC.md` deliberately doesn't satisfy the guard — one epic-level approval standing in for five unwritten specs is exactly the drift the gate exists to stop.
-- **One unit per session, on purpose.** The queue file is the complete handoff package, so `/clear` between units. A finished unit's spec, diff, and verify rounds are context the next unit doesn't need.
+- **One unit at a time, and it usually keeps going.** Most of a unit's weight never reaches your session — the implementer and the verifier are subagents — so it continues to the next unit rather than stopping by default. It stops and asks you to `/clear` when context is genuinely tight, or when the finished unit changed something the next one inherits and you should see that before its spec is drafted. The queue file is the complete handoff package either way, so a `/clear` at any point costs nothing.
 - **It refuses in both directions.** Below the bar it hands straight back to `task-workflow`; above ~8 units it says the scope is a roadmap, proposes the first epic-sized slice, and names what it deferred.
 
 Epic cleanup is also where the `knowledge/` distillation usually pays off. A single `PLAN.md` rarely establishes anything durable; an epic that settled a contract or a boundary did.
@@ -369,7 +370,7 @@ You don't have to get the door right. `task-workflow`, `epic-workflow` and `disc
 
 **`write-tests` vs `task-workflow`** — `write-tests` is for "I need tests for this one function, now." A full feature going through `task-workflow` calls `write-tests` internally for its test authoring; you don't need to invoke both.
 
-**`epic-workflow` vs `task-workflow`** — `task-workflow` takes one task to shipped code. `epic-workflow` decides what the tasks *are*: it decomposes an initiative into ordered units, each sized to one `PLAN.md`, and then hands them back to `task-workflow` one unit per session (`/clear` between units — the queue file in `.claude/memory/EPIC.md` is the handoff package). Use it only for rung 2 — 3+ plans, more than one PR, or two-plus surfaces; below that bar, decomposing costs a session and buys nothing. Approving an epic approves the *decomposition* only — every unit still faces the spec gate on its own.
+**`epic-workflow` vs `task-workflow`** — `task-workflow` takes one task to shipped code. `epic-workflow` decides what the tasks *are*: it decomposes an initiative into ordered units, each sized to one `PLAN.md`, and then hands them back to `task-workflow` one at a time (continuing in-session by default, stopping when a unit changed what the next inherits — the queue file in `.claude/memory/EPIC.md` is the handoff package). Use it only for rung 2 — 3+ plans, more than one PR, or two-plus surfaces; below that bar, decomposing costs a session and buys nothing. Approving an epic approves the *decomposition* only — every unit still faces the spec gate on its own.
 
 **`discovery-workflow` vs `epic-workflow`** — both sit above the task loop, and the split is the rung-2/rung-3 boundary: whether the *product* question is settled. If you can already write one testable acceptance criterion for the request exactly as stated, inventing nothing, it's an epic (or a task) and discovery would just manufacture paperwork. If writing that one criterion means deciding who the user is or what "done" means, that's discovery, and it ends by handing `epic-workflow` a PRD.
 

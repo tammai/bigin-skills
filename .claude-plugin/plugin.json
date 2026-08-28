@@ -1,6 +1,6 @@
 {
   "name": "bigin-skills",
-  "version": "1.81.0",
+  "version": "1.82.0",
   "description": "BigIn's Claude Code skills for standardized AI-assisted development — a spec-gated task/epic/discovery workflow (approved PLAN.md, independent verifier, PRD-driven decomposition), harness setup (governance + enforcement gates for nuxt/go/nodejs/next/flutter, Claude Code and Cursor), Nuxt/Next.js/Go/Node.js scaffolding, end-of-sprint and pinned-library knowledge distillation, and session handoff.",
   "author": {
     "name": "Tam Mai",
