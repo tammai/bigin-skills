@@ -109,8 +109,16 @@ function parseArgs(argv) {
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--name") {
+      if (i + 1 >= argv.length) {
+        console.error("Error: --name requires a value");
+        process.exit(1);
+      }
       args.name = argv[++i];
     } else if (arg === "--anchor") {
+      if (i + 1 >= argv.length) {
+        console.error("Error: --anchor requires a value");
+        process.exit(1);
+      }
       args.anchor = Number(argv[++i]);
     } else if (arg === "--help" || arg === "-h") {
       args.help = true;
@@ -130,6 +138,13 @@ function main() {
     process.exit(args.help ? 0 : 1);
   }
 
+  // The name is interpolated straight into a CSS custom-property declaration,
+  // so anything but a CSS identifier would emit invalid CSS with no warning.
+  if (!/^[a-zA-Z][a-zA-Z0-9-]*$/.test(args.name)) {
+    console.error(`Error: --name must be a CSS identifier (letters, digits, hyphens; leading letter), got ${JSON.stringify(args.name)}`);
+    process.exit(1);
+  }
+
   if (!SHADES.includes(args.anchor)) {
     console.error(`Error: --anchor must be one of ${SHADES.join(", ")}, got ${args.anchor}`);
     process.exit(1);
@@ -141,6 +156,15 @@ function main() {
   } catch (e) {
     console.error(`Error: ${e.message}`);
     process.exit(1);
+  }
+
+  // A near-black or near-white anchor pushes a run of shades into the lightness
+  // clamp, where they all resolve to the same hex — a ramp with no visible steps.
+  // Worth saying out loud: the caller asked for a scale and got fewer colors than
+  // shades, which is invisible in the output itself.
+  const collapsed = SHADES.filter((shade, i) => i > 0 && scale[shade] === scale[SHADES[i - 1]]);
+  if (collapsed.length > 0) {
+    console.error(`Warning: ${collapsed.length + 1} shades collapsed to identical values (${collapsed.map((s) => `${s}`).join(", ")}) — ${args.hexColor} sits too close to black or white for a full ramp. Pick a mid-tone anchor, or set --anchor to where this swatch really belongs.`);
   }
 
   console.log(`/* Generated from ${args.hexColor} (treated as shade ${args.anchor}). */`);

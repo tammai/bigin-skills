@@ -327,4 +327,10 @@ testcontainers itself, no docker-compose step needed first.
 `)
 }
 
-main()
+// Any unexpected throw still surfaces through fail()'s `[scaffold] ERROR:`
+// contract documented in SKILL.md, not as a raw Node stack trace.
+try {
+  main()
+} catch (err) {
+  fail(err?.stack || String(err))
+}

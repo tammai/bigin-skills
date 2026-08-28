@@ -584,16 +584,23 @@ function printNextSteps() {
 // ── main ────────────────────────────────────────────────────────────────
 
 const CFG = loadConfig()
-preflight()
-if (!CFG.resume) {
-  stage1Init()
-  stage1bRefresh()
+
+// Any unexpected throw still surfaces through fail()'s `[scaffold] ERROR:`
+// contract documented in SKILL.md, not as a raw Node stack trace.
+try {
+  preflight()
+  if (!CFG.resume) {
+    stage1Init()
+    stage1bRefresh()
+  }
+  stage2Preset()
+  applyArtifacts()
+  if (!CFG.skipInstall) {
+    activateHooks()
+    verify()
+  }
+  commitIfDirty()
+  printNextSteps()
+} catch (err) {
+  fail(err?.stack || String(err))
 }
-stage2Preset()
-applyArtifacts()
-if (!CFG.skipInstall) {
-  activateHooks()
-  verify()
-}
-commitIfDirty()
-printNextSteps()

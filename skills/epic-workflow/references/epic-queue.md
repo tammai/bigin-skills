@@ -42,6 +42,8 @@ don't pad it with things a unit's own spec gate will decide better.}
 
 Valid row statuses: `Not started`, `In progress`, `Done`, `Blocked`. They mean the same things as `PLAN.md`'s task statuses — `In progress` means a `PLAN.md` for that unit exists right now.
 
+`Blocked` is set by hand, and only for something the queue can't express: an external dependency, a decision the user owes, a unit that turned out to need work nobody scoped. A dependency on another *unit* belongs in `Blocked by`, not here. Dispatch (`SKILL.md` step 6) skips a `Blocked` row entirely, so whoever sets it also owns clearing it — write the reason in `Notes`, and set the row back to `Not started` once it's resolved. A row left `Blocked` with no note stalls the epic silently.
+
 `Status:` at the top is the epic's own state: `approved`, or `amending` while step 9 is mid-amendment. Unlike `PLAN.md`'s, no guard reads it; it's there so a resumed session can tell an approved queue from one caught mid-change.
 
 ## Worked example

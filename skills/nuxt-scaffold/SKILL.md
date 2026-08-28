@@ -1,6 +1,6 @@
 ---
 name: nuxt-scaffold
-description: "Scaffolds a new Nuxt 4 BFF app from scratch — empty repo or no nuxt.config.ts. Backend-wired proxy + typed API client; templates: starter, saas, dashboard, landing, docs, chat. Triggers: 'scaffold nuxt', 'create nuxt app', 'nuxt saas template'."
+description: "Scaffolds a new Nuxt 4 BFF app from scratch — empty repo or no nuxt.config.ts. Backend-wired proxy + typed API client; templates: starter, saas, dashboard, landing, docs, chat, portfolio, changelog, editor. Triggers: 'scaffold nuxt', 'create nuxt app', 'nuxt saas template'."
 argument-hint: [template]
 effort: low
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/scaffold.mjs *)

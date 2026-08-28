@@ -583,6 +583,11 @@ function restructureStarterLayers() {
     const to = path.join(CFG.targetDir, ...toRel.split('/'))
     if (!fs.existsSync(from)) fail(`starter Layers: expected ${fromRel} before restructuring — files/ overlay shape changed; re-verify artifacts.md`)
     fs.mkdirSync(path.dirname(to), { recursive: true })
+    // Idempotent on resume: applyArtifacts() rewrites the `files/` overlay sources
+    // fresh on every run, so a second pass finds the destination already populated
+    // from the first — renameSync would throw ENOTEMPTY. The overlay copy is
+    // authoritative, so drop the stale destination and move the fresh one in.
+    fs.rmSync(to, { recursive: true, force: true })
     fs.renameSync(from, to)
     // Prune now-empty ancestor dirs left behind by the move (e.g. shared/,
     // app/composables/queries/) so the tree has no confusing empty stubs.
@@ -767,16 +772,23 @@ function printNextSteps() {
 // ── main ────────────────────────────────────────────────────────────────
 
 const CFG = loadConfig()
-preflight()
-if (!CFG.resume) {
-  stage1Init()
-  stage1bRefresh()
+
+// Any unexpected throw still surfaces through fail()'s `[scaffold] ERROR:`
+// contract documented in SKILL.md, not as a raw Node stack trace.
+try {
+  preflight()
+  if (!CFG.resume) {
+    stage1Init()
+    stage1bRefresh()
+  }
+  stage2Preset()
+  applyArtifacts()
+  if (!CFG.skipInstall) {
+    activateHooks()
+    verify()
+  }
+  commitIfDirty()
+  printNextSteps()
+} catch (err) {
+  fail(err?.stack || String(err))
 }
-stage2Preset()
-applyArtifacts()
-if (!CFG.skipInstall) {
-  activateHooks()
-  verify()
-}
-commitIfDirty()
-printNextSteps()

@@ -44,7 +44,7 @@ Gated — do not start step N+1 without step N's output recorded.
 
 2. **Evidence.** If the symptom names a function/handler/table and `graphify-out/graph.json` exists, query the graph for callers/callees/dependents first and read only the files it implicates — `INFERRED`/`AMBIGUOUS` edges are a pointer to a source read, not confirmation. Read the implicated code and trace the failure backward through the call stack / request path. Instrument the component boundaries the failure crosses (composable, store, API client, handler, DB) only where reading the code doesn't yield the evidence. No fix proposals in this step — only evidence.
 
-3. **Hypothesis.** State exactly one hypothesis, supported by step-2 evidence, and **pre-register the probe's outcomes before running it**: "if the hypothesis is right, the probe shows X; if wrong, Y." The probe is the smallest possible disposable diagnostic — never the fix itself. "Symptom gone" is not "cause confirmed"; only the pre-registered X counts. If refuted, discard the probe and return to step 2 — never stack a second hypothesis on an unconfirmed one.
+3. **Hypothesis.** State exactly one hypothesis, supported by step-2 evidence, and **pre-register the probe's outcomes before running it**: "if the hypothesis is right, the probe shows X; if wrong, Y." The probe is the smallest possible disposable diagnostic — never the fix itself. "Symptom gone" is not "cause confirmed"; only the pre-registered X counts. If refuted, discard the probe and return to step 2 — never stack a second hypothesis on an unconfirmed one. **Cap: 3 refuted hypotheses.** A fourth means the step-2 evidence is too thin to hypothesize from, not that the next guess will land — say so and go to the escalation safeguard below.
 
 4. **Fix + validation.** Implement only once the root cause is confirmed. Validate with the failing repro now passing plus a check that nothing adjacent broke — show the actual output, don't claim it passed without showing it (same discipline as `write-tests` and `task-workflow`'s implement/verify loop). For timing-related bugs, one pass proves nothing: require repeated runs (≥5 consecutive passes) — see `references/race-conditions.md`.
 
@@ -52,7 +52,7 @@ Gated — do not start step N+1 without step N's output recorded.
 
 ## Escalation safeguard
 
-After 3 failed fix attempts on the same issue: **stop and ask** — flag it as an architecture-level problem for human review instead of continuing to patch. (Same "stop and ask" phrasing as `task-workflow`'s Scope discipline — don't stack further attempts silently.)
+After 3 refuted hypotheses (step 3) or 3 failed fix attempts (step 4) on the same issue — the two caps count separately: **stop and ask** — flag it as an architecture-level problem for human review instead of continuing to patch. (Same "stop and ask" phrasing as `task-workflow`'s Scope discipline — don't stack further attempts silently.)
 
 ## References
 

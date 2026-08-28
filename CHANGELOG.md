@@ -5,6 +5,57 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.85.1] - 2026-08-28
+
+### Fixed
+
+- **`nuxt-scaffold` crashed on every resume of a `starter` scaffold.** `applyArtifacts()` rewrites the `files/` overlay on each run by design, so a second pass found `layers/shared/api-client` already populated and `renameSync` threw an uncaught `ENOTEMPTY` — the exact flow `SKILL.md` step 1 tells the agent to offer after a partial scaffold. `move()` now drops the stale destination before moving the fresh copy in, making the whole Layers restructure idempotent.
+- **Three scaffolds bypassed their own error contract.** Only `go-scaffold` wrapped its entry point, so an unexpected throw in `next`/`nodejs`/`nuxt` surfaced as a raw Node stack trace instead of the `[scaffold] ERROR:` line their `SKILL.md`s promise. All four now route through `fail()`.
+- **The `next` profile's `security.md`/`architecture.md` were scoped to a file that does not exist.** `files-shared.md` named `openapi.yaml`; `next-scaffold` ships `openapi.json`. A `paths:` entry naming an absent file fails silently — the rule simply never loaded when the real contract was edited. The shared `architecture.md` and PR checklist no longer hardcode one profile's contract filename either.
+- **The `nuxt` and `next` governance templates taught an architecture their scaffolds stopped generating.** Both described per-domain backend handlers (`server/api/users/index.get.ts`, `src/app/api/users/route.ts`) and raw `openapi-typescript` CLI calls; both scaffolds ship a single catch-all BFF proxy plus a generated client and a `pnpm` script. `next` also pointed at `src/hooks/queries/` and `src/types/api.d.ts` for a tree that uses `src/features/<feature>/hooks/` and `src/shared/api-client/schema.d.ts`, and `nuxt` mandated a `defineQueryOptions()` form its own sample does not use. A repo scaffolded and then governed got conventions contradicting its own generated code on day one.
+- **`generate_color_scale.mjs` emitted invalid CSS without complaining.** `--name` with no value produced `--color-undefined-50`, and any string passed through verbatim into a custom-property declaration. Both now fail with a clear error. A near-black or near-white swatch also silently collapsed a run of shades to one hex; that now warns on stderr, naming the collapsed shades.
+- **`check_diagram.mjs` crashed on a typo'd path** — an unwrapped `readFileSync` dumped a raw `ENOENT` trace. It now reports the file and exits 2.
+- **`debug-workflow`'s hypothesis loop had no exit.** The escalation safeguard counted failed *fix* attempts, which only happen after a root cause is confirmed, so an agent could cycle on refuted hypotheses indefinitely. Capped at 3, counted separately from the fix-attempt cap.
+- **`epic-workflow` never said when to stop dispatching.** Step 7 sent the agent back to step 6 with no stated transition to step 10 when the queue was exhausted, and step 6's selection rule ignored a row's own `Status`, so a row hand-marked `Blocked` could still be dispatched. `Blocked` now has stated mechanics in `epic-queue.md`: who sets it, who clears it, and that dispatch skips it.
+- **`nuxt-scaffold`'s `description` listed 6 of its 9 templates** — `portfolio`, `changelog`, and `editor` were implemented but undiscoverable. Still 276/350 chars.
+- **`sprint-distill`'s `allowed-tools` was missing the legacy validator** (`uv run tools/knowledge_validate.py`) that Phase 4 explicitly instructs for pre-v1.19.0 repos.
+- **`CLAUDE.md` mislabelled `summary-checklist.md`** as procedure-only. Its `## Phase 6 README Templates` section is appended verbatim to a target repo's `README.md`; only the rest is procedure.
+- **`site/index.html` still said "16 skill descriptions"** — the count has been 17 since v1.84.0, and the same page said so twice elsewhere.
+
+Found by a seven-agent regression sweep of every skill, script, guard, gate, and manifest in the plugin. The nine guard scripts, both commit gates, the Cursor mirror, `classify.mjs`, `count_budget.mjs`, and all four scaffolds' failure modes were exercised against real inputs and came back clean.
+
+```patch
+target: .claude/rules/conventions-server.md
+anchor: pnpm openapi-typescript openapi.yaml -o src/types/api.d.ts
+insert: replace
+---
+pnpm openapi:generate   # openapi-typescript openapi.json -o src/shared/api-client/schema.d.ts
+```
+
+```patch
+target: .claude/rules/conventions-server.md
+anchor: Import only in route handlers: `import type { paths } from '@/types/api'`
+insert: replace
+---
+Import from `@/shared/api-client/schema`: `import type { paths } from '@/shared/api-client/schema'`
+```
+
+```patch
+target: .claude/rules/conventions-server.md
+anchor: pnpm openapi-typescript openapi.yaml -o server/types/api.d.ts
+insert: replace
+---
+pnpm openapi-types   # openapi-typescript openapi.yaml -o shared/api-client/schema.d.ts
+```
+
+```patch
+target: .claude/rules/conventions-server.md
+anchor: Import only in server routes: `import type { paths } from '~/server/types/api'`
+insert: replace
+---
+Import from `~~/shared/api-client/schema`: `import type { components } from '~~/shared/api-client/schema'`
+```
+
 ## [1.85.0] - 2026-08-28
 
 ### Added

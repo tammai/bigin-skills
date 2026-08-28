@@ -85,11 +85,11 @@ paths:
 
 ## Server State: Pinia Colada
 - Server data → Colada query/mutation composables only. Client state (auth, UI, filters, drafts) → Pinia stores. Never wrap `useQuery`/`useMutation` inside a Pinia store — Colada's cache already lives in Pinia; wrapping it duplicates state and breaks lifecycle tracking.
-- One file per domain: `composables/queries/<domain>.ts`. Define query options via `defineQueryOptions()`, grouped in a per-domain object (`userQueries.list`, `userQueries.detail`). Keys are defined once there — never hand-written inline in pages/components. Format: `['<domain>', '<scope>', ...params]`.
-- If a domain file grows unwieldy, split into `composables/queries/<domain>/` with an `index.ts` re-export. Never split by type (`queries/` vs `mutations/`) across domains — the domain stays the unit of grouping.
+- One file per domain: `app/composables/queries/<domain>.ts`. Group the query options in a per-domain object (`userQueries.list`, `userQueries.detail`) — a plain `{ key, query }` object for a fixed query, `defineQueryOptions()` when the options depend on a parameter. Keys are defined once there, never hand-written inline in pages/components. Format: `['<domain>', '<scope>', ...params]`.
+- If a domain file grows unwieldy, split into `app/composables/queries/<domain>/` with an `index.ts` re-export. Never split by type (`queries/` vs `mutations/`) across domains — the domain stays the unit of grouping.
 - Mutations colocate with their domain as `use<Action><Domain>()` (e.g. `useUpdateUser`). Cache invalidation happens inside the mutation composable via `useQueryCache()` — never in components.
-- Components/pages consume query composables only — no direct `api.*` calls, no inline keys. Use `defineQuery()` when the same query is shared by multiple components on one page.
-- Types come from openapi-typescript generated types — the query layer is the only place raw API types are imported.
+- Components/pages consume query composables only — no direct `api.*` calls, no inline keys. Export the composable via `defineQuery()` so every consumer shares one cache entry.
+- Types come from the generated contract (`~~/shared/api-client/schema`) — the query layer is the only place raw API types are imported.
 
 ```ts
 // bad — Colada wrapped inside a Pinia store
@@ -99,21 +99,31 @@ const useUserStore = defineStore('user', () => {
 })
 
 // good — query composable; store reserved for client state
-const { data } = useQuery(userQueries.list())
+const { data } = useUsers()
 ```
 
 ```ts
-// composables/queries/users.ts
+// app/composables/queries/users.ts
+import { defineQuery, useQuery } from '@pinia/colada'
+import { apiClient } from '~~/shared/api-client'
+import type { Ok } from '~~/shared/api-client'
+import type { components } from '~~/shared/api-client/schema'
+
+export type User = components['schemas']['User']
+
 export const userQueries = {
-  list: defineQueryOptions(() => ({
+  list: {
     key: ['users', 'list'],
-    query: () => $fetch<User[]>('/api/users'),
-  })),
-  detail: defineQueryOptions((id: string) => ({
-    key: ['users', 'detail', id],
-    query: () => $fetch<User>(`/api/users/${id}`),
-  })),
+    // Goes through the same-origin BFF proxy (apiClient's baseURL is
+    // '/api/backend') — this query never sees a token or NUXT_BACKEND_URL.
+    query: async (): Promise<User[]> => {
+      const { data } = await apiClient<Ok<'/v1/users'>>('/v1/users')
+      return data
+    },
+  },
 }
+
+export const useUsers = defineQuery(() => useQuery(userQueries.list))
 ```
 
 ## Components
@@ -143,28 +153,25 @@ paths:
 # Server Conventions
 
 ## Naming
-- API routes: kebab-case (`/api/users/[id].ts`)
+- API routes: kebab-case (`/api/<segment>/[id].ts`)
 
 ## BFF Proxy
-`server/api/` is the sole caller of the backend REST API. Client-side code calls same-origin `/api/*` — no auth headers, no backend URL in the browser.
+`server/api/backend/[...path].ts` is a **single catch-all proxy** and the sole caller of the backend REST API. It unseals the session, attaches the Bearer token, forwards the path verbatim, and handles the 401 refresh-and-retry-once flow; a CSRF middleware guards mutating cross-site requests. Browser code calls same-origin `/api/backend/*` through `shared/api-client` — no auth headers, no backend URL in the browser.
+
+Do **not** add a per-domain handler that calls the backend itself; a new backend endpoint needs no new route file, only a regenerated contract. Handlers of your own are for work that is genuinely Nuxt-side (webhooks, form posts, server-only integrations). Server code that must reach the backend directly (the auth routes, the proxy's own refresh step) uses `server/utils/backend.ts`.
 
 ```ts
-// server/api/users/index.get.ts
-export default defineEventHandler(async (event) => {
-  const { user } = await requireUserSession(event)
-  const config = useRuntimeConfig()
-  return $fetch(`${config.backendUrl}/users`, {
-    headers: { Authorization: `Bearer ${user.token}` },
-  })
-})
+// A query composable reaches the backend through the proxy — not through a new route.
+const { data } = await apiClient<Ok<'/v1/users'>>('/v1/users')
 ```
 
 ## OpenAPI Types
-Generate before consuming any new API surface:
+The committed contract snapshot is `openapi.yaml`. Regenerate the typed client before consuming any new API surface:
 ```sh
-pnpm openapi-typescript openapi.yaml -o server/types/api.d.ts
+pnpm openapi-types   # openapi-typescript openapi.yaml -o shared/api-client/schema.d.ts
 ```
-Import only in server routes: `import type { paths } from '~/server/types/api'`
+Import from `~~/shared/api-client/schema`: `import type { components } from '~~/shared/api-client/schema'`
+(On the `starter` template the kernel lives under `layers/shared/` — import `~~/layers/shared/api-client` there, and the `openapi-types` script already points at that path.)
 Never define API response shapes inline — always use generated types.
 
 ## Auth (server)
@@ -247,6 +254,7 @@ Governance superset: `permissions` + `PostToolUse` lint-fix (the `nuxt-scaffold`
       "Bash(pnpm add:*)",
       "Bash(pnpm remove:*)",
       "Bash(pnpm install:*)",
+      "Bash(pnpm openapi-types:*)",
       "Bash(pnpm openapi-typescript:*)",
       "Bash(git status:*)",
       "Bash(git diff:*)",

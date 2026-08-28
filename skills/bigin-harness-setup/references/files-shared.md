@@ -8,7 +8,7 @@ Templates for files that are identical (or nearly identical) across all stack pr
 
 When writing `.claude/rules/security.md` and `.claude/rules/architecture.md`, prepend the profile-specific `paths:` frontmatter before the template content. `.claude/rules/comments.md` and `.claude/rules/product.md` are the two exceptions — each carries its own stack-agnostic frontmatter and is written verbatim, no substitution: `comments.md` scopes by source-file extension (every profile), because comment rules apply to any source file including scripts and tooling outside the app directories; `product.md` scopes to `docs/product/**`, which is the same path on every profile regardless of stack.
 
-Every profile's list includes its OpenAPI contract file: `architecture.md` owns the versioning rule (additive changes, `/v2/` on a break), so it has to load when the contract itself is the file being edited — not only when source files are.
+Every profile's list includes its OpenAPI contract file: `architecture.md` owns the versioning rule (additive changes, `/v2/` on a break), so it has to load when the contract itself is the file being edited — not only when source files are. The filename differs by profile (`openapi.yaml`, `api/openapi.yaml`, `openapi.json`); use the one the repo actually has, since a `paths:` entry that names a file the repo doesn't contain fails silently — the rule simply never loads.
 
 **nuxt:**
 ```yaml
@@ -46,16 +46,17 @@ paths:
 ---
 ```
 
-**next:**
+**next:** the contract file is `openapi.json`, not `openapi.yaml` — `next-scaffold` ships a committed JSON snapshot (`pnpm openapi:generate`). Scoping this to `openapi.yaml` silently means the rule never loads when the real contract is edited.
 ```yaml
 ---
 paths:
   - "src/app/**"
+  - "src/features/**"
+  - "src/shared/**"
   - "src/components/**"
-  - "src/hooks/**"
   - "src/lib/**"
   - "src/proxy.ts"
-  - "openapi.yaml"
+  - "openapi.json"
 ---
 ```
 
@@ -124,10 +125,10 @@ handlers/controllers → services → repos/stores
 Never reverse. A repo must never import a handler.
 
 ## API Contract
-- `openapi.yaml` is the cross-repo contract between frontend and backend.
+- The OpenAPI contract file is the cross-repo agreement between frontend and backend. (Substitute the repo's actual contract path when writing this file — `openapi.yaml` on nuxt, `api/openapi.yaml` on go/flutter, `openapi.json` on next.)
 - Backend leads with backward-compatible (additive) changes.
 - Breaking change = API version bump (`/v2/`). Frontend adopts after backend ships.
-- Frontend generates types from `openapi.yaml`. Never hardcode API response shapes.
+- Frontend generates types from the contract. Never hardcode API response shapes.
 ```
 
 *Profile-specific architecture rules are appended below this by the skill during setup.*
@@ -279,8 +280,8 @@ Before marking any task complete, every item must be checked.
 - [ ] No PII logged
 
 ## Contract
-- [ ] `openapi.yaml` updated if any route signature changed
-- [ ] Types regenerated from `openapi.yaml` if API surface changed
+- [ ] OpenAPI contract updated if any route signature changed
+- [ ] Types regenerated from the contract if API surface changed
 
 ## Scope
 - [ ] Spec was approved before implementation (non-trivial features only)

@@ -73,7 +73,13 @@ const findings = []
 let checked = 0, skipped = 0
 
 for (const file of files) {
-  const text = readFileSync(file, 'utf-8')
+  let text
+  try {
+    text = readFileSync(file, 'utf-8')
+  } catch (err) {
+    console.error(`Cannot read ${file}: ${err.code === 'ENOENT' ? 'no such file' : err.message}`)
+    process.exit(2)
+  }
   const lineAt = (i) => text.slice(0, i).split('\n').length
 
   for (const { start, body } of findSvgs(text)) {

@@ -64,8 +64,9 @@ Paths frontmatter scopes this file to the App Router tree — only loaded when f
 ---
 paths:
   - "src/app/**"
+  - "src/features/**"
+  - "src/shared/**"
   - "src/components/**"
-  - "src/hooks/**"
   - "src/stores/**"
 ---
 # Frontend Conventions
@@ -83,11 +84,12 @@ paths:
 
 ## Server State: TanStack Query
 - Server data → TanStack Query hooks only. Client state (auth, UI, filters, drafts) → Zustand stores. Never wrap `useQuery`/`useMutation` inside a Zustand store — Query's cache already manages its own lifecycle; wrapping it duplicates state and breaks invalidation.
-- One file per domain: `src/hooks/queries/use-<domain>.ts`. Define query keys/options grouped in a per-domain object (`userQueries.list`, `userQueries.detail`) — never hand-written inline in components. Key format: `['<domain>', '<scope>', ...params]`.
-- If a domain file grows unwieldy, split into `src/hooks/queries/<domain>/` with an `index.ts` re-export. Never split by type (`queries/` vs `mutations/`) across domains — the domain stays the unit of grouping.
+- One file per domain, inside its feature: `src/features/<feature>/hooks/use-<domain>.ts`. Define query keys/options grouped in a per-domain object (`userQueries.list`, `userQueries.detail`) — never hand-written inline in components. Key format: `['<domain>', '<scope>', ...params]`.
+- If a domain file grows unwieldy, split into `src/features/<feature>/hooks/<domain>/` with an `index.ts` re-export. Never split by type (`queries/` vs `mutations/`) across domains — the domain stays the unit of grouping.
+- `eslint-plugin-boundaries` enforces the feature/shared/lib/app edges (`eslint.boundaries.mjs`); a cross-feature import fails `pnpm lint`. Reach for `src/shared/` when two features need the same thing.
 - Mutations colocate with their domain as `use<Action><Domain>()` (e.g. `useUpdateUser`). Cache invalidation happens inside the mutation hook via `queryClient.invalidateQueries()` — never in components.
 - Components consume query hooks only — no direct `fetch`/`api.*` calls, no inline keys.
-- Types come from openapi-typescript generated types — the query layer is the only place raw API types are imported.
+- Types come from the generated contract (`@/shared/api-client/schema`) — the query layer is the only place raw API types are imported.
 
 ```ts
 // bad — TanStack Query wrapped inside a Zustand store
@@ -101,16 +103,24 @@ const { data } = useUsers()
 ```
 
 ```ts
-// src/hooks/queries/use-users.ts
+// src/features/users/hooks/use-users.ts
+import { apiClient } from '@/shared/api-client'
+import type { paths } from '@/shared/api-client/schema'
+
+type UsersListBody = paths['/v1/users/']['get']['responses'][200]['content']['application/json']
+export type User = UsersListBody['data'][number]
+
 export const userQueries = {
   list: {
     queryKey: ['users', 'list'] as const,
-    queryFn: () => fetch('/api/users').then(r => r.json() as Promise<User[]>),
+    // Goes through the same-origin BFF proxy (apiClient's baseUrl is
+    // '/api/backend') — this hook never sees a token or BACKEND_URL.
+    queryFn: async (): Promise<User[]> => {
+      const { data, error } = await apiClient.GET('/v1/users/')
+      if (error || !data) throw new Error('failed to fetch users')
+      return data.data
+    },
   },
-  detail: (id: string) => ({
-    queryKey: ['users', 'detail', id] as const,
-    queryFn: () => fetch(`/api/users/${id}`).then(r => r.json() as Promise<User>),
-  }),
 }
 
 export function useUsers() {
@@ -146,31 +156,24 @@ paths:
 # Server Conventions
 
 ## Naming
-- API routes: Next Route Handlers, kebab-case segments (`src/app/api/users/[id]/route.ts`)
+- API routes: Next Route Handlers, kebab-case segments (`src/app/api/<segment>/route.ts`)
 
 ## BFF Proxy
-`src/app/api/**/route.ts` is the sole caller of the backend REST API. Client-side code calls same-origin `/api/*` — no auth headers, no backend URL in the browser.
+`src/app/api/backend/[...path]/route.ts` is a **single catch-all proxy** and the sole caller of the backend REST API. It unseals the session, attaches the Bearer token, forwards the path verbatim, and handles the 401 refresh-and-retry-once flow. Client-side code calls same-origin `/api/backend/*` through the generated client — no auth headers, no backend URL in the browser.
+
+Do **not** add a per-domain route handler that calls the backend itself; a new backend endpoint needs no new route file, only a regenerated contract. Route handlers of your own are for work that is genuinely Next-side (webhooks, form actions, server-only integrations).
 
 ```ts
-// src/app/api/users/route.ts
-import { getSession } from '@/lib/session'
-
-export async function GET() {
-  const session = await getSession()
-  if (!session.user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
-  const res = await fetch(`${process.env.BACKEND_URL}/users`, {
-    headers: { Authorization: `Bearer ${session.user.token}` },
-  })
-  return Response.json(await res.json())
-}
+// A feature hook reaches the backend through the proxy — not through a new route.
+const { data, error } = await apiClient.GET('/v1/users/')
 ```
 
 ## OpenAPI Types
-Generate before consuming any new API surface:
+The committed contract snapshot is `openapi.json`. Regenerate the typed client before consuming any new API surface:
 ```sh
-pnpm openapi-typescript openapi.yaml -o src/types/api.d.ts
+pnpm openapi:generate   # openapi-typescript openapi.json -o src/shared/api-client/schema.d.ts
 ```
-Import only in route handlers: `import type { paths } from '@/types/api'`
+Import from `@/shared/api-client/schema`: `import type { paths } from '@/shared/api-client/schema'`
 Never define API response shapes inline — always use generated types.
 
 ## Auth (server)
@@ -196,8 +199,8 @@ paths:
 
 ## Location
 Tests live co-located with source under `src/`, not in a separate mirrored tree:
-- `src/hooks/queries/use-users.ts` → `src/hooks/queries/use-users.test.tsx`
-- `src/app/api/users/route.ts` → `src/app/api/users/route.test.ts`
+- `src/features/users/hooks/use-users.ts` → `src/features/users/hooks/use-users.test.tsx`
+- `src/app/api/backend/[...path]/route.ts` → `src/app/api/backend/[...path]/route.test.ts`
 
 `vitest.config.ts`'s `test.include` is scoped to `src/**/*.test.{ts,tsx}`.
 
@@ -205,7 +208,7 @@ Tests live co-located with source under `src/`, not in a separate mirrored tree:
 Import the module under test via the `@/*` alias or a relative path consistently within a file — prefer `@/*` for anything outside the immediate directory, since a co-located test's relative path is already short (`./use-users`).
 
 ```ts
-// src/hooks/queries/use-users.test.tsx
+// src/features/users/hooks/use-users.test.tsx
 import { useUsers } from './use-users'
 ```
 
@@ -219,18 +222,18 @@ Mock only the true I/O boundary — `fetch`, session read/write. Wire real imple
 
 ## architecture addendum
 
-Prepend `paths: ["src/app/**", "src/components/**", "src/hooks/**"]` as YAML frontmatter when writing `architecture.md` (see `references/files-shared.md` → `## paths substitutions`).
+Prepend `paths: ["src/app/**", "src/features/**", "src/shared/**", "src/components/**"]` as YAML frontmatter when writing `architecture.md` (see `references/files-shared.md` → `## paths substitutions`).
 
 ```markdown
 ## [Next] BFF Boundary
-- `src/app/api/**/route.ts` is the **sole caller** of the external backend REST API. Client-side code never calls the backend directly.
+- `src/app/api/backend/[...path]/route.ts` is the **sole caller** of the external backend REST API. Client-side code never calls the backend directly — it goes through that same-origin proxy via the generated client.
 - Backend access token lives in the `iron-session` sealed session (server-side only). It never reaches the browser.
-- `openapi.yaml` types are generated and consumed **server-side** (`src/types/api.d.ts`). Client components receive data already shaped by route handlers — no raw API types on the client.
+- `openapi.json` is the committed contract; types are generated into `src/shared/api-client/schema.d.ts` and consumed through `src/shared/api-client`. No hand-written API response shapes anywhere.
 
 ## [Next] App Router Boundaries
 - No business logic in components — hooks or Zustand stores only.
 - Server Components by default; add `'use client'` only where interactivity/hooks require it.
-- Shared hooks in `src/hooks/`. Shared utilities in `src/lib/`.
+- Feature code in `src/features/<feature>/`; cross-feature code in `src/shared/`; server-only helpers in `src/lib/`. The edges are lint-enforced by `eslint.boundaries.mjs`.
 - Route segments in `src/app/` — routing + composition only, delegate to hooks for data/logic.
 ```
 
