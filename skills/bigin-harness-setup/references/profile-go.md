@@ -323,6 +323,26 @@ Prepend `paths: ["**/*.go"]` as YAML frontmatter when writing `architecture.md` 
           }
         ]
       }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/guards/precompact-snapshot.mjs"
+          }
+        ]
+      }
+    ],
+    "Setup": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/guards/install-hooks.mjs"
+          }
+        ]
+      }
     ]
   }
 }

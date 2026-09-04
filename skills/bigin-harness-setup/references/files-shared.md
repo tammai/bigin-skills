@@ -46,6 +46,16 @@ paths:
 ---
 ```
 
+**tauri:** both halves, because the security and architecture rules here are precisely about the boundary *between* them — an `architecture.md` that loads only for `app/**` never loads while somebody is writing the `#[tauri::command]` on the other side of it.
+```yaml
+---
+paths:
+  - "app/**"
+  - "src-tauri/**"
+  - "openapi.yaml"
+---
+```
+
 **next:** the contract file is `openapi.json`, not `openapi.yaml` — `next-scaffold` ships a committed JSON snapshot (`pnpm openapi:generate`). Scoping this to `openapi.yaml` silently means the rule never loads when the real contract is edited.
 ```yaml
 ---

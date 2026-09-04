@@ -823,14 +823,187 @@ process.exit(0)
 
 ---
 
+## install-hooks.mjs
+
+Write to `.claude/guards/install-hooks.mjs`.
+
+**A bootstrap, not a gate** — the same standing as `lint-fix-file.mjs`. It never blocks anything and always exits 0. It exists because `.git/hooks/` is not version-controlled: every teammate who clones the repo starts with *no* pre-commit gate and *no* commit-msg gate, and until now the only thing standing between them and an ungated commit was a shell snippet in the README that a human has to notice and run. A gate you can forget to install is prose, which is the exact failure mode the rest of this harness exists to remove.
+
+Registered on **`Setup`**, which is Claude Code's one-time-preparation event. Not registered on Cursor: its hook set has no `Setup` equivalent, so a Cursor-only teammate still runs the README snippet, and the Phase 7 summary says so rather than implying parity that isn't there.
+
+Three behaviours worth stating, because each is a way this could do harm instead of good:
+
+- **It never clobbers a foreign hook.** Absent, or already our symlink → install/refresh. Anything else → leave it and report it. Same rule Phase 5-1b follows interactively.
+- **It defers to a hook manager rather than fighting it.** `simple-git-hooks` or `husky` in the repo means that tool owns `.git/hooks/`, and re-pointing those paths at our scripts would break the manager's own `pre-commit` on its next run. It prints the one command to run instead — it never installs packages and never runs the manager, because a `Setup` hook that reaches for the network is a hook people disable.
+- **It reports through `additionalContext`, not stdout.** A `Setup` hook's bare stdout is not shown; a silent bootstrap that quietly did nothing is worse than one that never existed.
+
+```javascript
+#!/usr/bin/env node
+// Installs the repo's git hooks on first run, because .git/hooks/ isn't tracked and a
+// fresh clone otherwise commits with no gates at all. Claude Code Setup hook — no Cursor
+// equivalent event, so this is Claude-Code-side only. A bootstrap, not a gate: it never
+// blocks, always exits 0, and every fallible step degrades that step alone.
+import { existsSync, lstatSync, readlinkSync, symlinkSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { execFileSync } from 'node:child_process'
+import { readPayload, projectDir, emitContext } from './lib/hook-io.mjs'
+
+const data = readPayload('install-hooks.mjs', { failClosed: false })
+const cwd = projectDir(data)
+
+// Not a git repo → nothing to install into, and nothing worth saying about it.
+try {
+  execFileSync('git', ['rev-parse', '--is-inside-work-tree'], {
+    cwd, stdio: 'ignore'
+  })
+} catch {
+  process.exit(0)
+}
+
+// A hook manager owns .git/hooks/. Re-pointing those paths at our scripts would break the
+// manager's own entries on its next run, so hand the command to the user instead.
+function hookManager() {
+  try {
+    const pkgPath = join(cwd, 'package.json')
+    if (existsSync(pkgPath)) {
+      const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'))
+      if (pkg['simple-git-hooks']) return 'pnpm simple-git-hooks'
+    }
+  } catch {
+    // Unreadable or malformed package.json — fall through to the .husky/ check.
+  }
+  if (existsSync(join(cwd, '.husky'))) return 'pnpm husky'
+  return null
+}
+
+const HOOKS = ['pre-commit', 'commit-msg']
+
+function install(name) {
+  const script = join(cwd, 'scripts', `${name}.sh`)
+  if (!existsSync(script)) return null // this repo doesn't use that gate
+  const target = join(cwd, '.git', 'hooks', name)
+  const link = `../../scripts/${name}.sh`
+  try {
+    // lstat, not existsSync: a symlink whose target is missing reports as non-existent to
+    // existsSync, and silently overwriting one would be exactly the clobber we refuse to do.
+    const st = lstatSync(target, { throwIfNoEntry: false })
+    if (st) {
+      if (st.isSymbolicLink() && readlinkSync(target) === link) return null // already ours
+      return { name, foreign: true }
+    }
+    symlinkSync(link, target)
+    return { name, installed: true }
+  } catch (err) {
+    return { name, error: err.message }
+  }
+}
+
+const manager = hookManager()
+if (manager) {
+  const missing = HOOKS.filter(n => !existsSync(join(cwd, '.git', 'hooks', n)))
+  if (missing.length > 0) {
+    emitContext(
+      data,
+      'Setup',
+      `This repo gates commits through a hook manager and .git/hooks/ is empty (${missing.join(', ')}). `
+      + `Run \`${manager}\` once to install them — until then commits in this clone are ungated.`
+    )
+  }
+  process.exit(0)
+}
+
+const results = HOOKS.map(install).filter(Boolean)
+if (results.length === 0) process.exit(0)
+
+const installed = results.filter(r => r.installed).map(r => r.name)
+const foreign = results.filter(r => r.foreign).map(r => r.name)
+const failed = results.filter(r => r.error)
+
+const lines = []
+if (installed.length > 0) {
+  lines.push(`Installed git hooks for this clone: ${installed.join(', ')}.`)
+}
+if (foreign.length > 0) {
+  lines.push(
+    `Left an existing non-harness hook in place: ${foreign.join(', ')}. `
+    + 'The harness gates are NOT running for it — inspect the file and replace it deliberately if that is wrong.'
+  )
+}
+for (const f of failed) {
+  lines.push(`Could not install the ${f.name} hook (${f.error}) — install it by hand; commits are ungated until then.`)
+}
+if (lines.length > 0) emitContext(data, 'Setup', lines.join(' '))
+process.exit(0)
+```
+
+---
+
+## instructions-trace.mjs (opt-in, not registered by default)
+
+Write to `.claude/guards/instructions-trace.mjs`.
+
+**Deliberately not wired into any profile's `settings.json`.** `InstructionsLoaded` fires whenever `CLAUDE.md` or a `.claude/rules/*.md` is loaded, which for path-scoped rules means *on file reads* — so registering it by default spends a Node process per rule load, in every repo that installs this harness, to serve a facility only someone actively debugging wants. The cost is small and constant; the benefit is occasional. That trade only works as an opt-in.
+
+It answers the one question this harness generates the most of, and the hardest to answer by reading files: *did that rule actually load, and why?* Nine or more path-scoped rule files per repo, plus a generated Cursor mirror with translated globs, plus brace expansion — "my rule isn't applying" has too many candidate causes to reason about from the source.
+
+To turn it on, add to `.claude/settings.json` and set `CLAUDE_HARNESS_TRACE=1`:
+
+```json
+"InstructionsLoaded": [
+  { "hooks": [{ "type": "command", "command": "node .claude/guards/instructions-trace.mjs" }] }
+]
+```
+
+The env var is a second switch on purpose: it means the registration can stay in a committed `settings.json` while costing one fast no-op exit for every teammate who isn't debugging.
+
+```javascript
+#!/usr/bin/env node
+// Appends which instruction files loaded, and when, to .claude/instructions-trace.log —
+// for answering "did that path-scoped rule actually load?" without guessing. Claude Code
+// InstructionsLoaded hook. OPT-IN: not registered by any profile, and inert unless
+// CLAUDE_HARNESS_TRACE=1. Never blocks, always exits 0.
+import { appendFileSync, mkdirSync } from 'node:fs'
+import { join, dirname } from 'node:path'
+import { readPayload, projectDir } from './lib/hook-io.mjs'
+
+if (process.env.CLAUDE_HARNESS_TRACE !== '1') process.exit(0)
+
+const data = readPayload('instructions-trace.mjs', { failClosed: false })
+const cwd = projectDir(data)
+
+// The payload's shape for this event is not something to guess at: record the fields we
+// can name and fall back to the whole object, so a field rename degrades to a noisier
+// log line rather than an empty one.
+const files = data?.instruction_files ?? data?.files ?? data?.paths ?? null
+const detail = files
+  ? (Array.isArray(files) ? files.join(', ') : String(files))
+  : JSON.stringify(data ?? {})
+
+const line = `${new Date().toISOString()}\t${data?.hook_event_name ?? 'InstructionsLoaded'}\t${detail}\n`
+const logPath = join(cwd, '.claude', 'instructions-trace.log')
+
+try {
+  mkdirSync(dirname(logPath), { recursive: true })
+  appendFileSync(logPath, line)
+} catch {
+  // A trace that can't write is not a reason to interrupt anything.
+}
+process.exit(0)
+```
+
+Add `.claude/instructions-trace.log` to `.gitignore` — it is per-machine debug output, not a repo artifact.
+
+---
+
 ## precompact-snapshot.mjs
 
 Write to `.claude/guards/precompact-snapshot.mjs`.
 
 ```javascript
 #!/usr/bin/env node
-// Autosaves in-flight session state before context compaction, so an auto-compact
-// mid-task doesn't silently destroy it. Claude Code PreCompact / Cursor preCompact hook —
+// Autosaves in-flight session state before context compaction, and again when the session
+// ends, so neither an auto-compact mid-task nor a closed terminal silently destroys it.
+// Claude Code PreCompact + SessionEnd / Cursor preCompact hook —
 // reads hook input from stdin (session identity, project root, compaction trigger, all via
 // hook-io.mjs since the field names differ per host) and writes/updates
 // .claude/memory/SESSION.md in the exact shape the session-handoff skill uses, so
@@ -1167,6 +1340,99 @@ pnpm type-check
 
 echo "  tests..."
 pnpm test --run
+
+echo "  context budget..."
+if [ -f tools/context_budget.mjs ]; then node tools/context_budget.mjs; fi
+
+echo "  cursor mirror..."
+if [ -f tools/cursor_mirror.mjs ]; then node tools/cursor_mirror.mjs --check; fi
+
+echo "All gates passed."
+```
+
+---
+
+## pre-commit: tauri
+
+Write to `scripts/pre-commit.sh`. **This is the one profile whose gate is written even when a hook manager is already installed** (Phase 5-1 chains it behind `pnpm lint-staged`), because `lint-staged` gates the frontend and nothing here: not `cargo`, and not the four grep steps below.
+
+Five things differ from the other profiles:
+
+- **`cargo fmt --check`, not `cargo fmt`.** The bare form rewrites every unformatted file in `src-tauri/` and exits 0 — in a pre-commit hook that reformats files the developer never staged and lands a commit that differs from the one the gate checked. Exactly the `dart format --output=none` trap.
+- **`cargo clippy` and no `cargo check`.** Clippy runs the compiler front end and then lints, so it *is* the Rust typecheck; a `cargo check` beside it recompiles the same graph for no new finding. First run on a cold `target/` takes minutes; every run after is seconds.
+- **The four greps are the profile's real gates.** No URL literal in `app/`, no token in web storage, no `server/` directory, no dangerous capability — none of them is expressible as an ESLint or Clippy rule, because each is about a string or a file path rather than a syntax tree. `// url-literal-ok` is the escape hatch for a doc link, and `// storage-ok` for a `setItem` key that only reads like a secret. The storage grep is case-insensitive and looks at **both** arguments on purpose: `setItem('theme', accessToken)` hides a token under an innocent key, and that is the version somebody writes deliberately.
+- **`server/` failing on existence, not on content**, because a Nitro route works in `pnpm tauri dev` (the dev server is running) and silently disappears from `pnpm tauri build`. The directory existing at all is the bug.
+- **No bundle build.** `pnpm tauri build` compiles Rust in release mode and produces installers; it belongs in a release workflow, not on the commit path.
+
+```bash
+#!/bin/sh
+# Pre-commit quality gates — tauri profile
+set -e
+
+echo "Running pre-commit gates..."
+
+echo "  frontend lint..."
+pnpm lint
+
+echo "  frontend typecheck..."
+pnpm type-check
+
+echo "  rust format..."
+cargo fmt --manifest-path src-tauri/Cargo.toml --check
+
+echo "  rust lint/typecheck (first run on a cold target/ is slow)..."
+cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+
+echo "  no URL literal in app/..."
+if grep -rInE 'https?://' app shared --include='*.ts' --include='*.vue' --include='*.js' 2>/dev/null \
+     | grep -v 'url-literal-ok'; then
+  echo "    ^ URL literal in the webview — the API base URL belongs to Rust, or mark a doc link // url-literal-ok"
+  exit 1
+fi
+
+echo "  no secret in web storage..."
+if grep -rInEi '(localStorage|sessionStorage)\.setItem\([^)]*(token|secret|password|credential|api[_-]?key|jwt|bearer)' \
+     app shared --include='*.ts' --include='*.vue' --include='*.js' 2>/dev/null \
+     | grep -v 'storage-ok'; then
+  echo "    ^ secret written to web storage — it belongs in the OS keychain, on the Rust side."
+  echo "      A genuine false positive (a timestamp, a preference) is marked // storage-ok"
+  exit 1
+fi
+
+echo "  no server/ directory..."
+if [ -d server ]; then
+  echo "    ^ server/ exists — Nitro routes work in \`tauri dev\` and vanish from \`tauri build\`."
+  echo "      Move the logic to a #[tauri::command]."
+  exit 1
+fi
+
+echo "  capability audit..."
+if [ -d src-tauri/capabilities ]; then
+  if grep -rInE '"(shell:allow-execute|shell:allow-spawn|fs:default)"' src-tauri/capabilities; then
+    echo "    ^ that capability hands the webview arbitrary execution or unscoped file access"
+    exit 1
+  fi
+  if grep -rInE '"(path|url|identifier)"\s*:\s*"\*"' src-tauri/capabilities; then
+    echo "    ^ wildcard scope in a capability — name the paths or origins you actually need"
+    exit 1
+  fi
+fi
+if [ -f src-tauri/tauri.conf.json ]; then
+  # Tauri enables CSP protection only if the config sets it, so absent and null
+  # are the same thing — no policy. Both fail here.
+  if ! grep -q '"csp"' src-tauri/tauri.conf.json \
+     || grep -qE '"csp"\s*:\s*null' src-tauri/tauri.conf.json; then
+    echo "    ^ app.security.csp is unset or null — that is the webview's isolation switched off."
+    echo "      Start from: \"csp\": \"default-src 'self'\""
+    exit 1
+  fi
+fi
+
+echo "  frontend tests..."
+pnpm test --run
+
+echo "  rust tests..."
+cargo test --manifest-path src-tauri/Cargo.toml
 
 echo "  context budget..."
 if [ -f tools/context_budget.mjs ]; then node tools/context_budget.mjs; fi

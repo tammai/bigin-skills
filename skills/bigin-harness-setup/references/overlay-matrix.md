@@ -1,0 +1,73 @@
+# Phase 5: per-profile overlay differences
+
+Phase 5 writes the same enforcement layer for every profile. Five steps branch, and this file holds the branch table plus the argued reason for each exception, so `SKILL.md` carries the per-run instruction and not the rationale.
+
+## The matrix
+
+| Step | nuxt | next | tauri | go | nodejs | flutter | generic |
+|---|---|---|---|---|---|---|---|
+| **5-1** pre-commit | skip if a manager exists | skip if a manager exists | **always write + chain** | write | write | write | write |
+| **5-3** settings.json | merge (scaffold wrote one) | merge | merge | write/merge | write/merge | write/merge | write/merge |
+| **5-3b** `.vscode/settings.json` | ESLint | ESLint | ESLint **+ rust-analyzer** | — | — | — | — |
+| **5-3b2** `analysis_options.yaml` | — | — | — | — | — | **merge** | — |
+| **5-3b3** `rust-toolchain.toml` + `tauri.conf.json` | — | — | **write / check** | — | — | — | — |
+| **5.6** CI extra | — | — | 2 jobs, no installers | — | — | `.fvmrc` | no CI at all |
+
+Everything not in that table is identical across profiles: all ten guard scripts, `hook-io.mjs`, the context-budget gate, the commit-msg gate, the version marker, and the model-routing config.
+
+---
+
+## 5-1: why `tauri` is the one profile that writes a gate anyway
+
+Every other profile treats an existing hook manager as *the* gate and stands down, because two competing `pre-commit` mechanisms is a worse outcome than one imperfect one.
+
+`tauri` can't, and the reason is structural rather than stylistic. Its frontend half comes from `nuxt-scaffold`, so it arrives with `simple-git-hooks` → `pnpm lint-staged` already installed — and `lint-staged` runs ESLint over staged JS/TS. It never runs `cargo fmt`, `cargo clippy` or `cargo test`, so **half the application is ungated**, and it never runs the four grep gates that are the entire security argument for this profile: no API URL literal in `app/`, no secret in web storage, no `server/` directory, no dangerous Tauri capability. Standing down here doesn't mean "one imperfect gate", it means "no gate on the Rust side and none on the boundary".
+
+So write `scripts/pre-commit.sh` from `hook-guard.md` → `## pre-commit: tauri`, `chmod +x` it, then wire it to whatever already owns the hook — chaining, never replacing:
+
+| Found | Action |
+|---|---|
+| `simple-git-hooks` in `package.json` | set its `"pre-commit"` to `"pnpm lint-staged && sh scripts/pre-commit.sh"`, keeping whatever was there as the first half, then re-run `pnpm simple-git-hooks`. Skip 5-1b's symlink — the manager owns `.git/hooks/pre-commit` |
+| `.husky/` | append `sh scripts/pre-commit.sh` to `.husky/pre-commit` |
+| neither | continue to 5-1b and install the symlink normally |
+
+Name which of the three in the Phase 7 summary. It is still **one** gate, not two: `lint-staged && sh scripts/pre-commit.sh`.
+
+## 5-3: the two settings.json shapes
+
+- **nuxt / next / tauri, `SCAFFOLDED = true`** — the scaffold already wrote `.claude/settings.json` with `permissions.allow` and a `PostToolUse` `lint-fix-file.mjs` hook. Merge in, per event: `PreToolUse` `bash-guard.mjs` + `spec-gate-guard.mjs` + `injection-gate-guard.mjs` (matcher `Bash|Write|Edit|WebFetch|mcp__.*`), `PreToolUse` `bugfix-test-guard.mjs` + `commit-msg-guard.mjs` (matcher `Bash`), a `SessionStart` block with `canary-seed.mjs` and `session-resume-check.mjs`, a `PreCompact` **and** `SessionEnd` block both pointing at `precompact-snapshot.mjs`, a `Setup` block pointing at `install-hooks.mjs`, missing `permissions.allow` entries, and a second `PostToolUse` entry for `injection-scan-guard.mjs` **alongside** the existing `lint-fix-file.mjs` one. Never replace or duplicate that existing entry. Show additions before writing.
+- **everything else** (including onboarding an existing nuxt/next/tauri repo) — read the whole template from `references/profile-{PROFILE}.md` → `## settings.json Template`. Merge the `hooks` block and missing `permissions.allow` entries per event if the file exists; write fresh if not. For an existing nuxt/next/tauri repo, also write `.claude/guards/lint-fix-file.mjs` first if it's missing.
+
+Two allowlist notes: the `tauri` template adds the `cargo` surface but deliberately omits `cargo install`, `cargo update`, `rustup` and `pnpm up` — each either rewrites a lockfile the codegen and CI gates depend on, or installs an arbitrary binary. The `generic` template pre-approves git only; an unknown toolchain gets no blanket allowlist, and the user approves its commands as they come up.
+
+## 5-3b: `.vscode/settings.json`
+
+ESLint format-on-save, from `profile-nuxt.md` / `profile-next.md` → `## .vscode/settings.json Template`. Merge keys if the file exists (show additions first), write fresh if not.
+
+`tauri` gets that same ESLint block **plus** the `rust-analyzer` block from `profile-tauri.md` → `## .vscode/settings.json`. `rust-analyzer.linkedProjects` is the load-bearing key: the `Cargo.toml` sits at `src-tauri/`, not the repo root, and rust-analyzer looks only at the root by default — without it the whole Rust half is unanalyzed in the editor while CI goes red on findings the author never saw.
+
+Skipped for go and nodejs (backend-only, no editor-format concern), flutter (the official Dart/Flutter extension already formats on save with `dart format`'s single style — nothing to configure and no rival formatter to disable) and generic (formatter unknown).
+
+## 5-3b2: `analysis_options.yaml` (flutter)
+
+From `profile-flutter.md` → `## analysis_options.yaml`. **Merge, never overwrite** — every Flutter repo already has this file and an existing one is usually customized. No top-level `analyzer:` key → add the block; an `analyzer:` with no `exclude:` → add the list; already excluding generated output → do nothing. Leave `include:` and `linter:` untouched.
+
+Without it this profile's own `{TYPECHECK}` gate (`flutter analyze --fatal-infos`) fails on committed generated code that the same profile forbids anyone to hand-edit — a red gate with no legal fix. Say in the Phase 7 summary whether the block was added or was already there.
+
+## 5-3b3: `rust-toolchain.toml` + `tauri.conf.json` (tauri)
+
+**`rust-toolchain.toml`** — write if absent, per `profile-tauri.md` → `## rust-toolchain.toml`, substituting the channel from `rustc --version`. Rustup treats a toolchain file as a directory override, so this one file decides the toolchain for local dev and CI alike and the generated workflow needs no version of its own. If Rust isn't on `PATH`, skip it and say so in the summary — the generated CI reads this file, so its absence is a first-run failure with a one-line fix.
+
+**`tauri.conf.json`** — **read-only.** It belongs to `tauri init` and the first slice. Check three values, rewrite none, and name each in the Phase 7 summary (`profile-tauri.md` → `## tauri.conf.json — what the overlay checks`):
+
+- `identifier` still `com.tauri.dev` → Tauri refuses to bundle at all. Better heard at install time than at the first release attempt.
+- `app.security.csp` absent or `null` → Tauri enables CSP protection only when the config sets it, so both mean no policy and the gate fails on both. A red first commit unless it's set now; `default-src 'self'` is the starting point.
+- `app.withGlobalTauri` `true` → the IPC bridge is on `window`, reachable by any script the webview runs.
+
+Report, don't fix. Each is an application decision with a real value behind it, and a silently-written `identifier` is the one that orphans every installed user's local data if the guess turns out wrong.
+
+## 5.6: CI caveats
+
+- **flutter** — the workflow reads its SDK version from `.fvmrc`, and `subosito/flutter-action` **errors when that file is missing**. Before writing the GitHub workflow, if `.fvmrc` is absent, run `flutter --version --machine` and write `{"flutter": "<frameworkVersion>"}`. Flutter not on `PATH` → skip the file and say so; the workflow needs a version pinned by hand before its first run. GitLab needs no equivalent — its `image:` tag defaults to `stable` and runs as written. Two things for the user, both named in the summary: pin `subosito/flutter-action@v2` to a SHA, and move the GitLab image tag off `stable`.
+- **tauri** — two jobs and no installer build. The frontend job is an ordinary runner; the Rust job first installs Tauri 2's Linux system libraries, since a plain runner has none and `cargo build` then fails on a linker error that names a symbol rather than the missing package. Building installers is a three-OS matrix needing the code-signing and notarization secrets, so it belongs in a release workflow the team writes once it has certificates — as a PR gate it would be red on every pull request for want of an Apple Developer ID, and an always-red gate gets deleted. `rust-toolchain.toml` decides the toolchain; `dtolnay/rust-toolchain` and `Swatinem/rust-cache` are both tag-referenced and want SHAs, named in the summary.
+- **generic** — no CI at all. `references/ci.md` has no generic template, and an inferred workflow for an unknown stack would be wrong more often than right.

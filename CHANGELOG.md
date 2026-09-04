@@ -5,6 +5,66 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.87.0] - 2026-09-04
+
+### Added
+
+- **A seventh stack profile: `tauri` — Tauri 2 desktop app, Nuxt 4 SPA frontend, Rust shell in front of an existing HTTP API.** The architecture the conventions are written for is one rule: *the webview never talks to the network.* Every call crosses `invoke()` into a `#[tauri::command]`, and Rust owns the `reqwest` client, the tokens (OS keychain) and the SQLite cache. That is the `nuxt` profile's "the browser never calls the backend directly" with `#[tauri::command]` in place of `server/api/` — and a stronger reason behind it, because a desktop bundle is a file on the user's disk where they can read every byte of the JS.
+
+  New `references/profile-tauri.md` carries all of it: the two-toolchain Commands table, `CLAUDE.md`, `conventions-frontend.md` + `conventions-rust.md`, `testing.md`, the architecture addendum, `settings.json`, the `.vscode` and `rust-toolchain.toml` additions, the `nuxt.config.ts` merge, and the three read-only `tauri.conf.json` checks.
+
+- **`tauri` sits above `nuxt` in the detection ladder, and that ordering is the whole mechanism.** A Tauri app with a Nuxt frontend carries *both* markers. First match wins, so `nuxt` matching first would onboard a desktop app as a web app: SSR left on, a `server/` BFF that does not exist at runtime, and no rule anywhere about capabilities, the IPC trust boundary, the updater key or code signing. `references/profile-detection.md`, `SKILL.md`'s Phase 0 table and `docs/USER_GUIDE.md` all say never to reorder those two rungs.
+
+- **Four grep gates in the pre-commit hook and CI, because none of them is expressible as an ESLint or Clippy rule** — each is about a string or a file path rather than a syntax tree:
+
+  | Gate | Why a linter can't do it |
+  |---|---|
+  | no `http(s)://` literal in `app/` | the API base URL belongs to Rust; `// url-literal-ok` exempts a doc link |
+  | no secret in web storage | case-insensitive, checks **both** `setItem` arguments — `setItem('theme', accessToken)` hides a token under an innocent key, and that is the version somebody writes deliberately; `// storage-ok` exempts a false positive |
+  | no `server/` directory | a Nitro route works in `pnpm tauri dev` and silently vanishes from `pnpm tauri build`; the directory existing at all is the bug |
+  | capability audit | `shell:allow-execute`, `shell:allow-spawn`, `fs:default`, a `"*"` scope, and an unset-or-`null` `app.security.csp` |
+
+  The CSP check fails on **absent as well as `null`**: Tauri's own docs are explicit that CSP protection is enabled only if the config sets it, so the two are the same thing — no policy.
+
+- **`tauri` is the one profile that writes `scripts/pre-commit.sh` even when a hook manager already exists.** Its frontend half comes from `nuxt-scaffold`, so `simple-git-hooks` → `pnpm lint-staged` is already installed — and that manager gates the frontend only. It never runs `cargo fmt`/`cargo clippy`/`cargo test`, and it never runs the four greps above. Phase 5-1 therefore writes the gate anyway and chains it behind `lint-staged` rather than replacing the manager. Every other profile still skips when a manager is present.
+
+- **Two CI jobs, and deliberately no bundle build.** The frontend job is a plain runner; the Rust job first installs Tauri 2's Linux system libraries, copied **verbatim** from Tauri's own prerequisites page (`libwebkit2gtk-4.1-dev` — Tauri 1 wanted `4.0`, and getting it wrong fails at *link* time on a symbol, not at install time on a package). Building installers is a three-OS matrix that needs the code-signing and notarization secrets, so it belongs in a release workflow the team writes once it has certificates; as a PR gate it would be red on every pull request for want of an Apple Developer ID, and a gate that is always red gets deleted.
+
+- **Two new hook events close two gaps the harness previously only documented.** Both came out of a `/harness-audit` run against current docs.
+
+  **`Setup` → new `install-hooks.mjs`.** `.git/hooks/` is not version-controlled, so a teammate who cloned the repo had *no* pre-commit gate and *no* commit-msg gate until a human noticed a symlink command in the README and ran it. The entire commit-time layer rested on onboarding prose — which is precisely what [`docs/GATES.md`](docs/GATES.md) opens by saying the gates are not: "a rule an agent can talk itself out of isn't a gate", and a gate a *person* can forget to install is the same defect one level out. Claude Code now installs them on its first run in any clone. Three behaviours are load-bearing and each is tested: it never replaces a hook it didn't create (absent or already-our-symlink → install; anything else → leave and report), it defers to `simple-git-hooks`/`husky` by printing that tool's install command rather than re-pointing hooks the manager owns, and it reports through `additionalContext` because a `Setup` hook's bare stdout isn't shown. It installs nothing and touches no network.
+
+  **`SessionEnd` → the existing `precompact-snapshot.mjs`, registered a second time.** Autosave covered compaction only, so a session that simply *ended* — closed terminal, finished turn, sleeping machine — left `session-resume-check.mjs` nothing to offer on the way back in. No new script: the same body serves both events, and it already read its compaction trigger through `hook-io.mjs`'s `compactTrigger()`, which returns `'unknown'` when the field is absent. One registration, no code change.
+
+- **`instructions-trace.mjs`: written, documented, and deliberately registered by nothing.** `InstructionsLoaded` is the documented way to answer the question this harness generates more of than any other — *did that path-scoped rule actually load?* — with nine-plus scoped rule files per repo, a generated Cursor mirror with translated globs, and brace expansion between the author and the answer. It is off by default because that event fires on **every rule load**: wiring it in would spend a Node process per load, in every repo that installs this plugin, to serve whoever is currently debugging. `hook-guard.md` carries the four-line registration plus a `CLAUDE_HARNESS_TRACE=1` second switch, so the registration can sit in a committed `settings.json` and still cost a fast no-op for everyone not debugging. The Phase 7 summary points at it instead of turning it on.
+
+  Counting note for anyone editing the guards: **"nine" is still the number of gates**, and all three of the non-gates that ship beside them (`lint-fix-file.mjs`, `install-hooks.mjs`, `instructions-trace.mjs`) are Claude-Code-side only. Cursor has no `Setup` event and its `afterFileEdit` accepts no output, so `.cursor/hooks.json` registers the same nine and says so rather than implying parity it doesn't have.
+
+- **`$schema` on `.claude-plugin/plugin.json`.** Editor validation against `json.schemastore.org`, which would have caught the keyword indentation this release's own review caught by hand. Added only to the manifest whose schema is documented — not to the Cursor manifests, where pointing at a Claude Code schema would assert a compatibility nobody has checked.
+
+### Changed
+
+- **Scaffolding for `tauri` is two steps, not one.** `create-tauri-app` has no Nuxt template, so the frontend is `nuxt-scaffold` exactly as the `nuxt` profile's is, and `pnpm tauri init --ci` adds the Rust half around it. Three of its pinned flags matter more than they look:
+  - `--before-build-command "pnpm generate"`, **not** `pnpm build` — with `ssr: false`, `nuxi build` still emits a Nitro server and a Tauri bundle has nothing to run it with. This one flag is the difference between a working bundle and a blank window.
+  - `--frontend-dist ../.output/public` — relative to `src-tauri/`, and Nuxt's static output is not `dist/`.
+  - **`tauri init` has no identifier flag.** It writes `com.tauri.dev`, and Tauri then refuses to bundle until it changes; it also derives the app-data directory and the update feed, so changing it after a release orphans every installed user's local data. Set from the ADR in the same pass — the same class of decision as `flutter create --org`.
+
+  Verified against Tauri 2's CLI reference rather than from memory: the flag list, the absence of an identifier flag, and `--ci` meaning "skip prompting for values" are all as documented.
+
+- **`src-tauri/tauri.conf.json` is pre-existing and read-only to the overlay.** New Phase 5-3b3 checks three values and rewrites none — `identifier`, `app.security.csp`, `app.withGlobalTauri` — reporting each in the Phase 7 summary. Each has a real application decision behind it, and a silently-written `identifier` is the one that orphans user data if it turns out wrong.
+
+- **`rust-toolchain.toml` is the only version pin.** Rustup honours it on the first `cargo` call and it declares `rustfmt` and `clippy` as components, so the generated workflow installs no toolchain version and no component of its own — nothing to drift against local dev. Written from the local `rustc --version`; if Rust is not on `PATH` the file is skipped and the summary says so, since the CI reads it.
+
+- **No Rust typecheck row, on purpose.** `cargo clippy` runs the compiler front end and *then* lints, so it is the type-check; a `cargo check` beside it recompiles the same dependency graph for no finding the first pass didn't already have. `{TYPECHECK}` is `pnpm type-check` alone and `{LINT}` carries all three Rust-and-frontend checks. `cargo fmt` gets `--check` for the same reason `dart format` gets `--output=none`: the bare form rewrites files the developer never staged.
+
+- **E2E goes through the WebdriverIO service, not `tauri-driver` directly.** Driven directly, `tauri-driver` supports only Windows and Linux — macOS has no WKWebView driver tool. The service embeds its own WebDriver server and works on all three, which on a Mac team is the difference between a suite developers can run and one whose failures nobody reads. Checked against Tauri's WebDriver docs; the first draft of this profile asserted macOS was simply unsupported, which is true of the direct path and false of the recommended one.
+
+- **`bugfix-test-guard.mjs` is unchanged, and the profile works around it explicitly.** The guard matches file paths and cannot see an inline `#[cfg(test)]` module, so `conventions-rust.md` and `testing.md` both say a Rust regression test goes in `src-tauri/tests/` (which the guard's `tests/` rule already matches) and that an inline-only fix commit needs ``[no-test]`` with the reason. Teaching a filename-based gate to read Rust source was the alternative, and it would have meant a Rust-specific fork of a guard that must stay one body across two hosts.
+
+- **`bigin-harness-setup/SKILL.md` is back under the size guideline: 455 → 400 lines.** It had sat above ~400 since v1.72.0, and the audit log's standing position across three runs was that the remainder was core per-run instruction rather than reference material — with the explicit condition *"re-flag only if it grows again."* The tauri work grew it, so this pass paid it down, and did so the way `.claude/rules/skill-authoring.md` prescribes: **one table, not N tidier blocks.** Phase 5's five branching steps had accumulated a paragraph of argued rationale per profile per step; they are now one matrix plus one instruction each, with the reasoning in a new `references/overlay-matrix.md`. `## Idempotency Rules` moved to `references/idempotency.md`, leaving inline only the three that actually get broken. Nothing was deleted — and nothing that the run itself needs to *read* was moved.
+
+- Per-profile surfaces extended for the new profile rather than special-cased: `rule-files.md` (the two-file split, with the Rust shell where nuxt has a Nitro server), `files-shared.md` (`paths:` covering **both** halves — an `architecture.md` scoped only to `app/**` never loads while somebody is writing the command on the other side of the boundary), `scaffold-delegation.md`, `summary-checklist.md`, `hook-guard.md`, `ci.md`, `README.md`, `docs/USER_GUIDE.md` and both site pages.
+
 ## [1.86.0] - 2026-08-28
 
 ### Added

@@ -93,6 +93,7 @@ The skill detects your stack, asks a small batch of questions **before writing a
 
 | Found | Profile |
 | --- | --- |
+| `src-tauri/tauri.conf.json` | `tauri` — checked **before** `nuxt`, because a Tauri desktop app with a Nuxt frontend has both markers, and matching `nuxt` first would onboard it as a web app: SSR left on, a `server/` BFF that does not exist at runtime, and no rule about capabilities, the IPC trust boundary or the updater key |
 | `nuxt.config.ts` | `nuxt` |
 | `go.mod` | `go` |
 | `package.json` with express/fastify/hono/koa | `nodejs` |
@@ -110,7 +111,7 @@ The skill detects your stack, asks a small batch of questions **before writing a
 | Model ladder | `opus-centric` | Which models the three execution tiers spawn on — see [§7](#7-tuning-cost-and-depth) |
 | Agent hosts | auto-detected — `both` if `.cursor/` exists, else `claude` | Whether to also generate the Cursor mirror so the same rules and gates apply in Cursor — see [`GATES.md` §7](GATES.md#7-the-same-gates-in-cursor) |
 
-If the repo is empty, the app itself gets scaffolded first (by `nuxt-scaffold` / `next-scaffold` / `go-scaffold` / `nodejs-scaffold`, or by `flutter create` for the `flutter` profile), and the governance layer is overlaid on top additively.
+If the repo is empty, the app itself gets scaffolded first (by `nuxt-scaffold` / `next-scaffold` / `go-scaffold` / `nodejs-scaffold`, by `flutter create` for the `flutter` profile, or by `nuxt-scaffold` followed by `pnpm tauri init` for `tauri`), and the governance layer is overlaid on top additively.
 
 If the repo is on GitHub Spec Kit, you'll be offered `migrate` / `coexist` / `leave`. Migration always shows you a read-only triage table of everything under `specs/` before deleting a single file.
 
@@ -158,15 +159,24 @@ opted into Cursor:
 
 ### After setup
 
-Two things to do by hand:
+One thing to do by hand:
 
 ```bash
-# 1. Install the git hooks (once per clone, per contributor — setup did this for you,
-#    but a teammate cloning later has to, since .git/ isn't tracked)
+# Read CLAUDE.md — it's short by design, and it's what every session sees
+```
+
+The git hooks used to be the other one. They now install themselves: setup registers a `Setup` hook
+(`.claude/guards/install-hooks.mjs`) that symlinks whichever of `scripts/pre-commit.sh` and
+`scripts/commit-msg.sh` your repo has, on the first Claude Code run in any clone — which matters
+because `.git/` isn't tracked, so a teammate cloning later previously started with no gates at all
+and nothing telling them. Where `simple-git-hooks` or `husky` owns the hooks it prints that tool's
+install command instead of fighting it, and it never replaces a hook it didn't create.
+
+Cursor has no `Setup` event, so if you work there, run the two commands by hand:
+
+```bash
 ln -sf ../../scripts/pre-commit.sh .git/hooks/pre-commit && chmod +x scripts/pre-commit.sh
 ln -sf ../../scripts/commit-msg.sh .git/hooks/commit-msg && chmod +x scripts/commit-msg.sh
-
-# 2. Read CLAUDE.md — it's short by design, and it's what every session sees
 ```
 
 Skip either line whose script your repo doesn't have — where `simple-git-hooks` or `husky` is
@@ -360,6 +370,7 @@ One `PLAN.md` per worktree. Spec-gate approval is **per-worktree** — approving
 | Debug something not yet in a plan | "why is this flaky", "debug this" | `debug-workflow` |
 | Start a Nuxt / Next / Go / Node app from nothing | "scaffold nuxt", "create go rest api" | `*-scaffold` |
 | Start a Flutter app from nothing | "set up a harness" in an empty dir | `bigin-harness-setup` → `flutter create` (no scaffold skill — see below) |
+| Start a Tauri desktop app from nothing | "set up a harness" in an empty dir | `bigin-harness-setup` → `nuxt-scaffold`, then `pnpm tauri init` (no scaffold skill — `create-tauri-app` has no Nuxt template) |
 | Capture a sprint's learnings | "sprint distill" | `sprint-distill` |
 | Pin a fast-moving library's API | "distill knowledge for nuxt@4.0.3" | `knowledge-distill` |
 | Save state before hitting a limit | "save session" | `session-handoff` |
@@ -601,7 +612,7 @@ Probably the injection gate (stage 2) after a recent web fetch. Check what was f
 | Term | Meaning |
 | --- | --- |
 | **Harness** | The governance layer: `CLAUDE.md`, `.claude/rules/`, guard hooks, budget gate, CI. |
-| **Profile** | Which stack a repo is — `nuxt`, `next`, `go`, `nodejs`, `flutter`, or `generic`. Decides which templates get written. |
+| **Profile** | Which stack a repo is — `nuxt`, `next`, `go`, `nodejs`, `flutter`, `tauri`, or `generic`. Decides which templates get written. |
 | **Guard** | A hook script under `.claude/guards/` that blocks or confirms a tool call. The load-bearing part of the system. |
 | **Gate** | A checkpoint that fails closed — the spec gate, the pre-commit script, the budget gate. |
 | **Tier** | One of the three execution subagents: quick / standard / deep. |

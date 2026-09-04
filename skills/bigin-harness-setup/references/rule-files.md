@@ -13,6 +13,7 @@ Four of these files are the same for every profile and are described once, under
 | `go` | `conventions.md` | no | yes |
 | `nodejs` | `conventions.md` | no | yes |
 | `flutter` | `conventions.md` | yes | yes |
+| `tauri` | `conventions-frontend.md` + `conventions-rust.md` | yes | yes |
 | `generic` | none | no | **no** |
 
 Every conventions and testing template already carries its own `paths:` frontmatter — take it verbatim from the profile file, don't substitute anything. All of them come from `references/profile-{PROFILE}.md` → the `## <filename> Template` section of the same name.
@@ -26,6 +27,7 @@ Only the things a matrix cell can't hold:
 - **`nuxt`** — `conventions-frontend.md` scopes to `app/**`; `conventions-server.md` to `server/**`. `testing.md` scopes to `tests/**` + `vitest.config.ts` and encodes the **centralized** convention: `tests/` mirrors `app/`/`server/`, cross-tree imports use the `~~/` root alias, and Nitro auto-imports are stubbed via `tests/support/`.
 - **`next`** — a frontend+backend split app like nuxt, not a single-tree backend. `conventions-frontend.md` scopes to `src/app/**`, `src/components/**`, `src/hooks/**`, `src/stores/**`; `conventions-server.md` to `src/app/api/**`, `src/lib/**`, `src/proxy.ts`. `testing.md` scopes to `src/**/*.test.ts(x)` + `vitest.config.ts` and encodes the **co-located** convention — tests sit next to the source they cover, unlike nuxt's centralized tree.
 - **`go` / `nodejs`** — one `conventions.md`, no testing rule.
+- **`tauri`** — the nuxt/next two-file split, but the second file is the Rust shell rather than a Nitro server: `conventions-frontend.md` scopes to `app/**`, `shared/**`, `nuxt.config.ts`; `conventions-rust.md` to `src-tauri/**`. `testing.md` scopes to `tests/**`, `src-tauri/tests/**` and `vitest.config.ts` — both trees, because a Tauri app has two test runners and the rules that matter (where a regression test may live so `bugfix-test-guard.mjs` can see it, why E2E goes through the WebdriverIO service rather than `tauri-driver`) are about how the two relate.
 - **`flutter`** — the go/nodejs single-`conventions.md` shape **plus** a testing rule, because the test tree is where this profile's two most expensive mistakes live: unpinned goldens and an unmigrated `schemaVersion`. `conventions.md` scopes to `lib/**`, `api/**`, `pubspec.yaml`, `analysis_options.yaml`; `testing.md` to `test/**` + `integration_test/**`, a mirrored tree like nuxt's rather than co-located like next's.
 
 ## The four shared files

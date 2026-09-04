@@ -215,6 +215,132 @@ jobs:
 
 ---
 
+## github: tauri
+
+Write to `.github/workflows/ci.yml`.
+
+Five things about this workflow that differ from every other profile:
+
+- **Two jobs, because one runner image can't cheaply serve both halves.** The frontend job is a plain `ubuntu-latest`; the Rust job spends a minute installing system libraries the frontend job has no use for. Splitting them also means a frontend failure and a Rust failure are two distinct red checks rather than one that stops at whichever came first.
+- **Tauri 2 needs Linux system libraries, and `webkit2gtk` is version-specific.** Tauri 2 wants `libwebkit2gtk-4.1-dev`; Tauri 1 wanted `4.0`. Get it wrong and `cargo build` fails on a linker error naming a symbol, not a package. `libayatana-appindicator3-dev` is likewise 2's name where 1 used `libappindicator3-dev`. The list in both jobs is copied **verbatim** from Tauri 2's prerequisites page — do not trim it to the packages that look necessary, since which of them the linker needs depends on the plugin set.
+- **`cargo clippy` is the Rust typecheck.** There is no `cargo check` step — clippy runs the compiler front end and then lints, so a `check` beside it compiles the same graph twice.
+- **`rust-toolchain.toml` is the pin that decides the build, but the action's `@stable` ref is not it.** `dtolnay/rust-toolchain` selects its toolchain from the `@rev` you request — `@stable` installs stable, `@1.89.0` installs 1.89.0 — and it does not read `rust-toolchain.toml`. Rustup does: a toolchain file is a directory override, so it wins over whatever the action made default, and it pulls the `rustfmt` and `clippy` it declares. That means a repo pinned to 1.82 still *builds* on 1.82 and there is no silent drift — but the action has downloaded stable for nothing, and the ref reads like a version pin it isn't. The explicit `rustup show` step below resolves the override by name instead of leaving it a side effect of the first `cargo` call, so the log says which toolchain the gates actually ran on. **Two third-party actions here are referenced by tag rather than SHA** — `dtolnay/rust-toolchain` and `Swatinem/rust-cache`. The harness can't resolve a trustworthy SHA for either at authoring time, and a wrong one fails the workflow on its first run, so pin both yourself right after install; each has full access to the job.
+- **No bundle build here.** `pnpm tauri build` is a three-OS matrix that compiles Rust in release mode and needs the code-signing and notarization secrets. It belongs in a release workflow the team writes once it *has* certificates; as a PR gate it would be red on every pull request for want of an Apple Developer ID, and a gate that is always red gets deleted.
+
+```yaml
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm type-check
+      - run: pnpm test --run
+      - name: no URL literal in app/
+        run: |
+          if grep -rInE 'https?://' app shared --include='*.ts' --include='*.vue' --include='*.js' 2>/dev/null \
+               | grep -v 'url-literal-ok'; then
+            echo "^ URL literal in the webview — the API base URL belongs to Rust"
+            exit 1
+          fi
+      - name: no secret in web storage
+        run: |
+          if grep -rInEi '(localStorage|sessionStorage)\.setItem\([^)]*(token|secret|password|credential|api[_-]?key|jwt|bearer)' \
+               app shared --include='*.ts' --include='*.vue' --include='*.js' 2>/dev/null \
+               | grep -v 'storage-ok'; then
+            echo "^ secret written to web storage — it belongs in the OS keychain, on the Rust side"
+            exit 1
+          fi
+      - name: no server/ directory
+        run: |
+          # A Nitro route works in `tauri dev` and vanishes from `tauri build`.
+          if [ -d server ]; then echo "^ server/ exists — move the logic to a #[tauri::command]"; exit 1; fi
+
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - name: tauri 2 system dependencies
+        run: |
+          sudo apt-get update
+          # webkit2gtk-4.1 and libayatana-appindicator3 are Tauri 2's names; 4.0
+          # and libappindicator3 are Tauri 1's and fail at link time, not install time.
+          # Verbatim from Tauri 2's own prerequisites page — don't trim it by guesswork.
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev build-essential curl wget file \
+            libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+      # Third-party action, referenced by tag — pin it to a commit SHA after install.
+      # Its @rev picks the toolchain it installs; it does NOT read rust-toolchain.toml.
+      - uses: dtolnay/rust-toolchain@stable
+      # rust-toolchain.toml is a directory override, so it wins over the action's
+      # default and pulls the rustfmt + clippy it declares. Resolve it by name here
+      # rather than as a side effect of the first cargo call.
+      - run: rustup show
+      # Also third-party and also tag-referenced — pin both to SHAs after install.
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
+      # clippy is the typecheck — no `cargo check` step, it would compile the same graph twice.
+      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+      - run: cargo test --manifest-path src-tauri/Cargo.toml
+      - name: capability audit
+        run: |
+          if [ -d src-tauri/capabilities ]; then
+            if grep -rInE '"(shell:allow-execute|shell:allow-spawn|fs:default)"' src-tauri/capabilities; then
+              echo "^ that capability hands the webview arbitrary execution or unscoped file access"
+              exit 1
+            fi
+            if grep -rInE '"(path|url|identifier)"\s*:\s*"\*"' src-tauri/capabilities; then
+              echo "^ wildcard scope in a capability — name the paths or origins you actually need"
+              exit 1
+            fi
+          fi
+          # Test the file exists first: `grep -q` on a missing path exits 2, which `!`
+          # turns true, and the job would blame CSP for a missing config.
+          if [ ! -f src-tauri/tauri.conf.json ]; then
+            echo "^ src-tauri/tauri.conf.json not found — is this a Tauri repo?"
+            exit 1
+          fi
+          # Tauri enables CSP protection only if the config sets it — absent == null == none.
+          if ! grep -q '"csp"' src-tauri/tauri.conf.json \
+             || grep -qE '"csp"\s*:\s*null' src-tauri/tauri.conf.json; then
+            echo "^ app.security.csp is unset or null — that is the webview's isolation switched off"
+            exit 1
+          fi
+      - name: generated API client matches the contract
+        run: |
+          # The generator is pinned inside this script, which the repo owns —
+          # the pin is what makes the diff trustworthy.
+          # `-f` then `-x`, not `-x` alone: a script that exists but lost its executable
+          # bit means the gate was configured and then broke, and `-x` alone would turn
+          # it green forever behind an echo nobody reads in a passing job.
+          if [ ! -f tool/generate_api_client.sh ]; then
+            echo "tool/generate_api_client.sh missing — API client is NOT diffed against the contract"
+          elif [ ! -x tool/generate_api_client.sh ]; then
+            echo "^ tool/generate_api_client.sh is not executable — chmod +x it; this gate was configured and is now broken"
+            exit 1
+          else
+            ./tool/generate_api_client.sh
+            git diff --exit-code
+          fi
+```
+
+---
+
 ## gitlab: nuxt
 
 Write to `.gitlab-ci.yml`.
@@ -336,6 +462,66 @@ quality:
     - flutter test
     - if ! grep -q 'build_runner' pubspec.yaml; then echo "build_runner not configured — the codegen diff is NOT running"; elif grep -qE '^\s+(build_runner|build_verify|json_serializable|riverpod_generator|drift_dev|go_router_builder|freezed|custom_lint):\s*["'"'"']?[>~^]' pubspec.yaml; then echo "code generators are on caret/range constraints — the codegen diff is NOT running; pin them to exact versions to switch this gate on"; else dart run build_runner build --delete-conflicting-outputs && git diff --exit-code; fi
     - if [ -x tool/generate_api_client.sh ]; then ./tool/generate_api_client.sh && git diff --exit-code; else echo "tool/generate_api_client.sh missing — API client is NOT diffed against the contract"; fi
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "main"'
+```
+
+---
+
+## gitlab: tauri
+
+Write to `.gitlab-ci.yml`. Two jobs for the same reason as the GitHub workflow, and the same five caveats apply — including no bundle build, which on GitLab would additionally need macOS runners you are probably paying for by the minute.
+
+```yaml
+stages:
+  - quality
+
+frontend:
+  stage: quality
+  image: node:22
+  before_script:
+    - corepack enable && corepack prepare pnpm@latest --activate
+    - pnpm install --frozen-lockfile
+  script:
+    - pnpm lint
+    - pnpm type-check
+    - pnpm test --run
+    - if grep -rInE 'https?://' app shared --include='*.ts' --include='*.vue' --include='*.js' 2>/dev/null | grep -v 'url-literal-ok'; then echo "URL literal in the webview — the API base URL belongs to Rust, or mark a doc link // url-literal-ok"; exit 1; fi
+    - if grep -rInEi '(localStorage|sessionStorage)\.setItem\([^)]*(token|secret|password|credential|api[_-]?key|jwt|bearer)' app shared --include='*.ts' --include='*.vue' --include='*.js' 2>/dev/null | grep -v 'storage-ok'; then echo "secret written to web storage — it belongs in the OS keychain, on the Rust side"; exit 1; fi
+    - if [ -d server ]; then echo "server/ exists — a Nitro route works in tauri dev and vanishes from tauri build; move it to a #[tauri::command]"; exit 1; fi
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "main"'
+
+rust:
+  stage: quality
+  image: rust:1-bookworm
+  before_script:
+    # webkit2gtk-4.1 and libayatana-appindicator3 are Tauri 2's names; the 4.0 /
+    # libappindicator3 pair is Tauri 1's and fails at link time, not install time.
+    # Verbatim from Tauri 2's own prerequisites page — don't trim it by guesswork.
+    - apt-get update && apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+    # rust-toolchain.toml pins the channel and pulls rustfmt + clippy; this makes rustup act on it before the gates run.
+    - rustup show
+  script:
+    - cargo fmt --manifest-path src-tauri/Cargo.toml --check
+    # clippy is the typecheck — no `cargo check`, it would compile the same graph twice.
+    - cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+    - cargo test --manifest-path src-tauri/Cargo.toml
+    - if [ -d src-tauri/capabilities ] && grep -rInE '"(shell:allow-execute|shell:allow-spawn|fs:default)"' src-tauri/capabilities; then echo "that capability hands the webview arbitrary execution or unscoped file access"; exit 1; fi
+    - if [ -d src-tauri/capabilities ] && grep -rInE '"(path|url|identifier)"\s*:\s*"\*"' src-tauri/capabilities; then echo "wildcard scope in a capability — name the paths or origins you actually need"; exit 1; fi
+    # File-exists test first: `grep -q` on a missing path exits 2, which `!` turns true,
+    # and the job would blame CSP for a missing config.
+    - if [ ! -f src-tauri/tauri.conf.json ]; then echo "src-tauri/tauri.conf.json not found — is this a Tauri repo?"; exit 1; fi
+    # Tauri enables CSP protection only if the config sets it — absent == null == none.
+    - if ! grep -q '"csp"' src-tauri/tauri.conf.json || grep -qE '"csp"\s*:\s*null' src-tauri/tauri.conf.json; then echo "app.security.csp is unset or null — that is the webview's isolation switched off"; exit 1; fi
+    # `-f` then `-x`: a script that exists but lost its executable bit means the gate was
+    # configured and then broke, and `-x` alone would turn it green forever behind an echo.
+    - if [ ! -f tool/generate_api_client.sh ]; then echo "tool/generate_api_client.sh missing — API client is NOT diffed against the contract"; elif [ ! -x tool/generate_api_client.sh ]; then echo "tool/generate_api_client.sh is not executable — chmod +x it; this gate was configured and is now broken"; exit 1; else ./tool/generate_api_client.sh && git diff --exit-code; fi
+  cache:
+    key: cargo-$CI_COMMIT_REF_SLUG
+    paths:
+      - src-tauri/target/
+      - .cargo/
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "main"'
 ```

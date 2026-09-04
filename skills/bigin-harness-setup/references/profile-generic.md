@@ -1,10 +1,10 @@
 # Generic Profile Templates
 
-Fallback profile — used when Phase 0's stack detection matches none of `nuxt` / `go` / `nodejs` / `next` / `flutter`. Nothing is asked; the harness installs its stack-neutral half.
+Fallback profile — used when Phase 0's stack detection matches none of `tauri` / `nuxt` / `go` / `nodejs` / `next` / `flutter`. Nothing is asked; the harness installs its stack-neutral half.
 
-What generic **does** install: `CLAUDE.md`, `.claude/rules/security.md` + `architecture.md` + `comments.md` + `product.md`, the AI files, every guard wired in the `settings.json` block below (all nine), `settings.json` itself, the context-budget gate, the pre-commit script, and every opt-in phase (knowledge bundle, graphify, model routing).
+What generic **does** install: `CLAUDE.md`, `.claude/rules/security.md` + `architecture.md` + `comments.md` + `product.md`, the AI files, every guard wired in the `settings.json` block below (all nine gates, plus the `install-hooks.mjs` clone bootstrap on `Setup`), `settings.json` itself, the context-budget gate, the pre-commit script, and every opt-in phase (knowledge bundle, graphify, model routing).
 
-What generic **skips**: Phase 0.5 scaffold (there is no scaffolder for an unknown stack — `flutter` reaches its own via `flutter create`, but that only works because the stack is known), the profile conventions rules (`conventions*.md`, `testing.md` — there's no stack to write conventions for), `.vscode/settings.json`, and Phase 5.6 CI generation (see `## CI` below).
+What generic **skips**: Phase 0.5 scaffold (there is no scaffolder for an unknown stack — `flutter` and `tauri` reach the stack's own CLI instead, but that only works because the stack is known), the profile conventions rules (`conventions*.md`, `testing.md` — there's no stack to write conventions for), `.vscode/settings.json`, and Phase 5.6 CI generation (see `## CI` below).
 
 ---
 
@@ -165,6 +165,26 @@ No CI template. Phase 5.6 is skipped entirely for this profile even when `CI_PRO
           {
             "type": "command",
             "command": "node .claude/guards/precompact-snapshot.mjs"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/guards/precompact-snapshot.mjs"
+          }
+        ]
+      }
+    ],
+    "Setup": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/guards/install-hooks.mjs"
           }
         ]
       }

@@ -357,6 +357,26 @@ Governance superset: `permissions` + `PostToolUse` lint-fix (the `nuxt-scaffold`
           }
         ]
       }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/guards/precompact-snapshot.mjs"
+          }
+        ]
+      }
+    ],
+    "Setup": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/guards/install-hooks.mjs"
+          }
+        ]
+      }
     ]
   }
 }

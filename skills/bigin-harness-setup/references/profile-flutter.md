@@ -373,6 +373,26 @@ None. Dart's formatter and analyzer come from the official Dart/Flutter extensio
           }
         ]
       }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/guards/precompact-snapshot.mjs"
+          }
+        ]
+      }
+    ],
+    "Setup": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/guards/install-hooks.mjs"
+          }
+        ]
+      }
     ]
   }
 }

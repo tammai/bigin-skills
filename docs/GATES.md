@@ -44,7 +44,11 @@ flowchart TD
 
 Guards are Node `.mjs` so they run on macOS, Linux, and Windows — `python3` isn't guaranteed on Windows.
 
+There is also an **opt-in** hook this harness writes but registers nowhere: `instructions-trace.mjs` on `InstructionsLoaded`, which logs which instruction files actually loaded and when. It answers the question this harness generates most ("did that path-scoped rule load?") and is left off by default because that event fires on every rule load — a Node process per load, in every installed repo, to serve whoever is debugging. `references/hook-guard.md` carries the four-line registration and the `CLAUDE_HARNESS_TRACE=1` switch.
+
 Setup won't create a second commit gate. If your repo already gates commits via `simple-git-hooks`, `husky`, or an existing `.git/hooks/pre-commit`, that mechanism *is* the gate and extra steps are appended to it rather than a rival script being written.
+
+`tauri` is the one profile where "appended to it" means a script of its own, chained behind the existing manager. Its frontend comes from `nuxt-scaffold`, so `simple-git-hooks` → `pnpm lint-staged` is already installed — and that gates the frontend only, never `cargo fmt`/`cargo clippy`/`cargo test` and never the four grep gates (no API URL literal in `app/`, no secret in web storage, no `server/` directory, no dangerous Tauri capability). Still one gate, not two: `lint-staged && sh scripts/pre-commit.sh`.
 
 ---
 
@@ -124,7 +128,12 @@ Pattern credited to [Lasso Security's PostToolUse Defender](https://www.lasso.se
 
 ## 5. The non-blocking hooks
 
-Three hooks that never block anything (four scripts, counting `injection-scan-guard` from §4 — five in a `nuxt` or `next` repo, which also gets `lint-fix-file.mjs` on `PostToolUse` to format what was just written). They're easy to forget precisely because they never interrupt you.
+Five hooks that never block anything (five scripts, counting `injection-scan-guard` from §4 — six in a `nuxt`, `next` or `tauri` repo, which also gets `lint-fix-file.mjs` on `PostToolUse` to format what was just written). `precompact-snapshot.mjs` serves two of the five events, which is why there are five scripts and not six. They're easy to forget precisely because they never interrupt you.
+
+Two of the five are newer and worth naming, because each closes a gap the harness previously only documented:
+
+- **`Setup` → `install-hooks.mjs`.** `.git/hooks/` is not version-controlled, so a teammate who clones the repo has *no* pre-commit gate and *no* commit-msg gate until someone runs a symlink command from the README. That made the whole commit-time layer depend on a human reading onboarding text — prose, which is the thing this page exists to say the gates are not. Now Claude Code installs them on its first run in the clone. It defers to `simple-git-hooks`/`husky` where one owns the hooks, and never overwrites a hook it didn't create. Cursor has no `Setup` event, so a Cursor-only teammate still runs the snippet.
+- **`SessionEnd` → `precompact-snapshot.mjs`**, the same script `PreCompact` uses. Autosave previously covered compaction only, so a session that simply ended — closed terminal, finished turn, machine asleep — left `session-resume-check.mjs` nothing to offer on the way back in.
 
 **`session-resume-check.mjs`** (`SessionStart`) — injects context when `.claude/memory/SESSION.md` exists with `status: in-progress`, so a handed-off session offers to resume. Also reports graph presence and freshness when `graphify-out/` exists (see [`GRAPHIFY.md` §6](GRAPHIFY.md#6-keeping-it-fresh)). `SessionStart` is deliberate here rather than a `Stop` hook.
 

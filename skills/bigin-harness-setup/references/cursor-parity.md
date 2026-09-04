@@ -127,7 +127,7 @@ Write to `.cursor/hooks.json`. Same nine guards as `.claude/settings.json`, same
 
 If `.cursor/hooks.json` already exists, **merge per event** — append missing entries, never drop the user's. Same rule `.claude/settings.json` follows.
 
-`lint-fix-file.mjs` is not registered here. Cursor's `afterFileEdit` hook accepts no output and the format-on-save path is the editor's own ESLint integration, so a hook that rewrites the file underneath Cursor's editor buffer is a conflict, not a convenience. Nuxt/next repos keep format-on-save through `.vscode/settings.json`, which Cursor reads (it's a VS Code fork).
+**Three scripts are deliberately absent from this file, and none of them is a gate.** `install-hooks.mjs` runs on Claude Code's `Setup` event, for which Cursor's hook set has no equivalent — so a Cursor-only teammate installs the git hooks with the README snippet instead, and the Phase 7 summary says that rather than implying parity. `instructions-trace.mjs` is registered by no host (opt-in; see `hook-guard.md`). And `lint-fix-file.mjs` is not registered here. Cursor's `afterFileEdit` hook accepts no output and the format-on-save path is the editor's own ESLint integration, so a hook that rewrites the file underneath Cursor's editor buffer is a conflict, not a convenience. Nuxt/next repos keep format-on-save through `.vscode/settings.json`, which Cursor reads (it's a VS Code fork).
 
 ### One behavior degrades
 

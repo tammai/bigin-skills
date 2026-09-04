@@ -78,5 +78,21 @@
   {
     "query": "run the lint and typecheck commands from CLAUDE.md and show me the output",
     "should_trigger": false
+  },
+  {
+    "query": "set up the harness in this tauri desktop app",
+    "should_trigger": true
+  },
+  {
+    "query": "add the AI rules and commit gates to our tauri + nuxt app",
+    "should_trigger": true
+  },
+  {
+    "query": "why did the harness pick the nuxt profile for my tauri app?",
+    "should_trigger": true
+  },
+  {
+    "query": "how do I sign and notarize a tauri app for macOS?",
+    "should_trigger": false
   }
 ]
