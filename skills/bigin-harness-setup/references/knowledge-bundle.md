@@ -272,7 +272,7 @@ Reserved file — no frontmatter. Newest entry first, one date heading per sprin
 // allowed types, reserved files, trust/lifecycle keys, link resolution.
 // Zero dependencies — runs on any Node >= 18 (macOS, Linux, Windows).
 import { readFileSync, readdirSync, statSync } from 'node:fs'
-import { basename, join, relative } from 'node:path'
+import { basename, join, relative, resolve } from 'node:path'
 
 const BUNDLE_ROOT = 'knowledge'
 const OKF_VERSION = '0.2'
@@ -295,6 +295,11 @@ const STATUSES = new Set(['draft', 'stable', 'deprecated'])
 
 const LINK_RE = /\[[^\]]*\]\(([^)]+)\)/g
 const ACTOR_RE = /^(human:.+|process:.+|[^/\s]+\/[^/\s]+)$/
+
+const RESOURCE_SCHEME_RE = /^[A-Za-z][A-Za-z0-9+.-]*:/
+// A letters-first extension is what separates a path from a version or package
+// identifier: `nuxt@4.0.3` ends in `.3`, `@nuxt/content` has no extension.
+const RESOURCE_EXT_RE = /\.[A-Za-z][A-Za-z0-9]{0,7}$/
 
 // --- YAML subset parser ------------------------------------------------------
 // Handles what our frontmatter actually uses: block maps, block lists, inline
@@ -478,6 +483,19 @@ function asList(value) {
   return Array.isArray(value) ? value : [value]
 }
 
+// The path a `resource` value points at, or null when the value is not
+// recognisably one: a URI, prose, or a version/package identifier. Exported so
+// the classification — the whole false-positive surface — is testable alone.
+export function resourcePath(value) {
+  if (typeof value !== 'string') return null
+  const text = value.trim()
+  if (!text || RESOURCE_SCHEME_RE.test(text) || /\s/.test(text)) return null
+  const target = text.split('#')[0]
+  if (!target) return null
+  if (target.endsWith('/')) return target
+  return RESOURCE_EXT_RE.test(target.split('/').pop()) ? target : null
+}
+
 function bundleRelativeLinks(content) {
   const links = []
   for (const match of content.matchAll(LINK_RE)) {
@@ -610,6 +628,37 @@ function checkSources(path, meta, body, errors, warnings) {
   }
 }
 
+function checkResourcePaths(path, meta, root, errors, warnings) {
+  const entries = []
+  if (meta.resource !== undefined) entries.push(['resource', meta.resource])
+  for (const [i, source] of asList(meta.sources).entries()) {
+    if (isPlainObject(source) && source.resource) {
+      entries.push([`sources[${i}].resource`, source.resource])
+    }
+  }
+
+  for (const [label, value] of entries) {
+    const target = resourcePath(value)
+    if (target === null) continue
+    const wantDir = target.endsWith('/')
+    // A `/`-prefixed value is bundle-relative like every other reference in the
+    // bundle; anything else resolves against the repo root the validator runs from.
+    const full = target.startsWith('/') ? join(root, target.slice(1)) : resolve(target)
+    let stats
+    try {
+      stats = statSync(full)
+    } catch {
+      errors.push(`${path}: ${label} '${value}' does not exist`)
+      continue
+    }
+    if (wantDir && !stats.isDirectory()) {
+      errors.push(`${path}: ${label} '${value}' is a file, not a directory`)
+    } else if (!wantDir && stats.isDirectory()) {
+      errors.push(`${path}: ${label} '${value}' is a directory, not a file`)
+    }
+  }
+}
+
 // --- main --------------------------------------------------------------------
 
 function main() {
@@ -672,6 +721,7 @@ function main() {
       checkTrust(path, meta, errors, warnings)
       checkLifecycle(path, meta, errors, warnings, today)
       checkSources(path, meta, body, errors, warnings)
+      checkResourcePaths(path, meta, root, errors, warnings)
 
       if (!meta.description) warnings.push(`${path}: missing recommended key 'description'`)
       if (!meta.tags || meta.tags.length === 0) warnings.push(`${path}: missing recommended key 'tags'`)
@@ -717,5 +767,13 @@ function main() {
   return 0
 }
 
-process.exit(main())
+// This file is imported by its test, so main() must run only when it is the
+// process entry point — `node tools/knowledge_validate.mjs` still exits with
+// main()'s code. Derived from import.meta.url rather than node:url to keep the
+// script's node:fs/node:path-only import list.
+const selfPath = decodeURIComponent(new URL(import.meta.url).pathname)
+const selfNative = /^\/[A-Za-z]:/.test(selfPath) ? selfPath.slice(1) : selfPath
+if (process.argv[1] && resolve(process.argv[1]) === resolve(selfNative)) {
+  process.exit(main())
+}
 ```
