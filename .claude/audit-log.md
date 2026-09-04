@@ -139,7 +139,7 @@ Also confirmed non-findings, so they don't get re-raised: bundle-root-relative l
 
 ## 2026-09-04
 
-Docs checked: `skills.md`, `hooks.md`, `plugins-reference.md`, `sub-agents.md`, `memory.md`. **`best-practices.md` was not fetched** — recorded as a coverage gap, not a pass; a later run should cover it.
+Docs checked: `skills.md`, `hooks.md`, `plugins-reference.md`, `sub-agents.md`, `memory.md`. `best-practices.md` was not fetched in the main pass — recorded then as a coverage gap rather than a pass, and **closed the same day by the follow-up run below**.
 
 New findings: 0 blocking, 1 drift, 4 opportunity. All five acted on in the same pass (user asked to fix all), shipped in v1.87.0 alongside the `tauri` profile.
 
@@ -161,3 +161,25 @@ Verified, no drift (recorded so the next run doesn't re-litigate):
 
 Deferred (logged, not acted on): none remaining.
 - `[ -x tool/generate_api_client.sh ]` in the **flutter** CI templates (github + gitlab) skipped the contract-diff gate when the script existed but had lost its executable bit — green forever behind an echo. Fixed in the two `tauri` templates in v1.87.0 and deferred for flutter's two, since those are content written verbatim into target repos and wanted their own CHANGELOG `patch` block. **Closed in v1.87.1 the same day** — all four templates are now three-way (missing → warn+skip, present-but-not-executable → fail, executable → run), with patch blocks for both target files. Both blocks were verified by reconstructing a pre-fix workflow, matching the anchor the way `patch-mode.md` specifies, applying it, and re-parsing the result as YAML. The GitHub block replaces the whole `if`/`else` rather than the condition alone: patching just the condition left the original `else` dangling as dead code with a duplicate message, which in a generated file invites someone to "fix" it.
+
+### Same-day addendum — `best-practices.md` follow-up run
+
+Closing the coverage gap recorded above. One drift, acted on; one opportunity, examined and declined.
+
+- **`agents/verifier.md` had no bound on what counts as a finding** — its only limit was "not a second opinion on code style", which scopes subject matter and says nothing about the tendency itself. `best-practices.md` names it explicitly: a reviewer prompted to find gaps will usually report some, even when the work is sound. It bites harder here than in the general case because the contract is binary — any entry in `issues[]` is a `FAIL`, costing a whole implement round against a cap of three, so two spurious findings exhaust the loop on a correct diff. **`knowledge-auditor.md` already had the guard right** ("Style, wording, topic selection, and level of detail are not findings. An accurate bundle that reads awkwardly passes"), so the two sibling auditors had simply drifted apart. Fixed in v1.87.2; body copied verbatim into `verifier-medium.md` — Closed
+- **`$ARGUMENTS`**: 11 of the 12 skills declaring `argument-hint` never reference it (only `napkin` does). Not a defect where the model reads the argument out of the message anyway, but `ask-bigin` is slash-only like `napkin` and handles it differently. Logged as a consistency question, not a finding.
+- **Bold density in the generated `CLAUDE.md` Hard Rules** is uneven (tauri 7/12 bullets, flutter 6/11, nuxt/nodejs/generic 0). Not the "emphasize everything and nothing stands out" failure the docs warn about — the bolding is a lead-in label, not priority marking — but it is house-style drift. Not a finding.
+
+**The `Stop` hook: re-examined against current docs and the removal reaffirmed. Do not raise this a third time without new information.**
+
+This has now gone a full cycle. The 2026-07-13 follow-up audit proposed it from `best-practices.md` ("the deterministic version of exactly this ask"); it shipped as `verify-gate.mjs` across three profiles; v1.37.0 removed it as redundant with the commit-time gate. This run re-opened it because two things had genuinely changed: the docs now present a `Stop` hook as one of the two mechanisms that let an unattended run finish correctly, and they document an override after **8 consecutive blocks**, which bounds the deadlock risk that did not feature in the removal reasoning.
+
+Re-examined on the merits, the removal still holds, for a reason neither earlier round stated plainly:
+
+- The docs list four ways to give Claude a runnable check. **This harness already has three** — spec criteria in an approved `PLAN.md`, an independent `verifier` subagent, and `pre-commit.sh` as the deterministic gate. The missing one is the weakest of the four *for this workflow*, because `task-workflow`'s implement/verify loop already closes the unattended loop and closes it better: it checks the diff against the spec, and code can be green while being the wrong feature.
+- The only uncovered case is ad-hoc work below the spec gate's trivial threshold, ending without a commit. **Nothing bad reaches `main` there either** — `pre-commit.sh` still holds. A `Stop` hook would not prevent a bad commit, only surface breakage sooner.
+- Price: lint + typecheck + tests at the end of *every* turn, including turns that read one file and answered a question — roughly 30–90s per exchange on a typical Nuxt repo, for every developer, in every installed repo. Paying that continuously to learn about breakage minutes earlier, when the real gate already holds, is a bad trade.
+
+**What would flip it**, and the only thing that should reopen this: sustained genuinely-unattended use — `claude -p` in CI, auto mode on long tasks, `/loop` — where nobody sees the failure and the agent builds on a broken tree for many turns. There the cost compounds the other way. That is not how this plugin is used today.
+
+If it is ever revisited, the third option neither earlier round had is the one to take: scaffold it **written but registered by nothing**, the shape `instructions-trace.mjs` uses — capability present in every repo, zero cost to anyone not opting in, and no reversal of v1.37.0's judgment for anyone who agreed with it.
