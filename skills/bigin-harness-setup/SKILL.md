@@ -283,7 +283,7 @@ Decided in Phase 1.5 (`KNOWLEDGE_BUNDLE`). If true, read all templates from `ref
 2. **Starter bundle** — write each (skip existing under `INSTALL_MODE=new`):
    - `## knowledge/meta/knowledge-bundle-spec.md` → `knowledge/meta/knowledge-bundle-spec.md`
    - `## knowledge/index.md` → `knowledge/index.md`
-   - `## knowledge/contracts/openapi-contract.md` → `knowledge/contracts/openapi-contract.md`
+   - `## knowledge/contracts/openapi-contract.md` → `knowledge/contracts/openapi-contract.md`, **only if a contract file exists** (`openapi.yaml`/`openapi.json` at the repo root or under `api/`). A repo with no contract gets no contract concept, and the index's `## Contracts` section is omitted with it — an indexed concept describing an API surface the repo does not have is read as settled truth by every later agent, and its `resource:` points at nothing.
    - `## knowledge/constraints/agent-rules.md` → `knowledge/constraints/agent-rules.md`
    - `## knowledge/implementation/index.md` → `knowledge/implementation/index.md` (empty of records — `task-workflow` and `epic-workflow` append to it at cleanup)
    - `## knowledge/log.md` → `knowledge/log.md`

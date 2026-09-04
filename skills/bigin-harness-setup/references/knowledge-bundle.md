@@ -113,6 +113,8 @@ Extension keys are allowed but must not collide with the above.
 
 The index is the primary read target — one-line summaries must be self-sufficient for routine work. Open a concept file only when the summary is insufficient. It is a reserved file: `okf_version` is the only key it may carry.
 
+**Drop the `## Contracts` section entirely when the repo has no contract file** (`openapi.yaml`/`openapi.json`, root or `api/`) — Phase 5.5 skips the concept in that case, and an index line pointing at a file that was never written is a broken link the validator fails on.
+
 ```markdown
 ---
 okf_version: "0.2"
@@ -177,6 +179,8 @@ table with its Notes, and the Amendments section if there was one}
 ---
 
 ## knowledge/contracts/openapi-contract.md
+
+**Conditional — write this only when a contract file exists.** Its `resource:` and `sources[0].resource` both name `openapi.yaml`, so writing it into a repo without one produces a concept that fails resource-path resolution and, worse, tells every later agent the repo has an API contract it does not have.
 
 ```markdown
 ---
