@@ -219,6 +219,10 @@ CI (or the local gate) fails if generated frontend types don't match the checked
 
 ## knowledge/constraints/agent-rules.md
 
+**Two substitutions before writing.** `{CONVENTIONS_RULE}` is the profile's conventions rule path from `rule-files.md`'s matrix — `.claude/rules/conventions.md` for `go`/`nodejs`/`flutter`, `.claude/rules/conventions-frontend.md` for `nuxt`/`next`/`tauri`. On `generic` there is no conventions rule at all: **drop the whole `conventions` source entry and the "Never edit a merged migration" section**, whose only content is a pointer to it. And when Phase 5.5 skipped the contract concept, **drop the "Before touching handlers/routes" section** — it is a link to a concept that was not written.
+
+Both are the same defect in different clothing: a starter file asserting the existence of something this repo does not have. Resource-path resolution now fails the commit on the first one; the second is a broken bundle link, which has always failed.
+
 ```markdown
 ---
 type: Constraint
@@ -229,7 +233,7 @@ status: stable
 generated: { by: process:bigin-harness-setup, at: {DATE}T00:00:00Z }
 sources:
   - id: conventions
-    resource: .claude/rules/conventions.md
+    resource: {CONVENTIONS_RULE}
     title: Enforced conventions
     last_modified: {DATE}
   - id: security
@@ -244,7 +248,7 @@ sources:
 Read `knowledge/contracts/openapi-contract.md` and confirm the change stays additive, or that a version bump is the explicit plan.
 
 ## Never edit a merged migration
-Write a new migration instead. See `.claude/rules/conventions.md` for the migration pattern.
+Write a new migration instead. See `{CONVENTIONS_RULE}` for the migration pattern.
 
 ## Security-sensitive code
 Anything touching auth, secrets, or PII must have its security considerations named in the spec (`/task-workflow` has the format) before implementation starts, and goes through `.claude/rules/security.md` before merging.

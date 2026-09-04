@@ -277,7 +277,7 @@ Write `.claude/model-routing.json` from `references/files-shared.md` → `## mod
 
 ## Phase 5.5: Knowledge Bundle (optional)
 
-Decided in Phase 1.5 (`KNOWLEDGE_BUNDLE`). If true, read all templates from `references/knowledge-bundle.md`. Replace `{DATE}` with today's date in ISO 8601 (`YYYY-MM-DD`) in every template before writing.
+Decided in Phase 1.5 (`KNOWLEDGE_BUNDLE`). If true, read all templates from `references/knowledge-bundle.md`. Replace `{DATE}` with today's date in ISO 8601 (`YYYY-MM-DD`) in every template before writing, and `{CONVENTIONS_RULE}` with this profile's conventions rule path from `references/rule-files.md`'s matrix — dropping the entries that name it on `generic`, which has no conventions rule (see the agent-rules template).
 
 1. **Rule file** — `## knowledge.md` → write to `.claude/rules/knowledge.md`. Skip if `INSTALL_MODE=new` and it exists.
 2. **Starter bundle** — write each (skip existing under `INSTALL_MODE=new`):
