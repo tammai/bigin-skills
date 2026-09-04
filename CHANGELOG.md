@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.87.2] - 2026-09-04
+
+### Fixed
+
+- **The `verifier` agent had nothing telling it that `PASS` is a normal outcome, so it was structurally biased toward manufacturing findings.** Its only bound on what counted was "you are the independent check, not a second opinion on code style" — which scopes the *subject matter* and says nothing about the tendency itself. Claude Code's own best-practices guidance names this directly: a reviewer prompted to find gaps will usually report some, even when the work is sound, because that is what it was asked to do.
+
+  It bites harder here than in the general case because the contract is binary. **Any** entry in `issues[]` makes the verdict `FAIL`, which sends the work back for a whole implement round against a cap of three — so two spurious findings can exhaust the loop on a diff that was already correct, and the run ends by asking the user to intervene on work that never needed it. This repo's own audit log records a round (2026-08-03) whose reported "misses" turned out not to be misses.
+
+  Three rules added: a finding must bear on correctness or on something `PLAN.md` actually states; `PASS` is normal and expected, not a failure to find something; and a wrong finding costs a full round, so an issue whose violated spec line you cannot name is not a finding.
+
+  **The sibling auditor already had this right.** `knowledge-auditor.md` has carried "Style, wording, topic selection, and level of detail are not findings. An accurate bundle that reads awkwardly passes" since it was written — and inverts it where the domain demands (`Absence of evidence is a finding`). The two auditors had simply drifted apart; this brings `verifier` up to the standard `knowledge-auditor` set. Body copied verbatim into `verifier-medium.md`, whose frontmatter still differs only in `name` and `effort` as `docs_sync.mjs --check` requires.
+
+  No `patch` block: `agents/` are plugin-level and spawned through the Agent tool, never scaffolded into target repos, so every install picks this up on upgrade with nothing to apply.
+
+  Found by the `best-practices.md` pass that a prior audit had logged as a coverage gap rather than a pass.
+
 ## [1.87.1] - 2026-09-04
 
 ### Fixed
