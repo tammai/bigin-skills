@@ -5,6 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.87.1] - 2026-09-04
+
+### Fixed
+
+- **The flutter CI templates skipped their contract-diff gate whenever `tool/generate_api_client.sh` lost its executable bit — silently, and forever.** The step tested `[ -x ... ]` alone, so a script that was present but not `+x` took the same branch as one that was never written: an `echo` and exit 0. A gate configured and then broken is indistinguishable from a gate never configured, and the only signal is a line of stdout in a *passing* job, which nobody reads.
+
+  A lost `+x` is not hypothetical: it is the default state of a file recreated by a script, a `git checkout` on a filesystem without exec-bit support, and a Windows checkout. The whole point of the step is that a client generated from a stale contract cannot reach `main`, and this turned that off with no visible change.
+
+  Now three-way in all four templates (`github: flutter`, `gitlab: flutter`, and the two `tauri` jobs added in 1.87.0): **missing** → warn and skip, since the gate was never set up; **present but not executable** → **fail**, because it was set up and is now broken; **executable** → run and diff. Verified against all three states.
+
+  Found by the code review of 1.87.0, which flagged the pattern in the two new `tauri` templates. Those were fixed in that release and flutter's two were deliberately deferred rather than changed silently, because they are content written verbatim into target repos and wanted their own `patch` block. This is that block.
+
+The GitHub block replaces the whole `if`/`else`, not just the `if` line. Patching only the condition would have left the original `else` branch dangling as dead code with a duplicate "missing" message — in a generated file a reader would rightly try to "fix". A longer anchor is likelier to miss on a hand-edited workflow, and a miss is a skip-and-flag pointing here, which is the safe direction.
+
+```patch
+target: .github/workflows/ci.yml
+anchor: if [ -x tool/generate_api_client.sh ]; then
+            ./tool/generate_api_client.sh
+            git diff --exit-code
+          else
+            echo "tool/generate_api_client.sh missing — API client is NOT diffed against the contract"
+          fi
+insert: replace
+---
+if [ ! -f tool/generate_api_client.sh ]; then
+            echo "tool/generate_api_client.sh missing — API client is NOT diffed against the contract"
+          elif [ ! -x tool/generate_api_client.sh ]; then
+            echo "^ tool/generate_api_client.sh is not executable — chmod +x it; this gate was configured and is now broken"
+            exit 1
+          else
+            ./tool/generate_api_client.sh
+            git diff --exit-code
+          fi
+```
+
+```patch
+target: .gitlab-ci.yml
+anchor: - if [ -x tool/generate_api_client.sh ]; then ./tool/generate_api_client.sh && git diff --exit-code; else echo "tool/generate_api_client.sh missing — API client is NOT diffed against the contract"; fi
+insert: replace
+---
+- if [ ! -f tool/generate_api_client.sh ]; then echo "tool/generate_api_client.sh missing — API client is NOT diffed against the contract"; elif [ ! -x tool/generate_api_client.sh ]; then echo "tool/generate_api_client.sh is not executable — chmod +x it; this gate was configured and is now broken"; exit 1; else ./tool/generate_api_client.sh && git diff --exit-code; fi
+```
+
 ## [1.87.0] - 2026-09-04
 
 ### Added

@@ -205,11 +205,17 @@ jobs:
         run: |
           # The generator (openapi-generator JAR or Docker tag) is pinned inside this
           # script, which the repo owns — the pin is what makes the diff trustworthy.
-          if [ -x tool/generate_api_client.sh ]; then
+          # `-f` then `-x`, not `-x` alone: a script that exists but lost its executable
+          # bit means the gate was configured and then broke, and `-x` alone would turn it
+          # green forever behind an echo nobody reads in a passing job.
+          if [ ! -f tool/generate_api_client.sh ]; then
+            echo "tool/generate_api_client.sh missing — API client is NOT diffed against the contract"
+          elif [ ! -x tool/generate_api_client.sh ]; then
+            echo "^ tool/generate_api_client.sh is not executable — chmod +x it; this gate was configured and is now broken"
+            exit 1
+          else
             ./tool/generate_api_client.sh
             git diff --exit-code
-          else
-            echo "tool/generate_api_client.sh missing — API client is NOT diffed against the contract"
           fi
 ```
 
@@ -461,7 +467,9 @@ quality:
     - if grep -rInE 'https?://' lib --include='*.dart' --exclude='*.g.dart' --exclude='*.freezed.dart' --exclude='firebase_options*.dart' | grep -v 'url-literal-ok'; then echo "base URL literal in lib/ — read it from the flavor config, or mark a doc link // url-literal-ok"; exit 1; fi
     - flutter test
     - if ! grep -q 'build_runner' pubspec.yaml; then echo "build_runner not configured — the codegen diff is NOT running"; elif grep -qE '^\s+(build_runner|build_verify|json_serializable|riverpod_generator|drift_dev|go_router_builder|freezed|custom_lint):\s*["'"'"']?[>~^]' pubspec.yaml; then echo "code generators are on caret/range constraints — the codegen diff is NOT running; pin them to exact versions to switch this gate on"; else dart run build_runner build --delete-conflicting-outputs && git diff --exit-code; fi
-    - if [ -x tool/generate_api_client.sh ]; then ./tool/generate_api_client.sh && git diff --exit-code; else echo "tool/generate_api_client.sh missing — API client is NOT diffed against the contract"; fi
+    # `-f` then `-x`: a script that exists but lost its executable bit means the gate was
+    # configured and then broke, and `-x` alone would turn it green forever behind an echo.
+    - if [ ! -f tool/generate_api_client.sh ]; then echo "tool/generate_api_client.sh missing — API client is NOT diffed against the contract"; elif [ ! -x tool/generate_api_client.sh ]; then echo "tool/generate_api_client.sh is not executable — chmod +x it; this gate was configured and is now broken"; exit 1; else ./tool/generate_api_client.sh && git diff --exit-code; fi
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "main"'
 ```
