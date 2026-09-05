@@ -3,6 +3,10 @@ export default defineNuxtConfig({
   compatibilityDate: '2025-01-01',
   modules: ['@nuxt/content', '@nuxtjs/i18n', '@nuxt/ui', '@nuxt/eslint'],
 
+  // @nuxt/ui ships no stylesheet of its own — without this entry Tailwind
+  // never runs and every utility class in the block tree is inert.
+  css: ['~/assets/css/main.css'],
+
   i18n: {
     // NO fallbackLocale — a missing locale renders nothing and the block hides
     // itself. The pre-commit gate greps for `fallbackLocale` and fails on it.
@@ -11,10 +15,24 @@ export default defineNuxtConfig({
     locales: [__LOCALES_I18N__]
   },
 
-  ui: { theme: { colors: { primary: '__PRIMARY__', neutral: '__NEUTRAL__' } } },
+  // Every value here is empty and supplied by an environment variable — a
+  // Worker secret in production. No secret literal ever lives in this repo.
+  //   NUXT_TURNSTILE_SECRET_KEY     Turnstile secret, for server-side siteverify
+  //   NUXT_CONTACT_DELIVERY_URL     where a contact submission is POSTed
+  //   NUXT_NEWSLETTER_DELIVERY_URL  where a newsletter signup is POSTed
+  //   NUXT_DELIVERY_TOKEN           optional bearer token for both destinations
+  runtimeConfig: {
+    turnstile: { secretKey: '' },
+    contact: { deliveryUrl: '' },
+    newsletter: { deliveryUrl: '' },
+    deliveryToken: ''
+  },
 
   nitro: {
     preset: 'cloudflare_module',
-    prerender: { crawlLinks: true, routes: ['/'], failOnError: true }
+    // One entry point per locale, listed explicitly. crawlLinks alone reaches
+    // only the default locale on a site whose first page links nowhere, and a
+    // locale that fails to prerender 404s in production and nowhere else.
+    prerender: { crawlLinks: true, routes: [__LOCALE_ROUTES__], failOnError: true }
   }
 })

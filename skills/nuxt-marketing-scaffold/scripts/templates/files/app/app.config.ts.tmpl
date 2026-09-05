@@ -1,0 +1,11 @@
+// @nuxt/ui reads colour *values* from here. nuxt.config's `ui.theme.colors` is
+// the list of alias names rather than their values, which is why the theme
+// choices land in this file.
+export default defineAppConfig({
+  ui: {
+    colors: {
+      primary: '__PRIMARY__',
+      neutral: '__NEUTRAL__'
+    }
+  }
+})

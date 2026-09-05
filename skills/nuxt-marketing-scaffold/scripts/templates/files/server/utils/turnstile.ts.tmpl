@@ -1,0 +1,51 @@
+import type { H3Event } from 'h3'
+
+const SITEVERIFY = 'https://challenges.cloudflare.com/turnstile/v0/siteverify'
+
+interface SiteverifyResponse {
+  success?: boolean
+  'error-codes'?: string[]
+}
+
+// Verifies one Turnstile token against Cloudflare's siteverify endpoint.
+//
+// The secret is read from runtime config (NUXT_TURNSTILE_SECRET_KEY, a Worker
+// secret in production) and is never a literal in this repo. Every failure
+// path throws: an unconfigured secret, an unreachable endpoint and a rejected
+// token all refuse the submission rather than falling through to accept it.
+export async function verifyTurnstile(event: H3Event, token: string): Promise<void> {
+  const secret = useRuntimeConfig(event).turnstile.secretKey
+  if (!secret) {
+    throw createError({
+      statusCode: 503,
+      statusMessage: 'Turnstile is not configured',
+      data: { code: 'TURNSTILE_SECRET_MISSING', env: 'NUXT_TURNSTILE_SECRET_KEY' }
+    })
+  }
+
+  const form = new FormData()
+  form.append('secret', secret)
+  form.append('response', token)
+  const ip = getRequestIP(event, { xForwardedFor: true })
+  if (ip) form.append('remoteip', ip)
+
+  let outcome: SiteverifyResponse
+  try {
+    outcome = await $fetch<SiteverifyResponse>(SITEVERIFY, { method: 'POST', body: form })
+  }
+  catch {
+    throw createError({
+      statusCode: 502,
+      statusMessage: 'Turnstile verification is unavailable',
+      data: { code: 'TURNSTILE_UNREACHABLE' }
+    })
+  }
+
+  if (!outcome.success) {
+    throw createError({
+      statusCode: 403,
+      statusMessage: 'Turnstile verification failed',
+      data: { code: 'TURNSTILE_REJECTED', errors: outcome['error-codes'] ?? [] }
+    })
+  }
+}

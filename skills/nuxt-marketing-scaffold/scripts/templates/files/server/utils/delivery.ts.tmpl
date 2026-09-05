@@ -1,0 +1,57 @@
+import type { H3Event } from 'h3'
+
+export type ContactMessage = {
+  name: string
+  email: string
+  message: string
+}
+
+// Where a submission goes is a per-engagement decision — a CRM, an inbox
+// relay, a marketing platform — so it is configuration, not code: an HTTPS
+// endpoint in runtime config, with an optional bearer token.
+//
+// An unconfigured endpoint is a 501 naming the variable to set. It is never a
+// silent `{ ok: true }`: a form that reports success while dropping every
+// message is the single worst failure this route can have, because nobody
+// finds out until a client asks why nobody replied.
+async function forward(
+  event: H3Event,
+  what: 'contact' | 'newsletter',
+  endpoint: string,
+  payload: Record<string, unknown>
+): Promise<void> {
+  if (!endpoint) {
+    throw createError({
+      statusCode: 501,
+      statusMessage: `The ${what} destination is not configured`,
+      data: {
+        code: `${what.toUpperCase()}_DELIVERY_NOT_CONFIGURED`,
+        env: `NUXT_${what.toUpperCase()}_DELIVERY_URL`
+      }
+    })
+  }
+
+  const token = useRuntimeConfig(event).deliveryToken
+  try {
+    await $fetch(endpoint, {
+      method: 'POST',
+      body: payload,
+      headers: token ? { authorization: `Bearer ${token}` } : undefined
+    })
+  }
+  catch {
+    throw createError({
+      statusCode: 502,
+      statusMessage: `The ${what} destination rejected the submission`,
+      data: { code: `${what.toUpperCase()}_DELIVERY_FAILED` }
+    })
+  }
+}
+
+export async function deliverContactMessage(event: H3Event, message: ContactMessage): Promise<void> {
+  await forward(event, 'contact', useRuntimeConfig(event).contact.deliveryUrl, message)
+}
+
+export async function subscribe(event: H3Event, email: string): Promise<void> {
+  await forward(event, 'newsletter', useRuntimeConfig(event).newsletter.deliveryUrl, { email })
+}

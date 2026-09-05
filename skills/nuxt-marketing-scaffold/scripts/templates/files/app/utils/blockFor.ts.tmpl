@@ -1,0 +1,18 @@
+import type { Component } from 'vue'
+import Hero from '~/components/blocks/Hero.vue'
+
+// The block registry. `blocks[].type` in a content entry is data written by a
+// content editor, so it is resolved through this map rather than turned into a
+// component name string: an unknown type renders nothing, the same way a
+// missing locale does, instead of throwing on a client's live site.
+//
+// Adding a block type is three changes in one commit — the component, an entry
+// here, and the collection schema. Never a hand-written key the renderer does
+// not know.
+const BLOCKS: Record<string, Component> = {
+  hero: Hero
+}
+
+export function blockFor(type: string): Component | undefined {
+  return BLOCKS[type]
+}

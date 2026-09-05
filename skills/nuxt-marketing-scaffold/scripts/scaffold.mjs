@@ -18,7 +18,12 @@
  *   nuxt.config.ts + content.config.ts + content/<locale>/ tree
  *   @nuxt/content AND @nuxtjs/i18n in `dependencies`
  *   no auth dependency of any kind
- *   server/api/ holding exactly the contact + newsletter routes
+ *   server/api/ holding exactly the contact + newsletter routes,
+ *     with their Turnstile / rate-limit / delivery helpers in server/utils/
+ *
+ * It leaves behind a repo that BUILDS: `pnpm install && pnpm build` prerenders
+ * one entry point per locale. `tools/regress.mjs --build` is the check that
+ * keeps that true; the always-on cases in that suite are the cheap half.
  *
  * All decisions are pre-resolved via CLI flags — never prompts, never reads
  * stdin. Node stdlib only. Exit codes: 0 ok, 1 runtime failure, 2 bad usage.
@@ -43,11 +48,16 @@ const LOCALE_RE = /^[a-z]{2}(-[A-Z]{2})?$/
 const PRIMARY = ['blue','green','emerald','teal','cyan','sky','indigo','violet','purple','fuchsia','pink','rose','amber','yellow','lime','orange','red']
 const NEUTRAL = ['slate','gray','zinc','neutral','stone']
 
-// Runtime deps. @nuxt/content and @nuxtjs/i18n are `dependencies` on purpose:
-// they are conditions 2 and 3 of the detection rung, and a devDependency-only
-// entry is specified NOT to match.
-const DEPS = ['nuxt', '@nuxt/content', '@nuxtjs/i18n', '@nuxt/ui', 'better-sqlite3']
-const DEV_DEPS = ['@nuxt/eslint', 'eslint', 'typescript', 'vue-tsc', 'wrangler']
+// There is no dependency list here on purpose. `package.json.tmpl` declares
+// every dependency at a tested range, and the install step is `pnpm install`
+// against that manifest — never `pnpm add`, which would re-resolve each name
+// to whatever is latest that morning and silently discard the pins. The
+// --no-install path and the install path have to produce the same tree, or
+// the thing that was verified is not the thing that ships.
+//
+// @nuxt/content and @nuxtjs/i18n are `dependencies` in that manifest on
+// purpose: they are conditions 2 and 3 of the detection rung, and a
+// devDependency-only entry is specified NOT to match.
 
 function log (m) { console.log(`[scaffold] ${m}`) }
 function bad (m) { console.error(`[scaffold] usage: ${m}`); process.exit(2) }
@@ -90,14 +100,23 @@ function parse () {
            force: !!v.force, install: !v['no-install'], commit: !v['no-commit'] }
 }
 
-const subst = (s, m) => s.replace(/__([A-Z_]+)__/g, (_, k) => (k in m ? m[k] : `__${k}__`))
+// The character class must include digits: `__LOCALES_I18N__` is a real token
+// name and `[A-Z_]+` cannot match the `18` in it, so a digit-bearing token
+// silently survived substitution into the generated config for four releases.
+// A token that does not match here is not an error — it is written through
+// unchanged, and nothing downstream reads it — which is why the regression
+// suite asserts on the generated tree rather than on this line.
+const subst = (s, m) => s.replace(/__([A-Z0-9_]+)__/g, (_, k) => (k in m ? m[k] : `__${k}__`))
 
 function writeTree (root, opts) {
+  const [defaultLocale, ...prefixed] = opts.locales
   const map = {
     PROJECT: opts.project,
-    DEFAULT_LOCALE: opts.locales[0],
-    LOCALES_JSON: JSON.stringify(opts.locales),
+    DEFAULT_LOCALE: defaultLocale,
     LOCALES_I18N: opts.locales.map(c => `{ code: '${c}', file: '${c}.json' }`).join(', '),
+    // prefix_except_default: the default locale is served at the root, every
+    // other locale under its own prefix. One prerender entry point each.
+    LOCALE_ROUTES: ['/', ...prefixed.map(c => `/${c}`)].map(r => `'${r}'`).join(', '),
     PRIMARY: opts.primary,
     NEUTRAL: opts.neutral
   }
@@ -145,8 +164,7 @@ function main () {
   log('wrote project tree')
 
   if (opts.install) {
-    if (run('pnpm', ['add', ...DEPS], { cwd: root })) die('pnpm add (deps) failed')
-    if (run('pnpm', ['add', '-D', ...DEV_DEPS], { cwd: root })) die('pnpm add (devDeps) failed')
+    if (run('pnpm', ['install'], { cwd: root })) die('pnpm install failed')
     log('installed dependencies')
   } else {
     log('skipped install (--no-install) — package.json already declares every dependency')

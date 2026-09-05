@@ -101,7 +101,7 @@ The skill detects your stack, asks a small batch of questions **before writing a
 | `next.config.*` | `next` |
 | `pubspec.yaml` with a `flutter:` key or SDK dependency **and** app evidence (`lib/main*.dart` plus `android/app/` or `ios/Runner/`) | `flutter` |
 | none of the above, but the repo has code | `generic` — no question asked, setup keeps going. A plain Dart package lands here, and so do a Flutter **package** and a Flutter **plugin** (`plugin:` under `flutter:`): flavors, a dio client and a local database are app concerns, and a widget library should not inherit rules for code it will never contain. The run says which one it detected. |
-| empty repo | asks which stack, then scaffolds the app first — the question does **not** offer `nuxt-marketing`, because there is no marketing-site scaffolder to run |
+| empty repo | asks which stack, then scaffolds the app first — `nuxt-marketing` is option 7, and Phase 0.5 delegates it to `nuxt-marketing-scaffold` |
 
 **The questions you'll be asked** (bundled, all optional to change — `AskUserQuestion` takes at most four at a time, so six applicable questions arrive as two back-to-back prompts):
 
@@ -112,7 +112,7 @@ The skill detects your stack, asks a small batch of questions **before writing a
 | Model ladder | `opus-centric` | Which models the three execution tiers spawn on — see [§7](#7-tuning-cost-and-depth) |
 | Agent hosts | auto-detected — `both` if `.cursor/` exists, else `claude` | Whether to also generate the Cursor mirror so the same rules and gates apply in Cursor — see [`GATES.md` §7](GATES.md#7-the-same-gates-in-cursor) |
 
-If the repo is empty, the app itself gets scaffolded first (by `nuxt-scaffold` / `nuxt-marketing-scaffold` / `next-scaffold` / `go-scaffold` / `nodejs-scaffold`, by `flutter create` for the `flutter` profile, or by `nuxt-scaffold` followed by `pnpm tauri init` for `tauri`), and the governance layer is overlaid on top additively. `nuxt-marketing` is detection-only: its repos come from the Marketing Site Factory's template, already scaffolded, so that profile is never reached from an empty directory.
+If the repo is empty, the app itself gets scaffolded first (by `nuxt-scaffold` / `nuxt-marketing-scaffold` / `next-scaffold` / `go-scaffold` / `nodejs-scaffold`, by `flutter create` for the `flutter` profile, or by `nuxt-scaffold` followed by `pnpm tauri init` for `tauri`), and the governance layer is overlaid on top additively. A `nuxt-marketing` repo that arrives from the Marketing Site Factory's template is already scaffolded and skips that step, like any other repo whose marker file exists.
 
 If the repo is on GitHub Spec Kit, you'll be offered `migrate` / `coexist` / `leave`. Migration always shows you a read-only triage table of everything under `specs/` before deleting a single file.
 

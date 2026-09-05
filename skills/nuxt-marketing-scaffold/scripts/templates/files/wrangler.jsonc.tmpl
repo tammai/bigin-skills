@@ -1,4 +1,19 @@
 {
+  // Two bindings this site needs before its form routes work in production.
+  // Both carry an account-specific id, so neither is generated here: create
+  // the resource, add a comma after the "assets" line below, and paste the
+  // block in. Until then the routes fail loudly with a named error rather
+  // than pretending to have accepted a submission.
+  //
+  // Rate-limit counters — server/utils/rateLimit.ts, binding RATE_LIMIT:
+  //   wrangler kv namespace create RATE_LIMIT
+  //   "kv_namespaces": [{ "binding": "RATE_LIMIT", "id": "<id from that command>" }]
+  //
+  // @nuxt/content switches to D1 on a Cloudflare deploy and expects a binding
+  // named DB. Prerendered HTML never touches it; client-side navigation does.
+  //   wrangler d1 create __PROJECT__-content
+  //   "d1_databases": [{ "binding": "DB", "database_name": "__PROJECT__-content", "database_id": "<id>" }]
+
   "name": "__PROJECT__",
   "compatibility_date": "2025-01-01",
   "main": ".output/server/index.mjs",

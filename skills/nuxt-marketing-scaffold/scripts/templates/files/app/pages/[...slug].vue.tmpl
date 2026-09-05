@@ -2,18 +2,32 @@
 // Pages are the ONLY place queryCollection() is called. Blocks take props.
 const { locale } = useI18n()
 const route = useRoute()
+
+// The URL strategy is prefix_except_default, so route.path carries a locale
+// prefix for every locale except the default one. Content is stored one
+// directory per locale, so the lookup path is always prefixed: strip whatever
+// prefix the route has, then add this locale's.
+const contentPath = computed(() => {
+  const rest = route.path.replace(new RegExp(`^/${locale.value}(?=/|$)`), '')
+  return `/${locale.value}${rest === '/' ? '' : rest}`
+})
+
 const { data: page } = await useAsyncData(
-  () => `page-${locale.value}-${route.path}`,
-  () => queryCollection('pages').path(`/${locale.value}${route.path}`).first()
+  () => `page-${contentPath.value}`,
+  () => queryCollection('pages').path(contentPath.value).first()
 )
+
+// A block whose type has no component renders nothing rather than crashing the
+// page — the same rule as a missing translation.
+const blocks = computed(() => (page.value?.blocks ?? []).filter(b => blockFor(b.type)))
 </script>
 
 <template>
-  <!-- Missing content is hidden, never substituted from another locale. -->
   <main v-if="page">
+    <!-- Missing content is hidden, never substituted from another locale. -->
     <component
       :is="blockFor(block.type)"
-      v-for="(block, i) in page.blocks"
+      v-for="(block, i) in blocks"
       :key="i"
       v-bind="block"
     />

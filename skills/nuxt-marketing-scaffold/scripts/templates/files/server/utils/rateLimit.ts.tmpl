@@ -1,0 +1,56 @@
+import type { H3Event } from 'h3'
+
+// The slice of the Workers KV API this needs. Typed locally so the site does
+// not carry @cloudflare/workers-types for four method signatures.
+interface CounterStore {
+  get: (key: string) => Promise<string | null>
+  put: (key: string, value: string, options?: { expirationTtl?: number }) => Promise<unknown>
+}
+
+interface RateLimitOptions {
+  /** Identity of the caller for this form, e.g. `contact:1.2.3.4`. */
+  key: string
+  /** Requests allowed inside one window. */
+  max: number
+  /** Window length in seconds. */
+  windowSec: number
+}
+
+const BINDING = 'RATE_LIMIT'
+
+function counterStore(event: H3Event): CounterStore | undefined {
+  const cf = (event.context as { cloudflare?: { env?: Record<string, unknown> } }).cloudflare
+  return cf?.env?.[BINDING] as CounterStore | undefined
+}
+
+// Fixed-window counter in Workers KV.
+//
+// Two things this deliberately does NOT do. It does not degrade to allowing the
+// request when the KV binding is absent — an unbound namespace is a named 503,
+// because a rate limiter that silently stops limiting is how a form route
+// becomes an open relay. And it does not claim to be exact: KV is
+// read-then-write with no compare-and-set, so a concurrent burst can slip a few
+// requests past `max`. This is a spam brake on a marketing form, not a
+// security control.
+export async function rateLimit(event: H3Event, options: RateLimitOptions): Promise<void> {
+  const store = counterStore(event)
+  if (!store) {
+    throw createError({
+      statusCode: 503,
+      statusMessage: 'Rate limiting is unavailable',
+      data: { code: 'RATE_LIMIT_BINDING_MISSING', binding: BINDING }
+    })
+  }
+
+  const window = Math.floor(Date.now() / 1000 / options.windowSec)
+  const slot = `rl:${options.key}:${window}`
+  const used = Number(await store.get(slot)) || 0
+  if (used >= options.max) {
+    throw createError({
+      statusCode: 429,
+      statusMessage: 'Too many requests',
+      data: { code: 'RATE_LIMITED', retryAfterSec: options.windowSec }
+    })
+  }
+  await store.put(slot, String(used + 1), { expirationTtl: options.windowSec + 60 })
+}

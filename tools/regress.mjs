@@ -11,9 +11,19 @@
  *   node tools/regress.mjs --skip-gates # the pre-commit hook's mode: it runs
  *                                       # the gates itself, so they aren't
  *                                       # repeated here
+ *   node tools/regress.mjs --build      # + group 7: really install and build a
+ *                                       # scaffolded site. Network, ~3 minutes.
  *
- * Node stdlib only, no network, no install. Scaffolder cases run with
- * --no-install so the suite stays fast enough for a commit hook.
+ * Groups 1-6 are Node stdlib only, no network, no install — scaffolder cases
+ * run with --no-install so the suite stays fast enough for a commit hook. They
+ * assert on the *text* a scaffolder emits, which is enough to catch a token
+ * that never got substituted, an import of a package no manifest declares, or
+ * a helper nothing defines, and is not enough to catch anything that needs a
+ * resolver or a compiler. Group 7 is the case that actually compiles, and it
+ * is opt-in for the same reason it is necessary: it is slow.
+ *
+ * A case that cannot run prints SKIP with its reason and is counted in the
+ * summary line. Nothing here ever passes by not running.
  * Exit 0 all green, 1 any failure.
  */
 
@@ -26,6 +36,9 @@ import { tmpdir } from 'node:os'
 const REPO = dirname(dirname(fileURLToPath(import.meta.url)))
 const TMP = join(tmpdir(), `bigin-skills-regress-${process.pid}`)
 const SKIP_GATES = process.argv.includes('--skip-gates')
+const WANT_BUILD = process.argv.includes('--build')
+const PING = 'fetch("https://registry.npmjs.org/-/ping",{signal:AbortSignal.timeout(8000)})'
+  + '.then(r=>process.exit(r.ok?0:1),()=>process.exit(1))'
 
 // ── the Phase 0 ladder, transcribed from
 //    skills/bigin-harness-setup/references/profile-detection.md rows 1-3.
@@ -52,13 +65,59 @@ function detect (root, pkg) {
 
 rmSync(TMP, { recursive: true, force: true })
 mkdirSync(TMP, { recursive: true })
-let pass = 0, fail = 0
+let pass = 0, fail = 0, skipped = 0
 const t = (name, fn) => {
   try { const m = fn(); console.log(`  PASS  ${name}${m ? `  (${m})` : ''}`); pass++ }
   catch (e) { console.log(`  FAIL  ${name}\n        ${e.message}`); fail++ }
 }
 const eq = (a, b, what) => { if (a !== b) throw new Error(`${what}: got ${JSON.stringify(a)}, want ${JSON.stringify(b)}`) }
 const sh = (cmd, args, opts={}) => spawnSync(cmd, args, { cwd: REPO, encoding: 'utf8', ...opts })
+const read = f => readFileSync(f, 'utf8')
+const skip = (name, why) => { console.log(`  SKIP  ${name}  (${why})`); skipped++ }
+
+// Every hand-written source file in a generated site, in walk order.
+const sources = (root) => {
+  const out = []
+  const walk = (d) => { for (const e of readdirSync(d, { withFileTypes: true })) {
+    const f = join(d, e.name)
+    if (e.isDirectory()) { if (!['node_modules','.nuxt','.output','.data','.git'].includes(e.name)) walk(f) }
+    else if (/\.(?:ts|vue|mjs)$/.test(e.name)) out.push(f) } }
+  walk(root); return out
+}
+
+// Packages Nuxt makes resolvable through generated tsconfig `paths` without the
+// site declaring them. Type-only imports of these are fine; value imports are
+// not — see the import check below.
+const NUXT_ALIASED = new Set(['vue', 'h3'])
+
+// A source file with its string literals, template literals and comments
+// blanked out, so the call scan below sees code and not prose. The first pass
+// has to be strings, or a URL inside one reads as the start of a comment.
+const code = f => read(f)
+  .replace(/(['"`])(?:\\.|(?!\1)[\s\S])*?\1/g, '\'\'')
+  .replace(/\/\*[\s\S]*?\*\//g, '')
+  .replace(/(^|[^:])\/\/[^\n]*/g, '$1')
+  .replace(/<!--[\s\S]*?-->/g, '')
+
+// Keywords that take a parenthesis and are not calls.
+const KEYWORDS = new Set(['if', 'for', 'while', 'switch', 'catch', 'return', 'typeof',
+  'await', 'function', 'do', 'else', 'new', 'delete', 'void', 'in', 'of', 'yield',
+  'throw', 'case', 'super', 'this', 'import', 'export', 'let', 'const', 'var'])
+
+// Nuxt/Nitro/Vue auto-imports the generated tree is allowed to call without a
+// definition of its own. This list is maintenance, and deliberately so: a new
+// built-in call fails the suite until it is added here, which costs one line
+// and is the price of catching a genuinely dangling symbol.
+const NUXT_AUTO_IMPORTS = new Set([
+  'computed', 'ref', 'reactive', 'watch', 'onMounted', 'defineProps', 'defineEmits',
+  'defineNuxtConfig', 'defineAppConfig', 'defineContentConfig', 'defineCollection',
+  'defineEventHandler', 'defineNuxtPlugin', 'defineNuxtRouteMiddleware',
+  'useAsyncData', 'useFetch', 'useHead', 'useSeoMeta', 'useState', 'useRoute', 'useRouter',
+  'useRuntimeConfig', 'useAppConfig', 'useI18n', 'useLocalePath', 'useSwitchLocalePath',
+  'queryCollection', 'queryCollectionNavigation', 'readBody', 'readValidatedBody',
+  'getQuery', 'getRequestIP', 'getRequestHeader', 'setResponseStatus', 'createError',
+  'sendRedirect', 'navigateTo', 'createNuxtError'
+])
 
 if (SKIP_GATES) {
   console.log('\n1. GATES  (skipped — the hook runs them itself)')
@@ -167,6 +226,70 @@ t('server/api holds exactly contact + newsletter', () => {
   const got = readdirSync(join(TMP,'s1','server','api')).sort().join(',')
   eq(got, 'contact.post.ts,newsletter.post.ts', 'routes'); return got
 })
+
+// ── The four checks below are the always-on half of "does the scaffold build".
+//    They are structural, cost milliseconds, and between them they would have
+//    caught three of the four defects fixed in v1.88.2. What they cannot see is
+//    anything needing a resolver, a compiler or a prerender — that is group 7,
+//    which runs only under --build.
+t('every requested locale reaches the config and the prerender routes', () => {
+  const cfg = read(join(TMP,'s1','nuxt.config.ts'))
+  for (const l of ['en','vi','ja'])
+    if (!cfg.includes(`{ code: '${l}', file: '${l}.json' }`)) throw new Error(`i18n.locales omits ${l}`)
+  const routes = /prerender:\s*\{[^}]*routes:\s*\[([^\]]*)\]/.exec(cfg)?.[1]
+  if (!routes) throw new Error('no nitro.prerender.routes to check')
+  for (const r of ["'/'", "'/vi'", "'/ja'"]) if (!routes.includes(r)) throw new Error(`prerender routes omit ${r}`)
+  return 'en,vi,ja in both'
+})
+t('the theme flags reach app.config.ts', () => {
+  const dir = join(TMP,'s6')
+  eq(scaffold(['--project','themed','--locales','en','--primary','emerald','--neutral','zinc'], dir).status, 0, 'exit')
+  const cfg = read(join(dir,'app','app.config.ts'))
+  if (!/primary: 'emerald'/.test(cfg)) throw new Error('--primary did not reach app.config.ts')
+  if (!/neutral: 'zinc'/.test(cfg)) throw new Error('--neutral did not reach app.config.ts')
+  return 'emerald/zinc'
+})
+t('every bare import resolves to a declared dependency', () => {
+  const pkg = JSON.parse(read(join(TMP,'s1','package.json')))
+  const declared = new Set([...Object.keys(pkg.dependencies ?? {}), ...Object.keys(pkg.devDependencies ?? {})])
+  const bad = []
+  for (const f of sources(join(TMP,'s1'))) {
+    for (const [, typeOnly, spec] of read(f).matchAll(/^\s*import\s+(type\s+)?(?:[^'"\n]*?\sfrom\s+)?['"]([^'"]+)['"]/gm)) {
+      if (/^[.~#/]/.test(spec) || spec.startsWith('@/') || spec.startsWith('node:')) continue
+      const name = spec.startsWith('@') ? spec.split('/').slice(0, 2).join('/') : spec.split('/')[0]
+      if (declared.has(name)) continue
+      // `vue` and `h3` are reachable only through the path aliases Nuxt writes
+      // into .nuxt/tsconfig.*.json. Enough for a type-only import, which is
+      // erased before anything resolves it; not enough for a value one, since
+      // pnpm's strict layout gives an undeclared package no node_modules entry.
+      if (NUXT_ALIASED.has(name) && typeOnly) continue
+      bad.push(`${spec}${typeOnly ? '' : ' (value import)'}`)
+    }
+  }
+  eq([...new Set(bad)].join(', ')||'none','none','undeclared imports'); return `${declared.size} declared`
+})
+t('every helper a page or route calls is defined in the tree', () => {
+  const root = join(TMP,'s1')
+  const files = sources(root)
+  const defined = new Set()
+  for (const f of files) {
+    if (!/\/(?:app\/utils|app\/composables|server\/utils)\//.test(f)) continue
+    for (const [, n] of read(f).matchAll(/export\s+(?:async\s+)?(?:function|const|let)\s+([A-Za-z_$][\w$]*)/g)) defined.add(n)
+  }
+  const bad = []
+  for (const f of files) {
+    const src = read(f)
+    const local = new Set([...NUXT_AUTO_IMPORTS, ...KEYWORDS])
+    for (const [, n] of src.matchAll(/(?:function|const|let|var|class)\s+([A-Za-z_$][\w$]*)/g)) local.add(n)
+    for (const [, names] of src.matchAll(/(?:const|let|var)\s*\{([^}]*)\}\s*=/g))
+      for (const n of names.split(',')) local.add(n.split(':').pop().trim())
+    for (const [, names] of src.matchAll(/^\s*import\s+(?:type\s+)?([^'"\n]*?)\s+from\s+['"]/gm))
+      for (const n of names.replace(/[{}*]/g, ' ').split(',')) local.add(n.split(/\s+as\s+/).pop().trim())
+    for (const [, n] of code(f).matchAll(/(?:^|[^.\w$])([a-z][\w$]*)\s*\(/g))
+      if (!local.has(n) && !defined.has(n)) bad.push(`${f.slice(root.length + 1)} -> ${n}()`)
+  }
+  eq([...new Set(bad)].join(', ')||'none','none','calls with no definition'); return `${defined.size} helpers defined`
+})
 t('single locale works', () => {
   const dir = join(TMP,'s2'); eq(scaffold(['--project','solo','--locales','en'], dir).status, 0, 'exit')
   eq(detect(dir, JSON.parse(readFileSync(join(dir,'package.json'),'utf8'))), 'nuxt-marketing', 'profile'); return 'en'
@@ -186,12 +309,19 @@ t('refuses a non-empty dir without --force', () => {
 t('--force overwrites a non-empty dir', () => {
   const dir = join(TMP,'s1'); eq(scaffold(['--project','again','--force'], dir).status, 0, 'exit'); return 'ok'
 })
+// This check shipped in v1.88.1 and passed while `__LOCALES_I18N__` sat
+// unsubstituted in every generated nuxt.config.ts, because it was written with
+// the same `[A-Z_]` class as the bug it was meant to catch: neither can match
+// the digits in `I18N`. An assertion copied from the code it audits asserts
+// nothing. The class here is wider than the scaffolder's own on purpose, and
+// the scan covers every scaffold rather than the single-locale one.
 t('no leftover __TOKEN__ placeholders', () => {
   const bad = []
   const walk = d => { for (const e of readdirSync(d,{withFileTypes:true})) {
     const f = join(d,e.name); if (e.isDirectory()) walk(f)
-    else if (/__[A-Z_]+__/.test(readFileSync(f,'utf8'))) bad.push(f) } }
-  walk(join(TMP,'s2')); eq(bad.join(',')||'none','none','files with placeholders'); return 'clean'
+    else if (/__[A-Z0-9_]+__/.test(read(f))) bad.push(f) } }
+  for (const s of ['s1','s2','s6']) walk(join(TMP,s))
+  eq(bad.join(',')||'none','none','files with placeholders'); return 'clean'
 })
 
 console.log('\n6. WIRING')
@@ -206,6 +336,16 @@ t('empty-repo question offers option 7', () => {
 t('the auth-marker rationale is recorded', () => {
   if (!/nuxt-auth-utils/.test(rd('skills/bigin-harness-setup/references/scaffold-delegation.md')))
     throw new Error('rationale absent — someone will merge the scaffolders'); return 'present' })
+// The v1.88.0 changelog said there was no marketing-site scaffolder, which was
+// true for four days. Two USER_GUIDE surfaces still said it at v1.88.1, one of
+// them directly contradicting the option-7 check three lines above.
+t('nothing still claims there is no marketing-site scaffolder', () => {
+  const hits = []
+  for (const f of ['docs/USER_GUIDE.md', 'skills/bigin-harness-setup/SKILL.md',
+                   'skills/bigin-harness-setup/references/profile-detection.md',
+                   'skills/bigin-harness-setup/references/profile-nuxt-marketing.md'])
+    if (/no marketing-site scaffolder|detection-only/i.test(rd(f))) hits.push(f)
+  eq(hits.join(',')||'none','none','files with stale wording'); return 'clean' })
 t('no stale separate-Worker wording survives', () => {
   const hits = []
   for (const f of ['skills/bigin-harness-setup/references/profile-nuxt-marketing.md',
@@ -214,6 +354,43 @@ t('no stale separate-Worker wording survives', () => {
     if (/worker of their own|which stays absent/i.test(rd(f))) hits.push(f)
   eq(hits.join(',')||'none','none','files with stale wording'); return 'clean' })
 
+console.log('\n7. SCAFFOLDED SITE BUILDS')
+// The expensive half. Groups 1-6 prove things about text; this one is the only
+// case that proves the scaffolder emits a repo Nuxt can actually compile and
+// prerender, because that needs a real resolver, a real compiler and a real
+// Nitro build. It costs a network install plus roughly two minutes, so it is
+// opt-in — and it announces itself as SKIPped rather than vanishing, because a
+// slow check nobody notices is missing is how the last four defects shipped.
+const BUILD_CASE = 'a three-locale scaffold installs, lints, type-checks and builds'
+if (!WANT_BUILD) {
+  skip(BUILD_CASE, 'pass --build to run it; needs the network and ~3 min')
+} else if (spawnSync('pnpm', ['--version'], { encoding: 'utf8' }).status !== 0) {
+  skip(BUILD_CASE, 'pnpm not on PATH')
+} else if (spawnSync('node', ['-e', PING], { encoding: 'utf8' }).status !== 0) {
+  skip(BUILD_CASE, 'npm registry unreachable — offline')
+} else {
+  t(BUILD_CASE, () => {
+    const dir = join(TMP, 'build')
+    const r = sh('node', [SC, '--dir', dir, '--project', 'regress-site', '--locales', 'en,vi,ja', '--no-commit'],
+                 { cwd: TMP, timeout: 15 * 60_000, stdio: 'inherit' })
+    eq(r.status, 0, 'scaffold + install exit')
+    for (const script of ['lint', 'type-check', 'build']) {
+      const x = spawnSync('pnpm', ['run', script], { cwd: dir, encoding: 'utf8', timeout: 15 * 60_000, stdio: 'inherit' })
+      eq(x.status, 0, `pnpm ${script} exit`)
+    }
+    // The assertion that matters: one prerendered entry point per locale, each
+    // rendered from its own content file. A build that emits only the default
+    // locale is the failure this whole group exists to catch, and it is silent
+    // everywhere else — a missing locale 404s in production and nowhere else.
+    for (const [loc, sub] of [['en', ''], ['vi', 'vi/'], ['ja', 'ja/']]) {
+      const html = join(dir, '.output', 'public', sub + 'index.html')
+      if (!existsSync(html)) throw new Error(`${loc} was not prerendered (${sub}index.html missing)`)
+      if (!read(html).includes(`content/${loc}/index.md`)) throw new Error(`${sub}index.html did not render content/${loc}/`)
+    }
+    return '3 locales prerendered'
+  })
+}
+
 rmSync(TMP, { recursive: true, force: true })
-console.log(`\n${'='.repeat(52)}\n${fail ? 'FAIL' : 'OK'}  ${pass} passed, ${fail} failed`)
+console.log(`\n${'='.repeat(52)}\n${fail ? 'FAIL' : 'OK'}  ${pass} passed, ${fail} failed, ${skipped} skipped`)
 process.exit(fail ? 1 : 0)
