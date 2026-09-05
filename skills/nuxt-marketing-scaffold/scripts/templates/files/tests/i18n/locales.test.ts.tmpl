@@ -1,0 +1,37 @@
+import { readFileSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
+import { describe, expect, it } from 'vitest'
+
+// A test over the bundle files, not over a rendered page: this is a fact about
+// which keys exist, and rendering one would only obscure it.
+const DEFAULT_LOCALE = '__DEFAULT_LOCALE__'
+// Resolved from the Vitest root (the repo root), not from `import.meta.url`:
+// under a DOM test environment that URL is not a file: URL.
+const DIR = join(process.cwd(), 'i18n', 'locales')
+
+const flatten = (value: unknown, prefix = ''): string[] =>
+  value && typeof value === 'object' && !Array.isArray(value)
+    ? Object.entries(value).flatMap(([k, v]) => flatten(v, prefix ? `${prefix}.${k}` : k))
+    : [prefix]
+
+const bundle = (code: string): string[] =>
+  flatten(JSON.parse(readFileSync(join(DIR, `${code}.json`), 'utf8'))).sort()
+
+const codes = readdirSync(DIR).filter(f => f.endsWith('.json')).map(f => f.slice(0, -5))
+
+describe('locale bundles', () => {
+  it('has a bundle for the default locale', () => {
+    expect(codes).toContain(DEFAULT_LOCALE)
+  })
+
+  // A key is added in the default locale first. A key missing from another
+  // locale renders nothing, which is the intended behaviour — so the direction
+  // that fails is a key present ONLY outside the default bundle.
+  it('has no key present only outside the default locale', () => {
+    const base = new Set(bundle(DEFAULT_LOCALE))
+    for (const code of codes) {
+      if (code === DEFAULT_LOCALE) continue
+      expect(bundle(code).filter(k => !base.has(k))).toEqual([])
+    }
+  })
+})

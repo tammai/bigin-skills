@@ -1,0 +1,26 @@
+import { describe, expect, it } from 'vitest'
+import Hero from '~~/app/components/blocks/Hero.vue'
+import { blockFor } from '~~/app/utils/blockFor'
+
+describe('blockFor', () => {
+  it('resolves a registered type to its component', () => {
+    expect(blockFor('hero')).toBe(Hero)
+  })
+
+  it('returns undefined for a type nothing registers', () => {
+    expect(blockFor('carousel')).toBeUndefined()
+  })
+
+  // The registry is the RENDERER's own boundary, and the whole argument for the
+  // renderer keeping one is that it has to hold when the content gate has not
+  // run — a hand-edited entry, a stale build, a fixture. A key inherited from
+  // `Object.prototype` is truthy and is not a component, so a plain-object
+  // lookup hands `<component :is>` `Object` for `type: constructor` while the
+  // signature still promises `Component | undefined`.
+  it.each(['constructor', '__proto__', 'toString', 'valueOf', 'hasOwnProperty'])(
+    'returns undefined for the inherited key %s',
+    (type) => {
+      expect(blockFor(type)).toBeUndefined()
+    }
+  )
+})

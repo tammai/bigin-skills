@@ -1,0 +1,27 @@
+import { mount } from '@vue/test-utils'
+import { describe, expect, it } from 'vitest'
+import Hero from '~~/app/components/blocks/Hero.vue'
+
+// A block is tested with props, never with a content fixture from disk. A block
+// that needed a fixture would be a block that queries content, which the
+// frontend conventions forbid — the test failing to compile is that boundary
+// working.
+describe('Hero', () => {
+  it('renders the heading it is given', () => {
+    const block = mount(Hero, { props: { heading: 'Ship the site' } })
+    expect(block.get('h1').text()).toBe('Ship the site')
+  })
+
+  it('renders the body it is given', () => {
+    const block = mount(Hero, { props: { heading: 'Ship the site', body: 'Then measure it.' } })
+    expect(block.get('p').text()).toBe('Then measure it.')
+  })
+
+  // A missing translation is a PASSING test: the assertion is that the block
+  // hides the part it has no copy for. A test asserting default-locale copy
+  // appearing here would be asserting the bug this profile exists to prevent.
+  it('hides the body when no copy for it arrived', () => {
+    const block = mount(Hero, { props: { heading: 'Ship the site' } })
+    expect(block.find('p').exists()).toBe(false)
+  })
+})

@@ -11,8 +11,9 @@
  *   node tools/regress.mjs --skip-gates # the pre-commit hook's mode: it runs
  *                                       # the gates itself, so they aren't
  *                                       # repeated here
- *   node tools/regress.mjs --build      # + group 7: really install and build a
- *                                       # scaffolded site. Network, ~3 minutes.
+ *   node tools/regress.mjs --build      # + group 7: really install a scaffolded
+ *                                       # site and run every pnpm step its CI
+ *                                       # template runs. Network, ~3 minutes.
  *
  * Groups 1-6 are Node stdlib only, no network, no install — scaffolder cases
  * run with --no-install so the suite stays fast enough for a commit hook. They
@@ -118,6 +119,47 @@ const NUXT_AUTO_IMPORTS = new Set([
   'getQuery', 'getRequestIP', 'getRequestHeader', 'setResponseStatus', 'createError',
   'sendRedirect', 'navigateTo', 'createNuxtError'
 ])
+
+// ── Commands the harness writes into a nuxt-marketing site, read out of the
+//    templates that write them. Scoped to fenced blocks on purpose: prose in
+//    the profile names `pnpm generate` precisely to say the profile does not
+//    use it, and the settings allowlist names `pnpm typecheck`, which is a
+//    permission pattern rather than a script.
+const HS = join(REPO, 'skills/bigin-harness-setup/references')
+const PNPM_BUILTINS = new Set(['install', 'i', 'add', 'remove', 'up', 'update', 'exec',
+  'dlx', 'store', 'why', 'prune', 'rebuild', 'licenses', 'approve-builds', 'link', 'import'])
+
+// The first fenced block under a `## <heading>` section of a reference file.
+const fence = (file, heading) => {
+  const src = read(join(HS, file))
+  const at = src.indexOf(`\n## ${heading}\n`)
+  if (at < 0) throw new Error(`${file}: no "## ${heading}" section`)
+  const m = /```[a-z]*\n([\s\S]*?)\n```/.exec(src.slice(at))
+  if (!m) throw new Error(`${file}: "## ${heading}" carries no fenced block`)
+  return m[1]
+}
+
+// Every `pnpm …` invocation in a block as an argv array, with `run` and pnpm's
+// own subcommands dropped — what is left is a script name and its arguments.
+const pnpmCalls = (block) => {
+  const out = []
+  for (const [, rest] of block.matchAll(/(?<![\w@/-])pnpm[ \t]+([^\n|;&`#]*)/g)) {
+    const argv = rest.trim().split(/\s+/).filter(Boolean)
+    if (argv[0] === 'run') argv.shift()
+    if (!argv.length || !/^[a-z][a-z0-9:_-]*$/.test(argv[0]) || PNPM_BUILTINS.has(argv[0])) continue
+    out.push(argv)
+  }
+  return out
+}
+
+const COMMAND_BLOCKS = [
+  ['ci.md github: nuxt-marketing', fence('ci.md', 'github: nuxt-marketing')],
+  ['ci.md gitlab: nuxt-marketing', fence('ci.md', 'gitlab: nuxt-marketing')],
+  ['profile-nuxt-marketing.md Commands', fence('profile-nuxt-marketing.md', 'Commands')]
+]
+// The GitHub workflow's own steps, in order. Group 7 runs these rather than a
+// second list of them, so the build case proves the commands CI actually runs.
+const CI_STEPS = pnpmCalls(COMMAND_BLOCKS[0][1])
 
 if (SKIP_GATES) {
   console.log('\n1. GATES  (skipped — the hook runs them itself)')
@@ -290,6 +332,26 @@ t('every helper a page or route calls is defined in the tree', () => {
   }
   eq([...new Set(bad)].join(', ')||'none','none','calls with no definition'); return `${defined.size} helpers defined`
 })
+// ── The seam between the CI the harness writes and the scripts the scaffolder
+//    declares. Nothing ever ran a generated workflow, so `pnpm test --run` sat
+//    in both nuxt-marketing CI templates against a manifest that declared no
+//    `test` script, and every site this scaffolder made failed on its first
+//    push. The command list is PARSED OUT of the templates that write it: a
+//    list transcribed here could drift from `ci.md` exactly as `ci.md` drifted
+//    from `package.json.tmpl`, and an assertion copied from the thing it
+//    audits asserts nothing.
+t('every command the nuxt-marketing CI invokes is a script the scaffold declares', () => {
+  const scripts = new Set(Object.keys(JSON.parse(read(join(TMP, 's1', 'package.json'))).scripts ?? {}))
+  const wanted = new Map()
+  for (const [where, block] of COMMAND_BLOCKS)
+    for (const argv of pnpmCalls(block)) if (!wanted.has(argv[0])) wanted.set(argv[0], where)
+  // A parse that silently found nothing would pass — the exact failure mode
+  // this check exists to close, so it is a failure of its own.
+  if (wanted.size < 4) throw new Error(`parsed only ${wanted.size} pnpm commands out of the templates`)
+  const missing = [...wanted].filter(([n]) => !scripts.has(n)).map(([n, w]) => `${n} (${w})`)
+  eq(missing.join(', ') || 'none', 'none', 'commands with no matching script')
+  return `${wanted.size} commands, ${scripts.size} scripts`
+})
 t('single locale works', () => {
   const dir = join(TMP,'s2'); eq(scaffold(['--project','solo','--locales','en'], dir).status, 0, 'exit')
   eq(detect(dir, JSON.parse(readFileSync(join(dir,'package.json'),'utf8'))), 'nuxt-marketing', 'profile'); return 'en'
@@ -361,7 +423,7 @@ console.log('\n7. SCAFFOLDED SITE BUILDS')
 // Nitro build. It costs a network install plus roughly two minutes, so it is
 // opt-in — and it announces itself as SKIPped rather than vanishing, because a
 // slow check nobody notices is missing is how the last four defects shipped.
-const BUILD_CASE = 'a three-locale scaffold installs, lints, type-checks and builds'
+const BUILD_CASE = 'a three-locale scaffold installs and passes every pnpm step the CI template runs'
 if (!WANT_BUILD) {
   skip(BUILD_CASE, 'pass --build to run it; needs the network and ~3 min')
 } else if (spawnSync('pnpm', ['--version'], { encoding: 'utf8' }).status !== 0) {
@@ -374,9 +436,11 @@ if (!WANT_BUILD) {
     const r = sh('node', [SC, '--dir', dir, '--project', 'regress-site', '--locales', 'en,vi,ja', '--no-commit'],
                  { cwd: TMP, timeout: 15 * 60_000, stdio: 'inherit' })
     eq(r.status, 0, 'scaffold + install exit')
-    for (const script of ['lint', 'type-check', 'build']) {
-      const x = spawnSync('pnpm', ['run', script], { cwd: dir, encoding: 'utf8', timeout: 15 * 60_000, stdio: 'inherit' })
-      eq(x.status, 0, `pnpm ${script} exit`)
+    // Exactly the pnpm steps the generated GitHub workflow runs, parsed from
+    // it — `pnpm lint`, `pnpm type-check`, `pnpm test --run`, `pnpm build`.
+    for (const argv of CI_STEPS) {
+      const x = spawnSync('pnpm', argv, { cwd: dir, encoding: 'utf8', timeout: 15 * 60_000, stdio: 'inherit' })
+      eq(x.status, 0, `pnpm ${argv.join(' ')} exit`)
     }
     // The assertion that matters: one prerendered entry point per locale, each
     // rendered from its own content file. A build that emits only the default

@@ -58,6 +58,8 @@ them was ever built.
 nuxt.config.ts          i18n with NO fallbackLocale, cloudflare_module preset,
                         one prerender entry point per locale, empty runtimeConfig
 content.config.ts       one `pages` collection, schema-validated
+content.schema.ts       the collection schema + the block-type list, exported
+                        so a test can import it without a Nuxt build
 content/<locale>/       one index.md per locale
 i18n/locales/<code>.json
 app/app.vue             UApp > NuxtLayout > NuxtPage
@@ -70,8 +72,17 @@ server/api/             exactly contact.post.ts and newsletter.post.ts
 server/utils/           their Turnstile, rate-limit and delivery helpers
 tsconfig.json           project references onto the four .nuxt/tsconfig.*.json
 eslint.config.mjs       withNuxt() over the generated flat config
+vitest.config.ts        include scoped to tests/**, `~~` and `~` aliases
+tests/                  seed tests: the collection schema, the Hero block by
+                        props, the block registry, and the locale bundles
 wrangler.jsonc          one Worker per site
 ```
+
+`tests/` mirrors the source tree and is never co-located with it — the rule the
+profile's `testing.md` states, and the reason `vitest.config.ts` scopes
+`test.include` to `tests/**/*.test.ts`. The four seeds are not a suite: they
+exist so `pnpm test --run` — the command both CI templates run — has something
+real to run on the first push, and so the next test written has a shape to copy.
 
 ## The form routes fail loudly, and that is the design
 
@@ -111,11 +122,12 @@ defects shipped green in v1.88.0: the suite scaffolded a site, checked that it
 
 - `node tools/regress.mjs` — the structural cases. Fast, always on, run by the
   commit hook. They catch an unsubstituted token, a flag that never reaches the
-  generated file, an import of a package no manifest declares, and a helper
-  nothing defines.
-- `node tools/regress.mjs --build` — really installs and builds a three-locale
-  scaffold and asserts one prerendered entry point per locale. Slow and
-  network-bound, so it is opt-in; run it for any change to a template, the
-  manifest or the substitution map.
+  generated file, an import of a package no manifest declares, a helper nothing
+  defines, and a command the profile's CI templates invoke that this manifest
+  declares no script for.
+- `node tools/regress.mjs --build` — really installs a three-locale scaffold,
+  runs every `pnpm` step the generated GitHub workflow runs, and asserts one
+  prerendered entry point per locale. Slow and network-bound, so it is opt-in;
+  run it for any change to a template, the manifest or the substitution map.
 - `bigin-harness-setup`'s Phase 0 against the result must still print
   `PROFILE = nuxt-marketing`.

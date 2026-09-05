@@ -13,6 +13,14 @@ const BLOCKS: Record<string, Component> = {
   hero: Hero
 }
 
+// `Object.hasOwn` rather than a bare index: `type` is data a content editor
+// wrote, and every object literal inherits `constructor`, `__proto__`,
+// `toString` and the rest from `Object.prototype`. A bare lookup returns those
+// — truthy, and not a component — so the signature below would be lying and
+// `<component :is>` would receive `Object` for `type: constructor`. The guard
+// lives in the function rather than in a null-prototype `BLOCKS`, because the
+// function is what makes the promise: a later edit rewriting the literal back
+// to `{ … }` cannot silently take this away.
 export function blockFor(type: string): Component | undefined {
-  return BLOCKS[type]
+  return Object.hasOwn(BLOCKS, type) ? BLOCKS[type] : undefined
 }

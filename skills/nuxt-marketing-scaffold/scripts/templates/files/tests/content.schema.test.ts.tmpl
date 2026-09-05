@@ -1,0 +1,31 @@
+import { describe, expect, it } from 'vitest'
+import { pageSchema } from '~~/content.schema'
+
+// Fixtures are written inline, never copied out of `content/**`: a copied
+// fixture keeps passing after the schema it was supposed to prove moves.
+const entry = {
+  title: 'Home',
+  description: 'A multi-locale marketing site.',
+  blocks: [{ type: 'hero', heading: 'Hello', body: 'World' }]
+}
+
+describe('the pages collection schema', () => {
+  it('parses a valid entry and keeps the block props it does not name', () => {
+    const parsed = pageSchema.parse(entry)
+    expect(parsed.title).toBe('Home')
+    expect(parsed.blocks[0]).toMatchObject({ type: 'hero', heading: 'Hello', body: 'World' })
+  })
+
+  it('defaults blocks to empty rather than requiring the key', () => {
+    expect(pageSchema.parse({ title: 'Home', description: 'x' }).blocks).toEqual([])
+  })
+
+  it('rejects an entry missing a required field', () => {
+    expect(pageSchema.safeParse({ description: 'no title' }).success).toBe(false)
+  })
+
+  it('rejects a block type no component backs', () => {
+    const unknown = { ...entry, blocks: [{ type: 'carousel' }] }
+    expect(pageSchema.safeParse(unknown).success).toBe(false)
+  })
+})

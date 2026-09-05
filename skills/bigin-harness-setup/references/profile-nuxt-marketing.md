@@ -185,8 +185,8 @@ Tests live under `tests/`, mirroring the source tree — never co-located with s
 ## What is worth testing here
 | Layer | What | How |
 |---|---|---|
-| collection schemas | a valid entry parses; a missing required field fails; an unknown block type fails | the schema directly, no Nuxt runtime needed |
-| blocks | one test per block: renders its props, and renders nothing when the optional ones are absent | Vitest + Testing Library, props passed directly — never a content query |
+| collection schemas | a valid entry parses; a missing required field fails; an unknown block type fails | the schema directly, no Nuxt runtime needed — it is exported from `content.schema.ts` rather than declared inside `content.config.ts`, because importing that file evaluates `defineCollection()`, which needs a resolver only the Nuxt build has |
+| blocks | one test per block: renders its props, and renders nothing when the optional ones are absent | Vitest + `@vue/test-utils`, props passed directly — never a content query |
 | pages | resolves its entry and renders the blocks in order | the collection query stubbed at its boundary |
 | i18n | every key present in the default locale; no key present *only* outside it | a test over the bundle files, not a rendered page |
 | prerender | every locale has a prerendered entry point | the CI build step, not a unit test |

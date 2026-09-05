@@ -5,6 +5,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.88.3] - 2026-09-06
+
+### Fixed
+
+- **`nuxt-marketing-scaffold` produced a site whose CI failed on its first push.** Both nuxt-marketing workflows in `references/ci.md` run `pnpm test --run`, and the profile's `Commands` table and generated `CLAUDE.md` both name it — while `package.json.tmpl` declared `dev`, `build`, `preview`, `lint`, `type-check` and `postinstall`, and no `test`. `pnpm test` on a manifest with no such script is a missing-lifecycle-script error, so the quality job died before the three greps, the build and the prerender assertion it exists to run. Neither half of the repo could see it: the harness's evals never run a generated workflow, and `regress.mjs` never read one.
+
+  The gap was the whole testing tier, not one line of JSON. `references/profile-nuxt-marketing.md` has carried a `testing.md` template since 1.88.0 — Vitest, `tests/` mirroring the source tree, `test.include` scoped to `tests/**/*.test.ts`, the `~~/` root alias, a table of what is worth testing per layer — written into every site while nothing in the site could run a test. The scaffolder now ships that tier: `vitest`, `@vitejs/plugin-vue`, `@vue/test-utils`, `happy-dom` and `vue` in `devDependencies`, a `test` script, a `vitest.config.ts` of the documented shape, and four seed tests.
+
+  **Not `@nuxt/test-utils`.** Nothing in the documented tier needs a Nuxt runtime — the schema layer is plain zod and a block takes props — and booting one for a unit test is how a block ends up quietly allowed to query content, which the frontend conventions forbid. The four packages are MIT, each published within the last six weeks, and between them add one direct install script (none: `pnpm.onlyBuiltDependencies` needed no addition, verified against a clean install rather than reasoned about). `vue` is declared because pnpm's strict layout gives an undeclared package no `node_modules` entry, so `@vue/test-utils` mounting an SFC cannot resolve it — the same rule `regress.mjs` already encodes for value imports of `vue`.
+
+  **The collection schema moved to `content.schema.ts`.** Importing `content.config.ts` evaluates `defineCollection()`, which converts the schema to JSON Schema through a `zod` resolution that only the Nuxt build satisfies — under Vitest it throws `Zod is not installed`, whichever major the schema is written in. The schema and the block-type list are now exported from a file beside it that `content.config.ts` hands straight to the collection, so a test reads the shape content is actually validated with rather than a second copy of it. `blocks[].type` is `z.enum(BLOCK_TYPES)` rather than `z.string()`, which is what makes "an unknown block type fails" — a row the profile's testing table has always claimed — true; `blockFor` is still the later, softer boundary that renders nothing on a live page.
+
+  Verified against a real `pnpm install && pnpm lint && pnpm type-check && pnpm test --run && pnpm build` on a three-locale scaffold, with all three locales prerendered. Each negative assertion was checked by mutating the fix away: with `z.string()` back, `rejects a block type no component backs` goes red; with `v-if="body"` removed from `Hero.vue`, `hides the body when no copy for it arrived` goes red.
+
+- **`blockFor()` returned `Object` for a block typed `constructor`.** The renderer's block registry was a plain object literal read with a bare index, so every key on `Object.prototype` resolved: `blockFor('constructor')` handed back `Object`, `blockFor('__proto__')` the prototype itself, `blockFor('toString')` a function. All truthy, none a component, against a signature promising `Component | undefined` — so `[...slug].vue` kept them past its `.filter(b => blockFor(b.type))` and passed them to `<component :is>`.
+
+  The content gate rejects those types first, which is exactly why this still mattered: `blockFor` is the **renderer's own** boundary, and the entire argument for the renderer keeping one is that it holds when the gate has not run — a hand-edited entry, a stale build, a fixture. The file's own comment already made that argument ("an unknown type renders nothing ... instead of throwing on a client's live site"), and an inherited key defeated it.
+
+  The lookup is now `Object.hasOwn(BLOCKS, type) ? BLOCKS[type] : undefined`. The guard is in the function rather than in a null-prototype `BLOCKS`, because the function is what makes the promise: a later edit rewriting the literal back to `{ … }` cannot silently take a `hasOwn` away, where it would silently take a null prototype away. Same shape and same reasoning as the `BLOCK_FIELDS[String(block.type)]` fix downstream.
+
+### Added
+
+- **`regress.mjs` now reads the CI templates instead of trusting them.** A new always-on case parses every `pnpm …` invocation out of the two nuxt-marketing workflow blocks in `references/ci.md` and the profile's `Commands` block, and fails if any of them names something the scaffolded `package.json` has no script for. It costs milliseconds and it reproduces this defect exactly: with the 1.88.2 manifest restored it reports `test (ci.md github: nuxt-marketing)`.
+
+  The command list is **parsed out of the templates, never transcribed**. That is the lesson of the `__LOCALES_I18N__` placeholder check in 1.88.2, which was written with the same character class as the bug it was meant to catch and therefore caught nothing: an assertion has to be pinned to something independent of the thing it audits. Here the independent thing is `ci.md` itself, and the check fails loudly rather than quietly if the parse finds fewer than four commands. Scanning is scoped to fenced blocks because the profile's prose names `pnpm generate` precisely to say it does not use it, and its settings allowlist names `pnpm typecheck`, which is a permission pattern rather than a script.
+
+  Group 7 (`--build`) now runs the parsed GitHub-workflow steps — `pnpm lint`, `pnpm type-check`, `pnpm test --run`, `pnpm build` — rather than a second, hand-written list of three of them, so the expensive case and the cheap one are pinned to the same source.
+
+  What this does **not** prove: the always-on check is one-directional. It fails when CI invokes a script the manifest lacks; it says nothing if someone deletes `pnpm test --run` from `ci.md`, and nothing about the workflow's non-pnpm steps — the three greps and the prerender assertion are still exercised by no test at all. It also does not run a workflow: no runner, no `actions/setup-node`, no lockfile install under CI's own conditions.
+
+- **Four seed tests in every scaffolded site**, sized as seeds rather than a suite. The collection schema — a valid entry parses and keeps the block props the schema does not name, `blocks` defaults to empty, a missing required field fails, a block type no component backs fails — with fixtures written inline, never copied out of `content/**`, since a copied fixture keeps passing after the schema moves. The `Hero` block, driven by props and never a content query, including the case that matters most here: **a missing translation is a passing test**, asserting the block hides the part it has no copy for. The locale bundles, asserting no key is present *only* outside the default locale — the direction that is a bug, since a key missing from a non-default bundle renders nothing, which is the intended behaviour. And the block registry, which is the regression test for the `blockFor` fix above: it asserts **behaviour**, not source text — `constructor`, `__proto__`, `toString`, `valueOf` and `hasOwnProperty` each resolve to `undefined` while `hero` still resolves to its component — because a source-text assertion would pass on a file that still returns `Object`. Driven red before the fix: five failures, `expected [Function Object] to be undefined` among them.
+
+```patch
+target: .claude/rules/testing.md
+anchor: | collection schemas | a valid entry parses; a missing required field fails; an unknown block type fails | the schema directly, no Nuxt runtime needed |
+insert: replace
+---
+| collection schemas | a valid entry parses; a missing required field fails; an unknown block type fails | the schema directly, no Nuxt runtime needed — it is exported from `content.schema.ts` rather than declared inside `content.config.ts`, because importing that file evaluates `defineCollection()`, which needs a resolver only the Nuxt build has |
+```
+
+```patch
+target: .claude/rules/testing.md
+anchor: | blocks | one test per block: renders its props, and renders nothing when the optional ones are absent | Vitest + Testing Library, props passed directly — never a content query |
+insert: replace
+---
+| blocks | one test per block: renders its props, and renders nothing when the optional ones are absent | Vitest + `@vue/test-utils`, props passed directly — never a content query |
+```
+
+There is no patch for the site itself, and there cannot be: a scaffolder writes a repo once and never returns to it. A site created at 1.88.0-1.88.2 adds `vitest`, `@vitejs/plugin-vue`, `@vue/test-utils`, `happy-dom` and `vue` to `devDependencies`, a `"test": "vitest"` script, a `vitest.config.ts`, and moves its collection schema into `content.schema.ts` — or re-scaffolds into an empty directory and moves its `content/` and `i18n/` trees across, which are the only two it owns.
+
 ## [1.88.2] - 2026-09-05
 
 ### Fixed

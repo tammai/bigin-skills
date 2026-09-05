@@ -1,0 +1,23 @@
+import { z } from '@nuxt/content'
+
+// The collection schema lives here rather than in `content.config.ts` so a test
+// can import it without evaluating `defineCollection()`, which converts the
+// schema to JSON Schema and needs a resolver only the Nuxt build provides.
+// This file is the one source: `content.config.ts` hands it straight to the
+// collection, so a test against it is a test of the shape content is validated
+// with — not a second copy that keeps passing after the real one moves.
+
+// Every block type the renderer knows. Adding one is three changes in a single
+// commit — the component, an entry in `app/utils/blockFor.ts`, and this list.
+// An entry naming a type no component backs fails the content parse at build,
+// which is the earlier of the two places it can fail; `blockFor` is the later
+// one, and renders nothing rather than crashing a live page.
+export const BLOCK_TYPES = ['hero'] as const
+
+export const pageSchema = z.object({
+  title: z.string(),
+  description: z.string(),
+  // `.passthrough()` keeps each block's own props: they are validated by the
+  // component's `defineProps`, not here.
+  blocks: z.array(z.object({ type: z.enum(BLOCK_TYPES) }).passthrough()).default([])
+})

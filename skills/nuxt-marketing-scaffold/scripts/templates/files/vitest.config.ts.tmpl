@@ -1,0 +1,25 @@
+import { fileURLToPath } from 'node:url'
+import vue from '@vitejs/plugin-vue'
+import { defineConfig } from 'vitest/config'
+
+// Deliberately not `@nuxt/test-utils`: nothing here needs a Nuxt runtime. The
+// schema layer is plain zod, and a block takes props — a test that needed the
+// framework booted would be a test of a block that queries content, which the
+// frontend conventions forbid.
+export default defineConfig({
+  plugins: [vue()],
+  resolve: {
+    alias: {
+      // The same two aliases Nuxt generates: `~~` is the repo root, `~` is the
+      // app directory. Cross-tree imports in tests use these, never `../../..`.
+      '~~': fileURLToPath(new URL('.', import.meta.url)),
+      '~': fileURLToPath(new URL('./app', import.meta.url))
+    }
+  },
+  test: {
+    // Scoped to `tests/`, which mirrors the source tree. A stray `*.test.ts`
+    // next to source will silently not run — that is the intended pressure.
+    include: ['tests/**/*.test.ts'],
+    environment: 'happy-dom'
+  }
+})
