@@ -94,13 +94,14 @@ The skill detects your stack, asks a small batch of questions **before writing a
 | Found | Profile |
 | --- | --- |
 | `src-tauri/tauri.conf.json` | `tauri` — checked **before** `nuxt`, because a Tauri desktop app with a Nuxt frontend has both markers, and matching `nuxt` first would onboard it as a web app: SSR left on, a `server/` BFF that does not exist at runtime, and no rule about capabilities, the IPC trust boundary or the updater key |
+| `nuxt.config.ts` **plus** `@nuxt/content` and `@nuxtjs/i18n` in `dependencies` **plus** a `content/` tree or `content.config.ts` **plus** no `nuxt-auth-utils` or `@sidebase/nuxt-auth` | `nuxt-marketing` — also checked **before** `nuxt`, and for the same reason: a marketing site carries the `nuxt.config.ts` marker too, and matching `nuxt` first would write BFF-proxy, sealed-session and Pinia-Colada conventions for a repo with no BFF half and no auth. Conditions 3 and 4 are the narrowing test — a Nuxt fullstack app that happens to ship a docs section satisfies the first two and stays on `nuxt`, and `@nuxt/content` in `devDependencies` only is not a match. `server/api/**` is deliberately not tested: this profile's own form routes live there |
 | `nuxt.config.ts` | `nuxt` |
 | `go.mod` | `go` |
 | `package.json` with express/fastify/hono/koa | `nodejs` |
 | `next.config.*` | `next` |
 | `pubspec.yaml` with a `flutter:` key or SDK dependency **and** app evidence (`lib/main*.dart` plus `android/app/` or `ios/Runner/`) | `flutter` |
 | none of the above, but the repo has code | `generic` — no question asked, setup keeps going. A plain Dart package lands here, and so do a Flutter **package** and a Flutter **plugin** (`plugin:` under `flutter:`): flavors, a dio client and a local database are app concerns, and a widget library should not inherit rules for code it will never contain. The run says which one it detected. |
-| empty repo | asks which stack, then scaffolds the app first |
+| empty repo | asks which stack, then scaffolds the app first — the question does **not** offer `nuxt-marketing`, because there is no marketing-site scaffolder to run |
 
 **The questions you'll be asked** (bundled, all optional to change — `AskUserQuestion` takes at most four at a time, so six applicable questions arrive as two back-to-back prompts):
 
@@ -111,7 +112,7 @@ The skill detects your stack, asks a small batch of questions **before writing a
 | Model ladder | `opus-centric` | Which models the three execution tiers spawn on — see [§7](#7-tuning-cost-and-depth) |
 | Agent hosts | auto-detected — `both` if `.cursor/` exists, else `claude` | Whether to also generate the Cursor mirror so the same rules and gates apply in Cursor — see [`GATES.md` §7](GATES.md#7-the-same-gates-in-cursor) |
 
-If the repo is empty, the app itself gets scaffolded first (by `nuxt-scaffold` / `next-scaffold` / `go-scaffold` / `nodejs-scaffold`, by `flutter create` for the `flutter` profile, or by `nuxt-scaffold` followed by `pnpm tauri init` for `tauri`), and the governance layer is overlaid on top additively.
+If the repo is empty, the app itself gets scaffolded first (by `nuxt-scaffold` / `next-scaffold` / `go-scaffold` / `nodejs-scaffold`, by `flutter create` for the `flutter` profile, or by `nuxt-scaffold` followed by `pnpm tauri init` for `tauri`), and the governance layer is overlaid on top additively. `nuxt-marketing` is detection-only: its repos come from the Marketing Site Factory's template, already scaffolded, so that profile is never reached from an empty directory.
 
 If the repo is on GitHub Spec Kit, you'll be offered `migrate` / `coexist` / `leave`. Migration always shows you a read-only triage table of everything under `specs/` before deleting a single file.
 
@@ -612,7 +613,7 @@ Probably the injection gate (stage 2) after a recent web fetch. Check what was f
 | Term | Meaning |
 | --- | --- |
 | **Harness** | The governance layer: `CLAUDE.md`, `.claude/rules/`, guard hooks, budget gate, CI. |
-| **Profile** | Which stack a repo is — `nuxt`, `next`, `go`, `nodejs`, `flutter`, `tauri`, or `generic`. Decides which templates get written. |
+| **Profile** | Which stack a repo is — `nuxt`, `nuxt-marketing`, `next`, `go`, `nodejs`, `flutter`, `tauri`, or `generic`. Decides which templates get written. |
 | **Guard** | A hook script under `.claude/guards/` that blocks or confirms a tool call. The load-bearing part of the system. |
 | **Gate** | A checkpoint that fails closed — the spec gate, the pre-commit script, the budget gate. |
 | **Tier** | One of the three execution subagents: quick / standard / deep. |

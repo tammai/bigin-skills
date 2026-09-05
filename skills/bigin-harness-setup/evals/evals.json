@@ -94,5 +94,21 @@
   {
     "query": "how do I sign and notarize a tauri app for macOS?",
     "should_trigger": false
+  },
+  {
+    "query": "set up the harness for our multi-locale nuxt marketing site — @nuxt/content collections and @nuxtjs/i18n, no auth",
+    "should_trigger": true
+  },
+  {
+    "query": "our nuxt bff app added an @nuxt/content docs section — will the harness still install the nuxt profile?",
+    "should_trigger": true
+  },
+  {
+    "query": "add the AI rules to our tauri desktop app whose nuxt frontend uses @nuxt/content",
+    "should_trigger": true
+  },
+  {
+    "query": "install the harness in this nuxt site that only has @nuxt/content in devDependencies",
+    "should_trigger": true
   }
 ]

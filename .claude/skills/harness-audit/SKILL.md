@@ -71,7 +71,7 @@ Skip the generated table regions in `CLAUDE.md`/`README.md` (between `<!-- gen:*
 
 ### Permissions
 
-- `templates/merge/claude-settings.json` and the six profile `settings.json` templates (nuxt, next, go, nodejs, flutter, tauri): any `permissions.allow` entry broader than needed, or any common safe command missing that would cut permission-prompt friction.
+- `templates/merge/claude-settings.json` and the seven profile `settings.json` templates (nuxt, nuxt-marketing, next, go, nodejs, flutter, tauri): any `permissions.allow` entry broader than needed, or any common safe command missing that would cut permission-prompt friction.
 
 ### Everything else
 

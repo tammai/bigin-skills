@@ -48,7 +48,7 @@ There is also an **opt-in** hook this harness writes but registers nowhere: `ins
 
 Setup won't create a second commit gate. If your repo already gates commits via `simple-git-hooks`, `husky`, or an existing `.git/hooks/pre-commit`, that mechanism *is* the gate and extra steps are appended to it rather than a rival script being written.
 
-`tauri` is the one profile where "appended to it" means a script of its own, chained behind the existing manager. Its frontend comes from `nuxt-scaffold`, so `simple-git-hooks` → `pnpm lint-staged` is already installed — and that gates the frontend only, never `cargo fmt`/`cargo clippy`/`cargo test` and never the four grep gates (no API URL literal in `app/`, no secret in web storage, no `server/` directory, no dangerous Tauri capability). Still one gate, not two: `lint-staged && sh scripts/pre-commit.sh`.
+`tauri` and `nuxt-marketing` are the two profiles where "appended to it" means a script of its own, chained behind the existing manager. Both arrive with `simple-git-hooks` → `pnpm lint-staged` already installed, and `lint-staged` runs ESLint over staged files — which for `tauri` leaves `cargo fmt`/`cargo clippy`/`cargo test` and its four grep gates unrun (no API URL literal in `app/`, no secret in web storage, no `server/` directory, no dangerous Tauri capability), and for `nuxt-marketing` leaves all three of its grep gates unrun (no hex or `rgb()` colour literal under `app/components`, no `fallbackLocale` in the i18n config, no raw `<img` outside `app/components/media/`). None of those seven greps is expressible as a lint rule: each is about a string or a path rather than a syntax tree. Still one gate, not two: `lint-staged && sh scripts/pre-commit.sh`.
 
 ---
 
@@ -128,7 +128,7 @@ Pattern credited to [Lasso Security's PostToolUse Defender](https://www.lasso.se
 
 ## 5. The non-blocking hooks
 
-Five hooks that never block anything (five scripts, counting `injection-scan-guard` from §4 — six in a `nuxt`, `next` or `tauri` repo, which also gets `lint-fix-file.mjs` on `PostToolUse` to format what was just written). `precompact-snapshot.mjs` serves two of the five events, which is why there are five scripts and not six. They're easy to forget precisely because they never interrupt you.
+Five hooks that never block anything (five scripts, counting `injection-scan-guard` from §4 — six in a `nuxt`, `nuxt-marketing`, `next` or `tauri` repo, which also gets `lint-fix-file.mjs` on `PostToolUse` to format what was just written). `precompact-snapshot.mjs` serves two of the five events, which is why there are five scripts and not six. They're easy to forget precisely because they never interrupt you.
 
 Two of the five are newer and worth naming, because each closes a gap the harness previously only documented:
 

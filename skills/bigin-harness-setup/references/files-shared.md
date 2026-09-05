@@ -8,7 +8,7 @@ Templates for files that are identical (or nearly identical) across all stack pr
 
 When writing `.claude/rules/security.md` and `.claude/rules/architecture.md`, prepend the profile-specific `paths:` frontmatter before the template content. `.claude/rules/comments.md` and `.claude/rules/product.md` are the two exceptions — each carries its own stack-agnostic frontmatter and is written verbatim, no substitution: `comments.md` scopes by source-file extension (every profile), because comment rules apply to any source file including scripts and tooling outside the app directories; `product.md` scopes to `docs/product/**`, which is the same path on every profile regardless of stack.
 
-Every profile's list includes its OpenAPI contract file: `architecture.md` owns the versioning rule (additive changes, `/v2/` on a break), so it has to load when the contract itself is the file being edited — not only when source files are. The filename differs by profile (`openapi.yaml`, `api/openapi.yaml`, `openapi.json`); use the one the repo actually has, since a `paths:` entry that names a file the repo doesn't contain fails silently — the rule simply never loads.
+Every profile that has an API contract lists its contract file: `architecture.md` owns the versioning rule (additive changes, `/v2/` on a break), so it has to load when the contract itself is the file being edited — not only when source files are. The filename differs by profile (`openapi.yaml`, `api/openapi.yaml`, `openapi.json`); use the one the repo actually has, since a `paths:` entry that names a file the repo doesn't contain fails silently — the rule simply never loads. `nodejs` and `nuxt-marketing` are the two with no contract line: `nodejs` generates its OpenAPI document code-first rather than committing a snapshot, and `nuxt-marketing` has no API at all — its `content.config.ts` collection schemas are the contract that file loads for instead.
 
 **nuxt:**
 ```yaml
@@ -17,6 +17,17 @@ paths:
   - "server/**"
   - "app/**"
   - "openapi.yaml"
+---
+```
+
+**nuxt-marketing:** the app tree plus both editable trees, and `content.config.ts` in place of an OpenAPI file. The content trees are load-bearing here rather than a nicety: `architecture.md` carries the content → pages → blocks boundary and the hidden-not-substituted locale rule, so it has to load while somebody is editing a content entry or a locale bundle — which is where those two rules are broken.
+```yaml
+---
+paths:
+  - "app/**"
+  - "content/**"
+  - "i18n/**"
+  - "content.config.ts"
 ---
 ```
 

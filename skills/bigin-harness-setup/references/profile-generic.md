@@ -1,6 +1,6 @@
 # Generic Profile Templates
 
-Fallback profile — used when Phase 0's stack detection matches none of `tauri` / `nuxt` / `go` / `nodejs` / `next` / `flutter`. Nothing is asked; the harness installs its stack-neutral half.
+Fallback profile — used when Phase 0's stack detection matches none of `tauri` / `nuxt-marketing` / `nuxt` / `go` / `nodejs` / `next` / `flutter`. Nothing is asked; the harness installs its stack-neutral half.
 
 What generic **does** install: `CLAUDE.md`, `.claude/rules/security.md` + `architecture.md` + `comments.md` + `product.md`, the AI files, every guard wired in the `settings.json` block below (all nine gates, plus the `install-hooks.mjs` clone bootstrap on `Setup`), `settings.json` itself, the context-budget gate, the pre-commit script, and every opt-in phase (knowledge bundle, graphify, model routing).
 

@@ -19,6 +19,8 @@ The six questions Phase 1.5 asks, with their auto-detected defaults and the exac
    ```
    For `tauri`, `{LINT}` and `{TEST}` each span **two toolchains** (pnpm and `cargo`), and the generated workflow is two jobs — a frontend one and a Rust one that first installs Tauri's Linux system libraries — with no installer build, since that needs the code-signing secrets. Say "lint, typecheck and tests across both the frontend and the Rust side, in two jobs" rather than listing six commands in the question.
 
+   For `nuxt-marketing`, the generated workflow also **builds**, because on that profile the build is the locale prerender — say "lint, typecheck, tests, a build that prerenders every locale, and the three content and design-token greps" rather than listing them. It generates **no deploy step**: that belongs to the site's own workflow.
+
    For `flutter`, `{LINT}` is four commands (`dart format --output=none --set-exit-if-changed .`, then `flutter analyze --fatal-infos` in the `{TYPECHECK}` slot, then **both** `dart run custom_lint` and `dart run import_lint`) and the generated workflow adds a regenerate-and-diff step for committed generated code — say "lint, analyze, test, and a generated-code diff" rather than listing all of it in the question.
 3. **Model routing profile** (opus-centric/frontier/lean) — which model ladder `model-router` and `task-workflow` spawn subagents on. Written to `.claude/model-routing.json` at Phase 5-3d:
    ```
