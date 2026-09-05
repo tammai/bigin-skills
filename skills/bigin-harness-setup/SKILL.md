@@ -18,7 +18,7 @@ Check for stack indicators, **first match wins**:
 | # | Marker | Profile |
 |---|---|---|
 | 1 | `src-tauri/tauri.conf.json` | `tauri` |
-| 2 | `nuxt.config.ts` / `.js` **plus** `@nuxt/content` in `dependencies` **plus** no `server/api/**` and no `nuxt-auth-utils` | `nuxt-marketing` |
+| 2 | `nuxt.config.ts` / `.js` **plus** `@nuxt/content` and `@nuxtjs/i18n` in `dependencies` **plus** a `content/` tree **plus** no auth marker | `nuxt-marketing` |
 | 3 | `nuxt.config.ts` / `.js` | `nuxt` |
 | 4 | `go.mod` | `go` |
 | 5 | `package.json` with express/fastify/hono/koa in dependencies | `nodejs` |
@@ -33,7 +33,7 @@ Check for stack indicators, **first match wins**:
 
 Row 7 is deliberately narrower than "has a `pubspec.yaml`" and narrower again than "is Flutter": a Dart package, a Flutter package and a Flutter plugin must all fall through to `generic`. Row 9 **never asks** — an existing repo that isn't one of these won't become one, so say one line ("no matching stack profile — installing the stack-neutral harness") and continue.
 
-Row 2's three conditions and the two Flutter checks in full, and the exact wording of row 8's question — which deliberately does **not** offer `nuxt-marketing`, since no scaffolder for it exists here: **`references/profile-detection.md`**.
+Row 2's four conditions and the two Flutter checks in full, and the exact wording of row 8's question — which deliberately does **not** offer `nuxt-marketing`, since no scaffolder for it exists here: **`references/profile-detection.md`**.
 
 Store result as `PROFILE`. Load `references/profile-{PROFILE}.md` for all template content — `references/profile-generic.md` for `generic`, which states up front what that profile installs and skips.
 

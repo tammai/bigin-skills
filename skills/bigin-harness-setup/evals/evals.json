@@ -96,7 +96,7 @@
     "should_trigger": false
   },
   {
-    "query": "set up the harness for our multi-locale nuxt marketing site — @nuxt/content collections, no server routes",
+    "query": "set up the harness for our multi-locale nuxt marketing site — @nuxt/content collections and @nuxtjs/i18n, no auth",
     "should_trigger": true
   },
   {

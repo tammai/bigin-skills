@@ -1,6 +1,6 @@
 # Plan: nuxt-marketing stack profile
 
-Status: amending
+Status: in-progress
 Branch: feat/nuxt-marketing-profile
 
 ## Spec
@@ -102,22 +102,22 @@ which `docs_sync.mjs --check` enforces.
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | Eval cases first — four detection outcomes in `evals/evals.json` | Not started | Verification bar: new file planned, so cases precede content — Re-do: scenario B is now distinguished by auth markers and the i18n/content markers, not by server/api. Amendment 1 |
-| 2 | `references/profile-nuxt-marketing.md` — Commands + CLAUDE.md template | Done | Copy section shape from profile-nuxt.md and profile-tauri.md |
-| 3 | Same file — `conventions-frontend.md` + `conventions-content.md` templates | Not started | conventions-content.md is the editor boundary; scope `content/**`, `i18n/**` — Re-check only: remove any reference to a separate form Worker. Amendment 1 |
-| 4 | Same file — `testing.md` template + architecture addendum | Not started | Addendum carries the four boundaries — Boundary 2 rewritten — one Worker, server/api for forms only. Amendment 1 |
+| 1 | Eval cases first — four detection outcomes in `evals/evals.json` | Done | Four cases added. **The eval format is `query`+`should_trigger` only — it cannot assert which profile resolves.** Detection outcomes are verified by row 15, not here. Amendment 2 |
+| 2 | `references/profile-nuxt-marketing.md` — Commands + CLAUDE.md template | Done | Copy section shape from profile-nuxt.md and profile-tauri.md — Detection summary at :5 carried the reverted design — fixed. Amendment 2 |
+| 3 | Same file — `conventions-frontend.md` + `conventions-content.md` templates | Done | conventions-content.md is the editor boundary; scope `content/**`, `i18n/**`. Separate-form-Worker wording removed. Amendment 2 |
+| 4 | Same file — `testing.md` template + architecture addendum | Done | Boundary 2 rewritten — one Worker per site, `server/api/` for forms and newsletter only. Amendment 2 |
 | 5 | Same file — `settings.json` + `.vscode/settings.json` templates | Done | |
-| 6 | `references/profile-detection.md` — new rung above `nuxt`, three conditions | Not started | Do not extend the empty-repo question; say why inline — Four conditions now, and server/api is deliberately untested. Amendment 1 |
+| 6 | `references/profile-detection.md` — new rung above `nuxt`, three conditions | Done | Four conditions; `server/api/**` deliberately untested, with the accepted cost stated inline. Empty-repo question still not extended. Amendment 2 |
 | 7 | `references/rule-files.md` — matrix row + "what differs" bullet | Done | |
 | 8 | `references/hook-guard.md` — the three grep gates | Done | Chain behind an existing hook manager if present, as tauri does |
 | 9 | `references/ci.md` — profile CI section | Done | Build + prerender + greps + knowledge validator; no deploy |
-| 10 | Profile enumerations: `SKILL.md`, `scaffold-delegation.md`, `overlay-matrix.md`, `summary-checklist.md`, `files-shared.md`, `decision-bundle.md` | Done | Grep for every list of seven profiles; miss one and the profile half-exists |
+| 10 | Profile enumerations: `SKILL.md`, `scaffold-delegation.md`, `overlay-matrix.md`, `summary-checklist.md`, `files-shared.md`, `decision-bundle.md` | Done | Grep for every list of seven profiles; miss one and the profile half-exists — SKILL.md's detection table and its `references/` pointer carried the reverted design — fixed. Amendment 2 |
 | 11 | Skill `description:` frontmatter names the profile | Done | Must stay under context_budget's 350-char cap |
-| 12 | Docs: README profiles table, `docs/USER_GUIDE.md`, `docs/GATES.md` | Not started | README table is hand-maintained; the skill-table row is generated — Condition wording only, wherever the three conditions are quoted. Amendment 1 |
-| 13 | `CHANGELOG.md` 1.88.0 entry + version mirrored in four manifests | Not started | Include `patch` blocks for already-installed repos where applicable — Condition wording only. Amendment 1 |
-| 14 | Verify: `context_budget`, `docs_sync --check`, `site_build --check` all pass | Done | Show real output |
+| 12 | Docs: README profiles table, `docs/USER_GUIDE.md`, `docs/GATES.md` | Done | README table + GATES carried no condition wording; USER_GUIDE row 97 rewritten to four conditions. Amendment 2 |
+| 13 | `CHANGELOG.md` 1.88.0 entry + version mirrored in four manifests | Done | 1.88.0 entry reworded to four conditions; version stays 1.88.0 (correct next minor after 1.87.3). **CHANGELOG still lacks the 1.87.3 entry — comes in on the merge from main.** Amendment 2 |
+| 14 | Verify: `context_budget`, `docs_sync --check`, `site_build --check` all pass | Done | Re-run after Amendment 2 sweep — all three pass |
 | 15 | Verify: manual detection dry-run against the Factory template layout | Not started | Tracked row — cannot close the plan while open — Dry-run must be re-run against the amended ladder. Amendment 1 |
-| 16 | `.claude/rules/skill-authoring.md` — add `nuxt-marketing` to the profiles that lint `.claude/guards/**` | Not started | Amendment 1. Additive: the profile does lint guards, so a guard in a style its ESLint rejects would break `pnpm lint` there |
+| 16 | `.claude/rules/skill-authoring.md` — add `nuxt-marketing` to the profiles that lint `.claude/guards/**` | Done | `nuxt-marketing` added to the guard-lint profile list; profile confirmed to lint via `@nuxt/eslint`. Amendment 2 |
 
 ## Amendments
 
@@ -134,3 +134,13 @@ which `docs_sync.mjs --check` enforces.
   edited because omitting them would leave the profile half-existing: `profile-generic.md`'s
   fallthrough marker list, and `.claude/skills/harness-audit/SKILL.md`'s "six profile settings.json
   templates" count. Enumeration only; no rule or template content changed.
+- **2026-09-05 — Amendment 2: the Amendment 1 sweep, plus two rows it missed.** Amendment 1 reset
+  seven rows but left rows 2 and 10 marked Done while both still carried the reverted
+  separate-form-Worker design — `profile-nuxt-marketing.md:5` and `SKILL.md`'s detection table, the
+  most-read surface of the eight. The design is now consistent across all seven files that state it:
+  four conditions (`nuxt.config.ts`, `@nuxt/content`, `@nuxtjs/i18n` + a `content/` tree, no auth
+  marker), `server/api/**` deliberately untested, forms and newsletter in the app's own `server/api/`
+  at one Worker per site. Rows 1, 3, 4, 6, 12, 13, 14 and 16 close. **Row 15 remains open and still
+  blocks the plan** — the manual detection dry-run against the Factory template layout has never been
+  run, and it is the only check that can verify a detection outcome, since the eval format asserts
+  skill triggering and nothing more.
