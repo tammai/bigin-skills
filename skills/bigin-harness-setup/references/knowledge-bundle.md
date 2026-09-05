@@ -113,6 +113,8 @@ Extension keys are allowed but must not collide with the above.
 
 The index is the primary read target — one-line summaries must be self-sufficient for routine work. Open a concept file only when the summary is insufficient. It is a reserved file: `okf_version` is the only key it may carry.
 
+**Drop the `## Contracts` section entirely when the repo has no contract file** (`openapi.yaml`/`openapi.json`, root or `api/`) — Phase 5.5 skips the concept in that case, and an index line pointing at a file that was never written is a broken link the validator fails on.
+
 ```markdown
 ---
 okf_version: "0.2"
@@ -178,6 +180,8 @@ table with its Notes, and the Amendments section if there was one}
 
 ## knowledge/contracts/openapi-contract.md
 
+**Conditional — write this only when a contract file exists.** Its `resource:` and `sources[0].resource` both name `openapi.yaml`, so writing it into a repo without one produces a concept that fails resource-path resolution and, worse, tells every later agent the repo has an API contract it does not have.
+
 ```markdown
 ---
 type: Contract
@@ -215,6 +219,10 @@ CI (or the local gate) fails if generated frontend types don't match the checked
 
 ## knowledge/constraints/agent-rules.md
 
+**Two substitutions before writing.** `{CONVENTIONS_RULE}` is the profile's conventions rule path from `rule-files.md`'s matrix — `.claude/rules/conventions.md` for `go`/`nodejs`/`flutter`, `.claude/rules/conventions-frontend.md` for `nuxt`/`next`/`tauri`. On `generic` there is no conventions rule at all: **drop the whole `conventions` source entry and the "Never edit a merged migration" section**, whose only content is a pointer to it. And when Phase 5.5 skipped the contract concept, **drop the "Before touching handlers/routes" section** — it is a link to a concept that was not written.
+
+Both are the same defect in different clothing: a starter file asserting the existence of something this repo does not have. Resource-path resolution now fails the commit on the first one; the second is a broken bundle link, which has always failed.
+
 ```markdown
 ---
 type: Constraint
@@ -225,7 +233,7 @@ status: stable
 generated: { by: process:bigin-harness-setup, at: {DATE}T00:00:00Z }
 sources:
   - id: conventions
-    resource: .claude/rules/conventions.md
+    resource: {CONVENTIONS_RULE}
     title: Enforced conventions
     last_modified: {DATE}
   - id: security
@@ -240,7 +248,7 @@ sources:
 Read `knowledge/contracts/openapi-contract.md` and confirm the change stays additive, or that a version bump is the explicit plan.
 
 ## Never edit a merged migration
-Write a new migration instead. See `.claude/rules/conventions.md` for the migration pattern.
+Write a new migration instead. See `{CONVENTIONS_RULE}` for the migration pattern.
 
 ## Security-sensitive code
 Anything touching auth, secrets, or PII must have its security considerations named in the spec (`/task-workflow` has the format) before implementation starts, and goes through `.claude/rules/security.md` before merging.
@@ -272,7 +280,7 @@ Reserved file — no frontmatter. Newest entry first, one date heading per sprin
 // allowed types, reserved files, trust/lifecycle keys, link resolution.
 // Zero dependencies — runs on any Node >= 18 (macOS, Linux, Windows).
 import { readFileSync, readdirSync, statSync } from 'node:fs'
-import { basename, join, relative } from 'node:path'
+import { basename, join, relative, resolve } from 'node:path'
 
 const BUNDLE_ROOT = 'knowledge'
 const OKF_VERSION = '0.2'
@@ -295,6 +303,11 @@ const STATUSES = new Set(['draft', 'stable', 'deprecated'])
 
 const LINK_RE = /\[[^\]]*\]\(([^)]+)\)/g
 const ACTOR_RE = /^(human:.+|process:.+|[^/\s]+\/[^/\s]+)$/
+
+const RESOURCE_SCHEME_RE = /^[A-Za-z][A-Za-z0-9+.-]*:/
+// A letters-first extension is what separates a path from a version or package
+// identifier: `nuxt@4.0.3` ends in `.3`, `@nuxt/content` has no extension.
+const RESOURCE_EXT_RE = /\.[A-Za-z][A-Za-z0-9]{0,7}$/
 
 // --- YAML subset parser ------------------------------------------------------
 // Handles what our frontmatter actually uses: block maps, block lists, inline
@@ -478,6 +491,19 @@ function asList(value) {
   return Array.isArray(value) ? value : [value]
 }
 
+// The path a `resource` value points at, or null when the value is not
+// recognisably one: a URI, prose, or a version/package identifier. Exported so
+// the classification — the whole false-positive surface — is testable alone.
+export function resourcePath(value) {
+  if (typeof value !== 'string') return null
+  const text = value.trim()
+  if (!text || RESOURCE_SCHEME_RE.test(text) || /\s/.test(text)) return null
+  const target = text.split('#')[0]
+  if (!target) return null
+  if (target.endsWith('/')) return target
+  return RESOURCE_EXT_RE.test(target.split('/').pop()) ? target : null
+}
+
 function bundleRelativeLinks(content) {
   const links = []
   for (const match of content.matchAll(LINK_RE)) {
@@ -610,6 +636,37 @@ function checkSources(path, meta, body, errors, warnings) {
   }
 }
 
+function checkResourcePaths(path, meta, root, errors, warnings) {
+  const entries = []
+  if (meta.resource !== undefined) entries.push(['resource', meta.resource])
+  for (const [i, source] of asList(meta.sources).entries()) {
+    if (isPlainObject(source) && source.resource) {
+      entries.push([`sources[${i}].resource`, source.resource])
+    }
+  }
+
+  for (const [label, value] of entries) {
+    const target = resourcePath(value)
+    if (target === null) continue
+    const wantDir = target.endsWith('/')
+    // A `/`-prefixed value is bundle-relative like every other reference in the
+    // bundle; anything else resolves against the repo root the validator runs from.
+    const full = target.startsWith('/') ? join(root, target.slice(1)) : resolve(target)
+    let stats
+    try {
+      stats = statSync(full)
+    } catch {
+      errors.push(`${path}: ${label} '${value}' does not exist`)
+      continue
+    }
+    if (wantDir && !stats.isDirectory()) {
+      errors.push(`${path}: ${label} '${value}' is a file, not a directory`)
+    } else if (!wantDir && stats.isDirectory()) {
+      errors.push(`${path}: ${label} '${value}' is a directory, not a file`)
+    }
+  }
+}
+
 // --- main --------------------------------------------------------------------
 
 function main() {
@@ -672,6 +729,7 @@ function main() {
       checkTrust(path, meta, errors, warnings)
       checkLifecycle(path, meta, errors, warnings, today)
       checkSources(path, meta, body, errors, warnings)
+      checkResourcePaths(path, meta, root, errors, warnings)
 
       if (!meta.description) warnings.push(`${path}: missing recommended key 'description'`)
       if (!meta.tags || meta.tags.length === 0) warnings.push(`${path}: missing recommended key 'tags'`)
@@ -717,5 +775,13 @@ function main() {
   return 0
 }
 
-process.exit(main())
+// This file is imported by its test, so main() must run only when it is the
+// process entry point — `node tools/knowledge_validate.mjs` still exits with
+// main()'s code. Derived from import.meta.url rather than node:url to keep the
+// script's node:fs/node:path-only import list.
+const selfPath = decodeURIComponent(new URL(import.meta.url).pathname)
+const selfNative = /^\/[A-Za-z]:/.test(selfPath) ? selfPath.slice(1) : selfPath
+if (process.argv[1] && resolve(process.argv[1]) === resolve(selfNative)) {
+  process.exit(main())
+}
 ```

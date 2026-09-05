@@ -24,6 +24,126 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The architecture addendum carries four boundaries every site inherits: content → pages → blocks with blocks never querying content; Worker routes as the only server surface and only for forms and newsletter, with Turnstile verification, rate limiting and payload validation stated as requirements rather than suggestions; no colour, type, spacing or motion literal outside the generated token set; and a locale's missing content hidden rather than filled from the default locale.
 
   No `patch` block. The profile is entirely new surface — a new `references/profile-nuxt-marketing.md` plus new rungs and rows in files a target repo never receives — so there is nothing in an already-scaffolded repo to anchor a patch against. A repo that wants this profile re-runs setup.
+## [1.87.3] - 2026-09-04
+
+### Fixed
+
+- **`resource:` and `sources[].resource` were never resolved, so a concept could point at a file that does not exist and the bundle still validated at 0 errors.** Presence was checked; the value was not. A repo harnessed at 1.87.2 carried three dead paths that all validated clean — `openapi.yaml` twice in the starter contract concept, and `.claude/rules/conventions.md` twice in agent-rules — and two of them actively misdirected agents, because the index-first read protocol hands a concept over as settled truth whatever it points at.
+
+  The check is deliberately narrow, because a false positive breaks the commit gate in every installed repo: a value is a path only when it has no URI scheme, no whitespace, and a letters-only extension on its last segment, or a trailing slash that must then resolve to a directory. That keeps version and package identifiers out — `@nuxt/content` has a slash and no extension, `nuxt@4.0.3` ends in `.3`. Resolution is cwd-relative (the repo root the validator runs from); a `/`-prefixed value stays bundle-relative like every other reference.
+
+  Verified by 33 `node:test` cases in the repo where it was written, covering each false-positive value plus fragment stripping, single-mapping `sources`, both directory/file mismatches, and reserved files.
+
+- **The starter bundle wrote both of those dead paths itself, unconditionally, for all seven profiles.** The contract concept names `openapi.yaml` in its `resource:` and its first source, so every repo without one — a fresh scaffold, a Flutter client, anything on `generic` — got an indexed `status: stable` concept asserting an API contract the repo does not have. And agent-rules hardcoded `.claude/rules/conventions.md`, which per `rule-files.md` exists only on `go`, `nodejs` and `flutter`; `nuxt`, `next` and `tauri` name their conventions file differently and `generic` has none, so that citation was wrong in four of seven profiles.
+
+  The contract concept and its index section are now conditional on an `openapi.yaml`/`openapi.json` existing at the root or under `api/`. Agent-rules substitutes `{CONVENTIONS_RULE}` from the same matrix that decides the filename, and on `generic` drops both the source entry and the migration section whose only content pointed at it. The handlers/routes section is dropped when the contract concept was skipped, for the same reason.
+
+  **Already-installed bundles are not patched for these two.** The correct conventions path differs per profile and the contract concept may be legitimately present, so an anchor-matched rewrite would guess. The new resource check does the pointing instead: the first commit after upgrading names the file and the dead path, and the fix is a one-line edit or a deletion.
+
+```patch
+target: tools/knowledge_validate.mjs
+anchor: import { basename, join, relative } from 'node:path'
+insert: replace
+---
+import { basename, join, relative, resolve } from 'node:path'
+```
+
+```patch
+target: tools/knowledge_validate.mjs
+anchor: const ACTOR_RE = /^(human:.+|process:.+|[^/\s]+\/[^/\s]+)$/
+insert: after
+---
+
+const RESOURCE_SCHEME_RE = /^[A-Za-z][A-Za-z0-9+.-]*:/
+// A letters-first extension is what separates a path from a version or package
+// identifier: `nuxt@4.0.3` ends in `.3`, `@nuxt/content` has no extension.
+const RESOURCE_EXT_RE = /\.[A-Za-z][A-Za-z0-9]{0,7}$/
+```
+
+```patch
+target: tools/knowledge_validate.mjs
+anchor: function bundleRelativeLinks(content) {
+insert: before
+---
+// The path a `resource` value points at, or null when the value is not
+// recognisably one: a URI, prose, or a version/package identifier. Exported so
+// the classification — the whole false-positive surface — is testable alone.
+export function resourcePath(value) {
+  if (typeof value !== 'string') return null
+  const text = value.trim()
+  if (!text || RESOURCE_SCHEME_RE.test(text) || /\s/.test(text)) return null
+  const target = text.split('#')[0]
+  if (!target) return null
+  if (target.endsWith('/')) return target
+  return RESOURCE_EXT_RE.test(target.split('/').pop()) ? target : null
+}
+
+
+```
+
+```patch
+target: tools/knowledge_validate.mjs
+anchor: // --- main --------------------------------------------------------------------
+insert: before
+---
+function checkResourcePaths(path, meta, root, errors, warnings) {
+  const entries = []
+  if (meta.resource !== undefined) entries.push(['resource', meta.resource])
+  for (const [i, source] of asList(meta.sources).entries()) {
+    if (isPlainObject(source) && source.resource) {
+      entries.push([`sources[${i}].resource`, source.resource])
+    }
+  }
+
+  for (const [label, value] of entries) {
+    const target = resourcePath(value)
+    if (target === null) continue
+    const wantDir = target.endsWith('/')
+    // A `/`-prefixed value is bundle-relative like every other reference in the
+    // bundle; anything else resolves against the repo root the validator runs from.
+    const full = target.startsWith('/') ? join(root, target.slice(1)) : resolve(target)
+    let stats
+    try {
+      stats = statSync(full)
+    } catch {
+      errors.push(`${path}: ${label} '${value}' does not exist`)
+      continue
+    }
+    if (wantDir && !stats.isDirectory()) {
+      errors.push(`${path}: ${label} '${value}' is a file, not a directory`)
+    } else if (!wantDir && stats.isDirectory()) {
+      errors.push(`${path}: ${label} '${value}' is a directory, not a file`)
+    }
+  }
+}
+
+
+```
+
+```patch
+target: tools/knowledge_validate.mjs
+anchor: checkLifecycle(path, meta, errors, warnings, today)
+      checkSources(path, meta, body, errors, warnings)
+insert: after
+---
+      checkResourcePaths(path, meta, root, errors, warnings)
+```
+
+```patch
+target: tools/knowledge_validate.mjs
+anchor: process.exit(main())
+insert: replace
+---
+// This file is imported by its test, so main() must run only when it is the
+// process entry point — `node tools/knowledge_validate.mjs` still exits with
+// main()'s code. Derived from import.meta.url rather than node:url to keep the
+// script's node:fs/node:path-only import list.
+const selfPath = decodeURIComponent(new URL(import.meta.url).pathname)
+const selfNative = /^\/[A-Za-z]:/.test(selfPath) ? selfPath.slice(1) : selfPath
+if (process.argv[1] && resolve(process.argv[1]) === resolve(selfNative)) {
+  process.exit(main())
+}
+```
 
 ## [1.87.2] - 2026-09-04
 

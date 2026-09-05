@@ -17,6 +17,8 @@ Four of these files are the same for every profile and are described once, under
 | `tauri` | `conventions-frontend.md` + `conventions-rust.md` | yes | yes |
 | `generic` | none | no | **no** |
 
+**This matrix is also `{CONVENTIONS_RULE}`.** The knowledge bundle's agent-rules concept cites the profile's conventions rule by path, so a profile whose conventions file is named differently — or absent, as on `generic` — resolves or drops that citation from the same row. See `references/knowledge-bundle.md`.
+
 Every conventions and testing template already carries its own `paths:` frontmatter — take it verbatim from the profile file, don't substitute anything. All of them come from `references/profile-{PROFILE}.md` → the `## <filename> Template` section of the same name.
 
 **`generic` writes no conventions and no testing rule.** There is no known stack to write conventions for; the generated `CLAUDE.md`'s "match the surrounding code" rule stands in for them. It also gets **no** architecture addendum — `references/profile-generic.md` → `## architecture addendum` explains why.
