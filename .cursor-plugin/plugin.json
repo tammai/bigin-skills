@@ -1,7 +1,7 @@
 {
   "name": "bigin-skills",
   "description": "BigIn's skills for standardized AI-assisted development — a spec-gated task/epic/discovery workflow (approved PLAN.md, independent verifier, PRD-driven decomposition), harness setup (governance + enforcement gates for nuxt/next/go/nodejs/flutter/tauri, Claude Code and Cursor), Nuxt/Next.js/Go/Node.js scaffolding, end-of-sprint and pinned-library knowledge distillation, and session handoff.",
-  "version": "1.87.2",
+  "version": "1.87.3",
   "author": {
     "name": "Tam Mai",
     "email": "tam.mai@bigin.vn"
