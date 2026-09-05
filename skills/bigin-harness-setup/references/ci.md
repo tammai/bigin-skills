@@ -1,6 +1,6 @@
 # CI Templates
 
-CI config for the two quality gates the harness already runs locally (lint, typecheck, test) plus, when opted in, the Knowledge Bundle validator. Written into the target project during setup — opt-in, per Phase 5.6.
+CI config for the quality gates the harness already runs locally (lint, typecheck, test, plus a profile's own grep gates) and, when opted in, the Knowledge Bundle validator. `nuxt-marketing` additionally builds, because on that profile the build *is* the locale prerender. Written into the target project during setup — opt-in, per Phase 5.6.
 
 Every job runs on `push` to `main` and on merge/pull requests. Replace nothing by hand — the profile sections below are copy-ready.
 
@@ -347,6 +347,102 @@ jobs:
 
 ---
 
+## github: nuxt-marketing
+
+Write to `.github/workflows/ci.yml`.
+
+Four things about this workflow that differ from the `nuxt` profile's:
+
+- **It builds, and the build is the point.** Every other frontend profile stops at lint/typecheck/test. Here the build *is* the prerender, and a locale that fails to prerender 404s in production and nowhere else — not in `pnpm dev`, which has a Nitro half the deployed assets do not.
+- **The prerender assertion is per locale, not a count.** One entry point per locale bundle under `i18n/locales/`, allowing exactly one locale to resolve at the root: with a prefix-except-default URL strategy the default locale has no prefixed directory. Two locales missing a prefixed entry point is a real failure; one is the default locale.
+- **The three greps run here as well as in `scripts/pre-commit.sh`.** CI is the backstop for a commit that reached the branch without hooks installed — a fresh clone, a web edit, a teammate who skipped onboarding. Each grep tests its search root first, because `grep` exits 2 on a missing path *even when it matched*, and an exit 2 inside `if` is false — one absent argument would turn the step green over a repo full of violations.
+- **No deploy job.** Deploying belongs to the site's own workflow, which the Marketing Site Factory owns. A generated deploy step would be the one generated command whose blast radius is a live client site, and it would need the account's API token to be useful.
+
+```yaml
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm type-check
+      - run: pnpm test --run
+      - name: no colour literal outside the token set
+        run: |
+          # Every grep tests its search root first: grep exits 2 on a missing path
+          # even when it matched, and an exit 2 inside `if` is false — so one absent
+          # argument would turn this step green over a repo full of violations.
+          if [ -d app/components ] \
+             && grep -rInE '(#[0-9a-fA-F]{3,8}\b|rgba?\()' app/components \
+                  --include='*.vue' --include='*.ts' --include='*.js' --include='*.css' \
+                | grep -v 'token-ok'; then
+            echo "^ colour literal in a component or block — colour comes from the generated token set"
+            exit 1
+          fi
+      - name: no fallbackLocale in the i18n config
+        run: |
+          # i18n.config.ts is optional in this stack, so the path list is built from
+          # what the repo actually has rather than handed to grep unconditionally.
+          i18n_paths=""
+          for p in nuxt.config.ts nuxt.config.js i18n.config.ts i18n.config.js i18n; do
+            if [ -e "$p" ]; then i18n_paths="$i18n_paths $p"; fi
+          done
+          if [ -n "$i18n_paths" ] && grep -rIn 'fallbackLocale' $i18n_paths; then
+            echo "^ fallbackLocale substitutes the default locale for missing content — this profile hides it instead"
+            exit 1
+          fi
+      - name: no raw img outside app/components/media/
+        run: |
+          if [ -d app ] \
+             && grep -rIn '<img' app --include='*.vue' --include='*.ts' --include='*.js' \
+                | grep -v '^app/components/media/' \
+                | grep -v 'img-ok'; then
+            echo "^ raw <img> outside app/components/media/ — use the NuxtImg wrappers there"
+            exit 1
+          fi
+      - run: pnpm build
+      - name: every locale prerendered
+        run: |
+          if [ ! -d i18n/locales ]; then
+            echo "^ i18n/locales/ not found — this profile is a multi-locale site by definition"
+            exit 1
+          fi
+          if [ ! -f .output/public/index.html ]; then
+            echo "^ .output/public/index.html missing — the build produced no prerendered root"
+            exit 1
+          fi
+          # One prerendered entry point per locale bundle. Exactly one locale is
+          # allowed to resolve at the root: with a prefix-except-default strategy
+          # the default locale has no prefixed directory. Two is a real failure.
+          rootless=0
+          for f in i18n/locales/*.json; do
+            code=$(basename "$f" .json)
+            if [ ! -f ".output/public/$code/index.html" ]; then
+              echo "no prerendered entry point for locale: $code"
+              rootless=$((rootless + 1))
+            fi
+          done
+          if [ "$rootless" -gt 1 ]; then
+            echo "^ $rootless locales have no prerendered entry point; at most one (the default, served at the root) may"
+            exit 1
+          fi
+```
+
+---
+
 ## gitlab: nuxt
 
 Write to `.gitlab-ci.yml`.
@@ -536,6 +632,40 @@ rust:
 
 ---
 
+## gitlab: nuxt-marketing
+
+Write to `.gitlab-ci.yml`. Same four caveats as the GitHub workflow — the build is the prerender, the prerender assertion is per locale, the three greps are the backstop, and no deploy job.
+
+```yaml
+stages:
+  - quality
+
+quality:
+  stage: quality
+  image: node:22
+  before_script:
+    - corepack enable && corepack prepare pnpm@latest --activate
+    - pnpm install --frozen-lockfile
+  script:
+    - pnpm lint
+    - pnpm type-check
+    - pnpm test --run
+    # Every grep tests its search root first: grep exits 2 on a missing path even
+    # when it matched, and an exit 2 inside `if` is false.
+    - if [ -d app/components ] && grep -rInE '(#[0-9a-fA-F]{3,8}\b|rgba?\()' app/components --include='*.vue' --include='*.ts' --include='*.js' --include='*.css' | grep -v 'token-ok'; then echo "colour literal in a component or block — colour comes from the generated token set"; exit 1; fi
+    - i18n_paths=""; for p in nuxt.config.ts nuxt.config.js i18n.config.ts i18n.config.js i18n; do if [ -e "$p" ]; then i18n_paths="$i18n_paths $p"; fi; done; if [ -n "$i18n_paths" ] && grep -rIn 'fallbackLocale' $i18n_paths; then echo "fallbackLocale substitutes the default locale for missing content — this profile hides it instead"; exit 1; fi
+    - if [ -d app ] && grep -rIn '<img' app --include='*.vue' --include='*.ts' --include='*.js' | grep -v '^app/components/media/' | grep -v 'img-ok'; then echo "raw <img> outside app/components/media/ — use the NuxtImg wrappers there"; exit 1; fi
+    - pnpm build
+    - if [ ! -d i18n/locales ]; then echo "i18n/locales/ not found — this profile is a multi-locale site by definition"; exit 1; fi
+    - if [ ! -f .output/public/index.html ]; then echo ".output/public/index.html missing — the build produced no prerendered root"; exit 1; fi
+    # At most one locale (the default, served at the root under a prefix-except-default strategy) may have no prefixed entry point.
+    - rootless=0; for f in i18n/locales/*.json; do code=$(basename "$f" .json); if [ ! -f ".output/public/$code/index.html" ]; then echo "no prerendered entry point for locale: $code"; rootless=$((rootless + 1)); fi; done; if [ "$rootless" -gt 1 ]; then echo "$rootless locales have no prerendered entry point; at most one may"; exit 1; fi
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "main"'
+```
+
+---
+
 ## knowledge-validate step: github
 
 Only when `KNOWLEDGE_BUNDLE = true`. Insert as the last step of the `quality` job, after the profile's test step. No setup step needed — GitHub's ubuntu runners ship Node.
@@ -561,7 +691,7 @@ For the **go and flutter profiles** (neither the `golang` nor the Flutter image 
   before_script:
     - apt-get update -qq && apt-get install -y -qq nodejs
 ```
-(For go, that line joins the existing `before_script`; the flutter job has none yet, so add the key.) The nuxt/nodejs/next profiles run on a `node` image — no addition needed.
+(For go, that line joins the existing `before_script`; the flutter job has none yet, so add the key.) The nuxt/nuxt-marketing/nodejs/next profiles run on a `node` image — no addition needed.
 
 ---
 

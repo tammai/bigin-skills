@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.88.0] - 2026-09-04
+
+### Added
+
+- **An eighth stack profile, `nuxt-marketing`: multi-locale Nuxt marketing sites.** `@nuxt/content` collections, `@nuxtjs/i18n`, Tailwind, prerendered onto Cloudflare Workers static assets. No auth, no BFF, no database.
+
+  The seven existing profiles all assume a developer is the only editor. `nuxt` writes BFF-proxy, sealed-session and Pinia-Colada conventions a marketing site has no use for, and none of them can express the rule that actually matters here — **a client's content editor may change content files and locale bundles, and nothing else.** That boundary is the new `conventions-content.md`, scoped to `content/**` and `i18n/**`: those two trees are editable, while routing, the locale set, block types, collection schemas and deploy config are code changes with their own `PLAN.md`. It is the only rule file in any profile written for a non-developer editor, and it treats content as untrusted input — schema-validated at build, never rendered as raw HTML unsanitised — because an agent-driven editor writes it.
+
+  **Detection is a new rung above `nuxt`, for the same first-match-wins reason `tauri` sits there.** Three conditions, all required: `nuxt.config.ts`/`.js` present, `@nuxt/content` in `dependencies`, and no BFF or auth marker (no `server/api/**`, no `nuxt-auth-utils`). The third is the narrowing test and it is what leaves the `nuxt` rung untouched — a Nuxt fullstack app that ships a docs section satisfies the first two and must stay on `nuxt`; `@nuxt/content` in `devDependencies` only is not a match either. A Tauri app whose Nuxt frontend uses `@nuxt/content` still resolves to `tauri`, which is higher again. The empty-repo question is deliberately **not** extended: there is no marketing-site scaffolder here, and offering a choice this skill cannot scaffold is the failure mode `profile-generic.md` already names for Flutter packages. The profile is detection-only.
+
+  **Three commit-time greps**, in `scripts/pre-commit.sh` and in CI, none of them expressible as a lint rule because each is about a string rather than a syntax tree: no hex or `rgb()` colour literal under the component and block trees (escape hatch `token-ok`), no `fallbackLocale` in the i18n config (**no** escape hatch — it is the one string that exactly contradicts "a locale's missing content is hidden, never substituted"), and no raw `<img` outside `app/components/media/` (escape hatch `img-ok`). Like `tauri`, this is a profile whose gate is written **even when a hook manager already exists** and chained behind it: `pnpm lint-staged` runs ESLint over staged files and none of the three.
+
+  Every one of those greps tests its search root before running, and that is load-bearing rather than defensive: `grep` exits **2** on a path that does not exist *even when it also matched*, and an exit 2 inside `if` is false — so a step naming one absent file (here, the optional `i18n.config.ts`) would pass on a repo full of violations, printing nothing. Verified against eleven fixture cases, including that one.
+
+  **CI builds**, which no other frontend profile's workflow does, because on this profile the build *is* the locale prerender and a locale that fails to prerender 404s in production and nowhere else — not in `pnpm dev`, which has a Nitro half the deployed assets do not. The workflow then asserts one prerendered entry point per `i18n/locales/*.json`, allowing exactly one locale to resolve at the root for a prefix-except-default URL strategy. **No deploy step is generated**: that belongs to the site's own workflow, which the Marketing Site Factory owns, and it is the one generated command whose blast radius is a live client site.
+
+  The architecture addendum carries four boundaries every site inherits: content → pages → blocks with blocks never querying content; Worker routes as the only server surface and only for forms and newsletter, with Turnstile verification, rate limiting and payload validation stated as requirements rather than suggestions; no colour, type, spacing or motion literal outside the generated token set; and a locale's missing content hidden rather than filled from the default locale.
+
+  No `patch` block. The profile is entirely new surface — a new `references/profile-nuxt-marketing.md` plus new rungs and rows in files a target repo never receives — so there is nothing in an already-scaffolded repo to anchor a patch against. A repo that wants this profile re-runs setup.
+
 ## [1.87.2] - 2026-09-04
 
 ### Fixed

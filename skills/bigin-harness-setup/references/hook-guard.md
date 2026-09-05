@@ -1442,3 +1442,82 @@ if [ -f tools/cursor_mirror.mjs ]; then node tools/cursor_mirror.mjs --check; fi
 
 echo "All gates passed."
 ```
+
+---
+
+## pre-commit: nuxt-marketing
+
+Write to `scripts/pre-commit.sh`. **Like `tauri`, this gate is written even when a hook manager is already installed** and chained behind it (Phase 5-1), because the Factory's template ships `simple-git-hooks` → `pnpm lint-staged`, which runs ESLint over staged files and none of the three greps below.
+
+Three things differ from the `nuxt` profile's gate:
+
+- **The three greps are this profile's real gates**, and none of them is expressible as an ESLint rule, because each is about a string or a path rather than a syntax tree. A hex literal is valid CSS; `fallbackLocale` is a valid i18n option; `<img>` is valid HTML. What makes each wrong is a decision this repo made, which is exactly what a lint config cannot hold.
+- **`fallbackLocale` has no escape hatch**, unlike the other two. `token-ok` and `img-ok` mark a real exception (a third-party embed's mandated colour, the media wrappers' own tag); a fallback locale has no legitimate form here — it is the one string that exactly contradicts "a locale's missing content is hidden, never substituted", so an exception to it is the rule switched off.
+- **No build step.** `pnpm build` prerenders every locale and is minutes, not seconds; the prerender assertion lives in CI, where it runs once per push instead of once per commit.
+- **Every grep is preceded by an existence test on its search root, and that is load-bearing.** `grep` exits **2** when a path it was handed does not exist — and it exits 2 *even when it also matched*. Inside `if grep …; then` an exit 2 is false, so a gate whose argument list names one absent file passes on a repo full of violations, with nothing printed and nothing failing. The `fallbackLocale` step is the one where this bites for real: `i18n.config.ts` is optional in this stack, so the naive form is off on most repos. Build the path list from what exists, then grep it.
+
+```bash
+#!/bin/sh
+# Pre-commit quality gates — nuxt-marketing profile
+set -e
+
+echo "Running pre-commit gates..."
+
+echo "  lint..."
+pnpm lint
+
+echo "  typecheck..."
+pnpm type-check
+
+echo "  no colour literal outside the token set..."
+# `grep` exits 2 on a path that does not exist — and it does so even when it
+# matched — so every step below tests its search root first. Without that, one
+# absent argument turns the whole gate green with nothing printed.
+if [ -d app/components ] \
+   && grep -rInE '(#[0-9a-fA-F]{3,8}\b|rgba?\()' app/components \
+        --include='*.vue' --include='*.ts' --include='*.js' --include='*.css' \
+      | grep -v 'token-ok'; then
+  echo "    ^ colour literal in a component or block — colour comes from the generated token set."
+  echo "      A value the tokens cannot express is a token change, not an inline literal."
+  echo "      A third-party embed that mandates a colour is marked token-ok on the same line"
+  exit 1
+fi
+
+echo "  no fallbackLocale in the i18n config..."
+# i18n.config.ts is optional in this stack, so the path list is built from what
+# the repo actually has. Handing grep the missing one is the exit-2 trap above.
+i18n_paths=""
+for p in nuxt.config.ts nuxt.config.js i18n.config.ts i18n.config.js i18n; do
+  if [ -e "$p" ]; then i18n_paths="$i18n_paths $p"; fi
+done
+if [ -n "$i18n_paths" ] && grep -rIn 'fallbackLocale' $i18n_paths; then
+  echo "    ^ fallbackLocale contradicts the one rule this profile is built on: a locale's"
+  echo "      missing content is hidden, never substituted from the default locale."
+  echo "      There is no escape hatch for this one — remove the setting."
+  exit 1
+fi
+
+echo "  no raw <img outside app/components/media/..."
+if [ -d app ] \
+   && grep -rIn '<img' app --include='*.vue' --include='*.ts' --include='*.js' \
+      | grep -v '^app/components/media/' \
+      | grep -v 'img-ok'; then
+  echo "    ^ raw <img> outside app/components/media/ — use the NuxtImg wrappers there,"
+  echo "      so every image gets its dimensions and a format ladder. Layout shift on a"
+  echo "      marketing page is paid for by whoever bought the traffic. Escape hatch: img-ok"
+  exit 1
+fi
+
+echo "  tests..."
+pnpm test --run
+
+echo "  context budget..."
+if [ -f tools/context_budget.mjs ]; then node tools/context_budget.mjs; fi
+
+echo "  cursor mirror..."
+if [ -f tools/cursor_mirror.mjs ]; then node tools/cursor_mirror.mjs --check; fi
+
+echo "All gates passed."
+```
+
+**`grep -v '^app/components/media/'` depends on `grep -rIn` printing repo-relative paths**, which it does because the gate runs from the repo root with `app` as the search root. Never rewrite that grep to take an absolute path or a `cd` — the exclusion silently stops matching and every raw `<img>` in the repo becomes legal with nothing failing.

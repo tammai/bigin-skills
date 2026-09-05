@@ -15,6 +15,8 @@ One deterministic script per profile owns creating the app; this skill only over
 | `flutter`| `pubspec.yaml`             | `flutter create`  | CLI flags   | project name (snake_case), org (reverse-domain), platforms |
 | `tauri`  | `src-tauri/tauri.conf.json`| `nuxt-scaffold`, then `pnpm tauri init` | config JSON, then CLI flags | everything `nuxt-scaffold` asks, plus window title and bundle identifier (reverse-domain) |
 
+**`nuxt-marketing` has no row in that table, and that is the whole of its Phase 0.5 story.** There is no scaffolder for a marketing site here, so the profile is detection-only: the repo it onboards has already been scaffolded by the Marketing Site Factory's template, which means its `nuxt.config.ts` marker exists and Phase 0.5 is skipped exactly as it is for any other already-scaffolded repo. `references/profile-detection.md` also keeps it out of the empty-repo question, for the reason `references/profile-generic.md` gives for Flutter packages — offering a choice this skill cannot scaffold. Consequently `SCAFFOLDED` is never `true` on this profile, and Phase 5-3 always takes its "everything else" branch (`references/overlay-matrix.md` → `## 5-3`).
+
 **Config-JSON profiles** (`nuxt`, `next`) — write the JSON (schema in that skill's `SKILL.md` → Step 3) to a temp file **outside** the repo, with `"packageManager": "pnpm"`, then:
 
 ```sh
@@ -61,7 +63,7 @@ flutter create --project-name <snake_case_name> --org <com.example> --platforms=
 
 ---
 
-## Procedure — identical for all six profiles
+## Procedure — identical for all six scaffolded profiles
 
 1. **Gather every decision now**, in one turn, back-to-back: that profile's row above, then Phase 1.5's bundle (Knowledge Bundle/Graphify + CI config + model routing profile — an empty repo can't hit Phase 1's existing-harness conflict, so only those three apply). Confirm the summary once. Store `KNOWLEDGE_BUNDLE` / `GRAPH` / `CI_PROVIDER` / `MODEL_ROUTING` now; Phase 1.5 is a no-op later on this branch.
 2. **Run the command and stream its output.** Several minutes for `nuxt`/`next` (installs + verify gates), roughly a minute for `go` (first run downloads/builds `oapi-codegen`), a couple for `nodejs`. `tauri` is the longest by a wide margin: the `nuxt-scaffold` half, then `tauri init`, then a first `cargo` build of the Tauri dependency tree — tell the user it is minutes, not seconds, before starting.
