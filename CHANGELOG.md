@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.88.1] - 2026-09-05
+
+### Added
+
+- **`tools/regress.mjs` — a regression suite, wired into the pre-commit hook.** This plugin has no unit tests by design: its product is markdown, and its skills are checked by eval. What that left unchecked was everything mechanical around them, and a `nuxt-marketing` detection bug had already slipped through that gap once. Thirty-five checks in six groups: the three existing gates, manifest consistency (all four version fields agree, every manifest parses), skill inventory (every skill has an `evals/` directory and a `docs-manifest.json` entry, and `CLAUDE.md`'s scripts-count claim is true), the eight-scenario detection ladder, thirteen scaffolder checks, and four wiring checks.
+
+  Two of those checks guard reasoning rather than code. One fails if the `nuxt-auth-utils` rationale disappears from `references/scaffold-delegation.md` — that paragraph is the only thing stopping someone merging `nuxt-marketing-scaffold` back into `nuxt-scaffold` and silently breaking detection. The other fails if the reverted separate-form-Worker wording ever reappears in any of the five files that once carried it.
+
+  The hook runs it as `--skip-gates`, since it runs the three gates itself; `node tools/regress.mjs` runs everything standalone. Node stdlib only, no network, no install — 0.6s.
+
 ## [1.88.0] - 2026-09-04
 
 ### Added
