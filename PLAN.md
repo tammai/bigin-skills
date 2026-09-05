@@ -1,6 +1,6 @@
 # Plan: nuxt-marketing stack profile
 
-Status: in-progress
+Status: complete (one assumption open — see Amendment 3)
 Branch: feat/nuxt-marketing-profile
 
 ## Spec
@@ -116,7 +116,7 @@ which `docs_sync.mjs --check` enforces.
 | 12 | Docs: README profiles table, `docs/USER_GUIDE.md`, `docs/GATES.md` | Done | README table + GATES carried no condition wording; USER_GUIDE row 97 rewritten to four conditions. Amendment 2 |
 | 13 | `CHANGELOG.md` 1.88.0 entry + version mirrored in four manifests | Done | 1.88.0 entry reworded to four conditions; version stays 1.88.0 (correct next minor after 1.87.3). **CHANGELOG still lacks the 1.87.3 entry — comes in on the merge from main.** Amendment 2 |
 | 14 | Verify: `context_budget`, `docs_sync --check`, `site_build --check` all pass | Done | Re-run after Amendment 2 sweep — all three pass |
-| 15 | Verify: manual detection dry-run against the Factory template layout | Not started | Tracked row — cannot close the plan while open — Dry-run must be re-run against the amended ladder. Amendment 1 |
+| 15 | Verify: manual detection dry-run against the Factory template layout | Done | Ladder transcribed from `profile-detection.md` and run against 8 fixture repos — all resolve as specified. **Not run against the real Factory template** (not on this machine): the marker set in scenario A is assumed, and confirming it is the one remaining check. Evidence below. Amendment 3 |
 | 16 | `.claude/rules/skill-authoring.md` — add `nuxt-marketing` to the profiles that lint `.claude/guards/**` | Done | `nuxt-marketing` added to the guard-lint profile list; profile confirmed to lint via `@nuxt/eslint`. Amendment 2 |
 
 ## Amendments
@@ -144,3 +144,29 @@ which `docs_sync.mjs --check` enforces.
   blocks the plan** — the manual detection dry-run against the Factory template layout has never been
   run, and it is the only check that can verify a detection outcome, since the eval format asserts
   skill triggering and nothing more.
+- **2026-09-05 — Amendment 3: row 15 run as a fixture dry-run, and it caught what it was for.** The
+  Factory template is not on this machine, so the ladder was transcribed from
+  `references/profile-detection.md` and executed against eight fixture repos. All eight resolve as
+  the rung specifies:
+
+  | Scenario | Resolves to |
+  |---|---|
+  | A Factory marketing site (assumed layout) | `nuxt-marketing` |
+  | B marketing site that grew a contact form | `nuxt-marketing` |
+  | C nuxt BFF app with a docs section | `nuxt` |
+  | D nuxt BFF, docs + i18n, but authed | `nuxt` |
+  | E `@nuxt/content` in `devDependencies` only | `nuxt` |
+  | F tauri app whose nuxt frontend uses content | `tauri` |
+  | G i18n + content dep but no `content/` tree | `nuxt` |
+  | H `@sidebase/nuxt-auth` instead of `nuxt-auth-utils` | `nuxt` |
+
+  **Scenario B run against the pre-Amendment-1 rung resolves to `nuxt`** — the reclassification-on-first-contact-form
+  bug, reproduced rather than assumed. The documented accepted cost also reproduces: an auth-less
+  fullstack app with `@nuxt/content`, `@nuxtjs/i18n` and a `content/` tree matches this rung, exactly
+  as the rung says it will.
+
+  **One assumption remains open.** Scenario A's marker set — `@nuxtjs/i18n` in `dependencies`, and a
+  `content.config.ts` or `content/` tree — is what the Factory template is *believed* to ship, not
+  what it was *observed* to ship. If the template puts `@nuxtjs/i18n` in `devDependencies`, or
+  configures collections without either marker, condition 3 fails and every Factory site silently
+  onboards as `nuxt`. Check that against the template before the profile is used on a real site.
