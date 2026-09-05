@@ -1,0 +1,11 @@
+<script setup lang="ts">
+// A block never queries content — everything it renders arrives as a prop.
+defineProps<{ heading: string, body?: string }>()
+</script>
+
+<template>
+  <section class="py-24 text-center">
+    <h1 class="text-5xl font-semibold text-primary">{{ heading }}</h1>
+    <p v-if="body" class="mt-4 text-neutral-600">{{ body }}</p>
+  </section>
+</template>

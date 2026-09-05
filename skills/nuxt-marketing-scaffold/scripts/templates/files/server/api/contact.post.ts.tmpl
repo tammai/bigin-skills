@@ -1,0 +1,20 @@
+// server/api/ exists for exactly two routes: this one and newsletter.
+// One Worker per site — never a second deployable.
+// Turnstile verification, rate limiting and payload validation are
+// requirements on this route, not suggestions.
+import { z } from 'zod'
+
+const Body = z.object({
+  name: z.string().min(1).max(120),
+  email: z.string().email(),
+  message: z.string().min(1).max(4000),
+  turnstileToken: z.string().min(1)
+})
+
+export default defineEventHandler(async (event) => {
+  const body = Body.parse(await readBody(event))
+  await verifyTurnstile(event, body.turnstileToken)
+  await rateLimit(event, { key: `contact:${getRequestIP(event)}`, max: 5, windowSec: 3600 })
+  await deliverContactMessage(body)
+  return { ok: true }
+})

@@ -14,8 +14,11 @@ One deterministic script per profile owns creating the app; this skill only over
 | `nodejs` | `package.json`             | `nodejs-scaffold` | CLI flags   | project name                                               |
 | `flutter`| `pubspec.yaml`             | `flutter create`  | CLI flags   | project name (snake_case), org (reverse-domain), platforms |
 | `tauri`  | `src-tauri/tauri.conf.json`| `nuxt-scaffold`, then `pnpm tauri init` | config JSON, then CLI flags | everything `nuxt-scaffold` asks, plus window title and bundle identifier (reverse-domain) |
+| `nuxt-marketing` | `nuxt.config.ts` | `nuxt-marketing-scaffold` | CLI flags | project name, locale list (first is the default), primary/neutral theme colors |
 
-**`nuxt-marketing` has no row in that table, and that is the whole of its Phase 0.5 story.** There is no scaffolder for a marketing site here, so the profile is detection-only: the repo it onboards has already been scaffolded by the Marketing Site Factory's template, which means its `nuxt.config.ts` marker exists and Phase 0.5 is skipped exactly as it is for any other already-scaffolded repo. `references/profile-detection.md` also keeps it out of the empty-repo question, for the reason `references/profile-generic.md` gives for Flutter packages — offering a choice this skill cannot scaffold. Consequently `SCAFFOLDED` is never `true` on this profile, and Phase 5-3 always takes its "everything else" branch (`references/overlay-matrix.md` → `## 5-3`).
+**`nuxt-marketing` has its own scaffolder rather than a template inside `nuxt-scaffold`, and the reason is detection.** `nuxt-scaffold`'s `TEMPLATE_PKGS` installs `nuxt-auth-utils` into every project it creates. That package is exactly the auth marker condition 4 of the `nuxt-marketing` rung tests for, so a marketing site scaffolded through it would resolve to `nuxt` on the very next run and be onboarded with BFF-proxy and Pinia-Colada conventions — the precise failure this profile exists to prevent, and one that looks like success at install time. The two scaffolders therefore stay separate; do not "simplify" this into a `--template marketing` flag.
+
+A marketing site that arrives already scaffolded still reaches the profile by its markers and skips Phase 0.5 like any other repo whose `nuxt.config.ts` exists.
 
 **Config-JSON profiles** (`nuxt`, `next`) — write the JSON (schema in that skill's `SKILL.md` → Step 3) to a temp file **outside** the repo, with `"packageManager": "pnpm"`, then:
 
@@ -29,6 +32,8 @@ node skills/next-scaffold/scripts/scaffold.mjs --config <path>
 ```sh
 node skills/go-scaffold/scripts/scaffold.mjs --module <module-path> --dir . [--project <name>]
 node skills/nodejs-scaffold/scripts/scaffold.mjs --project <name> --dir .
+node skills/nuxt-marketing-scaffold/scripts/scaffold.mjs --project <name> --dir . \
+  --locales <en,vi> --primary <color> --neutral <color>
 ```
 
 **`tauri` is two steps: the frontend skill, then the stack's own CLI.** `create-tauri-app` has no Nuxt template, so the frontend comes from `nuxt-scaffold` exactly as the `nuxt` profile's does, and `tauri init` adds the Rust half around it:

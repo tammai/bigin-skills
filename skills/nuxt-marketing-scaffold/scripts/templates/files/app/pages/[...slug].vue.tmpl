@@ -1,0 +1,21 @@
+<script setup lang="ts">
+// Pages are the ONLY place queryCollection() is called. Blocks take props.
+const { locale } = useI18n()
+const route = useRoute()
+const { data: page } = await useAsyncData(
+  () => `page-${locale.value}-${route.path}`,
+  () => queryCollection('pages').path(`/${locale.value}${route.path}`).first()
+)
+</script>
+
+<template>
+  <!-- Missing content is hidden, never substituted from another locale. -->
+  <main v-if="page">
+    <component
+      :is="blockFor(block.type)"
+      v-for="(block, i) in page.blocks"
+      :key="i"
+      v-bind="block"
+    />
+  </main>
+</template>

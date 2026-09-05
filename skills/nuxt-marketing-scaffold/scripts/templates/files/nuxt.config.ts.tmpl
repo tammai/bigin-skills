@@ -1,0 +1,20 @@
+// Marketing site: fully prerendered, multi-locale, no auth and no BFF.
+export default defineNuxtConfig({
+  compatibilityDate: '2025-01-01',
+  modules: ['@nuxt/content', '@nuxtjs/i18n', '@nuxt/ui', '@nuxt/eslint'],
+
+  i18n: {
+    // NO fallbackLocale — a missing locale renders nothing and the block hides
+    // itself. The pre-commit gate greps for `fallbackLocale` and fails on it.
+    defaultLocale: '__DEFAULT_LOCALE__',
+    strategy: 'prefix_except_default',
+    locales: [__LOCALES_I18N__]
+  },
+
+  ui: { theme: { colors: { primary: '__PRIMARY__', neutral: '__NEUTRAL__' } } },
+
+  nitro: {
+    preset: 'cloudflare_module',
+    prerender: { crawlLinks: true, routes: ['/'], failOnError: true }
+  }
+})

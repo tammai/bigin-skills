@@ -1,0 +1,14 @@
+import { z } from 'zod'
+
+const Body = z.object({
+  email: z.string().email(),
+  turnstileToken: z.string().min(1)
+})
+
+export default defineEventHandler(async (event) => {
+  const body = Body.parse(await readBody(event))
+  await verifyTurnstile(event, body.turnstileToken)
+  await rateLimit(event, { key: `newsletter:${getRequestIP(event)}`, max: 5, windowSec: 3600 })
+  await subscribe(body.email)
+  return { ok: true }
+})

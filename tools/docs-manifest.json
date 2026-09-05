@@ -67,6 +67,10 @@
     "napkin": {
       "group": "core",
       "summary": "Explains a topic as a picture (/napkin): offers 2-4 candidate shapes, then draws your pick as an HTML artifact or an embeddable SVG/PNG, geometry-checked."
+    },
+    "nuxt-marketing-scaffold": {
+      "group": "core",
+      "summary": "Scaffolds a multi-locale Nuxt 4 marketing site — @nuxt/content, @nuxtjs/i18n, prerendered to Cloudflare Workers. No auth, so it detects as nuxt-marketing."
     }
   },
   "agents": {

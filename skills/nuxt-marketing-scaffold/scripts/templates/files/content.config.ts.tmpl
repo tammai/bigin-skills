@@ -1,0 +1,17 @@
+import { defineCollection, defineContentConfig, z } from '@nuxt/content'
+
+// One collection per locale directory. A schema and the content written
+// against it change together — never one without the other.
+export default defineContentConfig({
+  collections: {
+    pages: defineCollection({
+      type: 'page',
+      source: '**/*.md',
+      schema: z.object({
+        title: z.string(),
+        description: z.string(),
+        blocks: z.array(z.object({ type: z.string() }).passthrough()).default([])
+      })
+    })
+  }
+})

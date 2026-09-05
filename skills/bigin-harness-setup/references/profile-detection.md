@@ -10,13 +10,13 @@ Check for stack indicators, first match wins:
    - **`@nuxtjs/i18n` in `dependencies`, and a `content/` directory or `content.config.ts` present.** The positive marker for a multi-locale site built from collections.
    - **No auth marker** — neither `nuxt-auth-utils` nor `@sidebase/nuxt-auth` in `dependencies`.
 
-   **Condition 3's marker set is unverified against the Marketing Site Factory's template.** It is what the template is believed to ship, not what it has been observed to ship. If the template declares `@nuxtjs/i18n` in `devDependencies`, or configures collections without a `content/` tree or `content.config.ts`, condition 3 fails and **every Factory site silently onboards as `nuxt`** — the exact outcome this rung exists to prevent, and one that looks like success at install time. Check it against the template before this profile is used on a real site.
+   **Condition 3's marker set is what `nuxt-marketing-scaffold` emits**, so the rung is verified against a repo this plugin can produce rather than against an assumption about someone else's template: `@nuxtjs/i18n` in `dependencies`, and both a `content/` tree and a `content.config.ts`. A site scaffolded any other way must meet the same four conditions to be detected — if it declares `@nuxtjs/i18n` in `devDependencies`, or configures collections without either marker, condition 3 fails and it onboards as `nuxt`.
 
    **Conditions 3 and 4 are the narrowing test**, and they are what keeps row 3 untouched: a Nuxt fullstack app that happens to ship a docs section satisfies the first two and **must** stay on `nuxt`.
 
    **`server/api/**` is deliberately not tested.** This profile's own two endpoints — a contact form and a newsletter signup — live in the app's `server/api/`, per the Factory's one-Worker-per-site constraint, so testing for that directory's absence would reclassify a site as `nuxt` the moment it grew a contact form: correct at install and wrong forever after. The cost is accepted and stated plainly — an auth-less fullstack app that uses both `@nuxt/content` and `@nuxtjs/i18n` and keeps a `content/` tree will match this rung, and that is rarer than a marketing site with a form. A site that takes on auth has stopped being this profile; that is a re-run of setup with the change made deliberately, never a silent reclassification.
 
-   **The empty-repo question below is deliberately not extended to `nuxt-marketing`.** There is no scaffolder for a marketing site in this repo, and offering a choice this skill cannot scaffold is exactly the failure mode `references/profile-generic.md` names for Flutter packages. The repo this profile onboards has already been scaffolded by the Marketing Site Factory's template, so its marker file exists and Phase 0.5 is skipped for it the same way it is for any other already-scaffolded repo.
+   **The empty-repo question below offers this profile**, because `nuxt-marketing-scaffold` can create one — the condition `references/profile-generic.md` sets for offering a choice at all. An already-scaffolded marketing site still reaches this rung by its markers and skips Phase 0.5 like any other repo whose marker file exists.
 3. `nuxt.config.ts` or `nuxt.config.js` → profile = `nuxt`
 4. `go.mod` → profile = `go`
 5. `package.json` with express/fastify/hono/koa in dependencies → profile = `nodejs`
@@ -34,10 +34,11 @@ Which stack profile?
 4. next   — Next.js App Router fullstack (Vercel): shadcn/ui, Zustand, TanStack Query, iron-session, Vitest, Zod — BFF proxy layer, no direct DB access
 5. flutter — Flutter mobile client against an existing HTTP API: Riverpod, go_router, Drift, generated dio client — the API is frozen input, not a decision made here
 6. tauri  — Tauri 2 desktop app against an existing HTTP API: Nuxt 4 SPA frontend, Rust shell owning HTTP, tokens and the local cache — the webview makes no network call
+7. nuxt-marketing — multi-locale Nuxt 4 marketing site (Cloudflare Workers): @nuxt/content collections, @nuxtjs/i18n, Tailwind, fully prerendered — no auth, no BFF, no database
 
-Type 1, 2, 3, 4, 5, or 6.
+Type 1, 2, 3, 4, 5, 6, or 7.
 ```
 
-9. **Existing code, no marker matched** → `PROFILE = generic`. Do **not** ask and do not offer the six the question lists — an existing repo that isn't one of them won't become one, and forcing a pick writes conventions for a stack that isn't there. Say one line ("no matching stack profile — installing the stack-neutral harness") and continue to the next phase.
+9. **Existing code, no marker matched** → `PROFILE = generic`. Do **not** ask and do not offer the seven the question lists — an existing repo that isn't one of them won't become one, and forcing a pick writes conventions for a stack that isn't there. Say one line ("no matching stack profile — installing the stack-neutral harness") and continue to the next phase.
 
 Store result as `PROFILE`. Load `references/profile-{PROFILE}.md` for all template content — `references/profile-generic.md` for `generic`, which states up front what that profile installs and skips.

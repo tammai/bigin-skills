@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`nuxt-marketing-scaffold`, so the profile can start a site as well as onboard one.** A deterministic script — no prompts, every decision a CLI flag — that writes a multi-locale Nuxt 4 marketing site: `@nuxt/content` collections with a schema, `@nuxtjs/i18n` with **no** `fallbackLocale`, one `index.md` and one message bundle per locale, a `[...slug].vue` that is the only caller of `queryCollection()`, prop-taking blocks, `server/api/` holding exactly the contact and newsletter routes, and a `wrangler.jsonc` for one Worker per site. The empty-repo question gains it as option 7.
+
+  **It is a separate skill rather than a `nuxt-scaffold` template, and that is a correctness constraint rather than a preference.** `nuxt-scaffold` installs `nuxt-auth-utils` into every project it creates, which is precisely the auth marker condition 4 of the detection rung tests for — a marketing site scaffolded through it would resolve to `nuxt` on the next run and be onboarded with BFF-proxy conventions, the exact failure this profile exists to prevent, and one that looks like success at install time. Do not merge the two scaffolders.
+
+  Verified end to end rather than asserted: the scaffolder was run, and Phase 0 detection against the repo it produced resolves `nuxt-marketing`, with each of the four conditions checked individually.
+
 - **An eighth stack profile, `nuxt-marketing`: multi-locale Nuxt marketing sites.** `@nuxt/content` collections, `@nuxtjs/i18n`, Tailwind, prerendered onto Cloudflare Workers static assets. No auth, no BFF, no database.
 
   The seven existing profiles all assume a developer is the only editor. `nuxt` writes BFF-proxy, sealed-session and Pinia-Colada conventions a marketing site has no use for, and none of them can express the rule that actually matters here — **a client's content editor may change content files and locale bundles, and nothing else.** That boundary is the new `conventions-content.md`, scoped to `content/**` and `i18n/**`: those two trees are editable, while routing, the locale set, block types, collection schemas and deploy config are code changes with their own `PLAN.md`. It is the only rule file in any profile written for a non-developer editor, and it treats content as untrusted input — schema-validated at build, never rendered as raw HTML unsanitised — because an agent-driven editor writes it.

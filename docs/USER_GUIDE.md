@@ -112,7 +112,7 @@ The skill detects your stack, asks a small batch of questions **before writing a
 | Model ladder | `opus-centric` | Which models the three execution tiers spawn on — see [§7](#7-tuning-cost-and-depth) |
 | Agent hosts | auto-detected — `both` if `.cursor/` exists, else `claude` | Whether to also generate the Cursor mirror so the same rules and gates apply in Cursor — see [`GATES.md` §7](GATES.md#7-the-same-gates-in-cursor) |
 
-If the repo is empty, the app itself gets scaffolded first (by `nuxt-scaffold` / `next-scaffold` / `go-scaffold` / `nodejs-scaffold`, by `flutter create` for the `flutter` profile, or by `nuxt-scaffold` followed by `pnpm tauri init` for `tauri`), and the governance layer is overlaid on top additively. `nuxt-marketing` is detection-only: its repos come from the Marketing Site Factory's template, already scaffolded, so that profile is never reached from an empty directory.
+If the repo is empty, the app itself gets scaffolded first (by `nuxt-scaffold` / `nuxt-marketing-scaffold` / `next-scaffold` / `go-scaffold` / `nodejs-scaffold`, by `flutter create` for the `flutter` profile, or by `nuxt-scaffold` followed by `pnpm tauri init` for `tauri`), and the governance layer is overlaid on top additively. `nuxt-marketing` is detection-only: its repos come from the Marketing Site Factory's template, already scaffolded, so that profile is never reached from an empty directory.
 
 If the repo is on GitHub Spec Kit, you'll be offered `migrate` / `coexist` / `leave`. Migration always shows you a read-only triage table of everything under `specs/` before deleting a single file.
 

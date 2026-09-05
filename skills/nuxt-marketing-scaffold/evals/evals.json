@@ -1,0 +1,7 @@
+[
+  { "query": "scaffold a new multi-locale nuxt marketing site", "should_trigger": true },
+  { "query": "create a content-driven marketing site with @nuxt/content and i18n", "should_trigger": true },
+  { "query": "start a new marketing site for a client, english and vietnamese", "should_trigger": true },
+  { "query": "set up the AI harness in our existing marketing site", "should_trigger": false },
+  { "query": "scaffold a nuxt fullstack app with auth", "should_trigger": false }
+]
