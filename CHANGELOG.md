@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.96.0] - 2026-09-08
+
+### Added
+
+- **`project-scaffold` — one command for a whole polyrepo project.** Umbrella §8 deferred this skill with a precondition: *"write only after the pieces it assembles are proven in a pilot."* They now are, at the cost of thirteen defects across eleven releases. It creates six repos, delegates each code repo to the scaffolder that already owns it, writes the connective tissue between them, and commits — with remotes and CI credentials opt-in.
+
+  **It writes no guard, no rule file, no `settings.json` and no `CLAUDE.md`.** `bigin-harness-setup` owns the governance overlay, and a second implementation here would drift the day either changed. This writes what the harness has no way to know: which repo pairs with which, what each lock points at, and **which toolchain each workflow needs** — the defect that broke both of the pilot's consumer repos, now fixed at write time rather than left as a comment for someone to notice.
+
+  `--owner` is opt-in with no inferred default, because the accident it prevents is six repos appearing in an organisation nobody meant to touch; without it everything is local, which the pilot proved is a real mode. `--app-id`/`--app-key` set the CI credentials, with the private key piped from disk straight to `gh` — never read into the process, logged, or copied. That is the glob bug from the pilot, which silently set nothing on all six repos, made impossible.
+
+  Eight regress cases in a new group 7b, run with a `PATH` holding only `node` and `git` so every app scaffold reads as absent: that keeps the group offline and fast **and** exercises the missing-toolchain path. Mutation-checked — stop filling the toolchain block and the case goes red.
+
+### Changed
+
+- **A real compression pass on the always-loaded surface.** The 21st skill did not fit: the budget gate refused the commit at 12,273 of 12,000 characters. Seven descriptions were rewritten to the shape the authoring rule already prescribes — one clause on what the skill does, then three or four representative triggers — recovering 409 characters. Matching is semantic, so the extra phrasings several of them carried bought nothing. Headroom is now 136 characters rather than the 10 that was left after 1.94.0's shave.
+
 ## [1.95.4] - 2026-09-08
 
 **The story-sync flow ran, and the last untested path in the standard is now closed.** A story merged in the specs repo dispatched to all four consumers, each of which opened a PR containing only synced story files, every one stamped `synced: true`, with `docs/story-meta/` untouched. The consumer that already held one story got a two-file PR rather than three — the sync writes what differs, not everything.

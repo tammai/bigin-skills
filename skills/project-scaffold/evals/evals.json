@@ -1,0 +1,13 @@
+[
+  {"query":"set up a new polyrepo project called acme","should_trigger":true},
+  {"query":"scaffold the six repos for the new client project","should_trigger":true},
+  {"query":"we're starting a new project — specs, contracts, api, web, mobile and qa","should_trigger":true},
+  {"query":"create the polyrepo structure for orderly","should_trigger":true},
+  {"query":"start a new client project with the polyrepo standard","should_trigger":true},
+  {"query":"set up the AI harness for this repo","should_trigger":false},
+  {"query":"scaffold a new nuxt app","should_trigger":false},
+  {"query":"scaffold a go rest api","should_trigger":false},
+  {"query":"absorb the contract bump","should_trigger":false},
+  {"query":"write a PRD for the billing feature","should_trigger":false},
+  {"query":"why is this test flaky","should_trigger":false}
+]

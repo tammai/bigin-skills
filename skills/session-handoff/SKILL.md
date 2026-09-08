@@ -1,6 +1,6 @@
 ---
 name: session-handoff
-description: "Session handoff and state persistence. Use when: user says 'save session', '/save-session', 'near limit', 'running out of tokens', or needs to continue work in a new session. Saves current state (tasks, decisions, uncommitted changes) to .claude/memory/SESSION.md and loads it on session resume."
+description: "Saves session state — tasks, decisions, uncommitted changes — to .claude/memory/SESSION.md and reloads it on resume. Triggers: 'save session', '/save-session', 'running out of tokens', 'continue this in a new session'."
 effort: low
 allowed-tools: Bash(git status) Bash(git diff --stat) Bash(mv .claude/memory/SESSION.md *)
 ---

@@ -79,6 +79,10 @@
     "flutter-figma-handoff": {
       "group": "handoff",
       "summary": "Material 3 Figma frame to Flutter: variables become a seeded ColorScheme, components resolve via a mapping table, an unmapped one stops the handoff."
+    },
+    "project-scaffold": {
+      "group": "core",
+      "summary": "Stands up a whole polyrepo project: six repos, the right scaffold in each, locks and workflows wired between them, remotes and CI credentials opt-in."
     }
   },
   "agents": {

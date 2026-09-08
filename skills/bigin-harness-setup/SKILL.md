@@ -1,6 +1,6 @@
 ---
 name: bigin-harness-setup
-description: "Scaffolds BigIn's AI workflow harness — CLAUDE.md, path-scoped rules, commit-time guard + budget gates, optional Cursor mirror. Profiles: nuxt, nuxt-marketing, next, go, nodejs, flutter, tauri, generic + polyrepo specs/contracts/qa. Triggers: 'set up harness', 'add AI rules', 'add Cursor support'."
+description: "Scaffolds BigIn's AI workflow harness — CLAUDE.md, path-scoped rules, commit-time guard + budget gates, optional Cursor mirror. Profiles: nuxt, nuxt-marketing, next, go, nodejs, flutter, tauri, generic + polyrepo specs/contracts/qa. Triggers: 'set up harness', 'add AI rules'."
 effort: medium
 allowed-tools: Bash(git init) Bash(git rev-parse *) Bash(chmod +x *) Bash(ln -sf *)
 ---

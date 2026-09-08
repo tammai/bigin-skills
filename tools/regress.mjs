@@ -1021,6 +1021,143 @@ if (csServer) csServer.kill()
 // parallelization reference recommends the worktree-per-instance pattern that
 // triggers it, so this is not an exotic configuration.
 
+// ── project-scaffold ────────────────────────────────────────────────────
+//
+// Run with a PATH holding only node and git, so go/pnpm/flutter all read as
+// absent. That exercises the "toolchain missing" path AND keeps the group
+// offline and fast — the app scaffolds are the only slow part, and each has its
+// own coverage already. What matters here is the connective tissue: the wiring
+// and the workflows are written whether or not an app got scaffolded.
+
+console.log('\n7b. PROJECT SCAFFOLD')
+
+const PS = join(REPO, 'skills', 'project-scaffold', 'scripts', 'project_scaffold.mjs')
+const BARE_BIN = join(TMP, 'bare-bin')
+let psReady = false
+try {
+  mkdirSync(BARE_BIN, { recursive: true })
+  for (const tool of ['node', 'git']) {
+    const found = spawnSync('which', [tool], { encoding: 'utf8' }).stdout.trim()
+    if (found) spawnSync('ln', ['-sf', found, join(BARE_BIN, tool)])
+  }
+  psReady = existsSync(join(BARE_BIN, 'node')) && existsSync(join(BARE_BIN, 'git'))
+} catch { /* fall through to the skip */ }
+
+if (!psReady) {
+  skip('project-scaffold', 'could not build a minimal PATH for the run')
+} else {
+  // Same GIT_* scrub the guards group needs, for the same reason: git exports
+  // GIT_DIR while running a hook, and it would override every `git -C` below.
+  const psEnv = { ...process.env, PATH: BARE_BIN }
+  delete psEnv.GIT_DIR
+  delete psEnv.GIT_WORK_TREE
+  delete psEnv.GIT_INDEX_FILE
+  const PS_ENV = psEnv
+  const psRun = (dir, args) => spawnSync('node', [PS, ...args], {
+    cwd: REPO, encoding: 'utf8', env: { ...PS_ENV, HOME: dir }
+  })
+  const OUT = join(TMP, 'ps-out')
+  rmSync(OUT, { recursive: true, force: true })
+  mkdirSync(OUT, { recursive: true })
+  const first = psRun(OUT, ['--project', 'demo', '--dir', OUT])
+
+  t('scaffolds six repos, each committed', () => {
+    eq(first.status, 0, 'exit')
+    for (const type of ['specs', 'contracts', 'api', 'web', 'mobile', 'qa']) {
+      const d = join(OUT, `demo-${type}`)
+      if (!existsSync(join(d, '.git'))) throw new Error(`demo-${type} is not a git repo`)
+      const log = spawnSync('git', ['log', '--oneline'], { cwd: d, encoding: 'utf8', env: PS_ENV }).stdout.trim()
+      if (!log) throw new Error(`demo-${type} has no commit`)
+    }
+    return '6 repos'
+  })
+
+  t('a missing toolchain is reported, never silently skipped', () => {
+    for (const type of ['api', 'web', 'mobile']) {
+      if (!first.stdout.includes(`demo-${type}:`)) throw new Error(`said nothing about demo-${type}`)
+    }
+    if (!/not installed/.test(first.stdout)) throw new Error('did not name the absent toolchains')
+    return 'named'
+  })
+
+  // The defect that broke both of the pilot's consumer repos: the shipped workflow
+  // ships its toolchain block commented out, and a job that gets through checkout,
+  // setup and token minting before dying at codegen looks like a workflow problem
+  // rather than an install one.
+  t('no workflow ships with its toolchain block still commented', () => {
+    const files = []
+    for (const type of ['specs', 'contracts', 'api', 'web', 'mobile', 'qa']) {
+      const wf = join(OUT, `demo-${type}`, '.github', 'workflows')
+      if (!existsSync(wf)) continue
+      for (const f of readdirSync(wf)) files.push(join(wf, f))
+    }
+    if (files.length === 0) throw new Error('no workflows written at all')
+    for (const f of files) {
+      if (read(f).includes('REPLACE THIS BLOCK')) throw new Error(`${f} still carries the placeholder`)
+    }
+    return `${files.length} workflows`
+  })
+
+  t('each consumer gets the toolchain its codegen actually needs', () => {
+    const want = {
+      api: 'actions/setup-go@v5',
+      web: 'pnpm/action-setup@v4',
+      mobile: 'subosito/flutter-action@v2'
+    }
+    for (const [type, needle] of Object.entries(want)) {
+      const f = join(OUT, `demo-${type}`, '.github', 'workflows', 'contract-bump.yml')
+      const body = read(f)
+      if (!body.includes(needle)) throw new Error(`demo-${type} did not get ${needle}`)
+      for (const [other, wrong] of Object.entries(want)) {
+        if (other !== type && body.includes(wrong)) throw new Error(`demo-${type} also got ${other}'s toolchain`)
+      }
+    }
+    return '3 adapters'
+  })
+
+  t('the connective tissue names the project everywhere', () => {
+    for (const type of ['api', 'web', 'mobile']) {
+      const lock = JSON.parse(read(join(OUT, `demo-${type}`, 'api-contract.lock')))
+      if (!lock.contracts.core.repo.endsWith('/demo-contracts')) {
+        throw new Error(`demo-${type} lock points at ${lock.contracts.core.repo}`)
+      }
+    }
+    for (const type of ['api', 'web', 'mobile', 'qa']) {
+      const cfg = JSON.parse(read(join(OUT, `demo-${type}`, 'story-sync.json')))
+      if (!cfg.repo.endsWith('/demo-specs')) throw new Error(`demo-${type} story-sync points at ${cfg.repo}`)
+    }
+    const map = read(join(OUT, 'demo-specs', 'REPO_MAP.md'))
+    if (map.includes('{{')) throw new Error('REPO_MAP still holds an unsubstituted placeholder')
+    return 'locks, story-sync, REPO_MAP'
+  })
+
+  t('re-running changes nothing', () => {
+    const headsBefore = ['specs', 'contracts', 'api', 'web', 'mobile', 'qa'].map(type =>
+      spawnSync('git', ['rev-parse', 'HEAD'], { cwd: join(OUT, `demo-${type}`), encoding: 'utf8', env: PS_ENV }).stdout.trim())
+    const again = psRun(OUT, ['--project', 'demo', '--dir', OUT])
+    eq(again.status, 0, 'second run exit')
+    const headsAfter = ['specs', 'contracts', 'api', 'web', 'mobile', 'qa'].map(type =>
+      spawnSync('git', ['rev-parse', 'HEAD'], { cwd: join(OUT, `demo-${type}`), encoding: 'utf8', env: PS_ENV }).stdout.trim())
+    eq(headsAfter.join(), headsBefore.join(), 'HEADs')
+    if (!again.stdout.includes('adopted')) throw new Error('did not say it adopted what was there')
+    return 'idempotent'
+  })
+
+  t('a bad slug is refused before anything is created', () => {
+    const r = psRun(OUT, ['--project', 'Not A Slug', '--dir', join(TMP, 'ps-never')])
+    eq(r.status, 2, 'exit')
+    eq(existsSync(join(TMP, 'ps-never')), false, 'created nothing')
+    return 'exit 2'
+  })
+
+  t('credentials require an explicit owner', () => {
+    const r = psRun(OUT, ['--project', 'demo', '--dir', OUT, '--app-id', '123'])
+    eq(r.status, 2, 'exit')
+    if (!r.stderr.includes('--app-key')) throw new Error('did not name the missing pair')
+    return 'refused'
+  })
+}
+
 console.log('\n8. GUARDS')
 
 // Pull a guard's source out of the reference file that ships it.

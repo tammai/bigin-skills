@@ -1,6 +1,6 @@
 ---
 name: write-tests
-description: "Writes scoped, style-matched tests for a specific file or function, or one E2E spec per PRD acceptance criterion (`FR-3/AC-2`). Triggers: 'write tests for X', 'test this function', 'generate unit tests', 'e2e test for FR-3/AC-2', 'turn this acceptance criterion into a test'."
+description: "Writes scoped, style-matched tests for one file or function, or one E2E spec per PRD acceptance criterion (`FR-3/AC-2`). Triggers: 'write tests for X', 'generate unit tests', 'e2e test for FR-3/AC-2'."
 argument-hint: [file | function | FR-n/AC-n]
 effort: medium
 ---

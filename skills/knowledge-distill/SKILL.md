@@ -1,6 +1,6 @@
 ---
 name: knowledge-distill
-description: "Distills a library's docs and source at a pinned version into version-pinned knowledge/libraries/<lib>/ concept files, clean-context verified. Triggers: 'distill knowledge for nuxt@4.0.3', 'create a knowledge bundle for phaser', 'update the nuxt bundle to 4.1.0', /knowledge-distill."
+description: "Distills a library's docs and source at a pinned version into knowledge/libraries/<lib>/ concept files, clean-context verified. Triggers: 'distill knowledge for nuxt@4.0.3', 'create a knowledge bundle for phaser', /knowledge-distill."
 argument-hint: [library@version]
 effort: medium
 allowed-tools: Bash(git clone *) Bash(git -C * log *) Bash(git -C * diff *) Bash(git -C * ls-remote *) Bash(node ${CLAUDE_SKILL_DIR}/scripts/count_budget.mjs *) Bash(node tools/knowledge_validate.mjs) Bash(node tools/knowledge_drift.mjs)

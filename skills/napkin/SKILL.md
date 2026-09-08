@@ -1,6 +1,6 @@
 ---
 name: napkin
-description: "Explicit only — type /napkin <topic>. Explains a topic as a picture with few words: an HTML artifact by default, or a standalone SVG/PNG when you ask for a diagram to embed. Use for flowcharts, decision trees, and how-does-this-work explainers. Offers candidate shapes to pick from before drawing."
+description: "Explicit only — type /napkin <topic>. Explains a topic as a picture with few words: an HTML artifact by default, or a standalone SVG/PNG when you ask for one to embed. Offers candidate shapes to pick from before drawing."
 argument-hint: [topic]
 disable-model-invocation: true
 allowed-tools: AskUserQuestion Bash(node ${CLAUDE_SKILL_DIR}/scripts/check_diagram.mjs *)
