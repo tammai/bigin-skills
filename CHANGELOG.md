@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.95.3] - 2026-09-08
+
+### Fixed
+
+- **The story gates failed on the sync bots' own PRs.** A contract bump or a story sync names no story *by design* — the story lives in the repo that sent the change, and the bump carries a contract tag instead. R3d's "every PR references a story ID" is a rule about human PRs, and applying it to automated ones makes every auto-PR permanently red. A gate that is always red is a gate people learn to merge past, which is the same failure the `bugfix-test-guard` omission in `contracts` was written to avoid.
+
+  Both of the pilot's contract-bump PRs failed this job before the fix. The job now skips when the head branch starts with `contract-bump/` or `story-sync/` — a branch prefix rather than a bot identity, because the prefix is written by the workflow itself and cannot drift with an app rename. GitLab gets the equivalent `when: never` rule.
+
+  **Verified in all three directions on the pilot**, because a skip is one edit away from being a hole: a `contract-bump/` branch **skips**; a human branch naming no story **fails**; the same branch with `ST-001` in the title **passes**.
+
+### Notes
+
+- The full loop is now closed on real infrastructure: an additive contract change, tagged, dispatched, auto-PR'd into both consumer repos, **merged**, and the new field verified present in both generated clients — Go and TypeScript. `contract-drift` passed on both PRs, which is that job's first real run.
+- `node:20` → `node:22` in the GitLab story-gates image, matching the GitHub side.
+
 ## [1.95.2] - 2026-09-08
 
 **The dispatch → auto-PR flow ran for real, and the standard is now proven end to end.** A tagged, additive contract change in the pilot's contracts repo produced auto-PRs in both consumer repos, each containing exactly three files — `api-contract.lock`, the vendored spec, and the generated client — and nothing else. That is `SPEC-contract-sync.md` §10's last acceptance criterion, and it had never once been exercised.

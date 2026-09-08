@@ -827,6 +827,14 @@ on:
 
 jobs:
   gates:
+    # A sync bot's PR names no story BY DESIGN — the story lives in the repo that
+    # sent it, and the bump carries a contract tag rather than a story ID. Gating
+    # those makes every auto-PR permanently red, and a gate that is always red is
+    # a gate people learn to merge past. Verified on the pilot: both contract-bump
+    # PRs failed this job before the skip existed.
+    if: >-
+      !startsWith(github.head_ref, 'contract-bump/')
+      && !startsWith(github.head_ref, 'story-sync/')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -862,8 +870,11 @@ Same three gates, in `.gitlab-ci.yml`. GitLab exposes the merge-request title an
 ```yaml
 story-gates:
   stage: test
-  image: node:20
+  image: node:22
   rules:
+    # Same skip as the GitHub job: a sync bot's branch carries a tag, not a story.
+    - if: $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^(contract-bump|story-sync)\//
+      when: never
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
   script:
     - export PR_TITLE="$CI_MERGE_REQUEST_TITLE"
