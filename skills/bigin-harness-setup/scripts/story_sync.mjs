@@ -121,7 +121,7 @@ class Unreachable extends Error {}
 async function gh(path, { raw = false, timeout = SYNC_TIMEOUT_MS, auth } = {}) {
   const headers = {
     'user-agent': UA,
-    accept: raw ? 'application/vnd.github.raw' : 'application/vnd.github+json',
+    'accept': raw ? 'application/vnd.github.raw' : 'application/vnd.github+json',
     'x-github-api-version': '2022-11-28'
   }
   if (auth) headers.authorization = `Bearer ${auth}`
@@ -301,4 +301,4 @@ async function main() {
   process.exit(command === 'check' ? await cmdCheck(root, cfg) : await cmdSync(root, cfg))
 }
 
-main().catch((e) => fail(e?.message ?? String(e)))
+main().catch(e => fail(e?.message ?? String(e)))

@@ -685,6 +685,29 @@ if (!csBase) {
     return 'offline integrity'
   })
 
+  // A freshly set-up consumer repo has placeholder pins and no vendored file. If
+  // verify called that drift, the pre-commit hook would block the repo's very first
+  // commit — which is exactly what happened to the pilot's mobile repo.
+  t('verify does not block a repo that has never bumped', () => {
+    const tmpl = JSON.parse(read(join(REPO, 'skills', 'contract-sync', 'templates', 'api-contract.lock.json')))
+    const dir = consumer('never-bumped', { core: { ...tmpl.contracts.core, repo: 'o/contracts' } })
+    const r = cs(dir, ['verify'], 'http://127.0.0.1:1')
+    eq(r.status, 0, 'exit')
+    if (!r.stdout.includes('not vendored yet')) throw new Error(`unhelpful: ${r.stdout.trim()}`)
+    return 'first commit survives'
+  })
+
+  // But a spec that exists against placeholder pins is a different thing: someone
+  // put a file there by hand, and nothing can vouch for it.
+  t('verify still objects to a spec that exists with no pin behind it', () => {
+    const tmpl = JSON.parse(read(join(REPO, 'skills', 'contract-sync', 'templates', 'api-contract.lock.json')))
+    const dir = consumer('unpinned-spec', { core: { ...tmpl.contracts.core, repo: 'o/contracts' } })
+    mkdirSync(join(dir, 'api'), { recursive: true })
+    writeFileSync(vendored(dir), 'openapi: 3.0.3\n')
+    eq(cs(dir, ['verify'], 'http://127.0.0.1:1').status, 1, 'exit')
+    return 'unvouched file rejected'
+  })
+
   t('verify reports a missing vendored spec rather than passing', () => {
     const dir = consumer('verify-missing', good)
     eq(cs(dir, ['sync'], csBase).status, 0, 'seed')
@@ -693,6 +716,33 @@ if (!csBase) {
     eq(r.status, 1, 'exit')
     if (!r.stderr.includes('missing')) throw new Error('silent on a missing spec')
     return 'absence is a failure'
+  })
+
+  // Codegen that EXISTS but FAILS is a different case from codegen that is missing,
+  // and it is the one the pilot hit: the lock and spec were already written, so the
+  // repo was left holding a new contract next to a stale client — exactly the drift
+  // the design refuses. Everything moves together or nothing does.
+  t('a failing codegen rolls the lock and the spec back', () => {
+    const dir = consumer('codegen-fails', good, { generator: false })
+    writeFileSync(join(dir, 'tool', 'generate_api.sh'), 'echo "boom" >&2\nexit 3\n')
+    const lockBefore = read(join(dir, 'api-contract.lock'))
+    const r = cs(dir, ['bump', 'v2.0.0'], csBase)
+    eq(r.status, 1, 'exit')
+    if (!r.stderr.includes('put back')) throw new Error('did not say it rolled back')
+    eq(read(join(dir, 'api-contract.lock')), lockBefore, 'lock restored')
+    eq(existsSync(vendored(dir)), false, 'spec restored (was absent)')
+    return 'nothing moved'
+  })
+
+  t('a failing codegen on sync restores the previous spec, not just deletes it', () => {
+    const dir = consumer('codegen-fails-sync', good)
+    eq(cs(dir, ['sync'], csBase).status, 0, 'seed a good vendored spec')
+    const before = read(vendored(dir))
+    writeFileSync(join(dir, 'tool', 'generate_api.sh'), 'exit 3\n')
+    const r = cs(dir, ['sync'], csBase)
+    eq(r.status, 1, 'exit')
+    eq(read(vendored(dir)), before, 'previous spec restored byte-for-byte')
+    return 'restored, not removed'
   })
 
   t('a moved tag fails naming both SHAs, writing nothing', () => {

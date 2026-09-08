@@ -258,7 +258,7 @@ class Unreachable extends Error {}
 async function gh(path, { raw = false, timeout = SYNC_TIMEOUT_MS, auth } = {}) {
   const headers = {
     'user-agent': UA,
-    accept: raw ? 'application/vnd.github.raw' : 'application/vnd.github+json',
+    'accept': raw ? 'application/vnd.github.raw' : 'application/vnd.github+json',
     'x-github-api-version': '2022-11-28'
   }
   if (auth) headers.authorization = `Bearer ${auth}`
@@ -392,8 +392,31 @@ function runCodegen(root, repoType) {
   const r = spawnSync(bin, args, {
     cwd: root, stdio: 'inherit', shell: process.platform === 'win32'
   })
-  if (r.error) fail(`codegen could not start (${bin}): ${r.error.message}`)
-  if (r.status !== 0) fail(`codegen failed (${bin} ${args.join(' ')}) — exit ${r.status}`)
+  // Returns rather than exits: the caller wrote the lock and the spec before getting
+  // here, and those have to be put back before this process dies. "Lock, spec and
+  // generated code move together" has to hold on the failure path too, or a failed
+  // bump leaves precisely the drift this skill exists to prevent.
+  if (r.error) return `codegen could not start (${bin}): ${r.error.message}`
+  if (r.status !== 0) return `codegen failed (${bin} ${args.join(' ')}) — exit ${r.status}`
+  return null
+}
+
+// Everything a write touched, captured before the first write so any later failure
+// can put the repo back exactly as it was. `null` content means "did not exist".
+function snapshot(paths) {
+  return paths.map(p => ({ path: p, content: existsSync(p) ? readFileSync(p) : null }))
+}
+
+function restore(shots) {
+  for (const s of shots) {
+    try {
+      if (s.content === null) rmSync(s.path, { force: true })
+      else writeFileSync(s.path, s.content)
+    } catch {
+      // Best effort: report what could not be put back rather than throwing over it.
+      console.error(`[contract-sync] WARNING: could not restore ${s.path} — check it by hand`)
+    }
+  }
 }
 
 // ── cache ───────────────────────────────────────────────────────────────
@@ -477,12 +500,21 @@ function cmdVerify(root, lock, names, repoType) {
     const c = lock.contracts[name]
     const rel = vendoredPath(repoType, name, total)
     const path = join(root, rel)
-    if (!existsSync(path)) {
-      problems.push(`${rel} is missing — run \`sync\` to restore it from ${c.repo}`)
+    const pinned = /^[0-9a-f]{64}$/i.test(c.sha256 ?? '')
+
+    // A repo that has never run `bump` has placeholder pins and no vendored file.
+    // That is a normal starting state, not drift — and blocking it would mean a
+    // freshly set-up consumer repo could not make its first commit at all.
+    if (!pinned && !existsSync(path)) {
+      info(`${name}: not vendored yet — run \`bump ${c.ref}\` when you are ready`)
       continue
     }
-    if (!/^[0-9a-f]{64}$/i.test(c.sha256 ?? '')) {
-      problems.push(`${LOCK_NAME} has no usable sha256 for "${name}" — run \`bump ${c.ref}\``)
+    if (!pinned) {
+      problems.push(`${rel} exists but ${LOCK_NAME} has no usable sha256 for "${name}" — run \`bump ${c.ref}\``)
+      continue
+    }
+    if (!existsSync(path)) {
+      problems.push(`${rel} is missing — run \`sync\` to restore it from ${c.repo}`)
       continue
     }
     const got = sha256(readFileSync(path))
@@ -514,6 +546,7 @@ async function cmdSync(root, lock, names, repoType) {
   }
   assertCodegenReady(root, repoType)
   const total = Object.keys(lock.contracts).length
+  const shots = snapshot(names.map(n => join(root, vendoredPath(repoType, n, total))))
 
   for (const name of names) {
     const specRel = vendoredPath(repoType, name, total)
@@ -567,7 +600,11 @@ async function cmdSync(root, lock, names, repoType) {
     info(`${name}: vendored ${c.file}@${c.commit.slice(0, 7)} → ${specRel}`)
   }
 
-  runCodegen(root, repoType)
+  const err = runCodegen(root, repoType)
+  if (err) {
+    restore(shots)
+    fail(`${err}\n  The vendored spec has been put back — lock, spec and generated code move together or not at all.`)
+  }
   info('done — review the type diff before committing')
   return 0
 }
@@ -603,12 +640,17 @@ async function cmdBump(root, lock, names, repoType, ref, fileOverride) {
   // identical result. Every later `sync` verifies against what is written here.
   const digest = sha256(blob)
 
+  const shots = snapshot([join(root, specRel), lockPath(root)])
   writeAtomic(join(root, specRel), blob)
   lock.contracts[name] = { ...c, file, ref, commit: resolved, sha256: digest }
   saveLock(root, lock)
   info(`${name}: ${c.ref} → ${ref} (${resolved.slice(0, 7)}), ${file} → ${specRel}`)
 
-  runCodegen(root, repoType)
+  const err = runCodegen(root, repoType)
+  if (err) {
+    restore(shots)
+    fail(`${err}\n  The lock and the vendored spec have been put back — nothing moved.`)
+  }
   info('done — lock, spec and generated code are one commit')
   return 0
 }
@@ -627,11 +669,11 @@ async function main() {
     ;({ values, positionals } = parseArgs({
       allowPositionals: true,
       options: {
-        contract: { type: 'string' },
-        file: { type: 'string' },
+        'contract': { type: 'string' },
+        'file': { type: 'string' },
         'repo-type': { type: 'string' },
         'no-cache': { type: 'boolean', default: false },
-        help: { type: 'boolean', default: false }
+        'help': { type: 'boolean', default: false }
       }
     }))
   } catch (e) {
@@ -666,4 +708,4 @@ async function main() {
   process.exit(await cmdBump(root, lock, names, repoType, ref, values.file))
 }
 
-main().catch((e) => fail(e?.message ?? String(e)))
+main().catch(e => fail(e?.message ?? String(e)))

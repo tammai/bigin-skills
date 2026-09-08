@@ -414,7 +414,7 @@ Write it on any repo whose `REPO_TYPE` is `mobile`, and pin `OPENAPI_GENERATOR_T
 # the codegen diff gate is only meaningful if regeneration is deterministic.
 set -euo pipefail
 
-OPENAPI_GENERATOR_TAG="v7.14.0"   # pin deliberately; never `latest`
+OPENAPI_GENERATOR_TAG="v7.25.0"   # pin deliberately; never `latest`
 
 if ! command -v docker >/dev/null 2>&1; then
   echo "docker not found — cannot regenerate api/generated/**." >&2

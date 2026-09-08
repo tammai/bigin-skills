@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.95.1] - 2026-09-08
+
+Four defects, every one found by running the pilot's six repos rather than by review.
+
+### Fixed
+
+- **A failing codegen left the repo in exactly the state the design forbids.** `assertCodegenReady` checks the entry point *exists*; it cannot know it will succeed. When `pnpm openapi-types` failed on the pilot's web repo, the lock and the vendored spec had already been written — a new contract sitting beside a stale client, which is the drift this skill exists to prevent. `sync` and `bump` now snapshot everything they are about to touch and **put it back** on a codegen failure. "Lock, spec and generated code move together" now holds on the failure path too, not just the happy one.
+
+- **A brand-new consumer repo could not make its first commit.** A repo that has never run `bump` has placeholder pins and no vendored file — a normal starting state. `verify` called that drift, the pre-commit hook blocked on it, and the pilot's mobile repo was unable to commit anything at all. It now reports "not vendored yet — run `bump <ref>`" and exits 0. A spec that *exists* against placeholder pins is still a failure: someone put a file there by hand and nothing can vouch for it.
+
+- **`contract_sync.mjs` and `story_sync.mjs` broke `pnpm lint` in every repo that installed them.** Both are copied into consumer repos, and the `nuxt`/`nuxt-marketing`/`next`/`tauri` profiles lint the whole tree. Two `@stylistic` rules rejected them: `quote-props` is `consistent-as-needed`, so an object with one key that needs quotes (`'user-agent'`, `'repo-type'`) must quote them all; and `arrow-parens` rejects `(e) => expr`. The authoring rule covered `.claude/guards/**` and said nothing about scripts landing in `scripts/` — it now covers **every script templated into a repo**, and names all four rules that have bitten.
+
+- **The Flutter generator pin was eleven releases stale.** `tool/generate_api.sh` pinned `openapi-generator` to `v7.14.0`, a tag I chose without checking. It does exist — verified against Docker Hub — but current is `v7.25.0`, which is now the shipped pin.
+
+### Notes
+
+- The pilot now has all six repos live in `bigin-io`, with real contract vendoring done on api and web against a real tag, offline `verify` armed as a commit gate on both, and the guard refusing hand edits. Mobile is scaffolded and overlaid but deliberately un-bumped: `flutter create --empty` ships no codegen stack, and `profile-flutter.md` assigns `build_runner`/`json_serializable`/`dio` to the first slice's ADRs rather than to the scaffold.
+- `pilot-web`'s reconciliation went as predicted and the type system caught it precisely: the vendored contract has no `/v1/users`, so `Ok<'/v1/users'>` stopped compiling. Two paths and two doc comments later, `pnpm lint` and `pnpm type-check` are both green.
+
 ## [1.95.0] - 2026-09-08
 
 **CI is a tier of this standard, not a requirement of it.** The pilot proved that the hard way: GitHub bills Actions minutes on private repos, so one organisation-level billing problem takes CI out on every project at once. Every workflow the pilot fired was correctly received and correctly selected, and not one job started.
