@@ -1,7 +1,7 @@
 # Plan: Polyrepo project standard — contract-sync, repo types, story sync, Flutter handoff
 
 Status: approved
-Branch: feat/polyrepo-phase-6-gates
+Branch: feat/polyrepo-phase-7-flutter-handoff
 
 Source: `bigin-skills-polyrepo-upgrade.zip` — `SPEC-polyrepo-standard.md` (umbrella),
 `SPEC-contract-sync.md`, `SPEC-figma-handoff-flutter.md`, four templates. Those specs are
@@ -287,7 +287,7 @@ alters theme files only; a pruned component fails by name.
 | 14 | `story_sync.mjs` + dispatch workflow templates in `ci.md` | Done | Consumer-pull, symmetric with contract_sync. Deletes only files carrying the marker it wrote — a hand-added file in a synced directory is kept and reported |
 | 15 | `story_lint.mjs` + Contract-impact fragment, assumptions isolated in one function | Done | All five assumptions in `parseContractImpact()` with the list above it. Keys under a later heading do not satisfy the section |
 | 16 | R3b/c/d CI gates in `ci.md`, GitHub + GitLab | Done | `story_gate.mjs` with three subcommands. `ready` runs against the stories a PR names, not every story — otherwise it would fail the story-sync PR on the day a story arrives |
-| 17 | `flutter-figma-handoff` skill (mapping reference, token adapter, pruning check) | Not started | Phase 7 — blocked on the Figma fork |
+| 17 | `flutter-figma-handoff` skill (mapping reference, token adapter, pruning check) | Done | Built against the **stock** M3 kit rather than a fork (2026-09-08 decision), which makes the mapping table itself the pruning list — a component with no row stops the handoff |
 | 18 | Flutter profile: collapse the generator "or", two-step `generate:`, Docker-absent skip in both gates | Done | `tool/generate_api.sh` written out with a pinned Docker tag; CI regenerates and diffs it, skipping by name when Docker is absent |
-| 19 | Packaging debt for both new skills (C9) | Not started | evals, manifest, budget, README, versions, CHANGELOG |
+| 19 | Packaging debt for both new skills (C9) | Done | Both skills: evals with cases each way, manifest entries, descriptions at 264 and 293 chars, README and site regenerated |
 | 20 | Version bump + CHANGELOG + stale-docs sweep before release | Not started | Minor-or-major bump ⇒ full manual-surface sweep per CLAUDE.md |

@@ -75,6 +75,10 @@
     "contract-sync": {
       "group": "core",
       "summary": "Vendors an OpenAPI contract at a pinned commit and regenerates the client (check/sync/bump); the only writer of the vendored spec and api-contract.lock."
+    },
+    "flutter-figma-handoff": {
+      "group": "handoff",
+      "summary": "Material 3 Figma frame to Flutter: variables become a seeded ColorScheme, components resolve via a mapping table, an unmapped one stops the handoff."
     }
   },
   "agents": {

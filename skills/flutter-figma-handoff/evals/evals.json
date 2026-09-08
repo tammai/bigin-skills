@@ -1,0 +1,13 @@
+[
+  {"query":"implement this Figma screen in our Flutter app: https://www.figma.com/design/abc/App?node-id=12-34","should_trigger":true},
+  {"query":"the designer updated the M3 kit colors — sync our Flutter theme","should_trigger":true},
+  {"query":"turn this Material 3 frame into a Flutter widget tree","should_trigger":true},
+  {"query":"generate ThemeData from our Figma variables","should_trigger":true},
+  {"query":"which Flutter widget matches the Figma segmented button in this design?","should_trigger":true},
+  {"query":"implement this Figma design in our Nuxt UI app","should_trigger":false},
+  {"query":"scaffold a new Flutter app","should_trigger":false},
+  {"query":"set up the AI harness for this repo","should_trigger":false},
+  {"query":"absorb the contract bump","should_trigger":false},
+  {"query":"why is this widget test flaky","should_trigger":false},
+  {"query":"build this landing page from a Figma file with plain Tailwind","should_trigger":false}
+]

@@ -445,4 +445,6 @@ Flutter never authors a contract either: `api/openapi.yaml` is always frozen ups
 
 In **vendored** mode, `.claude/rules/vendored-contract.md` is written from `files-shared.md` → `## vendored-contract.md` with `{SPEC_PATH}` = `api/openapi.yaml` and `{CODEGEN_OUT}` = `api/generated/**`.
 
+Design handoff on this profile is the **`flutter-figma-handoff`** skill: a Material 3 Figma frame resolves to real widgets through its mapping table, and its theme emitter writes `lib/core/design/app_theme.dart`. It is a sibling of `nuxt-ui-figma-handoff`, not a mode of it — the two share no theme model and no component vocabulary.
+
 **This profile is the one where vendoring changes the codegen command**, because the mobile adapter is new work rather than an existing entry point. `flutter create` produces no API client, and this profile's `generate:` command is `build_runner` only — so a vendored mobile repo needs `tool/generate_api.sh`, holding the pinned `openapi-generator` (dart-dio, `serializationLibrary: json_serializable`) Docker invocation, and `contract_sync.mjs` aborts before writing anything if that file is absent. Pinning by Docker tag rather than a floating version is what makes the regenerate-and-diff gate meaningful, per this profile's own determinism rule.

@@ -13,7 +13,7 @@ A **plugin** (`bigin-skills`) for **Claude Code and Cursor** — a collection of
 skills/<name>/SKILL.md    ← one skill per directory
 skills/<name>/references/ ← supporting templates, relative to that skill
 skills/<name>/evals/      ← should-trigger cases; docs_sync.mjs --check fails closed without one
-skills/<name>/scripts/    ← that skill's own executables (11 skills have one), cited via ${CLAUDE_SKILL_DIR}
+skills/<name>/scripts/    ← that skill's own executables (12 skills have one), cited via ${CLAUDE_SKILL_DIR}
 agents/<name>.md          ← plugin-level subagent definitions (spawned via Agent tool, not invoked as skills)
 docs/                     ← hand-maintained deep-dives (GATES, KNOWLEDGE, ROUTING, SPEC-GATE, USER_GUIDE, GRAPHIFY)
 site/src/                 ← site sources: pages/ + _layouts/ + _partials/ + assets/
@@ -22,8 +22,8 @@ tools/site_build.mjs      ← the site build; --check fails the commit when dist
 tools/context_budget.mjs  ← budget gate (also templated for target repos)
 tools/docs_sync.mjs       ← generates README's skills/agents tables; --check fails the commit on drift
 tools/docs-manifest.json  ← its input; every new skill and agent needs an entry or --check fails closed
-tools/regress.mjs         ← regression suite: manifests, skill inventory, detection ladder,
-                             scaffolders, contract_sync, the guards themselves;
+tools/regress.mjs         ← regression suite: manifests, skill inventory, detection,
+                             scaffolders, sync scripts, the guards;
                              --build adds a real install+build of a scaffolded site
 scripts/git-hooks/        ← pre-commit running the budget gate + docs_sync.mjs --check + site_build.mjs --check + regress.mjs
 ```

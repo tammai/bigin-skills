@@ -1,6 +1,6 @@
 ---
 name: contract-sync
-description: "Vendors an OpenAPI contract into a consumer repo at a pinned commit and regenerates its client — check, sync, bump against api-contract.lock. Triggers: 'absorb the contract bump', 'sync the API contract', 'our openapi.yaml is stale', 'bump the contract to v2.5.0'."
+description: "Vendors an OpenAPI contract at a pinned commit and regenerates its client — check, sync, bump against api-contract.lock. Triggers: 'absorb the contract bump', 'sync the API contract', 'our openapi.yaml is stale'."
 argument-hint: [check | sync | bump <ref>]
 effort: medium
 allowed-tools: Bash(node scripts/contract_sync.mjs *) Bash(node ${CLAUDE_SKILL_DIR}/scripts/contract_sync.mjs *) Bash(gh auth token) Bash(git diff *)

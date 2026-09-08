@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.94.0] - 2026-09-08
+
+Phase 7, the last of the polyrepo project standard: mobile design handoff.
+
+### Added
+
+- **`flutter-figma-handoff`** — a Material 3 Figma frame to Flutter code. A **sibling** skill, not a mode of `nuxt-ui-figma-handoff`: that skill's name, description, argument hint and "when not to use" all scope it to Nuxt UI theming, its one script emits a Tailwind 50–950 ramp a `ColorScheme` has no use for, and folding two stacks into one always-loaded description inside 350 chars would degrade both. `nuxt-ui-figma-handoff` is byte-identical, which is what makes its "behaviour unchanged" criterion true by construction rather than something to prove.
+
+  **Built against the stock M3 Design Kit, not a BigIn fork** (decision reversed 2026-09-08). Google's kit is the same design system Flutter's widgets implement, so nothing needs forking, pruning or maintaining — and it makes the mapping table itself the pruning list. That is the better mechanism: a fork's pruning list is a second artifact that drifts from the framework, while a table row either exists or does not.
+
+  **A component with no row is a stop, not a judgement call.** Handoff reports the component, the Flutter version checked against, and the two ways forward — redraw with something that maps, or record a hand-built widget as a deliberate exception. Never a silent custom-painted lookalike, which is the failure this skill exists to prevent and which looks like success until the design system moves.
+
+  The mapping table is explicitly **scoped to a Flutter version and must be re-checked** against the one the repo pins. The kit tracks the Material spec, which runs ahead of the framework — a component can sit in Figma a year before its widget ships, and never the reverse. The skill reads `flutter --version` before mapping anything.
+
+- **`emit_theme.mjs`** — Figma variables to `lib/core/design/app_theme.dart`. `ColorScheme.fromSeed` plus explicit overrides: the design side owes one seed and only the roles it genuinely diverges on, rather than ~30 roles per brand doubled for light and dark. The trade is stated rather than hidden — **changing the seed moves roles nobody edited** — which is exactly why the emitted file has a fixed canonical role order: a re-run reproduces byte-for-byte, so the diff that survives is the real change.
+
+  It **rejects** an unknown role rather than dropping it, because a silently ignored token is a design that quietly did not apply; and it rejects the three roles Flutter retired in 3.22 (`background`, `onBackground`, `surfaceVariant`) naming each replacement, since emitting them produces code that does not compile.
+
+### Notes
+
+- **The always-loaded budget is now at 11,990 of 12,000 characters.** A twentieth skill pushed it over, and it came back under only after compressing three descriptions and two lines of `CLAUDE.md`. Ten characters of headroom is not headroom: the next skill needs a real compression pass first, not another shave. The gate caught this rather than letting the surface grow quietly, which is the whole reason it exists.
+
 ## [1.93.0] - 2026-09-08
 
 Phase 6 of the polyrepo project standard: the three story gates, and the Flutter generator seam `contract_sync.mjs` has been depending on since 1.89.0.
