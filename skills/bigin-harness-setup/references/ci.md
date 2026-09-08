@@ -185,6 +185,24 @@ jobs:
             exit 1
           fi
       - run: flutter test
+      - name: api client matches the vendored contract
+        run: |
+          if [ ! -f tool/generate_api.sh ]; then
+            echo "tool/generate_api.sh not present — this repo does not vendor a contract; skipping"
+            exit 0
+          fi
+          if ! command -v docker >/dev/null 2>&1; then
+            echo "docker not available on this runner — the API-client diff is NOT running."
+            echo "api/generated/** is unchecked on this job; it is still checked by contract-drift."
+            exit 0
+          fi
+          ./tool/generate_api.sh
+          git diff --exit-code -- api/generated || {
+            echo "api/generated/** does not match api/openapi.yaml."
+            echo "Run ./tool/generate_api.sh and commit the result — never hand-edit generated code."
+            exit 1
+          }
+
       - name: generated code matches its source
         run: |
           if ! grep -q 'build_runner' pubspec.yaml; then
@@ -774,6 +792,71 @@ jobs:
 ```
 
 The commit subject is `docs(stories):` deliberately: `commit-msg-guard` requires a Conventional Commit, and `docs:` keeps `bugfix-test-guard` out of the way of a PR that contains no code.
+
+---
+
+## story gates: github (consumer repos)
+
+Write to `.github/workflows/story-gates.yml` in each repo that receives synced stories.
+
+Three gates in one job, in the order that makes them useful: the PR must name a story, that story must be ready for dev, and any orphaned sidecar is surfaced. The PR title and body reach the script through `env:` and never through `${{ }}` inside a `run:` block — they are text a contributor wrote.
+
+```yaml
+name: story-gates
+
+on:
+  pull_request:
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: The PR must name a story
+        id: story
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: echo "ids=$(node scripts/story_gate.mjs pr)" >> "$GITHUB_OUTPUT"
+
+      - name: Those stories must be ready for dev
+        run: node scripts/story_gate.mjs ready ${{ steps.story.outputs.ids }}
+
+      - name: Orphaned sidecars
+        if: always()
+        run: node scripts/story_gate.mjs orphans
+```
+
+`orphans` runs with `if: always()` and never fails the build — an orphan means a story was deleted upstream and its sidecar outlived it, which is worth seeing and is not worth blocking a merge over.
+
+**`ready` is deliberately not run over every story.** A story that declares UI and has no sidecar yet is the normal state before dev starts — that is what "not ready for dev" means. A job that failed on it would fail the story-sync PR itself, on the day the story arrives, forever. It runs against the stories *this PR names*, because a PR is the moment work begins.
+
+---
+
+## story gates: gitlab (consumer repos)
+
+Same three gates, in `.gitlab-ci.yml`. GitLab exposes the merge-request title and description as predefined variables, so no interpolation is needed at all.
+
+```yaml
+story-gates:
+  stage: test
+  image: node:20
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  script:
+    - export PR_TITLE="$CI_MERGE_REQUEST_TITLE"
+    - export PR_BODY="$CI_MERGE_REQUEST_DESCRIPTION"
+    - IDS=$(node scripts/story_gate.mjs pr)
+    - node scripts/story_gate.mjs ready $IDS
+  after_script:
+    - node scripts/story_gate.mjs orphans
+```
+
+`orphans` sits in `after_script` for the same reason it carries `if: always()` on GitHub: it reports, it does not gate.
 
 ---
 

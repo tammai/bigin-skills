@@ -19,6 +19,7 @@ test:       flutter test
 integration: flutter test integration_test          # needs a device/simulator — not a plain CI runner
 dev:        flutter run --flavor dev -t lib/main_dev.dart --dart-define-from-file=config/dev.json
 generate:   dart run build_runner build --delete-conflicting-outputs
+generate-api: ./tool/generate_api.sh   # vendored contract -> api/generated/** (mobile repo type only)
 ```
 
 **`--output=none` is not optional in a gate.** Plain `dart format --set-exit-if-changed .` *rewrites every unformatted file in the tree* and then exits 1. In a pre-commit hook that reformats files the developer never staged, leaves the staged snapshot unformatted, and lands a commit that differs from the one the gate checked. `--output=none` makes it a pure check — same exit code, no writes. Use the bare form only when you actually want the files rewritten.
@@ -49,6 +50,7 @@ The HTTP API is an existing service this repo does not own. Its contract is froz
 | format      | `dart format --output=none --set-exit-if-changed .`            |
 | lint        | `dart run custom_lint` **and** `dart run import_lint` — two mechanisms, both required |
 | generate    | `dart run build_runner build --delete-conflicting-outputs`      |
+| generate-api | `./tool/generate_api.sh` — the API client from the vendored contract. Pinned Docker tag; `mobile` repo type only |
 
 ## Rules
 See `.claude/rules/` — path-scoped conventions, testing, security, architecture.
@@ -207,7 +209,7 @@ Prepend `paths: ["lib/**", "api/openapi.yaml"]` as YAML frontmatter when writing
 - The stronger option stays open: features as separate packages in a `melos`/pub workspace, where the resolver refuses an undeclared import and `implementation_imports` blocks reaching into another package's `lib/src/`. Choosing lint over that is a decision to record, not a limitation of Dart.
 
 ## [Flutter] Frozen Contract, Generated Client
-- The API is an existing service. Its contract is transcribed ground truth, locked upstream, and `api/generated/**` is generated from it — `openapi-generator` (dart-dio) or `swagger_dart_code_generator`, committed and CI-diffed.
+- The API is an existing service. Its contract is transcribed ground truth, locked upstream, and `api/generated/**` is generated from it by **`openapi-generator`, `dart-dio` generator, `serializationLibrary: json_serializable`**, committed and CI-diffed. The alternative considered and rejected was `swagger_dart_code_generator`: pure Dart, folds into `build_runner`, needs no Docker — but it emits Chopper-based clients, and this profile's network layer is one `Dio` with an ordered interceptor chain. `json_serializable` rather than dart-dio's `built_value` default, because this profile already pins `json_serializable` exactly for the codegen diff and a second serialization stack would be a second thing to pin.
 - A "requested" contract variant, if one exists, is a request to another team and is **not** an input to codegen.
 - The regenerate-and-diff gate is only meaningful if regeneration is deterministic: committed `pubspec.lock`, exact constraints on `build_runner`/`json_serializable`, a pinned generator JAR or Docker tag. Unpinned, the first transitive bump turns the gate red for reasons unrelated to the contract, and a gate that cries wolf gets deleted — which is worse than never having had it.
 - One `Dio`, configured in `core/network/`, interceptors in a stated order: logging → auth → retry → error mapping. The order is part of the decision; a retry ahead of token refresh retries a 401 four times and then fails.
@@ -396,6 +398,38 @@ None. Dart's formatter and analyzer come from the official Dart/Flutter extensio
     ]
   }
 }
+```
+
+---
+
+## tool/generate_api.sh
+
+The API client's generation step, owned by the repo so the pin lives with what depends on it. `contract_sync.mjs` shells out to this file by name and **aborts before writing anything** if it is absent — a new contract vendored next to a stale client is the drift the whole design refuses.
+
+Write it on any repo whose `REPO_TYPE` is `mobile`, and pin `OPENAPI_GENERATOR_TAG` to a real released tag, never `latest`: an unpinned generator turns the regenerate-and-diff gate into a random-failure generator on its first upstream release — the same argument this profile already makes about `build_runner` constraints.
+
+```bash
+#!/usr/bin/env bash
+# Regenerates api/generated/** from the vendored contract. Pinned by Docker tag:
+# the codegen diff gate is only meaningful if regeneration is deterministic.
+set -euo pipefail
+
+OPENAPI_GENERATOR_TAG="v7.14.0"   # pin deliberately; never `latest`
+
+if ! command -v docker >/dev/null 2>&1; then
+  echo "docker not found — cannot regenerate api/generated/**." >&2
+  echo "Install Docker, or regenerate where it is available and commit the result." >&2
+  exit 1
+fi
+
+docker run --rm -v "${PWD}:/local" \
+  "openapitools/openapi-generator-cli:${OPENAPI_GENERATOR_TAG}" generate \
+  -i /local/api/openapi.yaml \
+  -g dart-dio \
+  -o /local/api/generated \
+  --additional-properties=serializationLibrary=json_serializable,pubName=api_client
+
+dart run build_runner build --delete-conflicting-outputs
 ```
 
 ---

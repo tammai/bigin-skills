@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.93.0] - 2026-09-08
+
+Phase 6 of the polyrepo project standard: the three story gates, and the Flutter generator seam `contract_sync.mjs` has been depending on since 1.89.0.
+
+### Added
+
+- **`story_gate.mjs` — the three gates a consumer repo needs**, as three subcommands so each is testable on its own. `pr`: a pull request must name a story, or it merges with nothing tracing it back to what asked for it. `ready`: a story declaring `ui: yes` needs a sidecar carrying a Figma **node-id** (a link to the file, not a frame, is rejected by name) and `status: final`. `orphans`: a sidecar whose story no longer exists is warned about and never blocks.
+
+  **`ready` deliberately does not run over every story.** A story that declares UI and has no sidecar yet is the *normal* state before dev starts — that is what "not ready for dev" means. A job that failed on it would fail the story-sync PR itself, on the day the story arrives, forever. So it runs against the stories a PR names: a PR is the moment work begins, which is the moment the question is real. `pr` supplies the IDs, which is why the three compose into one job in that order.
+
+  The acceptance criterion the sidecar convention exists for is pinned by a test: adding the sidecar flips the gate from red to green **with the story file byte-identical**.
+
+  PR title and body reach the script through `env:`, never through `${{ }}` inside a `run:` block — they are text a contributor wrote.
+
+- **Story-gate workflows for GitHub and GitLab.** On GitLab no interpolation is needed at all, since the merge-request title and description are predefined variables. `orphans` runs under `if: always()` / `after_script` on each: it reports, it does not gate.
+
+- **`tool/generate_api.sh`, the Flutter API-client seam.** `contract_sync.mjs` has shelled out to this file by name since 1.89.0 and aborts before writing anything when it is absent; until now nothing wrote it. It holds the pinned `openapi-generator` Docker invocation, and CI regenerates and diffs `api/generated/**` against the vendored contract — skipping **by name** when Docker is unavailable rather than passing quietly, the convention this profile already applies to its two conditional lint plugins.
+
+### Changed
+
+- **The Flutter profile's generator choice is no longer an open "or".** `profile-flutter.md` offered `openapi-generator` (dart-dio) *or* `swagger_dart_code_generator`; a choice left open is a choice nobody makes, and `contract_sync.mjs` cannot shell out to an undecided tool. It is `openapi-generator`, `dart-dio`, `serializationLibrary: json_serializable`, pinned by Docker tag. The rejected alternative is recorded with its reason: `swagger_dart_code_generator` is pure Dart and needs no Docker, but emits Chopper-based clients, and this profile's network layer is one `Dio` with an ordered interceptor chain. `json_serializable` over dart-dio's `built_value` default because this profile already pins `json_serializable` exactly, and a second serialization stack is a second thing to pin.
+
+  `generate-api` joins `generate` as a distinct command: vendoring changes where the contract comes from, and on this profile alone it also adds a step to how the client is built.
+
+### Notes
+
+- Four new regress cases (78 total), including the two the gate must *not* block: a non-UI story needs no sidecar, and a PR may name a story this repo never received.
+- `story_gate.mjs`'s assumptions about story and sidecar shape sit in three small parsers with the list above them, the same rework hook `story_lint.mjs` carries. The sidecar is read by regex rather than a YAML parser — zero dependencies, and the shape is fixed by the schema template.
+
 ## [1.92.0] - 2026-09-08
 
 Phases 4 and 5 of the polyrepo project standard: stories reach the dev repos, and every story has to say what it does to the contract.

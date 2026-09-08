@@ -66,7 +66,7 @@ Automating a case: /task-workflow. Investigating a failure: /debug-workflow.
 
 ## CI
 
-The E2E suite on a schedule or against a deployed environment — never on every push, since it needs a running stack this repo does not own. Plus the orphan-sidecar and traceability checks once Phase 6 lands. If no automation exists yet, write no workflow and say so in the summary.
+The E2E suite on a schedule or against a deployed environment — never on every push, since it needs a running stack this repo does not own. Plus the story gates from `references/ci.md` → `## story gates:`, which apply here as they do in any repo receiving synced stories: a merge request names a story, and orphaned sidecars are surfaced. If no automation exists yet, write the story gates and no E2E workflow, and say so in the summary.
 
 ---
 

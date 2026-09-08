@@ -829,6 +829,70 @@ if (!csBase) {
     return 'no stories, no complaint'
   })
 
+  // ── story_gate.mjs ───────────────────────────────────────────────────
+
+  const SG = join(REPO, 'skills', 'bigin-harness-setup', 'scripts', 'story_gate.mjs')
+  const UI_STORY = '# ST-042\n\n## Contract impact\n- contracts: none\n- breaking: no\n- ui: yes\n'
+  const PLAIN_STORY = '# ST-043\n\n## Contract impact\n- contracts: none\n- breaking: no\n- ui: no\n'
+  const gateRepo = (name, files) => {
+    const dir = join(TMP, `sg-${name}`)
+    rmSync(dir, { recursive: true, force: true })
+    mkdirSync(join(dir, 'docs', 'stories'), { recursive: true })
+    mkdirSync(join(dir, 'docs', 'story-meta'), { recursive: true })
+    for (const [rel, body] of Object.entries(files)) writeFileSync(join(dir, rel), body)
+    return dir
+  }
+  const gate = (dir, args, env = {}) => spawnSync('node', [SG, ...args], {
+    cwd: dir, encoding: 'utf8', env: { ...process.env, ...env }
+  })
+
+  t('a PR must name a story', () => {
+    const dir = gateRepo('pr', {})
+    eq(gate(dir, ['pr'], { PR_TITLE: 'fix the thing', PR_BODY: '' }).status, 1, 'unnamed')
+    const ok = gate(dir, ['pr'], { PR_TITLE: 'feat: checkout (ST-042)', PR_BODY: '' })
+    eq(ok.status, 0, 'named in title')
+    eq(ok.stdout.trim(), 'ST-042', 'id extracted')
+    eq(gate(dir, ['pr'], { PR_TITLE: 'feat: x', PR_BODY: 'closes ST-042 and ST-043' }).stdout.trim(), 'ST-042 ST-043', 'body, deduped and ordered')
+    return '3 forms'
+  })
+
+  t('a UI story needs a final Figma sidecar before dev', () => {
+    const base = { 'docs/stories/ST-042.md': UI_STORY }
+    // no sidecar at all
+    eq(gate(gateRepo('nosidecar', base), ['ready', 'ST-042']).status, 1, 'missing sidecar')
+    // sidecar, but the link is to the file rather than a frame
+    eq(gate(gateRepo('nonode', { ...base, 'docs/story-meta/ST-042.yaml': 'design:\n  figma: https://figma.com/design/ABC\n  status: final\n' }), ['ready', 'ST-042']).status, 1, 'no node-id')
+    // sidecar with a node-id but still a draft
+    eq(gate(gateRepo('draft', { ...base, 'docs/story-meta/ST-042.yaml': 'design:\n  figma: https://figma.com/design/ABC?node-id=1-2\n  status: draft\n' }), ['ready', 'ST-042']).status, 1, 'draft')
+    // complete
+    eq(gate(gateRepo('final', { ...base, 'docs/story-meta/ST-042.yaml': 'design:\n  figma: https://figma.com/design/ABC?node-id=1-2\n  status: final\n' }), ['ready', 'ST-042']).status, 0, 'final')
+    return '4 states'
+  })
+
+  t('the gate passes what it has no business blocking', () => {
+    // A non-UI story needs no sidecar...
+    eq(gate(gateRepo('nonui', { 'docs/stories/ST-043.md': PLAIN_STORY }), ['ready', 'ST-043']).status, 0, 'non-UI story')
+    // ...and a PR may name a story this repo never received.
+    eq(gate(gateRepo('absent', {}), ['ready', 'ST-999']).status, 0, 'story not in this repo')
+    // Adding the sidecar passes the gate WITHOUT touching the story file, which is
+    // the acceptance criterion the whole sidecar convention exists for.
+    const dir = gateRepo('untouched', { 'docs/stories/ST-042.md': UI_STORY })
+    eq(gate(dir, ['ready', 'ST-042']).status, 1, 'before')
+    writeFileSync(join(dir, 'docs/story-meta/ST-042.yaml'), 'design:\n  figma: https://f.com/d/A?node-id=1-2\n  status: final\n')
+    eq(gate(dir, ['ready', 'ST-042']).status, 0, 'after')
+    eq(read(join(dir, 'docs/stories/ST-042.md')), UI_STORY, 'story file untouched')
+    return 'sidecar alone flips it'
+  })
+
+  t('an orphaned sidecar warns and never fails', () => {
+    const dir = gateRepo('orphan', { 'docs/story-meta/ST-777.yaml': 'story: ST-777\n' })
+    const r = gate(dir, ['orphans'])
+    eq(r.status, 0, 'exit')
+    if (!r.stdout.includes('::warning::')) throw new Error('no warning emitted')
+    eq(gate(gateRepo('noorphan', {}), ['orphans']).status, 0, 'empty repo')
+    return 'warned, not blocked'
+  })
+
   t('CONTRACT_SYNC_API is refused when it is not loopback', () => {
     const dir = consumer('seam', good)
     const r = cs(dir, ['check'], 'https://api.evil.example')
