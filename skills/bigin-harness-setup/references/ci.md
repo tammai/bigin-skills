@@ -790,7 +790,11 @@ jobs:
           GH_TOKEN: ${{ steps.app.outputs.token }}
         run: |
           set -euo pipefail
-          if git diff --quiet; then
+          # `git status --porcelain`, not `git diff --quiet`: diff only inspects TRACKED
+          # files, so a sync that adds a brand-new story or vendors a spec for the first
+          # time produces an empty diff and this job silently opens nothing. Verified on
+          # the pilot, where three new stories synced and no PR appeared.
+          if [ -z "$(git status --porcelain)" ]; then
             echo "already in step with the specs repo"
             exit 0
           fi

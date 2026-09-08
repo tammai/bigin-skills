@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.95.4] - 2026-09-08
+
+**The story-sync flow ran, and the last untested path in the standard is now closed.** A story merged in the specs repo dispatched to all four consumers, each of which opened a PR containing only synced story files, every one stamped `synced: true`, with `docs/story-meta/` untouched. The consumer that already held one story got a two-file PR rather than three — the sync writes what differs, not everything.
+
+### Fixed
+
+- **`git diff --quiet` is blind to untracked files, so a sync that added new files opened no PR.** Both `contract-bump.yml` and the story-sync workflow decided "nothing to do" by diffing, and `git diff` only inspects **tracked** paths. The first story-sync run reported writing three story files and then concluded "already in step with the specs repo" — a silent no-op, the worst possible failure for an automation nobody is watching.
+
+  `contract-bump.yml` carried the identical bug and had simply never hit it: the pilot's vendored spec was already tracked, so it was a modification rather than an addition. A repo vendoring its contract for the **first** time would have silently opened nothing.
+
+  Both now test `[ -z "$(git status --porcelain)" ]`, which sees additions and modifications alike.
+
+### Notes
+
+- Every acceptance criterion across the three specs has now been exercised against real repos and real CI. What is left in the pilot is optional: `pilot-mobile`'s codegen dependencies, which the flutter profile assigns to the first slice rather than the scaffold.
+- Two of this release's four defects were **silent successes** — a job that passed while doing nothing. Those are the ones a green check hides, and the only way either surfaced was watching a real run produce no PR.
+
 ## [1.95.3] - 2026-09-08
 
 ### Fixed
