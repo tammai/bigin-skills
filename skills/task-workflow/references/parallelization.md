@@ -8,7 +8,7 @@ Add an instance only from true necessity — a second genuinely independent task
 
 ## Worktree-per-instance rule
 
-Whenever ≥2 instances may touch overlapping code, give each its own `git worktree` and a named chat (`/rename`) so it's identifiable at a glance. Never point two instances at the same working tree — even read-only exploration in one can race against edits landing in another, and `spec-gate-guard.mjs`/`bugfix-test-guard.mjs` reason about the state of *a* working tree, not "whichever instance touched it last."
+Whenever ≥2 instances may touch overlapping code, give each its own `git worktree` and a named chat (`/rename`) so it's identifiable at a glance. Never point two instances at the same working tree — even read-only exploration in one can race against edits landing in another, and `spec-gate-guard.mjs`/`bugfix-test-guard.mjs` reason about the state of *a* working tree, not "whichever instance touched it last." **Each worktree therefore needs its own approved `PLAN.md`.** Since 1.90.1 `spec-gate-guard.mjs` resolves the plan against the edited file's own worktree rather than the session's cwd, so a plan in one tree no longer governs — or silently waves through — an edit in another.
 
 Two-repo layout (Nuxt frontend + Go backend), one instance per task:
 

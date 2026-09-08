@@ -237,8 +237,8 @@ Write to `.claude/guards/spec-gate-guard.mjs`.
 // Claude Code PreToolUse / Cursor preToolUse hook — reads tool input from stdin,
 // exits 2 to block on either host.
 import { existsSync, readFileSync } from 'node:fs'
-import { execSync, execFileSync } from 'node:child_process'
-import { join } from 'node:path'
+import { execFileSync } from 'node:child_process'
+import { dirname, join, resolve } from 'node:path'
 import { readPayload, toolCall, isWriteShaped } from './lib/hook-io.mjs'
 
 const data = readPayload('spec-gate-guard.mjs')
@@ -286,9 +286,25 @@ function isGitIgnored(path) {
 
 if (isGitIgnored(filePath)) process.exit(0)
 
-function currentBranch() {
+// A hook's process.cwd() is the session root, which is not the worktree the edited
+// file lives in. Resolving the plan and the branch against cwd reads another tree's
+// state — it blocked every non-trivial edit in a parallel-worktree run despite an
+// approved plan beside the file, and worse, let a main-worktree plan wave through an
+// edit in a worktree that had none. Both now resolve against the target file's tree.
+function worktreeRootFor(path) {
   try {
-    const b = execSync('git rev-parse --abbrev-ref HEAD', {
+    return execFileSync('git', ['-C', dirname(resolve(path)), 'rev-parse', '--show-toplevel'], {
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    }).trim()
+  } catch {
+    return process.cwd() // not a repo, or the parent directory does not exist yet
+  }
+}
+
+function currentBranch(root) {
+  try {
+    const b = execFileSync('git', ['-C', root, 'rev-parse', '--abbrev-ref', 'HEAD'], {
       encoding: 'utf-8',
       stdio: ['ignore', 'pipe', 'ignore']
     }).trim()
@@ -300,7 +316,8 @@ function currentBranch() {
 
 // { ok: true } | { ok: false } | { ok: false, declared, actual } for a branch mismatch.
 function planVerdict() {
-  const planPath = join(process.cwd(), 'PLAN.md')
+  const root = worktreeRootFor(filePath)
+  const planPath = join(root, 'PLAN.md')
   if (!existsSync(planPath)) return { ok: false }
   const plan = readFileSync(planPath, 'utf-8')
   const status = plan.match(/^Status:\s*(\S+)/m)
@@ -310,7 +327,7 @@ function planVerdict() {
   // simply skip the check. Never block on something git can't answer.
   const declared = plan.match(/^Branch:\s*(\S+)/m)?.[1]
   if (!declared) return { ok: true }
-  const actual = currentBranch()
+  const actual = currentBranch(root)
   if (!actual || declared === actual) return { ok: true }
   return { ok: false, declared, actual }
 }

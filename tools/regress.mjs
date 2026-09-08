@@ -11,16 +11,16 @@
  *   node tools/regress.mjs --skip-gates # the pre-commit hook's mode: it runs
  *                                       # the gates itself, so they aren't
  *                                       # repeated here
- *   node tools/regress.mjs --build      # + group 8: really install a scaffolded
+ *   node tools/regress.mjs --build      # + group 9: really install a scaffolded
  *                                       # site and run every pnpm step its CI
  *                                       # template runs. Network, ~3 minutes.
  *
- * Groups 1-7 are Node stdlib only, no network, no install — scaffolder cases
+ * Groups 1-8 are Node stdlib only, no network, no install — scaffolder cases
  * run with --no-install so the suite stays fast enough for a commit hook. They
  * assert on the *text* a scaffolder emits, which is enough to catch a token
  * that never got substituted, an import of a package no manifest declares, or
  * a helper nothing defines, and is not enough to catch anything that needs a
- * resolver or a compiler. Group 8 is the case that actually compiles, and it
+ * resolver or a compiler. Group 9 is the case that actually compiles, and it
  * is opt-in for the same reason it is necessary: it is slow.
  *
  * A case that cannot run prints SKIP with its reason and is counted in the
@@ -158,7 +158,7 @@ const COMMAND_BLOCKS = [
   ['ci.md gitlab: nuxt-marketing', fence('ci.md', 'gitlab: nuxt-marketing')],
   ['profile-nuxt-marketing.md Commands', fence('profile-nuxt-marketing.md', 'Commands')]
 ]
-// The GitHub workflow's own steps, in order. Group 8 runs these rather than a
+// The GitHub workflow's own steps, in order. Group 9 runs these rather than a
 // second list of them, so the build case proves the commands CI actually runs.
 const CI_STEPS = pnpmCalls(COMMAND_BLOCKS[0][1])
 
@@ -351,7 +351,7 @@ t('server/api holds exactly contact + newsletter', () => {
 // ── The four checks below are the always-on half of "does the scaffold build".
 //    They are structural, cost milliseconds, and between them they would have
 //    caught three of the four defects fixed in v1.88.2. What they cannot see is
-//    anything needing a resolver, a compiler or a prerender — that is group 8,
+//    anything needing a resolver, a compiler or a prerender — that is group 9,
 //    which runs only under --build.
 t('every requested locale reaches the config and the prerender routes', () => {
   const cfg = read(join(TMP,'s1','nuxt.config.ts'))
@@ -681,8 +681,143 @@ if (!csBase) {
 
 if (csServer) csServer.kill()
 
-console.log('\n8. SCAFFOLDED SITE BUILDS')
-// The expensive half. Groups 1-7 prove things about text and behaviour; this one
+// ── 8. guards ───────────────────────────────────────────────────────────
+//
+// The guard bodies live as ```javascript blocks inside hook-guard.md, which is
+// why nothing here has ever executed one: they are text until a harness install
+// writes them out. This group writes them out and runs them.
+//
+// spec-gate-guard is first because it is the one that failed OPEN. A hook's
+// process.cwd() is the SESSION root, not the worktree the edited file lives in,
+// so resolving PLAN.md against cwd read another tree's state: with a plan in the
+// main worktree only, an edit in a worktree that had none was allowed — the gate
+// waving through precisely what it exists to stop. Found downstream in
+// nuxt-ssg-site-factory and ported here in 1.90.1. task-workflow's own
+// parallelization reference recommends the worktree-per-instance pattern that
+// triggers it, so this is not an exotic configuration.
+
+console.log('\n8. GUARDS')
+
+// Pull a guard's source out of the reference file that ships it.
+function guardSource(name) {
+  const md = read(join(REPO, 'skills', 'bigin-harness-setup', 'references', 'hook-guard.md'))
+  const i = md.indexOf(`## ${name}`)
+  if (i === -1) throw new Error(`hook-guard.md has no "## ${name}" section`)
+  const start = md.indexOf('```javascript', i)
+  const end = md.indexOf('```', start + 13)
+  if (start === -1 || end === -1) throw new Error(`no javascript block under "## ${name}"`)
+  return md.slice(start + 14, end)
+}
+
+const GUARD_DIR = join(TMP, 'guards')
+let guardsReady = false
+try {
+  mkdirSync(join(GUARD_DIR, 'lib'), { recursive: true })
+  writeFileSync(join(GUARD_DIR, 'lib', 'hook-io.mjs'), guardSource('lib/hook-io.mjs'))
+  writeFileSync(join(GUARD_DIR, 'spec-gate-guard.mjs'), guardSource('spec-gate-guard.mjs'))
+  guardsReady = true
+} catch (e) {
+  skip('extract the guards from hook-guard.md', e.message)
+}
+
+if (guardsReady) {
+  const SPEC_GATE = join(GUARD_DIR, 'spec-gate-guard.mjs')
+  const BIG = 'line\n'.repeat(40)
+
+  // git exports GIT_DIR and GIT_WORK_TREE while running a hook, and they override
+  // `git -C`. Without scrubbing them these cases pass standalone and fail under the
+  // commit hook — which is how the downstream fix nearly shipped untested.
+  const CLEAN_ENV = { ...process.env }
+  delete CLEAN_ENV.GIT_DIR
+  delete CLEAN_ENV.GIT_WORK_TREE
+  delete CLEAN_ENV.GIT_INDEX_FILE
+
+  // CLEAN_ENV here too, not just on the guard run: under the commit hook git exports
+  // GIT_DIR at this repo, so an un-scrubbed `git init` silently builds no fixture at
+  // all and every case below fails for the wrong reason. This suite caught exactly
+  // that on its first run under the hook, having passed standalone.
+  const gitq = (cwd, ...args) => spawnSync('git', args, { cwd, encoding: 'utf8', stdio: 'ignore', env: CLEAN_ENV })
+
+  // A main worktree carrying an approved plan, plus a linked worktree carrying none.
+  const MAIN = join(TMP, 'wt-main')
+  const LINKED = join(TMP, 'wt-linked')
+  rmSync(MAIN, { recursive: true, force: true })
+  rmSync(LINKED, { recursive: true, force: true })
+  mkdirSync(MAIN, { recursive: true })
+  gitq(MAIN, 'init', '-q', '-b', 'main', '.')
+  gitq(MAIN, 'config', 'user.email', 'regress@example.com')
+  gitq(MAIN, 'config', 'user.name', 'regress')
+  writeFileSync(join(MAIN, 'seed.txt'), 'x\n')
+  gitq(MAIN, 'add', '-A')
+  gitq(MAIN, 'commit', '-qm', 'feat: seed')
+  writeFileSync(join(MAIN, 'PLAN.md'), 'Status: approved\nBranch: main\n')
+  gitq(MAIN, 'add', '-A')
+  gitq(MAIN, 'commit', '-qm', 'chore: plan')
+  gitq(MAIN, 'worktree', 'add', '-q', '-b', 'feat/side', LINKED)
+
+  // Runs the guard the way a host does: payload on stdin, cwd = the SESSION root,
+  // which is deliberately not the worktree the edited file lives in.
+  const gate = (filePath, { cwd = MAIN, payload = null } = {}) => spawnSync(
+    'node', [SPEC_GATE],
+    {
+      cwd,
+      encoding: 'utf8',
+      env: CLEAN_ENV,
+      input: payload ?? JSON.stringify({
+        tool_name: 'Edit',
+        tool_input: { file_path: filePath, content: BIG }
+      })
+    }
+  ).status
+
+  t('an edit in a worktree with no plan is blocked, even with one in the main tree', () => {
+    rmSync(join(LINKED, 'PLAN.md'), { force: true })
+    eq(gate(join(LINKED, 'src.ts')), 2, 'exit')
+    return 'blocked'
+  })
+
+  t('an edit beside its own approved plan is allowed', () => {
+    writeFileSync(join(LINKED, 'PLAN.md'), 'Status: approved\nBranch: feat/side\n')
+    eq(gate(join(LINKED, 'src.ts')), 0, 'exit')
+    return 'allowed'
+  })
+
+  t('the branch check judges the file\'s own worktree, not the session\'s', () => {
+    writeFileSync(join(LINKED, 'PLAN.md'), 'Status: approved\nBranch: some-other\n')
+    eq(gate(join(LINKED, 'src.ts')), 2, 'exit')
+    return 'blocked'
+  })
+
+  t('single-worktree behaviour is unchanged', () => {
+    eq(gate(join(MAIN, 'src.ts')), 0, 'main tree, approved plan')
+    const bare = join(TMP, 'wt-norepo')
+    mkdirSync(bare, { recursive: true })
+    eq(gate(join(bare, 'src.ts'), { cwd: bare }), 2, 'outside a repo, no plan')
+    return 'both'
+  })
+
+  t('a Cursor-shaped payload is gated identically', () => {
+    rmSync(join(LINKED, 'PLAN.md'), { force: true })
+    const cursor = JSON.stringify({
+      cursor_version: '1.0.0',
+      conversation_id: 'c1',
+      workspace_roots: [MAIN],
+      tool_name: 'Edit',
+      tool_input: { file_path: join(LINKED, 'src.ts'), content: BIG }
+    })
+    eq(gate(null, { payload: cursor }), 2, 'exit')
+    return 'blocked'
+  })
+
+  t('a PreToolUse gate fails closed on unreadable stdin', () => {
+    eq(gate(null, { payload: '{ not json' }), 2, 'malformed')
+    eq(gate(null, { payload: '' }), 2, 'empty')
+    return 'exit 2 both ways'
+  })
+}
+
+console.log('\n9. SCAFFOLDED SITE BUILDS')
+// The expensive half. Groups 1-8 prove things about text and behaviour; this one
 // is the only
 // case that proves the scaffolder emits a repo Nuxt can actually compile and
 // prerender, because that needs a real resolver, a real compiler and a real

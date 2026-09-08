@@ -5,6 +5,88 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.90.1] - 2026-09-08
+
+### Fixed
+
+- **`spec-gate-guard.mjs` failed open in a parallel-worktree run.** A hook's `process.cwd()` is the **session** root, not the worktree the edited file lives in. The guard resolved both `PLAN.md` and the current branch against `cwd`, so it read another tree's state entirely.
+
+  The visible half was a false block: every non-trivial edit refused as "PLAN.md missing or not approved" while an approved plan sat beside the file. **The dangerous half is why this is a patch release rather than a queued improvement** — with a plan in the main worktree only, an edit in a worktree that had none was **allowed**. The gate waved through exactly what it exists to stop, silently, in the configuration `task-workflow`'s own `references/parallelization.md` recommends.
+
+  Both now resolve against the target file's own worktree via `git -C <dirname of the file> rev-parse --show-toplevel`, falling back to `process.cwd()` when the path is not in a repo or its parent does not exist yet — so single-worktree behaviour is unchanged. `currentBranch()` had the same flaw and takes the resolved root.
+
+  **Found downstream, not here.** `nuxt-ssg-site-factory` hit it with two parallel implementers and fixed it in its own installed copy on 2026-09-05; the fix had not flowed back, so every repo installing this plugin still shipped the failing-open gate. The template is the source of truth for eleven profiles — a fix that lives only in one target repo protects one repo.
+
+- **The guards were never executed by any test.** They live as ` ```javascript ` blocks inside `hook-guard.md`, so they are text until a harness install writes them out, and `regress.mjs` had no way to run one. New **group 8** extracts a guard from the reference file and runs it for real: the fail-open case, the allow case, the branch check against the file's own tree, unchanged single-worktree behaviour, an identical verdict on a **Cursor-shaped payload**, and fail-closed on malformed and empty stdin. Mutation-checked — restoring `const root = process.cwd()` turns the fail-open case red and nothing else.
+
+  The cases scrub `GIT_DIR`, `GIT_WORK_TREE` and `GIT_INDEX_FILE` from the subprocess environment — from the **fixture's** git calls as well as the guard's. Git exports the first two while running a hook and they override `git -C`; without the scrub the cases pass standalone and fail under the commit hook. That is not hypothetical: this suite's first run under the hook failed four cases because only the guard invocation was scrubbed, so `git init` and `git worktree add` built no fixture at all. The `--build` group renumbered 8 → 9.
+
+**Known and deliberately not fixed here: `bugfix-test-guard.mjs` has the same class of flaw.** Its `execSync('git diff --cached --name-only')` carries no `-C`, so it reads the session's index rather than the tree the commit runs in. Unlike `spec-gate-guard.mjs` it has no file path to resolve a root from — only the command string — so a correct fix means parsing `git -C <path>` and `cd X && git commit` out of that string, which is real work and easy to get subtly wrong. It is not being rushed into a release that downstream repos are waiting on. The exposure is narrower: it needs a commit executed against a different tree than the session root, where the fixed guard's needed only an edit.
+
+**Already-scaffolded repos:** the blocks below patch an installed guard in place. If any is skipped as "anchor not found", that copy was hand-edited — replace the whole file from `hook-guard.md` → `## spec-gate-guard.mjs` rather than merging by hand.
+
+```patch
+target: .claude/guards/spec-gate-guard.mjs
+anchor: import { execSync, execFileSync } from 'node:child_process'
+import { join } from 'node:path'
+insert: replace
+---
+import { execFileSync } from 'node:child_process'
+import { dirname, join, resolve } from 'node:path'
+```
+
+```patch
+target: .claude/guards/spec-gate-guard.mjs
+anchor: function currentBranch() {
+  try {
+    const b = execSync('git rev-parse --abbrev-ref HEAD', {
+insert: replace
+---
+// A hook's process.cwd() is the session root, which is not the worktree the edited
+// file lives in. Resolving the plan and the branch against cwd reads another tree's
+// state — it blocked every non-trivial edit in a parallel-worktree run despite an
+// approved plan beside the file, and worse, let a main-worktree plan wave through an
+// edit in a worktree that had none. Both now resolve against the target file's tree.
+function worktreeRootFor(path) {
+  try {
+    return execFileSync('git', ['-C', dirname(resolve(path)), 'rev-parse', '--show-toplevel'], {
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    }).trim()
+  } catch {
+    return process.cwd() // not a repo, or the parent directory does not exist yet
+  }
+}
+
+function currentBranch(root) {
+  try {
+    const b = execFileSync('git', ['-C', root, 'rev-parse', '--abbrev-ref', 'HEAD'], {
+```
+
+```patch
+target: .claude/guards/spec-gate-guard.mjs
+anchor: const planPath = join(process.cwd(), 'PLAN.md')
+insert: before
+---
+const root = worktreeRootFor(filePath)
+```
+
+```patch
+target: .claude/guards/spec-gate-guard.mjs
+anchor: const planPath = join(process.cwd(), 'PLAN.md')
+insert: replace
+---
+const planPath = join(root, 'PLAN.md')
+```
+
+```patch
+target: .claude/guards/spec-gate-guard.mjs
+anchor: const actual = currentBranch()
+insert: replace
+---
+const actual = currentBranch(root)
+```
+
 ## [1.90.0] - 2026-09-08
 
 Phase 2 of the polyrepo project standard: `bigin-harness-setup` learns what kind of repo it is in.
