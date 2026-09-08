@@ -35,12 +35,30 @@ jobs:
       # Leaving it commented ships a workflow that fails at codegen.
       # =========================================================================
 
+      # A repo that has not run `bump` yet holds placeholder pins and vendors nothing.
+      # That is a normal starting state, and without this its CI is red from day one on
+      # every PR — the "always red, so people merge past it" failure. Same premise rule
+      # as the story gates skipping the sync bots:
+      # .claude/rules/skill-authoring.md -> a gate goes where its premise holds.
+      - name: Has this repo vendored a contract yet?
+        id: vendored
+        run: |
+          set -euo pipefail
+          if node scripts/contract_sync.mjs verify | grep -q 'not vendored yet'; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "No contract vendored yet — the drift check does not apply. Run bump first."
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Re-vendor and regenerate
+        if: steps.vendored.outputs.ready == 'true'
         env:
           GITHUB_TOKEN: ${{ steps.app.outputs.token }}
         run: node scripts/contract_sync.mjs sync
 
       - name: Fail on any difference
+        if: steps.vendored.outputs.ready == 'true'
         run: |
           set -euo pipefail
           if ! git diff --exit-code; then

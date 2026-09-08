@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.96.1] - 2026-09-08
+
+### Fixed
+
+- **`contract-drift` failed on any repo that had not vendored a contract yet** — a third instance of the rule 1.96.0 had just written down, found by that rule within minutes of writing it. The job's premise is "this repo vendors a contract"; a repo whose lock still holds placeholder pins does not, so its CI was red from day one on every PR. That is the "always red, so people merge past it" failure, and the pilot's mobile repo was living it.
+
+  The job now asks first, using `contract_sync.mjs verify` — which already answers "not vendored yet" at exit 0 — so the check that decides whether a repo is vendored stays in the script rather than being re-derived as lock-shape parsing in YAML.
+
+  Worth recording that the count is now three: `bugfix-test-guard` off `contracts`, the story gates skipping the sync bots, and this. Each was found separately, and the third was found *because* the first two had been generalised. That is the argument for distilling a convention rather than fixing instances.
+
+### Notes
+
+- All four story-sync PRs merged. Every consumer now holds three stories, each stamped `synced: true`, and the invariants hold on live repos: the guard refuses to edit one and names its sidecar; `ST-003` declares `ui: yes` with no sidecar and is correctly not-ready in all four; `ST-001` is ready only in the one repo that has a sidecar for it.
+
 ## [1.96.0] - 2026-09-08
 
 ### Added
