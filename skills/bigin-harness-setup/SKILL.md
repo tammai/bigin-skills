@@ -267,6 +267,23 @@ Two shapes. **nuxt / next / tauri with `SCAFFOLDED = true`** already have a `.cl
 
 Both shapes register seven events: `PreToolUse`, `PostToolUse`, `SessionStart`, `PreCompact`, `SessionEnd`, `Setup` (and `PostToolUse` lint-fix on nuxt/nuxt-marketing/next/tauri). The exact per-event merge list and the two allowlist exceptions: `references/overlay-matrix.md` → `## 5-3`.
 
+
+**One conditional entry.** When Phase 0a set `REPO_TYPE` to `api`, `web` or `mobile`, add `vendored-contract-guard.mjs` to the `PreToolUse` block on the `Edit|Write|MultiEdit` matcher, beside `spec-gate-guard.mjs`:
+
+```json
+{
+  "matcher": "Edit|Write|MultiEdit",
+  "hooks": [
+    {
+      "type": "command",
+      "command": "node .claude/guards/vendored-contract-guard.mjs"
+    }
+  ]
+}
+```
+
+It is the only gate that is not installed on every profile, because it is the only one whose subject — a vendored contract and synced docs — does not exist outside a polyrepo consumer repo. `.cursor/hooks.json` gets the matching entry with `failClosed: true` (`references/cursor-parity.md`); registering it on one host only is the failure this repo has shipped before.
+
 ### 5-3b. Editor + per-stack config files
 
 Three steps that only some profiles run. Each one's procedure, and why the others skip it, is in `references/overlay-matrix.md`:

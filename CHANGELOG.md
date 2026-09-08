@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.91.0] - 2026-09-08
+
+Phase 3 of the polyrepo project standard: the one-way flow contracts → consumers is now enforced rather than agreed.
+
+### Added
+
+- **`vendored-contract-guard.mjs` — a tenth gate, installed only on polyrepo consumer repos.** It denies edits to the vendored API spec, `api-contract.lock`, and any file carrying `synced: true` frontmatter. It is the one gate not on every profile, because it is the one whose subject does not exist outside a consumer repo.
+
+  **The deny is unconditional, including for the tool that legitimately writes those files.** A `PreToolUse` hook sees a tool call, not process ancestry, and `isWriteShaped()` never matches a script's own `node:fs` writes inside a Bash call — so "unless `contract_sync.mjs` did it" is not a rule a hook can express. The script passes **by construction**: it never routes through `Edit`/`Write`/`MultiEdit`. Anything reaching this gate is a hand edit, which is exactly what it is for.
+
+  **Every refusal names where the edit belongs.** The contract cases name the contracts repo, read out of the repo's own lock; a synced story names its `docs/story-meta/<id>.yaml` sidecar, which is writable and is usually where the person actually wanted to put something. A gate that only says no gets worked around.
+
+  Registered on **both hosts** — `.claude/settings.json` from Phase 5-3 and `.cursor/hooks.json` with `failClosed: true`. A gate present on one host only is a per-person difference in what the repo enforces.
+
+- **Session start reports contract staleness**, by extending `session-resume-check.mjs` rather than adding a second `SessionStart` script — two would compete for the same one-shot context injection and whichever ran second would be the one nobody sees. It runs `contract_sync.mjs check` only when both the lock and the script exist, and prints a line only when that exits 0 with output: a notice must never become a diagnostic about itself. A 2.5 s subprocess timeout backstops the script's own 1500 ms fetch cap, for the case that cap cannot cover — a process that never returns at all. A regress case asserts a deliberately hung check does not hold up a session.
+
+- **`regress.mjs` group 8 now covers both new guards**, and group 6 gained the check that should have existed all along: **every gate registered on Claude Code is registered on Cursor too**, parsed out of the profile blocks and `SKILL.md` and diffed against `cursor-parity.md`, minus the three documented Claude-only scripts. Mutation-verified — pointing the Cursor entry at a different filename turns it red. 66 cases total.
+
+### Fixed
+
+- **The new guard allowed everything under a symlinked path, and the suite caught it before it shipped.** `git rev-parse --show-toplevel` resolves symlinks; `resolve()` does not. On macOS a repo under `/tmp` or `/var` gives `/private/...` from git and `/...` from the payload, so the `relative()` between them escaped the repo root and every check was skipped. It passed a hand-written fixture (already under `/private`) and failed the moment `regress.mjs` ran it from `tmpdir()`. The guard now resolves the file's directory with `realpathSync` before comparing — the directory rather than the file, since a `Write` creates a file that does not exist yet.
+
+### Notes
+
+- No `patch` block for the guard or its registration. Both arrive when a repo is set up **as** a consumer, and writing an unregistered guard file into every already-scaffolded repo would be clutter that does nothing. A repo joining a polyrepo project runs `bigin-harness-setup` and answers the Phase 0a confirmation.
+- What Phase 3 does not prove: no repo has yet been set up with a `REPO_TYPE`, so the registration path has been read but not executed end-to-end. The guard itself is executed, against a real fixture repo, by group 8.
+
 ## [1.90.1] - 2026-09-08
 
 ### Fixed

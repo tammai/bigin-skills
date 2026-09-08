@@ -508,6 +508,34 @@ t('no stale separate-Worker wording survives', () => {
 // A refusal that still leaves a half-vendored spec next to a stale client is the
 // exact drift the skill exists to prevent, and it is invisible in an exit code.
 
+// Every gate must be registered on BOTH hosts. A gate present in
+// .claude/settings.json and absent from .cursor/hooks.json is a Cursor teammate
+// quietly editing files a Claude Code teammate cannot — a silent, per-person
+// difference in what the repo enforces, which is the failure mode the
+// one-body-two-hosts rule exists to prevent.
+t('every gate a profile registers is registered on Cursor too', () => {
+  const REF = join(REPO, 'skills', 'bigin-harness-setup', 'references')
+  // Documented Claude-Code-only, and not gates: a Setup bootstrap, a formatter,
+  // and an opt-in debug log. cursor-parity.md states each and why.
+  const CLAUDE_ONLY = new Set(['install-hooks.mjs', 'lint-fix-file.mjs', 'instructions-trace.mjs'])
+
+  const claudeSide = new Set()
+  for (const f of readdirSync(REF).filter(f => f.startsWith('profile-') && f.endsWith('.md'))) {
+    for (const m of read(join(REF, f)).matchAll(/\.claude\/guards\/([a-z-]+\.mjs)/g)) claudeSide.add(m[1])
+  }
+  // The conditional gate is registered from SKILL.md, not from a profile block.
+  for (const m of read(join(REPO, 'skills', 'bigin-harness-setup', 'SKILL.md')).matchAll(/\.claude\/guards\/([a-z-]+\.mjs)/g)) {
+    claudeSide.add(m[1])
+  }
+
+  const cursor = read(join(REF, 'cursor-parity.md'))
+  const cursorSide = new Set([...cursor.matchAll(/\.claude\/guards\/([a-z-]+\.mjs)/g)].map(m => m[1]))
+
+  const missing = [...claudeSide].filter(g => !CLAUDE_ONLY.has(g) && !cursorSide.has(g))
+  if (missing.length > 0) throw new Error(`registered on Claude Code but not Cursor: ${missing.join(', ')}`)
+  return `${claudeSide.size - CLAUDE_ONLY.size} gates on both hosts`
+})
+
 console.log('\n7. CONTRACT SYNC')
 
 const CS = join(REPO, 'skills', 'contract-sync', 'scripts', 'contract_sync.mjs')
@@ -808,6 +836,164 @@ if (guardsReady) {
     eq(gate(null, { payload: cursor }), 2, 'exit')
     return 'blocked'
   })
+
+  // ── vendored-contract-guard ──────────────────────────────────────────
+  //
+  // Every case asserts the exit code AND, for a refusal, that the message names
+  // somewhere to go. A gate that only says no gets worked around.
+
+  const VCG = join(GUARD_DIR, 'vendored-contract-guard.mjs')
+  let vcgReady = false
+  try {
+    writeFileSync(VCG, guardSource('vendored-contract-guard.mjs'))
+    vcgReady = true
+  } catch (e) {
+    skip('extract vendored-contract-guard', e.message)
+  }
+
+  if (vcgReady) {
+    const VREPO = join(TMP, 'vendored')
+    rmSync(VREPO, { recursive: true, force: true })
+    for (const d of ['docs/stories', 'docs/story-meta', 'api/openapi', 'src']) {
+      mkdirSync(join(VREPO, d), { recursive: true })
+    }
+    gitq(VREPO, 'init', '-q', '.')
+    writeFileSync(join(VREPO, 'api-contract.lock'), JSON.stringify({
+      contracts: { core: { repo: 'bigin-io/acme-contracts', file: 'openapi/core.v1.yaml', ref: 'v1.0.0', commit: 'a', sha256: 'b' } }
+    }))
+    for (const f of ['openapi.yaml', 'api/openapi.yaml', 'api/openapi/core.yaml']) {
+      writeFileSync(join(VREPO, f), 'openapi: 3.0.3\n')
+    }
+    writeFileSync(join(VREPO, 'docs/stories/ST-042.md'), '---\nsynced: true\nstory: ST-042\n---\n# Story\n')
+    writeFileSync(join(VREPO, 'docs/notes.md'), '---\ntitle: mine\n---\n# Notes\n')
+    writeFileSync(join(VREPO, 'docs/story-meta/ST-042.yaml'), 'story: ST-042\n')
+    writeFileSync(join(VREPO, 'src/app.ts'), 'x\n')
+
+    const vcg = (rel, tool = 'Edit') => spawnSync('node', [VCG], {
+      cwd: VREPO,
+      encoding: 'utf8',
+      env: CLEAN_ENV,
+      input: JSON.stringify({
+        tool_name: tool,
+        tool_input: tool === 'Read' ? { file_path: join(VREPO, rel) } : { file_path: join(VREPO, rel), content: 'x' }
+      })
+    })
+
+    t('the vendored spec and its lock are denied on every layout', () => {
+      for (const f of ['api-contract.lock', 'openapi.yaml', 'api/openapi.yaml', 'api/openapi/core.yaml']) {
+        const r = vcg(f)
+        eq(r.status, 2, `${f} exit`)
+        if (!r.stderr.includes('contract_sync.mjs bump')) throw new Error(`${f}: message names no way forward`)
+      }
+      return '4 paths'
+    })
+
+    t('the refusal names the contracts repo, read out of the lock', () => {
+      const r = vcg('openapi.yaml')
+      if (!r.stderr.includes('bigin-io/acme-contracts')) throw new Error('did not name the contracts repo')
+      return 'named'
+    })
+
+    t('a synced story is denied and points at its own sidecar', () => {
+      const r = vcg('docs/stories/ST-042.md')
+      eq(r.status, 2, 'exit')
+      if (!r.stderr.includes('docs/story-meta/ST-042.yaml')) throw new Error('did not name the sidecar')
+      return 'sidecar named'
+    })
+
+    t('what this repo does own is left alone', () => {
+      for (const f of ['docs/notes.md', 'docs/story-meta/ST-042.yaml', 'src/app.ts', 'openapi-notes.md']) {
+        eq(vcg(f).status, 0, `${f} exit`)
+      }
+      eq(vcg('openapi.yaml', 'Read').status, 0, 'a Read is not a write')
+      return '5 allowed'
+    })
+
+    t('vendored-contract-guard fails closed on unreadable stdin', () => {
+      for (const bad of ['{ not json', '']) {
+        eq(spawnSync('node', [VCG], { cwd: VREPO, encoding: 'utf8', env: CLEAN_ENV, input: bad }).status, 2, 'exit')
+      }
+      return 'exit 2 both ways'
+    })
+
+    // The guard's path regex and contract_sync.mjs's adapter table are two
+    // statements of the same fact in two files. Drift means the guard stops
+    // covering a layout the script still writes — silently, since nothing else
+    // reads both. So check them against each other.
+    t('the guard covers every path contract_sync.mjs can vendor', () => {
+      const src = read(join(REPO, 'skills', 'contract-sync', 'scripts', 'contract_sync.mjs'))
+      const specs = [...src.matchAll(/spec: (?:'([^']+)'|join\('([^']+)', '([^']+)'\))/g)]
+        .map(m => m[1] ?? `${m[2]}/${m[3]}`)
+      const dirs = [...src.matchAll(/multiDir: (?:'([^']+)'|join\('([^']+)', '([^']+)'\))/g)]
+        .map(m => m[1] ?? `${m[2]}/${m[3]}`)
+      if (specs.length !== 3 || dirs.length !== 3) {
+        throw new Error(`parsed ${specs.length} spec paths and ${dirs.length} multiDirs, expected 3 and 3`)
+      }
+      const guard = guardSource('vendored-contract-guard.mjs')
+      const re = new RegExp(guard.match(/const VENDORED_SPEC = \/(.+)\/$/m)[1])
+      for (const p of specs) if (!re.test(p)) throw new Error(`guard does not cover ${p}`)
+      for (const d of dirs) if (!re.test(`${d}/core.yaml`)) throw new Error(`guard does not cover ${d}/<name>.yaml`)
+      return `${specs.length} specs + ${dirs.length} dirs`
+    })
+  }
+
+  // ── session-resume-check, contract-staleness half ────────────────────
+
+  let srcReady = false
+  const SRC = join(GUARD_DIR, 'session-resume-check.mjs')
+  try {
+    writeFileSync(SRC, guardSource('session-resume-check.mjs'))
+    srcReady = true
+  } catch (e) {
+    skip('extract session-resume-check', e.message)
+  }
+
+  if (srcReady) {
+    const mkConsumer = (name, { script = null, lock = true } = {}) => {
+      const dir = join(TMP, `srck-${name}`)
+      rmSync(dir, { recursive: true, force: true })
+      mkdirSync(join(dir, 'scripts'), { recursive: true })
+      if (lock) writeFileSync(join(dir, 'api-contract.lock'), '{"contracts":{}}')
+      if (script) writeFileSync(join(dir, 'scripts', 'contract_sync.mjs'), script)
+      return dir
+    }
+    const session = dir => spawnSync('node', [SRC], {
+      cwd: dir, encoding: 'utf8', env: CLEAN_ENV,
+      input: JSON.stringify({ cwd: dir, hook_event_name: 'SessionStart' })
+    })
+
+    t('session start reports contract staleness on a consumer repo', () => {
+      const dir = mkConsumer('ok', { script: "console.log('core: lock v1.0.0 (abc1234) — latest v2.0.0')\n" })
+      const r = session(dir)
+      eq(r.status, 0, 'exit')
+      if (!r.stdout.includes('Contract:') || !r.stdout.includes('latest v2.0.0')) {
+        throw new Error(`no contract line: ${r.stdout.trim().slice(0, 120)}`)
+      }
+      return 'reported'
+    })
+
+    t('session start says nothing when there is nothing to say', () => {
+      // No lock at all — an ordinary repo must not pay for this feature.
+      eq(session(mkConsumer('nolock', { lock: false })).stdout.includes('Contract:'), false, 'silent')
+      // Lock but no script installed yet.
+      eq(session(mkConsumer('noscript')).stdout.includes('Contract:'), false, 'silent')
+      // The check failed — a notice must never become a diagnostic about itself.
+      const failing = mkConsumer('failing', { script: "console.log('half a line'); process.exit(1)\n" })
+      eq(session(failing).stdout.includes('Contract:'), false, 'silent on failure')
+      return '3 quiet cases'
+    })
+
+    t('a hung check cannot hold up a session', () => {
+      const dir = mkConsumer('hung', { script: 'setTimeout(() => {}, 60000)\n' })
+      const t0 = Date.now()
+      const r = session(dir)
+      const ms = Date.now() - t0
+      eq(r.status, 0, 'exit')
+      if (ms > 8000) throw new Error(`session start took ${ms} ms`)
+      eq(r.stdout.includes('Contract:'), false, 'no line from a timed-out check')
+      return `${ms} ms`
+    })
+  }
 
   t('a PreToolUse gate fails closed on unreadable stdin', () => {
     eq(gate(null, { payload: '{ not json' }), 2, 'malformed')

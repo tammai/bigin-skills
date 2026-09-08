@@ -376,6 +376,145 @@ if (changeSize() > LINE_THRESHOLD) {
 
 ---
 
+## vendored-contract-guard.mjs
+
+Write to `.claude/guards/vendored-contract-guard.mjs`. **Installed only on consumer repo types** (`REPO_TYPE` = `api` / `web` / `mobile`) and on any repo receiving synced docs.
+
+Denies edits to three things this repo does not own: the vendored API spec, `api-contract.lock`, and any file carrying `synced: true` frontmatter.
+
+**The deny is unconditional — there is no "unless `contract_sync.mjs` did it" exemption**, because a PreToolUse hook sees a tool call, not process ancestry, and `isWriteShaped()` never matches a script's own `node:fs` writes inside a Bash call. The script passes **by construction**, not by exception: it never routes through `Edit`/`Write`/`MultiEdit`. Anything that does reach this guard is a hand edit, which is exactly what it exists to stop.
+
+Two design notes worth keeping:
+
+- **Paths resolve against the edited file's own worktree**, via the same `worktreeRootFor()` shape `spec-gate-guard.mjs` uses. A hook's `process.cwd()` is the session root; resolving `api-contract.lock` against it in a parallel-worktree run reads another tree's state, which is precisely the defect fixed in 1.90.1. Do not "simplify" this back to `process.cwd()`.
+- **The message names where the edit belongs**, not just that it is refused. A refusal that leaves someone with nowhere to go gets worked around — so the contract case names the contracts repo (read out of the lock) and the sync case names the story's own sidecar, which *is* the writable place for what they were probably trying to add.
+
+```javascript
+#!/usr/bin/env node
+// Denies edits to files this repo does not own: the vendored API contract, the
+// lock that pins it, and any doc synced in from another repo.
+// Claude Code PreToolUse / Cursor preToolUse hook — reads tool input from stdin,
+// exits 2 to block on either host.
+import { existsSync, readFileSync, realpathSync } from 'node:fs'
+import { basename, dirname, join, relative, resolve, sep } from 'node:path'
+import { execFileSync } from 'node:child_process'
+import { readPayload, toolCall, isWriteShaped } from './lib/hook-io.mjs'
+
+const data = readPayload('vendored-contract-guard.mjs')
+const call = toolCall(data)
+const filePath = call.input.file_path ?? ''
+
+if (!filePath) process.exit(0)
+
+// Self-filter on shape rather than trusting the host's matcher: .cursor/hooks.json
+// registers preToolUse with no matcher, so a Read would otherwise arrive here.
+if (!isWriteShaped(call)) process.exit(0)
+
+// A hook's process.cwd() is the session root, not the worktree the edited file lives
+// in. Same rule, and same reason, as spec-gate-guard.mjs — see v1.90.1.
+function worktreeRootFor(path) {
+  try {
+    return execFileSync('git', ['-C', dirname(resolve(path)), 'rev-parse', '--show-toplevel'], {
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    }).trim()
+  } catch {
+    return process.cwd() // not a repo, or the parent directory does not exist yet
+  }
+}
+
+// `git rev-parse --show-toplevel` resolves symlinks; `resolve()` does not. On macOS a
+// repo under /tmp or /var yields /private/... from git and /... from the payload, and
+// the relative() below then escapes the root and this guard allows EVERYTHING. Resolve
+// the directory (the file itself may not exist yet — a Write creates it) so both sides
+// are real paths.
+function realDir(path) {
+  const dir = dirname(resolve(path))
+  try {
+    return realpathSync(dir)
+  } catch {
+    return dir // not created yet; a path that cannot be resolved cannot be inside the repo either
+  }
+}
+
+const root = worktreeRootFor(filePath)
+const rel = relative(root, join(realDir(filePath), basename(filePath))).split(sep).join('/')
+
+// Outside the repo entirely — not ours to judge.
+if (rel.startsWith('../')) process.exit(0)
+
+// Every vendored-spec layout contract_sync.mjs can write: the single-contract path
+// for each repo type, and the <dir>/<name>.yaml form a multi-contract repo uses.
+// regress.mjs asserts this covers every path in that script's adapter table, so the
+// two cannot drift apart silently.
+const VENDORED_SPEC = /^(api\/)?openapi(\.yaml|\/[^/]+\.yaml)$/
+const LOCK = 'api-contract.lock'
+
+function contractsRepo() {
+  try {
+    const lock = JSON.parse(readFileSync(join(root, LOCK), 'utf-8'))
+    const first = Object.values(lock.contracts ?? {})[0]
+    return typeof first?.repo === 'string' ? first.repo : 'the contracts repo'
+  } catch {
+    return 'the contracts repo'
+  }
+}
+
+// A synced file is generated wholesale by the sync script and carries a frontmatter
+// marker. Only the head of the file is read — the marker is in the first block or it
+// is not there at all.
+function isSynced(path) {
+  if (!existsSync(path)) return false // a brand-new file was never synced
+  let head
+  try {
+    head = readFileSync(path, 'utf-8').slice(0, 1024)
+  } catch {
+    return false
+  }
+  if (!head.startsWith('---')) return false
+  const end = head.indexOf('\n---', 3)
+  if (end === -1) return false
+  return /^synced:\s*true\s*$/m.test(head.slice(3, end))
+}
+
+function refuse(reason) {
+  console.error(`Error: ${reason}`)
+  process.exit(2)
+}
+
+if (rel === LOCK) {
+  refuse(
+    `${LOCK} records which commit of the API contract this repo is pinned to, and is written `
+    + 'only by contract_sync.mjs. To move to another published version, run: '
+    + 'node scripts/contract_sync.mjs bump <tag>'
+  )
+}
+
+if (VENDORED_SPEC.test(rel)) {
+  refuse(
+    `${rel} is vendored from ${contractsRepo()} at a pinned commit and is not editable here. `
+    + 'An API change belongs in that repo, in its own session — if a shape this app needs is '
+    + 'missing, say so and stop rather than adding it here. To take a published change, run: '
+    + 'node scripts/contract_sync.mjs bump <tag>'
+  )
+}
+
+if (isSynced(resolve(filePath))) {
+  // docs/stories/ST-042.md -> docs/story-meta/ST-042.yaml, which IS writable and is
+  // very often where the person actually wanted to put something.
+  const story = rel.match(/^docs\/stories\/(.+)\.md$/)
+  const sidecar = story ? ` Dev-side context belongs in docs/story-meta/${story[1]}.yaml, which is yours and never synced.` : ''
+  refuse(
+    `${rel} was synced in from another repo and is regenerated wholesale — an edit here is `
+    + `thrown away on the next sync. Edit it where it is written.${sidecar}`
+  )
+}
+
+process.exit(0)
+```
+
+---
+
 ## bugfix-test-guard.mjs
 
 Write to `.claude/guards/bugfix-test-guard.mjs`.
@@ -736,7 +875,7 @@ Write to `.claude/guards/session-resume-check.mjs`.
 // Runs once per session, so this stays cheap and non-noisy.
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { execSync } from 'node:child_process'
+import { execSync, spawnSync } from 'node:child_process'
 import { readPayload, projectDir, emitContext } from './lib/hook-io.mjs'
 
 // SessionStart can't block, so an unparsable payload exits 0 quietly. The payload is
@@ -785,6 +924,34 @@ if (existsSync(graphPath)) {
   } catch {
     // not a git repo, git missing, shallow clone edge case — degrade silently,
     // same fallback-to-grep/read behavior every consuming skill already has
+  }
+}
+
+// Contract staleness, on consumer repos only. This extends the existing SessionStart
+// guard rather than adding a second one on purpose: both would compete for the same
+// one-shot context injection, and whichever ran second would be the one nobody sees.
+//
+// `check` writes nothing, exits 0 offline or unauthenticated with a single skip line,
+// and bounds its own network call. The extra timeout here is the backstop for the case
+// its own budget cannot cover — a process that never returns at all.
+const lockPath = join(root, 'api-contract.lock')
+const syncScript = join(root, 'scripts', 'contract_sync.mjs')
+if (existsSync(lockPath) && existsSync(syncScript)) {
+  try {
+    const r = spawnSync('node', [syncScript, 'check'], {
+      cwd: root,
+      encoding: 'utf-8',
+      timeout: 2500,
+      stdio: ['ignore', 'pipe', 'ignore']
+    })
+    const report = (r.stdout ?? '').trim()
+    // Report only what it said. A non-zero exit or a timeout is not worth a line:
+    // this is a notice, and a session must never open on a diagnostic about a notice.
+    if (r.status === 0 && report) {
+      lines.push(`Contract: ${report.split('\n').join(' | ')}`)
+    }
+  } catch {
+    // degrade silently — same rule as every other block here
   }
 }
 

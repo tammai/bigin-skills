@@ -13,7 +13,7 @@ Phase 5 writes the same enforcement layer for every profile. Five steps branch, 
 | **5-3b3** `rust-toolchain.toml` + `tauri.conf.json` | — | — | — | **write / check** | — | — | — | — | — | — | — |
 | **5.6** CI extra | — | build + prerender + 3 greps, no deploy | — | 2 jobs, no installers | — | — | `.fvmrc` | no CI at all | story lint only | **none — see below** | E2E on a schedule |
 
-Everything not in that table is identical across the eight stack profiles: all ten guard scripts, `hook-io.mjs`, the context-budget gate, the commit-msg gate, the version marker, and the model-routing config.
+Everything not in that table is identical across the eight stack profiles: every guard script the profile installs, `hook-io.mjs`, the context-budget gate, the commit-msg gate, the version marker, and the model-routing config. (`vendored-contract-guard.mjs` is the one exception and it is not a profile difference — it is installed on any repo whose `REPO_TYPE` is `api`, `web` or `mobile`, whatever its stack.)
 
 **The three polyrepo profiles are the exception, and it is the gate set itself that differs** — see `## Polyrepo profiles: which gates apply` below.
 

@@ -126,6 +126,22 @@ Pattern credited to [Lasso Security's PostToolUse Defender](https://www.lasso.se
 
 ---
 
+## 4b. vendored-contract-guard — files this repo doesn't own
+
+Installed only on a **polyrepo consumer repo** (`REPO_TYPE` = `api`, `web` or `mobile`). It is the one gate that isn't on every profile, because it's the one whose subject doesn't exist elsewhere.
+
+It denies edits to three things:
+
+| What | Why |
+|---|---|
+| the vendored API spec (`openapi.yaml`, `api/openapi.yaml`, `openapi/<name>.yaml`) | it's a copy of a contract another repo owns, pinned to a commit and checksum-verified. Editing it here makes the client compile against a contract the server never agreed to |
+| `api-contract.lock` | it records which commit you're pinned to. Hand-editing it either breaks the next sync or blesses bytes nobody verified |
+| any file carrying `synced: true` frontmatter | it's regenerated wholesale from the repo that owns it, so an edit here is thrown away on the next sync |
+
+**The deny is unconditional — including for the tool that legitimately writes these.** A `PreToolUse` hook sees a tool call, not process ancestry, so "unless `contract_sync.mjs` did it" isn't something a hook can know. `contract_sync.mjs` passes by construction instead: it writes through `node:fs` from a Bash call and never touches `Edit`/`Write`. Anything that *does* reach this gate is a hand edit.
+
+Each refusal names where the edit belongs — the contracts repo by name, read out of your lock, or for a synced story its own `docs/story-meta/<id>.yaml` sidecar, which is yours and is very often what you actually wanted.
+
 ## 5. The non-blocking hooks
 
 Five hooks that never block anything (five scripts, counting `injection-scan-guard` from §4 — six in a `nuxt`, `nuxt-marketing`, `next` or `tauri` repo, which also gets `lint-fix-file.mjs` on `PostToolUse` to format what was just written). `precompact-snapshot.mjs` serves two of the five events, which is why there are five scripts and not six. They're easy to forget precisely because they never interrupt you.
@@ -214,6 +230,8 @@ Each guard's message names its own escape, and each is a real one:
 | `spec-gate-guard`, `PLAN.md is for branch 'X'` | a plan left over from another task: finish it, update its `Branch:` line after a deliberate rename or rebase, or delete it |
 | `commit-msg-guard` | rewrite the subject as a Conventional Commit under 100 chars |
 | `bugfix-test-guard` | stage the regression test, or `[no-test]` with the reason stated |
+| `vendored-contract-guard`, vendored spec or lock | the change belongs in the contracts repo. To take a published one: `node scripts/contract_sync.mjs bump <tag>` |
+| `vendored-contract-guard`, synced file | edit it in the repo that owns it; dev-side context goes in the sidecar the message names |
 | `bash-guard` | `--force-with-lease` instead of `--force`; for `--no-verify`, fix what's failing |
 | `injection-gate` stage 2 | review what was just fetched, then approve or decline the ask |
 | `injection-gate` stage 3 | **stop.** This one isn't a false positive to work around |

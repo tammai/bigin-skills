@@ -94,7 +94,7 @@ Cursor also reads nested `AGENTS.md` files in subdirectories. The harness doesn'
 
 ## .cursor/hooks.json
 
-Write to `.cursor/hooks.json`. Same nine guards as `.claude/settings.json`, same script paths.
+Write to `.cursor/hooks.json`. Same guards as `.claude/settings.json`, same script paths — the nine every profile installs, plus `vendored-contract-guard.mjs` when `REPO_TYPE` is `api`, `web` or `mobile`.
 
 **No matchers, deliberately.** Cursor's matcher semantics differ per event (for `beforeShellExecution` it matches the *command string*, not the tool name), and a matcher that silently fails to match turns a gate off without any signal. Every guard already self-filters — `bash-guard` needs a command, `bugfix-test-guard` needs `git commit`, `spec-gate-guard` needs write-shaped input, `injection-scan-guard` needs a fetch-shaped call — so matcher-less registration costs a few no-op script runs and removes a whole class of silent-failure. Don't "optimize" this by adding matchers.
 
@@ -124,6 +124,14 @@ Write to `.cursor/hooks.json`. Same nine guards as `.claude/settings.json`, same
   }
 }
 ```
+
+**On a polyrepo consumer repo** (`REPO_TYPE` = `api` / `web` / `mobile`), append one more object to `preToolUse` — a tenth gate, and the only one not installed everywhere:
+
+```json
+{ "type": "command", "command": "node .claude/guards/vendored-contract-guard.mjs", "failClosed": true }
+```
+
+`failClosed: true` because it blocks: a crashed gate that fails open here would let a hand edit into the vendored contract, which is the whole thing it exists to prevent. It must be registered on **both** hosts or on neither — a gate present in `.claude/settings.json` and absent here is a Cursor teammate quietly editing files a Claude Code teammate cannot.
 
 If `.cursor/hooks.json` already exists, **merge per event** — append missing entries, never drop the user's. Same rule `.claude/settings.json` follows.
 

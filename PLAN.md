@@ -1,7 +1,7 @@
 # Plan: Polyrepo project standard — contract-sync, repo types, story sync, Flutter handoff
 
 Status: approved
-Branch: main
+Branch: feat/polyrepo-phase-3-guards
 
 Source: `bigin-skills-polyrepo-upgrade.zip` — `SPEC-polyrepo-standard.md` (umbrella),
 `SPEC-contract-sync.md`, `SPEC-figma-handoff-flutter.md`, four templates. Those specs are
@@ -280,10 +280,10 @@ alters theme files only; a pruned component fails by name.
 | 7 | `profile-specs.md`, `profile-contracts.md`, `profile-qa.md` + overlay-matrix + scaffold-delegation rows | Done | Gate sets differ per profile (6/8/8 of the nine), argued in overlay-matrix's new section — a gate whose premise is false teaches people to work around gates |
 | 8 | Vendored-vs-authored mode statement in `profile-go.md`, `profile-nuxt.md` and `profile-flutter.md` | Done | Shared rule single-sourced as `.claude/rules/vendored-contract.md` in `files-shared.md`; each profile keeps a two-row mode table. Also fixed a live defect: go's `paths:` named `api/openapi.yaml`, a file go repos do not have, so the architecture rule never loaded on the contract |
 | 9 | `regress.mjs` suffix-mapping group | Done | Added to group 4 rather than renumbering again: 12 name cases, the ladder-still-nine-rungs assertion, and a cross-check of overlay-matrix's 6/8/8 claim against the settings JSON each profile writes |
-| 10 | New synced/vendored-path guard in `hook-guard.md`, both hosts, C4's rule | Not started | Phase 3 |
-| 11 | Extend `session-resume-check.mjs` with staleness lines (C5 budget) | Not started | Phase 3 — extend, never add a second SessionStart script |
-| 12 | Register the guard in every consumer profile's `.claude/settings.json` + `.cursor/hooks.json`; CHANGELOG patch blocks | Not started | Phase 3 |
-| 13 | `regress.mjs` both-hosts guard-registration group | Not started | Risk 3 |
+| 10 | New synced/vendored-path guard in `hook-guard.md`, both hosts, C4's rule | Done | `vendored-contract-guard.mjs`. Caught a symlink bug in it via regress: git's `--show-toplevel` returns a realpath, `resolve()` does not, so on macOS the guard allowed everything |
+| 11 | Extend `session-resume-check.mjs` with staleness lines (C5 budget) | Done | Extended, not duplicated. 2.5 s subprocess backstop on top of the script's own 1500 ms fetch cap; silent on failure, absent lock, or missing script |
+| 12 | Register the guard in every consumer profile's `.claude/settings.json` + `.cursor/hooks.json`; CHANGELOG patch blocks | Done | Conditional on `REPO_TYPE`, so it is registered from SKILL.md Phase 5-3 and cursor-parity rather than a static profile block |
+| 13 | `regress.mjs` both-hosts guard-registration group | Done | In group 6: parses every guard out of the profile blocks and SKILL.md, diffs against cursor-parity, minus the three documented Claude-only scripts. Mutation-verified |
 | 14 | `story_sync.mjs` + dispatch workflow templates in `ci.md` | Not started | Phase 4 |
 | 15 | `story_lint.mjs` + Contract-impact fragment, assumptions isolated in one function | Not started | Phase 5 — rework hook |
 | 16 | R3b/c/d CI gates in `ci.md`, GitHub + GitLab | Not started | Phase 6 |
