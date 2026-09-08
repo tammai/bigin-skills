@@ -29,11 +29,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22   # nuxt-scaffold requires 22+, and runners now force 20 onto 24
 
-      # --- toolchain for THIS repo's codegen. Keep exactly one block. ---------
-      # See contract-bump.yml for the three variants.
-      # -----------------------------------------------------------------------
+      # === REPLACE THIS BLOCK — see contract-bump.yml for the three variants. ===
+      # Leaving it commented ships a workflow that fails at codegen.
+      # =========================================================================
 
       - name: Re-vendor and regenerate
         env:

@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.95.2] - 2026-09-08
+
+**The dispatch → auto-PR flow ran for real, and the standard is now proven end to end.** A tagged, additive contract change in the pilot's contracts repo produced auto-PRs in both consumer repos, each containing exactly three files — `api-contract.lock`, the vendored spec, and the generated client — and nothing else. That is `SPEC-contract-sync.md` §10's last acceptance criterion, and it had never once been exercised.
+
+Getting there took three template fixes, each one only visible on a real runner.
+
+### Fixed
+
+- **The workflow templates pinned `node-version: 20`.** GitHub runners now force Node 20 actions onto 24 with a deprecation warning, and `nuxt-scaffold` requires Node 22+, so `pnpm install` died with `ERR_UNKNOWN_BUILTIN_MODULE` before codegen ever ran. All seven pins across the contract and story workflows are now `22`.
+
+- **The toolchain block shipped commented out, and both consumer repos failed on it.** "Keep exactly one block" reads like guidance and behaves like a trap: a harness install that leaves it as written produces a workflow that gets through checkout, setup and token minting, then fails at codegen. The block is now labelled `REPLACE THIS BLOCK`, says plainly what happens if you do not, and `SKILL.md`'s install step says the same.
+
+- **The `web` toolchain row told you to pass a pnpm version.** `pnpm/action-setup` fails outright when a `version:` input and `package.json`'s `packageManager` disagree — which they always will, since the scaffolder writes the latter. The row now passes no version and says why.
+
+### Notes
+
+- Also proven on the way through: a **failed payment on an organisation blocks Actions across every repo it owns**, and GitHub Pro is a *personal-account* plan that does nothing for org-owned repos. The pilot moved to a personal account to get past it. Worth knowing before the first client project, because the symptom is a job that dies in three seconds with no log.
+- The pre-commit gate refused three commits during this work, every one correctly: twice on a vendored spec that did not match the lock, and once on a repo whose lock had been re-pointed without re-vendoring. Two of those were my own mistakes, caught before they reached a remote.
+
 ## [1.95.1] - 2026-09-08
 
 Four defects, every one found by running the pilot's six repos rather than by review.

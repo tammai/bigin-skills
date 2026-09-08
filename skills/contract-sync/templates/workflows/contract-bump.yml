@@ -59,16 +59,27 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22   # nuxt-scaffold requires 22+, and runners now force 20 onto 24
 
-      # --- toolchain for THIS repo's codegen. Keep exactly one block. ---------
-      # api (go):     - uses: actions/setup-go@v5
-      #                 with: { go-version-file: go.mod }
-      # web (nuxt):   - uses: pnpm/action-setup@v4
-      #               - run: pnpm install --frozen-lockfile
-      # mobile:       docker is preinstalled on ubuntu-latest; add
-      #                 - uses: subosito/flutter-action@v2
-      # -----------------------------------------------------------------------
+      # === REPLACE THIS BLOCK with the one row below that matches this repo. ===
+      # Leaving it commented ships a workflow that fails at codegen — verified on
+      # the pilot, where both consumer repos did exactly that.
+      #
+      #   api (go):
+      #     - uses: actions/setup-go@v5
+      #       with:
+      #         go-version-file: go.mod
+      #
+      #   web (nuxt):        no `version:` — package.json's packageManager is the pin,
+      #                      and passing both makes pnpm/action-setup fail outright.
+      #     - uses: pnpm/action-setup@v4
+      #     - run: pnpm install --no-frozen-lockfile
+      #
+      #   mobile (flutter):  docker is preinstalled on ubuntu-latest.
+      #     - uses: subosito/flutter-action@v2
+      #       with:
+      #         channel: stable
+      # =========================================================================
 
       - name: Bump the contract
         env:

@@ -26,7 +26,7 @@ jobs:
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: 20
+          node-version: 22   # nuxt-scaffold requires 22+, and runners now force 20 onto 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
@@ -56,7 +56,7 @@ jobs:
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: 20
+          node-version: 22   # nuxt-scaffold requires 22+, and runners now force 20 onto 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
@@ -86,7 +86,7 @@ jobs:
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: 20
+          node-version: 22   # nuxt-scaffold requires 22+, and runners now force 20 onto 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
@@ -778,7 +778,7 @@ jobs:
           token: ${{ steps.app.outputs.token }}
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22   # nuxt-scaffold requires 22+, and runners now force 20 onto 24
 
       - name: Pull the stories
         env:
@@ -832,7 +832,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22   # nuxt-scaffold requires 22+, and runners now force 20 onto 24
 
       - name: The PR must name a story
         id: story
