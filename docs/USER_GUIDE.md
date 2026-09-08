@@ -376,6 +376,7 @@ One `PLAN.md` per worktree. Spec-gate approval is **per-worktree** — approving
 | Pin a fast-moving library's API | "distill knowledge for nuxt@4.0.3" | `knowledge-distill` |
 | Save state before hitting a limit | "save session" | `session-handoff` |
 | Implement a Nuxt UI Figma handoff | paste the Figma URL | `nuxt-ui-figma-handoff` |
+| Absorb an API contract bump | "absorb the contract bump", "our openapi.yaml is stale" | `contract-sync` — pinned-commit vendoring + codegen, in a repo that consumes a contracts repo |
 | Decide which model runs a task | "route this task" | `model-router` |
 
 ### The five that overlap most

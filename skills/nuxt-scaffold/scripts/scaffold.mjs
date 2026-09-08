@@ -728,8 +728,9 @@ function printNextSteps() {
       '  1. Copy .env.example → .env and set:',
       '     - NUXT_SESSION_PASSWORD (openssl rand -base64 32)',
       '     - NUXT_BACKEND_URL     (paired Go backend REST API; server-only)',
-      '  2. openapi.yaml is a committed snapshot of the paired backend contract; after a',
-      '     backend change, copy its api/openapi.yaml over it and run: pnpm openapi-types',
+      '  2. openapi.yaml is a committed snapshot of the paired backend contract. Standalone:',
+      '     copy the backend\'s api/openapi.yaml over it and run: pnpm openapi-types. In a',
+      '     polyrepo project the contracts repo owns it — use contract-sync, not a hand-copy.',
       '  3. Structure: layers/<feature>/app + layers/shared (api-client), boundaries lint on.',
       '  4. Overlay governance: run bigin-harness-setup (CLAUDE.md, rules, bash-guard).',
       '  5. Start: pnpm dev'

@@ -1,0 +1,14 @@
+[
+  {"query":"the contracts repo just tagged v2.5.0, absorb the bump into this repo","should_trigger":true},
+  {"query":"our openapi.yaml is stale — sync it against the contracts repo","should_trigger":true},
+  {"query":"is our API contract out of date? check the lock against latest","should_trigger":true},
+  {"query":"regenerate the typed client, the vendored spec is behind","should_trigger":true},
+  {"query":"bump the contract to core.v2 and regenerate","should_trigger":true},
+  {"query":"CI says the contract drift job failed, what do I do","should_trigger":true},
+  {"query":"add a POST /orders endpoint to the API spec","should_trigger":false},
+  {"query":"scaffold a new Go REST API with oapi-codegen","should_trigger":false},
+  {"query":"set up the AI harness for this repo","should_trigger":false},
+  {"query":"why is this test flaky","should_trigger":false},
+  {"query":"implement this Figma design in our Nuxt UI app","should_trigger":false},
+  {"query":"write the PRD for the new billing feature","should_trigger":false}
+]

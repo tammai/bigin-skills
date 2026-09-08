@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.89.0] - 2026-09-08
+
+Phase 1 of the polyrepo project standard. The corrected specs live in `docs/polyrepo/`; `PLAN.md` governs the remaining phases.
+
+### Added
+
+- **`contract-sync` — vendors an OpenAPI contract at a pinned commit and regenerates the client.** A consumer repo (api/web/mobile) holds `api-contract.lock`, the vendored spec and the generated code, and this skill is the only thing that writes any of the three. `check` reports staleness, `sync` re-applies what the lock pins, `bump <ref>` moves to a new tag. `node:` builtins only, no dependencies.
+
+  **The lock pins twice, and that is the point.** A tag is a label and labels move: a contracts repo can re-tag `v2.3.0` onto a different commit, and a consumer that recorded only the tag would silently vendor different bytes under the same version number. So `ref` is display-only and never fetched by; `commit` is the only thing fetched; and every `sync` re-resolves the tag and hard-fails naming both SHAs if they disagree, with no fallback and no re-pin. `sha256` covers the transport: the digest is computed on the fetched bytes and compared **before anything touches the working tree**, so a mismatch leaves the repo exactly as it was.
+
+  **Adapter readiness is asserted before any write**, which the first implementation got wrong. A missing `Makefile` (api), a missing `openapi-types` script (web) or a missing `tool/generate_api.sh` (mobile) now aborts with the spec and lock untouched. Vendoring a new contract and *then* failing to regenerate leaves precisely the lock/spec/code drift the skill exists to prevent, and CI would only catch it a commit later.
+
+  **A repo consuming more than one contract vendors to separate paths.** The lock's shape allows several entries while each repo type has one vendored path, so two entries overwrote each other. One contract keeps the adapter's path; several go to `<openapi-dir>/<name>.yaml`, and that repo's own codegen config points there. The script writes files; it never rewrites a repo's codegen config.
+
+  Auth is `GITHUB_TOKEN`, then `gh auth token`, then unauthenticated — a new convention, since nothing here fetched anything or shelled out to `gh` before. The token is never logged, never echoed into an error message and never written to the lock. `check` degrades to one skip line at exit 0 when offline, unauthenticated or rate-limited, bounded by a 1500 ms timeout and cached for 15 minutes, because it runs at session start and must never hold a session up. `sync` and `bump` fail loudly instead: they write, and writing from an unverified fetch is the one thing this design refuses.
+
+- **Two CI workflow templates.** `contract-bump.yml` opens the bump PR on a `repository_dispatch` from the contracts repo; `contract-drift.yml` re-runs `sync` and fails on any diff, catching edits made outside a session where the PreToolUse guard cannot see them. Both mint a **GitHub App** token rather than using Actions' own `GITHUB_TOKEN`, for two independent reasons: that token is scoped to its own repo and cannot read the contracts repo at all, and a PR opened with it triggers no workflows — so the bump PR's own drift check would never run. `client_payload` is treated as attacker-shaped: it reaches the shell only through env vars, never `${{ }}` interpolation inside a `run` block, and the tag is shape-checked against `vMAJOR.MINOR.PATCH` and rejected rather than escaped.
+
+- **`regress.mjs` group 7 — `contract_sync.mjs` against a loopback fixture server.** Eight cases, no network, no credentials, ~0.5 s. The three refusals the script exists for — moved tag, bad checksum, missing codegen entry point — only run when something upstream has already gone wrong, so nothing else would ever exercise them again. **Every refusal case asserts that nothing was written**, not just the exit code: a refusal that still leaves a half-vendored spec is invisible in an exit code and is exactly the drift being prevented.
+
+  Mutation-tested rather than trusted. Disabling the moved-tag check, disabling the checksum check, and moving the readiness assertion after the write each turned exactly one case red and no others.
+
+  The seam is `CONTRACT_SYNC_API`, and it **refuses any host that is not loopback**. An env var that could repoint a credentialed fetch at an arbitrary host would be both a token-leak surface and — for `bump`, which records whatever it fetches rather than verifying it against a prior digest — a blob-injection surface, on a script whose whole job is writing to the repo.
+
+  The `--build` group renumbered 7 → 8.
+
+### Changed
+
+- **`nuxt-scaffold`'s next-steps no longer instructs an edit the guard will block.** Every scaffolded `starter` repo printed "copy its `api/openapi.yaml` over it and run `pnpm openapi-types`" — correct for a standalone repo, and precisely the hand-edit `contract-sync`'s PreToolUse guard denies in a polyrepo consumer. It now names both flows and says which is which.
+
+### Notes
+
+- What Phase 1 does **not** prove: no consumer repo installs the guard yet (Phase 3), no repo type exists to select the profile bundle (Phase 2), and nothing end-to-end has run — "a dispatch opens a PR in a consumer repo" cannot be tested inside this repo at all and waits on a pilot project. The script itself was additionally verified by hand against a live GitHub repo before the fixture suite was written, so the fixture server is checked against something real rather than only against itself.
+
 ## [1.88.3] - 2026-09-06
 
 ### Fixed

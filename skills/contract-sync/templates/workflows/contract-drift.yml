@@ -1,0 +1,52 @@
+# Fails the build when the lock, the vendored spec and the generated client
+# disagree — i.e. when someone edited one of them outside a session, where the
+# PreToolUse guard could not see it.
+#
+# Re-running sync must be a no-op. If it isn't, something was hand-edited.
+#
+# Needs the App token like contract-bump.yml does: Actions' own GITHUB_TOKEN
+# cannot read the contracts repo.
+
+name: contract-drift
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint an App token
+        id: app
+        uses: actions/create-github-app-token@v1   # pin to a commit SHA in your repo
+        with:
+          app-id: ${{ vars.CONTRACT_APP_ID }}
+          private-key: ${{ secrets.CONTRACT_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # --- toolchain for THIS repo's codegen. Keep exactly one block. ---------
+      # See contract-bump.yml for the three variants.
+      # -----------------------------------------------------------------------
+
+      - name: Re-vendor and regenerate
+        env:
+          GITHUB_TOKEN: ${{ steps.app.outputs.token }}
+        run: node scripts/contract_sync.mjs sync
+
+      - name: Fail on any difference
+        run: |
+          set -euo pipefail
+          if ! git diff --exit-code; then
+            echo
+            echo "The vendored spec or generated client does not match api-contract.lock."
+            echo "Do not commit the diff above: run 'node scripts/contract_sync.mjs sync'"
+            echo "locally and commit THAT, or find who hand-edited a generated file."
+            exit 1
+          fi

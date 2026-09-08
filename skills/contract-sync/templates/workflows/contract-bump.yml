@@ -1,0 +1,103 @@
+# Opens the contract-bump PR when the contracts repo publishes a tag.
+#
+# Two things here are load-bearing and easy to "simplify" into breakage:
+#
+# 1. This mints a GitHub App token instead of using Actions' own GITHUB_TOKEN.
+#    GITHUB_TOKEN is scoped to THIS repo, so it cannot read the contracts repo;
+#    and a PR opened with it triggers no workflows, so this PR's own drift check
+#    would never run. Both halves need the App.
+# 2. client_payload is attacker-shaped input. It reaches the shell only through
+#    env vars, never through ${{ }} interpolation inside a run block, and the tag
+#    is shape-checked before anything uses it.
+#
+# Prerequisites: an org-installed GitHub App with contents:write + pull-requests:write
+# on this repo and contents:read on the contracts repo, its id in vars.CONTRACT_APP_ID
+# and its private key in secrets.CONTRACT_APP_PRIVATE_KEY.
+
+name: contract-bump
+
+on:
+  repository_dispatch:
+    types: [contract-updated]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint an App token
+        id: app
+        uses: actions/create-github-app-token@v1   # pin to a commit SHA in your repo
+        with:
+          app-id: ${{ vars.CONTRACT_APP_ID }}
+          private-key: ${{ secrets.CONTRACT_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Validate the dispatch payload
+        env:
+          TAG: ${{ github.event.client_payload.tag }}
+          STORY: ${{ github.event.client_payload.story }}
+        run: |
+          set -euo pipefail
+          # A tag becomes a branch name, a commit message and a CLI argument.
+          # Anything not shaped like a version is rejected rather than escaped.
+          case "$TAG" in
+            v[0-9]*.[0-9]*.[0-9]*) : ;;
+            *) echo "refusing a dispatch tag that is not vMAJOR.MINOR.PATCH: '$TAG'"; exit 1 ;;
+          esac
+          case "${STORY:-}" in
+            ''|ST-[0-9]*) : ;;
+            *) echo "refusing a story id that is not ST-<digits>: '$STORY'"; exit 1 ;;
+          esac
+
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ steps.app.outputs.token }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # --- toolchain for THIS repo's codegen. Keep exactly one block. ---------
+      # api (go):     - uses: actions/setup-go@v5
+      #                 with: { go-version-file: go.mod }
+      # web (nuxt):   - uses: pnpm/action-setup@v4
+      #               - run: pnpm install --frozen-lockfile
+      # mobile:       docker is preinstalled on ubuntu-latest; add
+      #                 - uses: subosito/flutter-action@v2
+      # -----------------------------------------------------------------------
+
+      - name: Bump the contract
+        env:
+          GITHUB_TOKEN: ${{ steps.app.outputs.token }}
+          TAG: ${{ github.event.client_payload.tag }}
+        run: node scripts/contract_sync.mjs bump "$TAG"
+
+      - name: Open the PR
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          TAG: ${{ github.event.client_payload.tag }}
+          STORY: ${{ github.event.client_payload.story }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo "already on $TAG — nothing to open"
+            exit 0
+          fi
+          BRANCH="contract-bump/$TAG"
+          git config user.name  "contract-sync[bot]"
+          git config user.email "contract-sync[bot]@users.noreply.github.com"
+          git switch -c "$BRANCH"
+          git add -A
+          git commit -m "chore(contract): bump to $TAG${STORY:+ ($STORY)}"
+          git push -u origin "$BRANCH"
+          gh pr create \
+            --title "chore(contract): bump to $TAG${STORY:+ ($STORY)}" \
+            --body "Automated bump from the contracts repo.
+
+          Review the **type diff** — lock, vendored spec and generated client move together.
+          Merge when this repo is ready; staying on an older version file is a supported state." \
+            --head "$BRANCH"

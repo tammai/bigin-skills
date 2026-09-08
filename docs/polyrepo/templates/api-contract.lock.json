@@ -1,0 +1,11 @@
+{
+  "contracts": {
+    "core": {
+      "repo": "bigin-io/{{project}}-contracts",
+      "file": "openapi/core.v1.yaml",
+      "ref": "v1.0.0",
+      "commit": "<sha recorded by contract_sync.mjs bump>",
+      "sha256": "<blob checksum recorded by contract_sync.mjs bump>"
+    }
+  }
+}

@@ -62,6 +62,7 @@ Everything else is situational:
 | "Distill knowledge for nuxt@4.0.3" | `knowledge-distill` — a library's docs/source at a pinned version → audited `knowledge/libraries/<lib>/` |
 | "Save session" / nearing a context limit | `session-handoff` |
 | Implementing a Figma handoff in a Nuxt UI app | `nuxt-ui-figma-handoff` |
+| "Absorb the contract bump" / "our openapi.yaml is stale" | `contract-sync` — vendors the contract at a pinned commit and regenerates the client; the only writer of the vendored spec and `api-contract.lock` |
 
 ### Stack profiles
 
@@ -105,6 +106,7 @@ Each scaffold skill's `SKILL.md` is the reference for what it generates. What se
 | **model-router**            | Scores capability and verification needs separately, then routes to the quick/standard/deep tier on a per-project model + effort ladder.                     |
 | **napkin**                  | Explains a topic as a picture (/napkin): offers 2-4 candidate shapes, then draws your pick as an HTML artifact or an embeddable SVG/PNG, geometry-checked.   |
 | **nuxt-marketing-scaffold** | Scaffolds a multi-locale Nuxt 4 marketing site — @nuxt/content, @nuxtjs/i18n, prerendered to Cloudflare Workers. No auth, so it detects as nuxt-marketing.   |
+| **contract-sync**           | Vendors an OpenAPI contract at a pinned commit and regenerates the client (check/sync/bump); the only writer of the vendored spec and api-contract.lock.     |
 <!-- /gen:skills-core -->
 
 **Handoff skills** — add-ons for a specific cross-role handoff or mid-session handoff. Not required for the core harness; opt in per project.

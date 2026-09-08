@@ -13,7 +13,7 @@ A **plugin** (`bigin-skills`) for **Claude Code and Cursor** — a collection of
 skills/<name>/SKILL.md    ← one skill per directory
 skills/<name>/references/ ← supporting templates, relative to that skill
 skills/<name>/evals/      ← should-trigger cases; docs_sync.mjs --check fails closed without one
-skills/<name>/scripts/    ← that skill's own executables (9 skills have one), cited via ${CLAUDE_SKILL_DIR}
+skills/<name>/scripts/    ← that skill's own executables (10 skills have one), cited via ${CLAUDE_SKILL_DIR}
 agents/<name>.md          ← plugin-level subagent definitions (spawned via Agent tool, not invoked as skills)
 docs/                     ← hand-maintained deep-dives (GATES, KNOWLEDGE, ROUTING, SPEC-GATE, USER_GUIDE, GRAPHIFY)
 site/src/                 ← site sources: pages/ + _layouts/ + _partials/ + assets/
@@ -23,7 +23,8 @@ tools/context_budget.mjs  ← budget gate (also templated for target repos)
 tools/docs_sync.mjs       ← generates README's skills/agents tables; --check fails the commit on drift
 tools/docs-manifest.json  ← its input; every new skill and agent needs an entry or --check fails closed
 tools/regress.mjs         ← regression suite: manifests, skill inventory, detection ladder,
-                             scaffolders; --build adds a real install+build of a scaffolded site
+                             scaffolders, contract_sync against a loopback fixture server;
+                             --build adds a real install+build of a scaffolded site
 scripts/git-hooks/        ← pre-commit running the budget gate + docs_sync.mjs --check + site_build.mjs --check + regress.mjs
 ```
 
@@ -38,7 +39,7 @@ Every skill's `description:` frontmatter is already loaded on every turn, so the
 
 ## Versioning
 
-Version lives in `.claude-plugin/plugin.json` and is the source of truth for the version in two other manifests (`.cursor-plugin/plugin.json`, and two fields in `.cursor-plugin/marketplace.json`) — four fields in three files, bumped together; `docs_sync.mjs --check` fails the commit on a mismatch. `.claude-plugin/marketplace.json` carries no version field, so nothing there can drift. Bump when publishing changes and add a `CHANGELOG.md` entry. **Docs-only passes are exempt** — copy edits, restructuring, link fixes: ship them as a `docs:` commit with no bump and no changelog entry, and let the commit message be the record. Before a **major or minor** bump, find and fix all stale docs first — the skills/agents tables in `README.md` are generated (run `node tools/docs_sync.mjs`), so sweep only the remaining manual surfaces: prose, cross-references, this file's own Structure tree, `SKILL.md`s, `docs/`, `site/src/pages/` (counts and the version there are generated — only the prose is manual), and both `marketplace.json`s. Patch bumps don't require this sweep. Pre-commit gates: activate once with `git config core.hooksPath scripts/git-hooks` (runs the budget gate + `docs_sync.mjs --check` + `site_build.mjs --check` + `regress.mjs --skip-gates`). `node tools/regress.mjs` runs the suite standalone, gates included; `--build` adds group 7, which really installs and builds a scaffolded site and asserts one prerendered entry point per locale. That group is opt-in because it needs the network and about three minutes — run it for any change to `nuxt-marketing-scaffold`'s templates, manifest or substitution map, since nothing cheaper proves the thing that scaffolder produces actually compiles.
+Version lives in `.claude-plugin/plugin.json` and is the source of truth for the version in two other manifests (`.cursor-plugin/plugin.json`, and two fields in `.cursor-plugin/marketplace.json`) — four fields in three files, bumped together; `docs_sync.mjs --check` fails the commit on a mismatch. `.claude-plugin/marketplace.json` carries no version field, so nothing there can drift. Bump when publishing changes and add a `CHANGELOG.md` entry. **Docs-only passes are exempt** — copy edits, restructuring, link fixes: ship them as a `docs:` commit with no bump and no changelog entry, and let the commit message be the record. Before a **major or minor** bump, find and fix all stale docs first — the skills/agents tables in `README.md` are generated (run `node tools/docs_sync.mjs`), so sweep only the remaining manual surfaces: prose, cross-references, this file's own Structure tree, `SKILL.md`s, `docs/`, `site/src/pages/` (counts and the version there are generated — only the prose is manual), and both `marketplace.json`s. Patch bumps don't require this sweep. Pre-commit gates: activate once with `git config core.hooksPath scripts/git-hooks` (runs the budget gate + `docs_sync.mjs --check` + `site_build.mjs --check` + `regress.mjs --skip-gates`). `node tools/regress.mjs` runs the suite standalone, gates included; `--build` adds group 8, which really installs and builds a scaffolded site and asserts one prerendered entry point per locale. That group is opt-in because it needs the network and about three minutes — run it for any change to `nuxt-marketing-scaffold`'s templates, manifest or substitution map, since nothing cheaper proves the thing that scaffolder produces actually compiles.
 
 ## Session Handoff
 

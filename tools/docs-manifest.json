@@ -71,6 +71,10 @@
     "nuxt-marketing-scaffold": {
       "group": "core",
       "summary": "Scaffolds a multi-locale Nuxt 4 marketing site — @nuxt/content, @nuxtjs/i18n, prerendered to Cloudflare Workers. No auth, so it detects as nuxt-marketing."
+    },
+    "contract-sync": {
+      "group": "core",
+      "summary": "Vendors an OpenAPI contract at a pinned commit and regenerates the client (check/sync/bump); the only writer of the vendored spec and api-contract.lock."
     }
   },
   "agents": {

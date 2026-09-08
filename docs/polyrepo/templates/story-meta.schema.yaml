@@ -1,0 +1,16 @@
+# Sidecar convention: docs/story-meta/<story-id>.yaml in consumer repos.
+# Dev-owned; never synced; pairs 1:1 with docs/stories/<story-id>.md.
+# Orphan (sidecar without story) => CI warning.
+#
+# The story file itself is generated wholesale by story_sync.mjs and carries
+# `synced: true` — this file is the only place dev context may live.
+
+story: ST-042                # must match the story filename
+design:
+  figma: https://www.figma.com/design/FILE?node-id=123-456   # required when the story declares ui: yes
+  status: final              # final | draft — only `final` passes the ready-for-dev gate
+  states: [default, loading, empty, error]
+  components:
+    new: []                  # components this story introduces
+    reuse: [AppButton, OrderCard]
+notes: ""                    # free-form dev context; never duplicated into the story

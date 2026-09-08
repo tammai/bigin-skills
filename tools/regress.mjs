@@ -11,16 +11,16 @@
  *   node tools/regress.mjs --skip-gates # the pre-commit hook's mode: it runs
  *                                       # the gates itself, so they aren't
  *                                       # repeated here
- *   node tools/regress.mjs --build      # + group 7: really install a scaffolded
+ *   node tools/regress.mjs --build      # + group 8: really install a scaffolded
  *                                       # site and run every pnpm step its CI
  *                                       # template runs. Network, ~3 minutes.
  *
- * Groups 1-6 are Node stdlib only, no network, no install — scaffolder cases
+ * Groups 1-7 are Node stdlib only, no network, no install — scaffolder cases
  * run with --no-install so the suite stays fast enough for a commit hook. They
  * assert on the *text* a scaffolder emits, which is enough to catch a token
  * that never got substituted, an import of a package no manifest declares, or
  * a helper nothing defines, and is not enough to catch anything that needs a
- * resolver or a compiler. Group 7 is the case that actually compiles, and it
+ * resolver or a compiler. Group 8 is the case that actually compiles, and it
  * is opt-in for the same reason it is necessary: it is slow.
  *
  * A case that cannot run prints SKIP with its reason and is counted in the
@@ -28,11 +28,12 @@
  * Exit 0 all green, 1 any failure.
  */
 
-import { spawnSync } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { readFileSync, existsSync, readdirSync, rmSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { tmpdir } from 'node:os'
+import { createHash } from 'node:crypto'
 
 const REPO = dirname(dirname(fileURLToPath(import.meta.url)))
 const TMP = join(tmpdir(), `bigin-skills-regress-${process.pid}`)
@@ -157,7 +158,7 @@ const COMMAND_BLOCKS = [
   ['ci.md gitlab: nuxt-marketing', fence('ci.md', 'gitlab: nuxt-marketing')],
   ['profile-nuxt-marketing.md Commands', fence('profile-nuxt-marketing.md', 'Commands')]
 ]
-// The GitHub workflow's own steps, in order. Group 7 runs these rather than a
+// The GitHub workflow's own steps, in order. Group 8 runs these rather than a
 // second list of them, so the build case proves the commands CI actually runs.
 const CI_STEPS = pnpmCalls(COMMAND_BLOCKS[0][1])
 
@@ -272,7 +273,7 @@ t('server/api holds exactly contact + newsletter', () => {
 // ── The four checks below are the always-on half of "does the scaffold build".
 //    They are structural, cost milliseconds, and between them they would have
 //    caught three of the four defects fixed in v1.88.2. What they cannot see is
-//    anything needing a resolver, a compiler or a prerender — that is group 7,
+//    anything needing a resolver, a compiler or a prerender — that is group 8,
 //    which runs only under --build.
 t('every requested locale reaches the config and the prerender routes', () => {
   const cfg = read(join(TMP,'s1','nuxt.config.ts'))
@@ -416,8 +417,195 @@ t('no stale separate-Worker wording survives', () => {
     if (/worker of their own|which stays absent/i.test(rd(f))) hits.push(f)
   eq(hits.join(',')||'none','none','files with stale wording'); return 'clean' })
 
-console.log('\n7. SCAFFOLDED SITE BUILDS')
-// The expensive half. Groups 1-6 prove things about text; this one is the only
+// ── 7. contract_sync.mjs ────────────────────────────────────────────────
+//
+// The three refusals this script exists for — a moved tag, a bad checksum, a
+// missing codegen entry point — are the ones nothing else can catch: each is a
+// path that only runs when something has already gone wrong upstream, and each
+// was verified once by hand against a live repo and would otherwise never be
+// exercised again. They run here against a loopback fixture server, so the group
+// needs no network and no credentials.
+//
+// What every case asserts alongside the exit code is that NOTHING WAS WRITTEN.
+// A refusal that still leaves a half-vendored spec next to a stale client is the
+// exact drift the skill exists to prevent, and it is invisible in an exit code.
+
+console.log('\n7. CONTRACT SYNC')
+
+const CS = join(REPO, 'skills', 'contract-sync', 'scripts', 'contract_sync.mjs')
+const SHA_A = 'a'.repeat(40)
+const SHA_B = 'b'.repeat(40)
+const SPEC_V1 = 'openapi: 3.0.3\ninfo: { title: core, version: "1" }\n'
+const SPEC_V2 = 'openapi: 3.0.3\ninfo: { title: core, version: "2" }\n'
+const digest = txt => createHash('sha256').update(Buffer.from(txt)).digest('hex')
+
+const FIXTURE_SERVER = `
+import { createServer } from 'node:http'
+import { writeFileSync, readFileSync } from 'node:fs'
+const cfg = JSON.parse(readFileSync(process.argv[2], 'utf8'))
+const send = (res, code, body, type) => {
+  res.writeHead(code, { 'content-type': type }); res.end(body)
+}
+createServer((req, res) => {
+  const u = new URL(req.url, 'http://x')
+  let m
+  if ((m = u.pathname.match(/^\\/repos\\/[^/]+\\/[^/]+\\/commits\\/(.+)$/))) {
+    const sha = cfg.refs[decodeURIComponent(m[1])]
+    return sha ? send(res, 200, JSON.stringify({ sha }), 'application/json')
+               : send(res, 404, '{}', 'application/json')
+  }
+  if ((m = u.pathname.match(/^\\/repos\\/[^/]+\\/[^/]+\\/contents\\/(.+)$/))) {
+    const key = u.searchParams.get('ref') + ':' + decodeURIComponent(m[1])
+    const blob = cfg.blobs[key]
+    return blob === undefined ? send(res, 404, '{}', 'application/json')
+                              : send(res, 200, blob, 'text/plain')
+  }
+  if (u.pathname.endsWith('/tags')) return send(res, 200, JSON.stringify(cfg.tags ?? []), 'application/json')
+  if (u.pathname.endsWith('/pulls')) return send(res, 200, '[]', 'application/json')
+  send(res, 404, '{}', 'application/json')
+}).listen(0, '127.0.0.1', function () {
+  writeFileSync(process.argv[3], String(this.address().port))
+})
+`
+
+// One consumer repo. `mobile` on purpose: its codegen entry point is a shell
+// script this suite writes itself, so no case depends on make or pnpm existing.
+function consumer(name, lock, { generator = true } = {}) {
+  const dir = join(TMP, `cs-${name}`)
+  rmSync(dir, { recursive: true, force: true })
+  mkdirSync(join(dir, 'tool'), { recursive: true })
+  writeFileSync(join(dir, 'pubspec.yaml'), 'name: fixture\n')
+  if (generator) writeFileSync(join(dir, 'tool', 'generate_api.sh'), 'echo codegen-ran\n')
+  writeFileSync(join(dir, 'api-contract.lock'), JSON.stringify({ contracts: lock }, null, 2))
+  return dir
+}
+
+const vendored = dir => join(dir, 'api', 'openapi.yaml')
+const cs = (dir, args, base) => spawnSync('node', [CS, ...args], {
+  cwd: dir, encoding: 'utf8',
+  env: { ...process.env, CONTRACT_SYNC_API: base, GITHUB_TOKEN: 'fixture-token', GH_TOKEN: '' }
+})
+
+let csServer = null
+let csBase = null
+try {
+  const cfgPath = join(TMP, 'cs-fixture.json')
+  const portPath = join(TMP, 'cs-port')
+  const srvPath = join(TMP, 'cs-server.mjs')
+  writeFileSync(srvPath, FIXTURE_SERVER)
+  writeFileSync(cfgPath, JSON.stringify({
+    refs: { 'v1.0.0': SHA_A, 'v2.0.0': SHA_B },
+    blobs: {
+      [`${SHA_A}:openapi/core.v1.yaml`]: SPEC_V1,
+      [`${SHA_A}:openapi/core.v2.yaml`]: SPEC_V2,
+      [`${SHA_B}:openapi/core.v1.yaml`]: SPEC_V1
+    },
+    tags: [{ name: 'v1.0.0' }, { name: 'v2.0.0' }]
+  }))
+  rmSync(portPath, { force: true })
+  csServer = spawn('node', [srvPath, cfgPath, portPath], { stdio: 'ignore' })
+  // spawnSync blocks this process's loop, so the server has to be its own
+  // process; poll for the port file rather than awaiting anything.
+  for (let i = 0; i < 100 && !existsSync(portPath); i++) {
+    spawnSync(process.execPath, ['-e', 'setTimeout(()=>{},50)'])
+  }
+  if (existsSync(portPath)) csBase = `http://127.0.0.1:${read(portPath).trim()}`
+} catch {
+  csBase = null
+}
+
+if (!csBase) {
+  skip('contract_sync fixture server', 'could not start the loopback fixture server')
+} else {
+  const good = { core: { repo: 'o/contracts', file: 'openapi/core.v1.yaml', ref: 'v1.0.0', commit: SHA_A, sha256: digest(SPEC_V1) } }
+
+  t('sync vendors the pinned blob and runs codegen', () => {
+    const dir = consumer('happy', good)
+    const r = cs(dir, ['sync'], csBase)
+    eq(r.status, 0, 'exit')
+    eq(read(vendored(dir)), SPEC_V1, 'vendored bytes')
+    if (!r.stdout.includes('codegen-ran')) throw new Error('codegen did not run')
+    return 'spec + codegen'
+  })
+
+  t('a moved tag fails naming both SHAs, writing nothing', () => {
+    const dir = consumer('moved', { core: { ...good.core, commit: SHA_B } })
+    const r = cs(dir, ['sync'], csBase)
+    eq(r.status, 1, 'exit')
+    for (const want of ['MOVED', SHA_B, SHA_A]) {
+      if (!r.stderr.includes(want)) throw new Error(`stderr did not name ${want}`)
+    }
+    eq(existsSync(vendored(dir)), false, 'spec written')
+    return 'refused'
+  })
+
+  t('a checksum mismatch aborts before any write', () => {
+    const dir = consumer('tampered', { core: { ...good.core, sha256: '0'.repeat(64) } })
+    const r = cs(dir, ['sync'], csBase)
+    eq(r.status, 1, 'exit')
+    if (!r.stderr.includes('checksum mismatch')) throw new Error('stderr did not name the mismatch')
+    eq(existsSync(vendored(dir)), false, 'spec written')
+    return 'refused'
+  })
+
+  t('two repos pin different files at one commit', () => {
+    const a = consumer('pin-v1', good)
+    const b = consumer('pin-v2', { core: { ...good.core, file: 'openapi/core.v2.yaml', sha256: digest(SPEC_V2) } })
+    eq(cs(a, ['sync'], csBase).status, 0, 'v1 exit')
+    eq(cs(b, ['sync'], csBase).status, 0, 'v2 exit')
+    eq(read(vendored(a)), SPEC_V1, 'v1 bytes')
+    eq(read(vendored(b)), SPEC_V2, 'v2 bytes')
+    return 'both'
+  })
+
+  t('a missing codegen entry point aborts with the repo untouched', () => {
+    const dir = consumer('nogen', good, { generator: false })
+    const before = read(join(dir, 'api-contract.lock'))
+    const r = cs(dir, ['bump', 'v2.0.0'], csBase)
+    eq(r.status, 1, 'exit')
+    eq(existsSync(vendored(dir)), false, 'spec written')
+    eq(read(join(dir, 'api-contract.lock')), before, 'lock touched')
+    return 'spec and lock intact'
+  })
+
+  t('bump records the new commit, spec and checksum together', () => {
+    const dir = consumer('bump', good)
+    const r = cs(dir, ['bump', 'v2.0.0'], csBase)
+    eq(r.status, 0, 'exit')
+    const lock = JSON.parse(read(join(dir, 'api-contract.lock'))).contracts.core
+    eq(lock.ref, 'v2.0.0', 'ref')
+    eq(lock.commit, SHA_B, 'commit')
+    eq(lock.sha256, digest(SPEC_V1), 'sha256')
+    eq(read(vendored(dir)), SPEC_V1, 'vendored bytes')
+    return 'lock + spec in step'
+  })
+
+  t('check degrades to one skip line, exit 0, when the API is unreachable', () => {
+    const dir = consumer('offline', good)
+    // Port 1 on loopback: refuses instantly, so this asserts the degrade path
+    // rather than the timeout. Both land in the same branch.
+    const r = cs(dir, ['check', '--no-cache'], 'http://127.0.0.1:1')
+    eq(r.status, 0, 'exit')
+    eq(r.stdout.trim().split('\n').length, 1, 'lines printed')
+    if (!r.stdout.includes('skipped')) throw new Error(`no skip line: ${r.stdout.trim()}`)
+    eq(existsSync(vendored(dir)), false, 'spec written')
+    return 'quiet'
+  })
+
+  t('CONTRACT_SYNC_API is refused when it is not loopback', () => {
+    const dir = consumer('seam', good)
+    const r = cs(dir, ['check'], 'https://api.evil.example')
+    eq(r.status, 2, 'exit')
+    if (!r.stderr.includes('loopback')) throw new Error('did not name the restriction')
+    return 'seam is loopback-only'
+  })
+}
+
+if (csServer) csServer.kill()
+
+console.log('\n8. SCAFFOLDED SITE BUILDS')
+// The expensive half. Groups 1-7 prove things about text and behaviour; this one
+// is the only
 // case that proves the scaffolder emits a repo Nuxt can actually compile and
 // prerender, because that needs a real resolver, a real compiler and a real
 // Nitro build. It costs a network install plus roughly two minutes, so it is
