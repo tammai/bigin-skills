@@ -60,7 +60,31 @@ Automating a case: /task-workflow. Investigating a failure: /debug-workflow.
 
 ## rules
 
-`.claude/rules/security.md` and `.claude/rules/testing.md` from `files-shared.md`. No `architecture.md` (this repo has no application architecture to respect) and no `conventions*.md` (the automation stack is detected, not prescribed).
+`.claude/rules/security.md` from `files-shared.md`, and `.claude/rules/testing.md` from **this file's `## testing.md Template`** below — `files-shared.md` has no such section, and no stack profile's testing rules fit a repo whose tests are all end-to-end. No `architecture.md` (this repo has no application architecture to respect) and no `conventions*.md` (the automation stack is detected, not prescribed).
+
+---
+
+## testing.md Template
+
+Scopes to `e2e/**` and `cases/**`. Written for both readers this repo has: an automation engineer and a manual tester.
+
+```markdown
+---
+paths:
+  - "e2e/**"
+  - "cases/**"
+---
+
+# Testing Rules
+
+- **Every case and every spec names the story it covers.** A test that traces to nothing cannot be triaged when it fails, and nobody can tell whether deleting it loses coverage.
+- **One spec per acceptance criterion**, named for it. A spec that asserts four criteria reports one failure for four different reasons.
+- **No shared mutable state between specs.** Each sets up what it needs and cleans up after itself. Specs that must run in a fixed order are a suite that fails differently on every machine.
+- **Test accounts only.** Never a real customer's credentials, never production data, in a spec or a fixture — this repo is as readable as any other.
+- **A flaky spec is quarantined the day it is noticed**, with the story ID and what is suspected. A suite people have learned to re-run is a suite that no longer gates anything.
+- **Assert what the user sees**, not the DOM's shape. A selector that breaks on a refactor tested the markup, not the behaviour.
+- **Unit and integration tests do not belong here.** They live with the code they cover, in the api/web/mobile repos.
+```
 
 ---
 

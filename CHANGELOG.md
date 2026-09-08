@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.94.1] - 2026-09-08
+
+Three defects, all found by standing up a real six-repo pilot project rather than by review. Each had survived every gate in this repo, because each only shows up when the templates are actually run.
+
+### Fixed
+
+- **`go-scaffold` died at `go build` on any machine with a malformed git repo in an ancestor directory.** Go stamps VCS metadata by default, which walks *up* from the target looking for a repo — and the scaffold has not run `git init` yet at that point (that happens ~30 lines later). So it finds whatever ancestor repo exists; if that one is unreadable or malformed — a dotfiles `.git` in `$HOME` is the common case, and is exactly what the pilot machine had — git exits 128 and the scaffold dies reporting `error obtaining VCS status` rather than anything about the code.
+
+  The verification build now passes `-buildvcs=false`. It only proves the tree compiles and `bin/server` is thrown away; stamping it buys nothing and costs a dependency on ambient state the scaffold does not control. A regress case asserts the flag is still there.
+
+- **`contract_sync.mjs sync` gave the wrong advice on a fresh lock.** The shipped `api-contract.lock.json` template carries descriptive placeholders (`"<sha recorded by contract_sync.mjs bump>"`), which are perfectly truthy — so the presence check sailed past them and the run died later with `could not resolve v1.0.0`, which is true and useless. It now validates the **shape** (40 hex for `commit`, 64 for `sha256`) and names `bump` as the one command that helps. This is the first thing anyone does in a new consumer repo, so it was the first thing the pilot hit.
+
+- **`profile-qa.md` cited a template that does not exist.** It said `.claude/rules/testing.md` comes from `files-shared.md`, which has no `## testing.md` section — `testing.md` is a per-profile file, and every stack profile carries its own `## testing.md Template`. Written in 1.90.0 and unchecked until something tried to install it. `qa` now has its own, scoped to `e2e/**` and `cases/**` and written for the two readers that repo has: one spec per acceptance criterion, no shared mutable state between specs, test accounts only, a flaky spec quarantined the day it is noticed, and unit tests belonging with the code rather than here. `rule-files.md`'s matrix names the source explicitly.
+
+### Notes
+
+- What the pilot proved locally, on real repos: repo-type detection from the name, each profile installing exactly the gates its matrix claims, `vendored-contract-guard` blocking the vendored spec / lock / synced story while leaving source and the sidecar alone, and the ready-for-dev chain flipping red to green when a sidecar is added **with the story file byte-identical**.
+- What it could not prove, and what still needs a remote: dispatch, auto-PRs, and any real contract fetch. Those wait on six GitHub repos and an installed GitHub App.
+- One near-miss worth recording: `profile-nuxt.md` registers `lint-fix-file.mjs`, which is **not** in `hook-guard.md`. That looked like a fourth defect and is not one — its source of truth is `nuxt-scaffold`'s own template, and `profile-nuxt-marketing.md:241` says so explicitly. Checked before reporting.
+
 ## [1.94.0] - 2026-09-08
 
 Phase 7, the last of the polyrepo project standard: mobile design handoff.

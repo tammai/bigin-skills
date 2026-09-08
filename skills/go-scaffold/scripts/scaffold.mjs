@@ -216,7 +216,15 @@ async function main() {
   run('go', ['vet', './...'], targetDir)
 
   log('go build')
-  run('go', ['build', '-o', 'bin/server', './cmd/server'], targetDir)
+  // -buildvcs=false: this build only proves the tree compiles, and bin/server is
+  // thrown away. Go stamps VCS metadata by default, which walks UP from the target
+  // looking for a repo — and this scaffold has not run `git init` yet (that is ~30
+  // lines below). So it finds whatever ancestor repo happens to exist; if that one
+  // is unreadable or malformed — a dotfiles `.git` in $HOME is the common case — git
+  // exits 128 and the scaffold dies at "go build" with a message about VCS rather
+  // than about the code. Stamping a throwaway verification binary buys nothing and
+  // costs a dependency on ambient state the scaffold does not control.
+  run('go', ['build', '-buildvcs=false', '-o', 'bin/server', './cmd/server'], targetDir)
 
   // Includes internal/arch, the architecture test — so a template edit that
   // breaks a module boundary fails here rather than in the user's first PR.

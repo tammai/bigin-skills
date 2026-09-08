@@ -476,8 +476,15 @@ async function cmdSync(root, lock, names, repoType) {
   for (const name of names) {
     const specRel = vendoredPath(repoType, name, total)
     const c = lock.contracts[name]
-    if (!c.commit || !c.sha256) {
-      fail(`contract "${name}" has no recorded commit/sha256 — run \`bump ${c.ref}\` first.`)
+    // Shape, not presence. The lock template ships descriptive placeholders
+    // ("<sha recorded by contract_sync.mjs bump>") which are perfectly truthy, so a
+    // presence check sails past them and the run dies later with a confusing
+    // "could not resolve <ref>" instead of the one instruction that helps.
+    if (!/^[0-9a-f]{40}$/i.test(c.commit ?? '') || !/^[0-9a-f]{64}$/i.test(c.sha256 ?? '')) {
+      fail(
+        `contract "${name}" has no usable commit/sha256 in ${LOCK_NAME} — run `
+        + `\`node scripts/contract_sync.mjs bump ${c.ref}\` first, which records both.`
+      )
     }
 
     let resolved

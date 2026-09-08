@@ -465,6 +465,20 @@ t('no leftover __TOKEN__ placeholders', () => {
   eq(bad.join(',')||'none','none','files with placeholders'); return 'clean'
 })
 
+// go-scaffold's verification build must not depend on ambient VCS state. It runs
+// BEFORE the scaffold's own `git init`, so Go's default stamping walks up to
+// whatever ancestor repo exists — and a malformed one (a dotfiles .git in $HOME is
+// the common case) makes git exit 128 and kills the scaffold at "go build" with a
+// message about VCS rather than about the code. Found by the pilot project, whose
+// six repos sat under exactly such a $HOME.
+t('go-scaffold builds with VCS stamping off', () => {
+  const src = read(join(REPO, 'skills', 'go-scaffold', 'scripts', 'scaffold.mjs'))
+  const m = src.match(/run\('go', \[([^\]]*)\], targetDir\)/g)?.find(x => x.includes("'build'"))
+  if (!m) throw new Error('could not find the go build invocation')
+  if (!m.includes('-buildvcs=false')) throw new Error(`go build carries no -buildvcs=false: ${m}`)
+  return 'stamping off'
+})
+
 console.log('\n6. WIRING')
 const rd = f => readFileSync(join(REPO,f),'utf8')
 t('Phase 0.5 table has a nuxt-marketing row', () => {
@@ -641,6 +655,18 @@ if (!csBase) {
     eq(read(vendored(dir)), SPEC_V1, 'vendored bytes')
     if (!r.stdout.includes('codegen-ran')) throw new Error('codegen did not run')
     return 'spec + codegen'
+  })
+
+  t('a fresh lock says which command records the pins', () => {
+    // The shipped template's placeholders are truthy strings, so a presence check
+    // would let them through and fail later with a confusing resolve error.
+    const tmpl = JSON.parse(read(join(REPO, 'skills', 'contract-sync', 'templates', 'api-contract.lock.json')))
+    const dir = consumer('fresh-lock', { core: { ...tmpl.contracts.core, repo: 'o/contracts' } })
+    const r = cs(dir, ['sync'], csBase)
+    eq(r.status, 1, 'exit')
+    if (!r.stderr.includes('bump')) throw new Error(`did not name bump: ${r.stderr.trim()}`)
+    eq(existsSync(vendored(dir)), false, 'wrote nothing')
+    return 'points at bump'
   })
 
   t('a moved tag fails naming both SHAs, writing nothing', () => {

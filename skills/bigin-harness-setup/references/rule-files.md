@@ -18,7 +18,7 @@ Four of these files are the same for every profile and are described once, under
 | `generic` | none | no | **no** |
 | `specs` | none | no | **no** — and no `architecture.md` at all: this repo is where architecture is written |
 | `contracts` | none | no | yes |
-| `qa` | none | **yes** | **no** — no application architecture to respect |
+| `qa` | none | **yes** — from `profile-qa.md` → `## testing.md Template`, not from `files-shared.md` | **no** — no application architecture to respect |
 
 **This matrix is also `{CONVENTIONS_RULE}`.** The knowledge bundle's agent-rules concept cites the profile's conventions rule by path, so a profile whose conventions file is named differently — or absent, as on `generic` — resolves or drops that citation from the same row. See `references/knowledge-bundle.md`.
 
