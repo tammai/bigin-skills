@@ -863,7 +863,7 @@ jobs:
 
 `orphans` runs with `if: always()` and never fails the build — an orphan means a story was deleted upstream and its sidecar outlived it, which is worth seeing and is not worth blocking a merge over.
 
-**`ready` is deliberately not run over every story.** A story that declares UI and has no sidecar yet is the normal state before dev starts — that is what "not ready for dev" means. A job that failed on it would fail the story-sync PR itself, on the day the story arrives, forever. It runs against the stories *this PR names*, because a PR is the moment work begins.
+**`ready` is deliberately not run over every story.** A UI story with no sidecar yet is the normal state before dev starts, so a job failing on it would fail the story-sync PR itself, forever. It runs against the stories *this PR names* — a PR is the moment work begins. Same rule as the bot skip above: `.claude/rules/skill-authoring.md` → a gate goes where its premise holds.
 
 ---
 
