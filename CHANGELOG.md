@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.92.0] - 2026-09-08
+
+Phases 4 and 5 of the polyrepo project standard: stories reach the dev repos, and every story has to say what it does to the contract.
+
+### Added
+
+- **`story_sync.mjs`** — pulls story files and `REPO_MAP.md` from the specs repo into a consumer repo as read-only copies. Consumer-pull, symmetric with `contract_sync.mjs`: the specs repo dispatches, each consumer fetches and opens its own PR. **Not** named `docs_sync.mjs` — that name belongs to a tool in this repo that regenerates README tables and gates every commit here, and two tools with one name is how the wrong one gets run.
+
+  **The directory is generated wholesale, so it deletes — and it deletes only what it wrote.** A file in `docs/stories/` carrying the `synced: true` marker and absent upstream is removed; a hand-added file in the same directory is kept and reported by name. Any other rule makes `sync` a command nobody dares run, and would silently eat a dev's scratch notes. `docs/story-meta/` is a sibling directory and never enters the sync path at all.
+
+  **The marker merges into existing frontmatter, never prepends a second block** — BMAD stories may carry their own, and two blocks is a broken file. Because the copy therefore differs from the source by an injected key, freshness compares a digest of the body *below* the frontmatter rather than the whole file. Everything is fetched and compared before the first write, so a mid-run failure cannot leave the directory half-updated.
+
+- **Two dispatch workflows** in `references/ci.md`: the specs repo fires `story-updated` at every repo named in `vars.STORY_CONSUMERS`, and each consumer runs the sync and opens a PR. Both mint a GitHub App token, for the reasons `contract-bump.yml` already documents. The sync PR's subject is `docs(stories):` deliberately — `commit-msg-guard` requires a Conventional Commit, and `docs:` keeps `bugfix-test-guard` away from a PR containing no code.
+
+- **`story_lint.mjs`** — every story must declare its contract impact, checked at commit time and in CI. **All five assumptions about BMAD's story format live in one function** with the list written above it, because no BMAD template ships here and this was written against a documented shape rather than a live corpus. Reworking it against the first real specs repo is one function, not a rewrite. One case worth naming: keys appearing under a *later* heading do not satisfy the section — the block is bounded by the next `##`, so an empty section with the right words further down still fails.
+
+  An empty specs repo passes. A lint that fails on a repo with no stories yet gets removed from the hook on its first day.
+
+- **Session start reports story freshness** alongside contract staleness, both by extending `session-resume-check.mjs`. The story line appears only when there is drift — "up to date" is not worth a line at every session start.
+
+- **The BMAD template addition is handed over, not installed.** `profile-specs.md` carries the `## Contract impact` block for the BA to paste into their own `.bmad-core`, and the Phase 7 summary says it was handed over. This plugin has no BMAD template to patch, and pretending otherwise would be a claim nothing backs.
+
+### Notes
+
+- Eight new regress cases (74 total): the frontmatter merge in both directions, idempotence, upstream deletion propagating, the unsynced-file safety property, a read-only `check` that degrades offline, and the lint's pass/fail/empty behaviour.
+- What this does not prove: no specs repo exists, so the story format the lint assumes has never met a real BMAD story. That is the rework this ships expecting — see the assumption list in the script's header.
+
 ## [1.91.0] - 2026-09-08
 
 Phase 3 of the polyrepo project standard: the one-way flow contracts → consumers is now enforced rather than agreed.

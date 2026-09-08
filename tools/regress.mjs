@@ -536,7 +536,7 @@ t('every gate a profile registers is registered on Cursor too', () => {
   return `${claudeSide.size - CLAUDE_ONLY.size} gates on both hosts`
 })
 
-console.log('\n7. CONTRACT SYNC')
+console.log('\n7. SYNC SCRIPTS')
 
 const CS = join(REPO, 'skills', 'contract-sync', 'scripts', 'contract_sync.mjs')
 const SHA_A = 'a'.repeat(40)
@@ -562,6 +562,10 @@ createServer((req, res) => {
   }
   if ((m = u.pathname.match(/^\\/repos\\/[^/]+\\/[^/]+\\/contents\\/(.+)$/))) {
     const key = u.searchParams.get('ref') + ':' + decodeURIComponent(m[1])
+    const dir = (cfg.dirs ?? {})[key]
+    if (dir) {
+      return send(res, 200, JSON.stringify(dir.map(name => ({ type: 'file', name }))), 'application/json')
+    }
     const blob = cfg.blobs[key]
     return blob === undefined ? send(res, 404, '{}', 'application/json')
                               : send(res, 200, blob, 'text/plain')
@@ -604,8 +608,13 @@ try {
     blobs: {
       [`${SHA_A}:openapi/core.v1.yaml`]: SPEC_V1,
       [`${SHA_A}:openapi/core.v2.yaml`]: SPEC_V2,
-      [`${SHA_B}:openapi/core.v1.yaml`]: SPEC_V1
+      [`${SHA_B}:openapi/core.v1.yaml`]: SPEC_V1,
+      // the specs repo, for story_sync below
+      'main:docs/stories/ST-001.md': '---\nstory: ST-001\n---\n# Login\n',
+      'main:docs/stories/ST-002.md': '# Checkout\n',
+      'main:REPO_MAP.md': '# REPO_MAP\n'
     },
+    dirs: { 'main:docs/stories': ['ST-001.md', 'ST-002.md'] },
     tags: [{ name: 'v1.0.0' }, { name: 'v2.0.0' }]
   }))
   rmSync(portPath, { force: true })
@@ -696,6 +705,128 @@ if (!csBase) {
     if (!r.stdout.includes('skipped')) throw new Error(`no skip line: ${r.stdout.trim()}`)
     eq(existsSync(vendored(dir)), false, 'spec written')
     return 'quiet'
+  })
+
+  // ── story_sync.mjs ───────────────────────────────────────────────────
+
+  const SS = join(REPO, 'skills', 'bigin-harness-setup', 'scripts', 'story_sync.mjs')
+  const specsRepo = (name, extra = {}) => {
+    const dir = join(TMP, `ss-${name}`)
+    rmSync(dir, { recursive: true, force: true })
+    mkdirSync(join(dir, 'docs', 'stories'), { recursive: true })
+    mkdirSync(join(dir, 'docs', 'story-meta'), { recursive: true })
+    writeFileSync(join(dir, 'story-sync.json'), JSON.stringify({ repo: 'o/specs', ref: 'main' }))
+    for (const [rel, body] of Object.entries(extra)) {
+      mkdirSync(dirname(join(dir, rel)), { recursive: true })
+      writeFileSync(join(dir, rel), body)
+    }
+    return dir
+  }
+  const ss = (dir, args, base) => spawnSync('node', [SS, ...args], {
+    cwd: dir, encoding: 'utf8',
+    env: { ...process.env, STORY_SYNC_API: base, GITHUB_TOKEN: 'fixture-token', GH_TOKEN: '' }
+  })
+
+  t('story sync stamps synced: true without a second frontmatter block', () => {
+    const dir = specsRepo('fresh')
+    eq(ss(dir, ['sync'], csBase).status, 0, 'exit')
+    const one = read(join(dir, 'docs/stories/ST-001.md'))
+    const two = read(join(dir, 'docs/stories/ST-002.md'))
+    // ST-001 arrived WITH frontmatter: the marker merges in, it does not stack.
+    eq(one.match(/^---$/gm)?.length, 2, 'ST-001 frontmatter blocks')
+    if (!one.includes('synced: true') || !one.includes('story: ST-001')) throw new Error('merged frontmatter lost a key')
+    // ST-002 arrived with none: one block is created.
+    if (!two.startsWith('---\nsynced: true\n---\n')) throw new Error('ST-002 not stamped')
+    if (!read(join(dir, 'REPO_MAP.md')).includes('synced: true')) throw new Error('REPO_MAP not stamped')
+    return 'merged + created'
+  })
+
+  t('story sync is idempotent', () => {
+    const dir = specsRepo('idem')
+    eq(ss(dir, ['sync'], csBase).status, 0, 'first')
+    const before = read(join(dir, 'docs/stories/ST-001.md'))
+    const r = ss(dir, ['sync'], csBase)
+    eq(r.status, 0, 'second')
+    eq(read(join(dir, 'docs/stories/ST-001.md')), before, 'bytes')
+    if (!r.stdout.includes('already up to date')) throw new Error('second run did work')
+    return 'no-op'
+  })
+
+  t('a story deleted upstream is deleted here', () => {
+    const dir = specsRepo('deleted', {
+      'docs/stories/ST-099.md': '---\nsynced: true\n---\n# Gone upstream\n'
+    })
+    eq(ss(dir, ['sync'], csBase).status, 0, 'exit')
+    eq(existsSync(join(dir, 'docs/stories/ST-099.md')), false, 'removed')
+    return 'propagated'
+  })
+
+  // The safety property. A wholesale-generated directory deletes files, and this
+  // one deletes only what it wrote. Any other rule makes `sync` a command nobody
+  // dares run — and it would silently eat a dev's scratch notes.
+  t('an unsynced file in a synced directory is never deleted', () => {
+    const dir = specsRepo('foreign', {
+      'docs/stories/NOTES.md': '# my scratch notes, not synced\n',
+      'docs/story-meta/ST-001.yaml': 'story: ST-001\n'
+    })
+    const r = ss(dir, ['sync'], csBase)
+    eq(r.status, 0, 'exit')
+    eq(existsSync(join(dir, 'docs/stories/NOTES.md')), true, 'foreign file kept')
+    eq(existsSync(join(dir, 'docs/story-meta/ST-001.yaml')), true, 'sidecar kept')
+    if (!r.stdout.includes('left alone')) throw new Error('kept it but said nothing')
+    return 'kept and reported'
+  })
+
+  t('story check writes nothing and degrades offline', () => {
+    const dir = specsRepo('check')
+    const r = ss(dir, ['check'], csBase)
+    eq(r.status, 0, 'exit')
+    eq(existsSync(join(dir, 'docs/stories/ST-001.md')), false, 'wrote nothing')
+    if (!r.stdout.includes('to update')) throw new Error(`no report: ${r.stdout.trim()}`)
+    const off = ss(dir, ['check'], 'http://127.0.0.1:1')
+    eq(off.status, 0, 'offline exit')
+    if (!off.stdout.includes('skipped')) throw new Error('no skip line offline')
+    return 'read-only'
+  })
+
+  // ── story_lint.mjs ───────────────────────────────────────────────────
+  //
+  // Written against a documented shape rather than a real BMAD corpus, so these
+  // cases are what pins the assumptions listed in the script's own header. When
+  // the first live specs repo arrives, these are what change with it.
+
+  const SL = join(REPO, 'skills', 'bigin-harness-setup', 'scripts', 'story_lint.mjs')
+  const GOOD = '# ST-001\n\n## Contract impact\n- contracts: core.v1 — POST /orders\n- breaking: no\n- ui: yes\n'
+  const lint = body => {
+    const dir = join(TMP, `sl-${createHash('sha256').update(body ?? 'empty').digest('hex').slice(0, 8)}`)
+    rmSync(dir, { recursive: true, force: true })
+    mkdirSync(join(dir, 'docs', 'stories'), { recursive: true })
+    if (body !== null) writeFileSync(join(dir, 'docs', 'stories', 'ST-001.md'), body)
+    return spawnSync('node', [SL], { cwd: dir, encoding: 'utf8' })
+  }
+
+  t('story lint passes a filled-in section', () => {
+    eq(lint(GOOD).status, 0, 'exit')
+    eq(lint('# ST\n\n## Contract impact\n- contracts: none\n- breaking: no\n- ui: no\n').status, 0, 'contracts: none')
+    return 'both forms'
+  })
+
+  t('story lint fails what it should', () => {
+    const cases = {
+      'no section at all': '# ST-001\n\nJust a story.\n',
+      'missing ui': '# ST\n\n## Contract impact\n- contracts: none\n- breaking: no\n',
+      'bad contracts value': '# ST\n\n## Contract impact\n- contracts: maybe\n- breaking: no\n- ui: no\n',
+      'bad breaking value': '# ST\n\n## Contract impact\n- contracts: none\n- breaking: sort of\n- ui: no\n',
+      // The keys exist, but under a LATER heading — the section itself is empty.
+      'keys outside the section': '# ST\n\n## Contract impact\n\n## Notes\n- contracts: none\n- breaking: no\n- ui: no\n'
+    }
+    for (const [name, body] of Object.entries(cases)) eq(lint(body).status, 1, name)
+    return `${Object.keys(cases).length} rejected`
+  })
+
+  t('an empty specs repo is not a failure', () => {
+    eq(lint(null).status, 0, 'exit')
+    return 'no stories, no complaint'
   })
 
   t('CONTRACT_SYNC_API is refused when it is not loopback', () => {

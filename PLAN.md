@@ -1,7 +1,7 @@
 # Plan: Polyrepo project standard — contract-sync, repo types, story sync, Flutter handoff
 
 Status: approved
-Branch: feat/polyrepo-phase-3-guards
+Branch: feat/polyrepo-phase-4-5-stories
 
 Source: `bigin-skills-polyrepo-upgrade.zip` — `SPEC-polyrepo-standard.md` (umbrella),
 `SPEC-contract-sync.md`, `SPEC-figma-handoff-flutter.md`, four templates. Those specs are
@@ -284,8 +284,8 @@ alters theme files only; a pruned component fails by name.
 | 11 | Extend `session-resume-check.mjs` with staleness lines (C5 budget) | Done | Extended, not duplicated. 2.5 s subprocess backstop on top of the script's own 1500 ms fetch cap; silent on failure, absent lock, or missing script |
 | 12 | Register the guard in every consumer profile's `.claude/settings.json` + `.cursor/hooks.json`; CHANGELOG patch blocks | Done | Conditional on `REPO_TYPE`, so it is registered from SKILL.md Phase 5-3 and cursor-parity rather than a static profile block |
 | 13 | `regress.mjs` both-hosts guard-registration group | Done | In group 6: parses every guard out of the profile blocks and SKILL.md, diffs against cursor-parity, minus the three documented Claude-only scripts. Mutation-verified |
-| 14 | `story_sync.mjs` + dispatch workflow templates in `ci.md` | Not started | Phase 4 |
-| 15 | `story_lint.mjs` + Contract-impact fragment, assumptions isolated in one function | Not started | Phase 5 — rework hook |
+| 14 | `story_sync.mjs` + dispatch workflow templates in `ci.md` | Done | Consumer-pull, symmetric with contract_sync. Deletes only files carrying the marker it wrote — a hand-added file in a synced directory is kept and reported |
+| 15 | `story_lint.mjs` + Contract-impact fragment, assumptions isolated in one function | Done | All five assumptions in `parseContractImpact()` with the list above it. Keys under a later heading do not satisfy the section |
 | 16 | R3b/c/d CI gates in `ci.md`, GitHub + GitLab | Not started | Phase 6 |
 | 17 | `flutter-figma-handoff` skill (mapping reference, token adapter, pruning check) | Not started | Phase 7 — blocked on the Figma fork |
 | 18 | Flutter profile: collapse the generator "or", two-step `generate:`, Docker-absent skip in both gates | Not started | Decision 3 |

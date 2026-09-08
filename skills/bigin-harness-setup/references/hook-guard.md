@@ -955,6 +955,27 @@ if (existsSync(lockPath) && existsSync(syncScript)) {
   }
 }
 
+// Story freshness, on any repo that receives synced stories. Same rules as the
+// contract block above: read-only, bounded, silent unless it has something to say.
+const storyCfg = join(root, 'story-sync.json')
+const storyScript = join(root, 'scripts', 'story_sync.mjs')
+if (existsSync(storyCfg) && existsSync(storyScript)) {
+  try {
+    const r = spawnSync('node', [storyScript, 'check'], {
+      cwd: root,
+      encoding: 'utf-8',
+      timeout: 3500,
+      stdio: ['ignore', 'pipe', 'ignore']
+    })
+    const report = (r.stdout ?? '').trim()
+    if (r.status === 0 && report && !report.includes('up to date')) {
+      lines.push(`Stories: ${report.split('\n').join(' | ')}`)
+    }
+  } catch {
+    // degrade silently
+  }
+}
+
 if (lines.length === 0) process.exit(0)
 
 emitContext(data, 'SessionStart', lines.join(' '))

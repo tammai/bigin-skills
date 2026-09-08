@@ -666,6 +666,117 @@ quality:
 
 ---
 
+## story-sync workflow: github (specs repo)
+
+Write to `.github/workflows/story-dispatch.yml` in the **specs** repo. Fires the event the consumer workflow below listens for.
+
+`vars.STORY_CONSUMERS` is a JSON array of `owner/name` — the consumer repos of this project. It is a repo variable rather than a file so adding a consumer needs no code change.
+
+```yaml
+name: story-dispatch
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/stories/**'
+      - 'REPO_MAP.md'
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint an App token
+        id: app
+        uses: actions/create-github-app-token@v1   # pin to a commit SHA in your repo
+        with:
+          app-id: ${{ vars.CONTRACT_APP_ID }}
+          private-key: ${{ secrets.CONTRACT_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Tell each consumer repo
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          CONSUMERS: ${{ vars.STORY_CONSUMERS }}
+        run: |
+          set -euo pipefail
+          echo "$CONSUMERS" | jq -r '.[]' | while read -r repo; do
+            gh api "repos/$repo/dispatches" -f event_type=story-updated
+          done
+```
+
+Actions' own `GITHUB_TOKEN` cannot `repository_dispatch` at another repo, which is why this mints an App token — the same reason `contract-bump.yml` does.
+
+---
+
+## story-sync workflow: github (consumer repos)
+
+Write to `.github/workflows/story-sync.yml` in each **consumer** repo (`REPO_TYPE` = `api` / `web` / `mobile` / `qa`).
+
+```yaml
+name: story-sync
+
+on:
+  repository_dispatch:
+    types: [story-updated]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint an App token
+        id: app
+        uses: actions/create-github-app-token@v1   # pin to a commit SHA in your repo
+        with:
+          app-id: ${{ vars.CONTRACT_APP_ID }}
+          private-key: ${{ secrets.CONTRACT_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ steps.app.outputs.token }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Pull the stories
+        env:
+          GITHUB_TOKEN: ${{ steps.app.outputs.token }}
+        run: node scripts/story_sync.mjs sync
+
+      - name: Open the PR
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo "already in step with the specs repo"
+            exit 0
+          fi
+          BRANCH="story-sync/$(date -u +%Y%m%d%H%M%S)"
+          git config user.name  "story-sync[bot]"
+          git config user.email "story-sync[bot]@users.noreply.github.com"
+          git switch -c "$BRANCH"
+          git add -A
+          git commit -m "docs(stories): sync from the specs repo"
+          git push -u origin "$BRANCH"
+          gh pr create \
+            --title "docs(stories): sync from the specs repo" \
+            --body "Automated. Every file here carries \`synced: true\` and is read-only —
+          edit stories in the specs repo. Dev-side context goes in \`docs/story-meta/\`,
+          which this sync never touches." \
+            --head "$BRANCH"
+```
+
+The commit subject is `docs(stories):` deliberately: `commit-msg-guard` requires a Conventional Commit, and `docs:` keeps `bugfix-test-guard` out of the way of a PR that contains no code.
+
+---
+
 ## knowledge-validate step: github
 
 Only when `KNOWLEDGE_BUNDLE = true`. Insert as the last step of the `quality` job, after the profile's test step. No setup step needed — GitHub's ubuntu runners ship Node.

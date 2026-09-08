@@ -268,6 +268,10 @@ Two shapes. **nuxt / next / tauri with `SCAFFOLDED = true`** already have a `.cl
 Both shapes register seven events: `PreToolUse`, `PostToolUse`, `SessionStart`, `PreCompact`, `SessionEnd`, `Setup` (and `PostToolUse` lint-fix on nuxt/nuxt-marketing/next/tauri). The exact per-event merge list and the two allowlist exceptions: `references/overlay-matrix.md` → `## 5-3`.
 
 
+**Story lint, when `PROFILE` is `specs`:** copy `${CLAUDE_PLUGIN_ROOT}/skills/bigin-harness-setup/scripts/story_lint.mjs` to `scripts/story_lint.mjs` and wire it into the pre-commit script. Hand the BMAD template addition from `references/profile-specs.md` → `## BMAD story template addition` to the BA — it cannot be installed, since no BMAD template ships here.
+
+**Story sync, when `REPO_TYPE` is `api`, `web`, `mobile` or `qa`:** copy `${CLAUDE_PLUGIN_ROOT}/skills/bigin-harness-setup/scripts/story_sync.mjs` to `scripts/story_sync.mjs`, write `story-sync.json` at the repo root (`{"repo": "<owner>/<project>-specs", "ref": "main"}`), and write `.github/workflows/story-sync.yml` from `references/ci.md` → `## story-sync workflow: github (consumer repos)`. `qa` receives stories but consumes no contract, which is why its list differs from the guard's below.
+
 **One conditional entry.** When Phase 0a set `REPO_TYPE` to `api`, `web` or `mobile`, add `vendored-contract-guard.mjs` to the `PreToolUse` block on the `Edit|Write|MultiEdit` matcher, beside `spec-gate-guard.mjs`:
 
 ```json

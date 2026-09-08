@@ -20,6 +20,26 @@ The one real command is the story lint, which is also the pre-commit gate:
 node scripts/story_lint.mjs
 ```
 
+Copy it from `${CLAUDE_PLUGIN_ROOT}/skills/bigin-harness-setup/scripts/story_lint.mjs` to `scripts/story_lint.mjs`.
+
+---
+
+## BMAD story template addition
+
+Append this to the story template in the repo's own `.bmad-core`. **This plugin ships no BMAD template**, so it cannot patch one — hand it to the BA with the sentence below, and say in the Phase 7 summary that it was handed over rather than installed.
+
+```markdown
+## Contract impact
+
+- contracts: none | <service>.v<major> — endpoints touched
+- breaking: yes | no
+- ui: yes | no
+```
+
+`ui: yes` is what the ready-for-dev gate keys on: a story that declares UI needs a Figma node-id in its consumer-side sidecar before it can enter a sprint. Design impact is deliberately **not** in this section — it belongs in the sidecar, filled by dev, not in the story, filled by the BA.
+
+`story_lint.mjs` enforces the section's presence and its values at commit time. Its assumptions about BMAD's story format are listed in the script's own header and confined to one function, because they were written against the documented shape rather than a live corpus — expect to revisit them against the first real specs repo.
+
 ---
 
 ## CLAUDE.md Template
@@ -70,7 +90,7 @@ None, and no `architecture.md` at all. See `## rules`.
 
 ## CI
 
-One job: `node scripts/story_lint.mjs` over the repo, plus the orphan-sidecar check once Phase 6 lands. No build, no tests, no deploy. The story-sync dispatch that fires on merge is written by the story-sync work, not by this profile.
+Two workflows. `node scripts/story_lint.mjs` over the repo (plus the orphan-sidecar check once Phase 6 lands) — no build, no tests, no deploy. And `.github/workflows/story-dispatch.yml` from `references/ci.md` → `## story-sync workflow: github (specs repo)`, which tells every consumer repo when a story changes. The consumer half of that flow is written into the consumer repos, not here.
 
 ---
 
