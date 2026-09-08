@@ -126,7 +126,7 @@ Enabled:
   [knowledge bundle validation wired into the pre-commit gate] (if opted in)
   [knowledge bundle validation wired into generated CI] (if opted in and CI_PROVIDER != no)
   [sprint-distill available — run it at sprint end to fold merged work into knowledge/ and bigin-skills] (if opted in)
-  [Cursor parity — same nine guards run under .cursor/hooks.json; CLAUDE.md/.claude/rules/ stay canonical and tools/cursor_mirror.mjs --check is wired into the pre-commit gate (and generated CI) so the mirror can't drift. One behavior differs: Cursor's preToolUse has no "ask", so the injection gate's heuristic stage denies instead of prompting] (if AGENT_HOSTS includes cursor)
+  [Cursor parity — the same guards run under .cursor/hooks.json; CLAUDE.md/.claude/rules/ stay canonical and tools/cursor_mirror.mjs --check is wired into the pre-commit gate (and generated CI) so the mirror can't drift. One behavior differs: Cursor's preToolUse has no "ask", so the injection gate's heuristic stage denies instead of prompting] (if AGENT_HOSTS includes cursor)
 
 Next steps:
   1. First `claude` run here: accept the workspace trust dialog, or the permissions.allow entries in .claude/settings.json are ignored.
@@ -206,7 +206,7 @@ Next steps:
 - [ ] **if opted in** — Knowledge Bundle: `.claude/rules/knowledge.md`, `knowledge/{meta,contracts,constraints}/*.md`, `knowledge/index.md`, `knowledge/log.md`, `tools/knowledge_validate.mjs`, wired into the pre-commit gate, `AI_REVIEW_CHECKLIST.md` gets one added line
 - [ ] **if CI_PROVIDER = github/both** — `.github/workflows/ci.yml` runs lint + typecheck + test (+ knowledge validator and cursor-mirror check if opted in)
 - [ ] **if CI_PROVIDER = gitlab/both** — `.gitlab-ci.yml` runs lint + typecheck + test (+ knowledge validator and cursor-mirror check if opted in)
-- [ ] **if AGENT_HOSTS includes cursor** — `AGENTS.md` + `.cursor/rules/*.mdc` **generated** by `node tools/cursor_mirror.mjs` (never hand-written), one `.mdc` per `.claude/rules/*.md` with `paths:` translated to comma-separated `globs:` and brace sets expanded; `.cursor/hooks.json` registers all nine guards with no matchers and `failClosed: true` on the five blocking ones; `tools/cursor_mirror.mjs --check` wired into the pre-commit gate; `node tools/cursor_mirror.mjs --check` exits 0 on the freshly-scaffolded repo
+- [ ] **if AGENT_HOSTS includes cursor** — `AGENTS.md` + `.cursor/rules/*.mdc` **generated** by `node tools/cursor_mirror.mjs` (never hand-written), one `.mdc` per `.claude/rules/*.md` with `paths:` translated to comma-separated `globs:` and brace sets expanded; `.cursor/hooks.json` registers every guard `.claude/settings.json` does, with no matchers and `failClosed: true` on the blocking ones (five, or six with `vendored-contract-guard.mjs` on a polyrepo consumer repo); `tools/cursor_mirror.mjs --check` wired into the pre-commit gate; `node tools/cursor_mirror.mjs --check` exits 0 on the freshly-scaffolded repo
 - [ ] **if AGENT_HOSTS = claude** — no `AGENTS.md`, no `.cursor/`, no `tools/cursor_mirror.mjs`; `tools/context_budget.mjs` prints only the Claude Code line
 
 ---

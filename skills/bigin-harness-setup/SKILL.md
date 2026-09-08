@@ -430,7 +430,7 @@ Phase order, then the cross-cutting ones:
 - `files-shared.md` — security, architecture, AI task guide, review checklist, and the `paths:` block per profile
 - `rule-files.md` — Phase 3: which `.claude/rules/` files each profile gets
 - `overlay-matrix.md` — Phase 5's five branching steps: the matrix plus the argued reason for each exception
-- `hook-guard.md` — `lib/hook-io.mjs` (the two-host adapter every guard imports), the nine gates, the two Claude-only bootstraps (`install-hooks.mjs`, `instructions-trace.mjs`), and the pre-commit + commit-msg scripts per profile
+- `hook-guard.md` — `lib/hook-io.mjs` (the two-host adapter every guard imports), the nine gates every profile installs plus `vendored-contract-guard.mjs` on polyrepo consumer repos, the two Claude-only bootstraps (`install-hooks.mjs`, `instructions-trace.mjs`), and the pre-commit + commit-msg scripts per profile
 - `budget-gate.md` — `context_budget.mjs`
 - `knowledge-bundle.md` / `knowledge-migration.md` — Phase 5.5 templates; migrating an existing `knowledge/`
 - `graph.md` — Phase 5.7 graphify convention

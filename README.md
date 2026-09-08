@@ -9,6 +9,7 @@ The agent writes a spec before it writes code. A second, memoryless agent audits
 | **Start here** | [Handbook](https://bigin-skills.pages.dev/handbook) — why the harness exists and the five concepts behind it, in one readable pass (source: [`site/src/pages/handbook.html`](site/src/pages/handbook.html)) |
 | **Day to day** | [User Guide](docs/USER_GUIDE.md) — setup, the daily loop, what each gate blocks and how to unblock it, troubleshooting |
 | **Going deeper** | [Spec gate](docs/SPEC-GATE.md) · [Enforcement gates](docs/GATES.md) · [Model routing](docs/ROUTING.md) · [Knowledge bundle](docs/KNOWLEDGE.md) · [Code graph](docs/GRAPHIFY.md) |
+| **Multi-repo projects** | [Polyrepo standard](docs/polyrepo/README.md) — the six-repo project layout, contract vendoring, story sync, and the repo types the harness installs for each |
 
 ---
 

@@ -152,7 +152,7 @@ opted into Cursor:
 ├── AGENTS.md                   ← generated from CLAUDE.md; what Cursor loads
 ├── .cursor/
 │   ├── rules/*.mdc             ← generated from .claude/rules/; paths: → globs:
-│   └── hooks.json              ← registers the same nine guards
+│   └── hooks.json              ← registers the same guards (nine, or ten on a polyrepo consumer repo)
 └── tools/cursor_mirror.mjs     ← regenerates the mirror; --check gates the commit
 ```
 
