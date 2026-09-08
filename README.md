@@ -78,6 +78,7 @@ Setup detects the profile, or asks. It decides which templates get written. `tau
 | `flutter` | Flutter mobile client against an existing HTTP API — Riverpod, `go_router`, Drift, generated dio client. The contract is frozen input, not a decision made here | `flutter create` (pinned args) |
 | `tauri` | Tauri 2 desktop app against an existing HTTP API — Nuxt 4 SPA frontend, Rust shell owning the HTTP client, the tokens and the local cache. The webview makes no network call and holds no secret | `nuxt-scaffold` + `pnpm tauri init` |
 | `generic` | Any existing repo matching none of the seven — no question asked. Commands are detected, not guessed; anything undetected stays a visible `TODO` | _(none)_ |
+| `specs` / `contracts` / `qa` | The non-application repos of a polyrepo project, selected by the repo **name** rather than a file marker (Phase 0a). Each installs only the gates whose premise holds there — 6, 8 and 8 of the nine | _(none — nothing to scaffold)_ |
 
 Each scaffold skill's `SKILL.md` is the reference for what it generates. What setup writes into your repo: [User Guide §3](docs/USER_GUIDE.md#3-day-1--set-up-a-repo).
 
@@ -91,7 +92,7 @@ Each scaffold skill's `SKILL.md` is the reference for what it generates. What se
 | Skill                       | Purpose                                                                                                                                                      |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **ask-bigin**               | Routes a request to the right skill and hands off (/ask-bigin): reads the shared triage ladder for build work, the named subject otherwise.                  |
-| **bigin-harness-setup**     | Scaffolds an AI workflow harness — CLAUDE.md, rules, commit gates, Cursor mirror. Profiles: nuxt, nuxt-marketing, next, go, node, flutter, tauri, generic.   |
+| **bigin-harness-setup**     | Scaffolds an AI workflow harness — CLAUDE.md, rules, commit gates, Cursor mirror. 8 stack profiles plus the polyrepo repo types specs/contracts/qa.          |
 | **task-workflow**           | On-demand task workflow (/task-workflow): scope → spec → plan (approved) → implement/verify loop (capped, independent verifier) → review → cleanup.          |
 | **epic-workflow**           | Decomposes an initiative into ordered, independently shippable units (/epic-workflow), then dispatches them one at a time through task-workflow.             |
 | **discovery-workflow**      | Vague ask → approved brief + PRD under docs/product/ and architecture decisions in knowledge/, then hands the PRD to epic-workflow.                          |

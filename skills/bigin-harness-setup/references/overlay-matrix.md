@@ -4,16 +4,18 @@ Phase 5 writes the same enforcement layer for every profile. Five steps branch, 
 
 ## The matrix
 
-| Step | nuxt | nuxt-marketing | next | tauri | go | nodejs | flutter | generic |
-|---|---|---|---|---|---|---|---|---|
-| **5-1** pre-commit | skip if a manager exists | **always write + chain** | skip if a manager exists | **always write + chain** | write | write | write | write |
-| **5-3** settings.json | merge (scaffold wrote one) | write/merge | merge | merge | write/merge | write/merge | write/merge | write/merge |
-| **5-3b** `.vscode/settings.json` | ESLint | ESLint | ESLint | ESLint **+ rust-analyzer** | — | — | — | — |
-| **5-3b2** `analysis_options.yaml` | — | — | — | — | — | — | **merge** | — |
-| **5-3b3** `rust-toolchain.toml` + `tauri.conf.json` | — | — | — | **write / check** | — | — | — | — |
-| **5.6** CI extra | — | build + prerender + 3 greps, no deploy | — | 2 jobs, no installers | — | — | `.fvmrc` | no CI at all |
+| Step | nuxt | nuxt-marketing | next | tauri | go | nodejs | flutter | generic | specs | contracts | qa |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| **5-1** pre-commit | skip if a manager exists | **always write + chain** | skip if a manager exists | **always write + chain** | write | write | write | write | write (story lint) | write (spec lint) | write (E2E lint, if any) |
+| **5-3** settings.json | merge (scaffold wrote one) | write/merge | merge | merge | write/merge | write/merge | write/merge | write/merge | write | write | write |
+| **5-3b** `.vscode/settings.json` | ESLint | ESLint | ESLint | ESLint **+ rust-analyzer** | — | — | — | — | — | — | — |
+| **5-3b2** `analysis_options.yaml` | — | — | — | — | — | — | **merge** | — | — | — | — |
+| **5-3b3** `rust-toolchain.toml` + `tauri.conf.json` | — | — | — | **write / check** | — | — | — | — | — | — | — |
+| **5.6** CI extra | — | build + prerender + 3 greps, no deploy | — | 2 jobs, no installers | — | — | `.fvmrc` | no CI at all | story lint only | **none — see below** | E2E on a schedule |
 
-Everything not in that table is identical across profiles: all ten guard scripts, `hook-io.mjs`, the context-budget gate, the commit-msg gate, the version marker, and the model-routing config.
+Everything not in that table is identical across the eight stack profiles: all ten guard scripts, `hook-io.mjs`, the context-budget gate, the commit-msg gate, the version marker, and the model-routing config.
+
+**The three polyrepo profiles are the exception, and it is the gate set itself that differs** — see `## Polyrepo profiles: which gates apply` below.
 
 ---
 
@@ -76,3 +78,30 @@ Report, don't fix. Each is an application decision with a real value behind it, 
 - **tauri** — two jobs and no installer build. The frontend job is an ordinary runner; the Rust job first installs Tauri 2's Linux system libraries, since a plain runner has none and `cargo build` then fails on a linker error that names a symbol rather than the missing package. Building installers is a three-OS matrix needing the code-signing and notarization secrets, so it belongs in a release workflow the team writes once it has certificates — as a PR gate it would be red on every pull request for want of an Apple Developer ID, and an always-red gate gets deleted. `rust-toolchain.toml` decides the toolchain; `dtolnay/rust-toolchain` and `Swatinem/rust-cache` are both tag-referenced and want SHAs, named in the summary.
 - **nuxt-marketing** — the only frontend profile whose workflow **builds**, because on this profile the build *is* the locale prerender and a locale that fails to prerender 404s in production and nowhere else. The three greps run here too, as the backstop for a commit that reached the branch with no hooks installed. Every grep tests its search root first: `grep` exits 2 on a missing path *even when it matched*, and an exit 2 inside `if` is false, so one absent argument would turn a step green over a repo full of violations. **No deploy job** — that belongs to the site's own workflow, which the Factory owns, and it is the one generated command whose blast radius is a live client site.
 - **generic** — no CI at all. `references/ci.md` has no generic template, and an inferred workflow for an unknown stack would be wrong more often than right.
+
+---
+
+## Polyrepo profiles: which gates apply
+
+`specs`, `contracts` and `qa` are the only profiles that install a **different set of gates** rather than the same set configured differently. The rule is one line: *a gate is installed where its premise holds.* Installing one whose premise is false teaches people that gates are noise to be worked around, which costs more than the gate was ever worth.
+
+| Gate | specs | contracts | qa |
+|---|---|---|---|
+| `bash-guard` | yes | yes | yes |
+| `injection-gate-guard` + `injection-scan-guard` + `canary-seed` | yes | yes | yes |
+| `session-resume-check` | yes | yes | yes |
+| `precompact-snapshot` | yes | yes | yes |
+| `commit-msg-guard` | **no** | yes | yes |
+| `bugfix-test-guard` | **no** | **no** | yes |
+| `spec-gate-guard` | **no** | yes | **no** |
+| **count of the nine** | 6 | 8 | 8 |
+
+`install-hooks.mjs` is installed by all three; it is a `Setup` bootstrap, not one of the nine.
+
+**`commit-msg-guard` off in `specs`** — its authors are business analysts writing prose. `feat(scope): subject` on a user story is dev ceremony with no reader, and a BA whose first commit is rejected on a format they were never taught learns that this repo fights them.
+
+**`bugfix-test-guard` off in `specs` and `contracts`.** It needs a test surface. `specs` has none. `contracts` has one in principle — `oasdiff` — but that is a workstream outside this release, and the guard's trivial-path allowlist covers `.md`, `.env.example`, `graphify-out/` and a fixed list of JS config files, **not `.yaml`**: a `fix:` commit staging `openapi/core.v1.yaml` would be blocked on a regression test that cannot exist, so every contract fix would carry `[no-test]`. It stays on in `qa`, where a fix to an E2E spec *is* a test file and satisfies the guard's own patterns, and manual cases are markdown the allowlist already covers.
+
+**`spec-gate-guard` off in `specs` and `qa`.** In both, writing the artifact *is* the work: a gate demanding an approved `PLAN.md` before a BA may write a story, or a tester a test case, inverts the workflow it exists to protect. It stays on in `contracts`, where an API change is a design change and the ≤20-line threshold already lets a small schema fix through.
+
+**`contracts` gets no CI from this profile at all.** Lint, `oasdiff` breaking-change gating, tagging and the consumer dispatch are that repo's own workstream. A generated pipeline that tags and dispatches without first checking compatibility would publish breaking changes on a schedule — worse than the gap it fills. Name it in the Phase 7 summary instead.

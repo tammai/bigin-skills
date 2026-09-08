@@ -1,7 +1,7 @@
 # Plan: Polyrepo project standard — contract-sync, repo types, story sync, Flutter handoff
 
 Status: approved
-Branch: feat/polyrepo-phase-1-contract-sync
+Branch: main
 
 Source: `bigin-skills-polyrepo-upgrade.zip` — `SPEC-polyrepo-standard.md` (umbrella),
 `SPEC-contract-sync.md`, `SPEC-figma-handoff-flutter.md`, four templates. Those specs are
@@ -276,10 +276,10 @@ alters theme files only; a pruned component fails by name.
 | 3 | `contract-sync`: SKILL.md, references/lock-format.md, templates (lock + `contract-bump.yml` with the App-token mint, C10) | Done | Also shipped `contract-drift.yml` (spec §7's CI layer, unassigned in this table) and evals + manifest entry, which `docs_sync --check` requires the moment a SKILL.md exists |
 | 4 | `regress.mjs` group for `contract_sync.mjs` (4 cases, local fixtures, no network) | Done | 8 cases via a loopback fixture server; mutation-tested (3 mutations, each caught by its own case). Build group renumbered 7→8 |
 | 5 | Update `nuxt-scaffold/scripts/scaffold.mjs:731-732` hint text | Done | Names both flows: hand-copy is still right standalone, contract-sync owns it in a polyrepo |
-| 6 | Harness Phase 0a: repo-type from name suffix, confirmed; ladder untouched | Not started | Phase 2 |
-| 7 | `profile-specs.md`, `profile-contracts.md`, `profile-qa.md` + overlay-matrix + scaffold-delegation rows | Not started | Phase 2 |
-| 8 | Vendored-vs-authored mode statement in `profile-go.md`, `profile-nuxt.md` and `profile-flutter.md` | Not started | Decision 2. Widened from go-only: profile-nuxt.md's OpenAPI Types section and profile-flutter.md's frozen-contract note are the same rule for the other two consumer types, and a guard that blocks an edit no rule file mentions is the surprise to avoid |
-| 9 | `regress.mjs` suffix-mapping group | Not started | Phase 2 done-when |
+| 6 | Harness Phase 0a: repo-type from name suffix, confirmed; ladder untouched | Done | Name-based, so it is a pre-step rather than a ladder rung — the 9 rows are byte-identical. Phase 0.5 and Phase 2 updated for the skip and the CLAUDE.md record |
+| 7 | `profile-specs.md`, `profile-contracts.md`, `profile-qa.md` + overlay-matrix + scaffold-delegation rows | Done | Gate sets differ per profile (6/8/8 of the nine), argued in overlay-matrix's new section — a gate whose premise is false teaches people to work around gates |
+| 8 | Vendored-vs-authored mode statement in `profile-go.md`, `profile-nuxt.md` and `profile-flutter.md` | Done | Shared rule single-sourced as `.claude/rules/vendored-contract.md` in `files-shared.md`; each profile keeps a two-row mode table. Also fixed a live defect: go's `paths:` named `api/openapi.yaml`, a file go repos do not have, so the architecture rule never loaded on the contract |
+| 9 | `regress.mjs` suffix-mapping group | Done | Added to group 4 rather than renumbering again: 12 name cases, the ladder-still-nine-rungs assertion, and a cross-check of overlay-matrix's 6/8/8 claim against the settings JSON each profile writes |
 | 10 | New synced/vendored-path guard in `hook-guard.md`, both hosts, C4's rule | Not started | Phase 3 |
 | 11 | Extend `session-resume-check.mjs` with staleness lines (C5 budget) | Not started | Phase 3 — extend, never add a second SessionStart script |
 | 12 | Register the guard in every consumer profile's `.claude/settings.json` + `.cursor/hooks.json`; CHANGELOG patch blocks | Not started | Phase 3 |

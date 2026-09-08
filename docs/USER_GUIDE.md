@@ -615,6 +615,7 @@ Probably the injection gate (stage 2) after a recent web fetch. Check what was f
 | --- | --- |
 | **Harness** | The governance layer: `CLAUDE.md`, `.claude/rules/`, guard hooks, budget gate, CI. |
 | **Profile** | Which stack a repo is — `nuxt`, `nuxt-marketing`, `next`, `go`, `nodejs`, `flutter`, `tauri`, or `generic`. Decides which templates get written. |
+| **Repo type** | Which repo of a *polyrepo project* this is — `specs`, `contracts`, `api`, `web`, `mobile`, `qa`, or `none`. Read from the repo name and confirmed, before any stack detection. `specs`/`contracts`/`qa` replace the profile; `api`/`web`/`mobile` sit alongside it and add the vendored-contract overlay. |
 | **Guard** | A hook script under `.claude/guards/` that blocks or confirms a tool call. The load-bearing part of the system. |
 | **Gate** | A checkpoint that fails closed — the spec gate, the pre-commit script, the budget gate. |
 | **Tier** | One of the three execution subagents: quick / standard / deep. |

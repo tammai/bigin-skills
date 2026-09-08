@@ -166,7 +166,7 @@ const { data } = await apiClient<Ok<'/v1/users'>>('/v1/users')
 ```
 
 ## OpenAPI Types
-The committed contract snapshot is `openapi.yaml`. Regenerate the typed client before consuming any new API surface:
+**How `openapi.yaml` arrives depends on the repo's mode — see the profile's `## Contract ownership` section.** The committed contract snapshot is `openapi.yaml`. Regenerate the typed client before consuming any new API surface:
 ```sh
 pnpm openapi-types   # openapi-typescript openapi.yaml -o shared/api-client/schema.d.ts
 ```
@@ -398,3 +398,18 @@ Editor format-on-save through the ESLint extension (matches the `nuxt-scaffold` 
   }
 }
 ```
+
+---
+
+## Contract ownership
+
+Nuxt never authors a contract — `openapi.yaml` is always a snapshot of the paired backend's. What differs is **how the snapshot arrives**, and Phase 0a decides. Write one mode, never both.
+
+| `REPO_TYPE` | Mode | How the snapshot arrives |
+|---|---|---|
+| `none` — a standalone Nuxt app | **hand-copied** | a developer copies the backend's contract over it and runs `pnpm openapi-types`. This is what `nuxt-scaffold`'s next-steps describes |
+| `web` — the web repo of a polyrepo project | **vendored** | `contract_sync.mjs` writes it from the contracts repo at a pinned commit. Hand-copying is blocked in-session and caught by the CI drift job |
+
+In **vendored** mode: `## OpenAPI Types` gains the line *"This file is vendored — see `.claude/rules/vendored-contract.md`. Do not copy a new one over it by hand,"* and `.claude/rules/vendored-contract.md` is written from `files-shared.md` → `## vendored-contract.md` with `{SPEC_PATH}` = `openapi.yaml` and `{CODEGEN_OUT}` = `shared/api-client/schema.d.ts` (`layers/shared/api-client/schema.d.ts` on the `starter` template).
+
+`pnpm openapi-types` is the codegen command in both modes.

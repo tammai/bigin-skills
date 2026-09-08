@@ -1,3 +1,56 @@
+# Phase 0a: repo-type detection
+
+Runs before the stack ladder. Six suffixes, matched on the repo's own name lowercased — the `origin` remote's repo name if there is one, else the directory basename. The remote is preferred because a locally renamed or freshly cloned directory is the case that misleads.
+
+| Name ends in | `REPO_TYPE` | Effect on Phase 0 |
+|---|---|---|
+| `-specs` | `specs` | short-circuits it — `PROFILE = specs` |
+| `-contracts` | `contracts` | short-circuits it — `PROFILE = contracts` |
+| `-qa` | `qa` | short-circuits it — `PROFILE = qa` |
+| `-api` | `api` | none; the stack ladder runs as today |
+| `-web` | `web` | none; the stack ladder runs as today |
+| `-mobile` | `mobile` | none; the stack ladder runs as today |
+| anything else | `none` | none; say nothing |
+
+The suffix must follow a hyphen after something: `acme-api` matches, a repo named just `api` does not. The prefix is the project slug and the standard requires it, so a bare name is more likely a coincidence than a member of a project. A user who says "this is the api repo" outright overrides detection — take them at their word.
+
+## The confirmation
+
+Shown **only** when a suffix matched. A repo with no suffix produces no output at all: that is the overwhelmingly common case, and a question there would tax every ordinary harness run for a standard most repos are not in.
+
+```
+This looks like the `web` repo of a polyrepo project (from the name `acme-web`).
+That installs the consumer overlay: the vendored API spec becomes read-only, edits to it
+are blocked in-session, and session start reports whether the contract is behind.
+
+Right? (yes / no / a different type: specs, contracts, api, web, mobile, qa)
+```
+
+`no` sets `REPO_TYPE = none` and the run proceeds as an ordinary single repo. This confirmation is the entire safety margin on a name-based signal, so it is never skipped and never defaulted through.
+
+## When the name and the markers disagree
+
+A repo whose name says `specs`, `contracts` or `qa` but which carries a stack marker (`nuxt.config.ts`, `go.mod`, `pubspec.yaml`, …) is a contradiction: one of the two signals is wrong. **Do not short-circuit silently.** Say what was found on both sides and ask which is true:
+
+```
+The name says this is the `specs` repo, but I found `go.mod` — a specs repo holds no code.
+Which is right: the name (install the specs profile, ignore the Go app) or the marker
+(this is an ordinary Go repo that happens to be named that way)?
+```
+
+There is no conflict for `api`/`web`/`mobile`, which expect a stack marker. A `-mobile` repo that narrows to `generic` (a Flutter *package*, per row 7) is not a conflict either — it keeps `REPO_TYPE = mobile` and gets the consumer overlay, which is about contracts rather than widgets.
+
+## Recording it
+
+Two records, because they answer different questions:
+
+- The generated `CLAUDE.md`'s stack line names it (`Stack: Nuxt 4 BFF app · polyrepo repo type: web`), so every session sees it without a lookup.
+- `api-contract.lock` at the repo root is the machine signal a consumer repo exists at all, and is what `contract_sync.mjs` and the guards key on.
+
+On a re-run, read the `CLAUDE.md` line first and the lock second; ask again only if neither is there and the name still matches a suffix.
+
+---
+
 # Phase 0: stack-profile detection
 
 The full detection ladder, the three narrowing tests (Tauri before Nuxt, marketing site before Nuxt, Flutter app vs package), and the empty-repo question text.

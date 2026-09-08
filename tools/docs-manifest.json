@@ -6,7 +6,7 @@
     },
     "bigin-harness-setup": {
       "group": "core",
-      "summary": "Scaffolds an AI workflow harness — CLAUDE.md, rules, commit gates, Cursor mirror. Profiles: nuxt, nuxt-marketing, next, go, node, flutter, tauri, generic."
+      "summary": "Scaffolds an AI workflow harness — CLAUDE.md, rules, commit gates, Cursor mirror. 8 stack profiles plus the polyrepo repo types specs/contracts/qa."
     },
     "task-workflow": {
       "group": "core",

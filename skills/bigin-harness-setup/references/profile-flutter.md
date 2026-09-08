@@ -94,7 +94,7 @@ Hand-written: `lib/**` (except `*.g.dart`), `test/**`, `integration_test/**`, `p
 
 Generated, never hand-edited: every `*.g.dart` (build_runner) and `api/generated/**` (the API client, generated from the frozen contract). Both are committed, and CI regenerates and diffs them. If you are about to edit a file with a `// GENERATED CODE - DO NOT MODIFY` header, edit its source instead.
 
-`api/openapi.yaml` is a copy or symlink of a contract owned by another team and frozen upstream. It is not edited here to make the client compile — a shape the app needs and the API does not provide is a contract finding, recorded as one.
+`api/openapi.yaml` is a copy of a contract owned by another team and frozen upstream — **see the profile's `## Contract ownership` section for how that copy arrives.** It is not edited here to make the client compile — a shape the app needs and the API does not provide is a contract finding, recorded as one.
 
 ## Layering
 
@@ -397,3 +397,18 @@ None. Dart's formatter and analyzer come from the official Dart/Flutter extensio
   }
 }
 ```
+
+---
+
+## Contract ownership
+
+Flutter never authors a contract either: `api/openapi.yaml` is always frozen upstream. Phase 0a decides **how the copy arrives**. Write one mode, never both.
+
+| `REPO_TYPE` | Mode | How the copy arrives |
+|---|---|---|
+| `none` — a standalone Flutter client | **hand-copied** | a developer copies the upstream contract in and regenerates. The "frozen upstream" rule already stated above is the whole discipline |
+| `mobile` — the mobile repo of a polyrepo project | **vendored** | `contract_sync.mjs` writes it from the contracts repo at a pinned commit; edits are blocked in-session and drift fails CI |
+
+In **vendored** mode, `.claude/rules/vendored-contract.md` is written from `files-shared.md` → `## vendored-contract.md` with `{SPEC_PATH}` = `api/openapi.yaml` and `{CODEGEN_OUT}` = `api/generated/**`.
+
+**This profile is the one where vendoring changes the codegen command**, because the mobile adapter is new work rather than an existing entry point. `flutter create` produces no API client, and this profile's `generate:` command is `build_runner` only — so a vendored mobile repo needs `tool/generate_api.sh`, holding the pinned `openapi-generator` (dart-dio, `serializationLibrary: json_serializable`) Docker invocation, and `contract_sync.mjs` aborts before writing anything if that file is absent. Pinning by Docker tag rather than a floating version is what makes the regenerate-and-diff gate meaningful, per this profile's own determinism rule.

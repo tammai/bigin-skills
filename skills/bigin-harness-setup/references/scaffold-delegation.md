@@ -15,6 +15,9 @@ One deterministic script per profile owns creating the app; this skill only over
 | `flutter`| `pubspec.yaml`             | `flutter create`  | CLI flags   | project name (snake_case), org (reverse-domain), platforms |
 | `tauri`  | `src-tauri/tauri.conf.json`| `nuxt-scaffold`, then `pnpm tauri init` | config JSON, then CLI flags | everything `nuxt-scaffold` asks, plus window title and bundle identifier (reverse-domain) |
 | `nuxt-marketing` | `nuxt.config.ts` | `nuxt-marketing-scaffold` | CLI flags | project name, locale list (first is the default), primary/neutral theme colors |
+| `specs` / `contracts` / `qa` | — | **nothing — the phase is skipped** | — | — |
+
+**The three polyrepo profiles never reach this phase, and the skip is explicit rather than incidental.** `specs`, `contracts` and `qa` have no marker file, so Phase 0.5's opening test — "the repo lacks the marker file for `PROFILE`" — would otherwise read as "lacks it" and run the phase for all three. There is nothing to scaffold: a specs repo is seeded by its BA from `.bmad-core`, a contracts repo by its first hand-written spec file, and a qa repo by its first test case. None of those is a file this plugin creates, and a scaffolder that guessed at their shape would be writing someone else's deliverable.
 
 **`nuxt-marketing` has its own scaffolder rather than a template inside `nuxt-scaffold`, and the reason is detection.** `nuxt-scaffold`'s `TEMPLATE_PKGS` installs `nuxt-auth-utils` into every project it creates. That package is exactly the auth marker condition 4 of the `nuxt-marketing` rung tests for, so a marketing site scaffolded through it would resolve to `nuxt` on the very next run and be onboarded with BFF-proxy and Pinia-Colada conventions — the precise failure this profile exists to prevent, and one that looks like success at install time. The two scaffolders therefore stay separate; do not "simplify" this into a `--template marketing` flag.
 

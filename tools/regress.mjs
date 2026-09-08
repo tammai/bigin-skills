@@ -217,7 +217,7 @@ t("CLAUDE.md's scripts-count claim is true", () => {
   eq(claimed, actual, 'scripts-count'); return `${actual}`
 })
 
-console.log('\n4. DETECTION LADDER')
+console.log('\n4. DETECTION')
 const LAD = [
   ['marketing site',            ['nuxt.config.ts','content.config.ts','content/'], {dependencies:{'@nuxt/content':'1','@nuxtjs/i18n':'1'}}, 'nuxt-marketing'],
   ['+ contact form',            ['nuxt.config.ts','content.config.ts','content/','server/api/'], {dependencies:{'@nuxt/content':'1','@nuxtjs/i18n':'1'}}, 'nuxt-marketing'],
@@ -234,6 +234,84 @@ LAD.forEach(([name, paths, pkg, want], i) => t(name, () => {
     else { mkdirSync(join(dir,f,'..'),{recursive:true}); writeFileSync(join(dir,f),'') } }
   eq(detect(dir, pkg), want, 'profile'); return want
 }))
+
+// ── Phase 0a: repo type from the repo name ─────────────────────────────
+//
+// Transcribed from profile-detection.md's suffix table. Phase 0a is a name
+// test rather than a marker test, which is exactly why it needed no rung in the
+// ladder above — and the two cases worth guarding are the ones a looser match
+// would get wrong: a bare `api` (no project prefix) and a name that merely
+// contains a suffix (`acme-webhooks`).
+
+const REPO_TYPES = ['specs', 'contracts', 'api', 'web', 'mobile', 'qa']
+const repoType = name => REPO_TYPES.find(x => name.toLowerCase().endsWith(`-${x}`)) ?? 'none'
+
+const SUFFIX = [
+  ['acme-specs', 'specs'], ['acme-contracts', 'contracts'], ['acme-qa', 'qa'],
+  ['acme-api', 'api'], ['acme-web', 'web'], ['acme-mobile', 'mobile'],
+  ['ACME-API', 'api'],                 // lowercased before matching
+  ['my-great-app-api', 'api'],         // the project slug may itself carry hyphens
+  ['bigin-skills', 'none'],            // the overwhelmingly common case: silence
+  ['api', 'none'],                     // bare name, no project prefix — not a match
+  ['acme-webhooks', 'none'],           // contains `web`, does not end in `-web`
+  ['acme-apidocs', 'none']             // contains `api`, does not end in `-api`
+]
+t('repo name maps to the right repo type', () => {
+  for (const [name, want] of SUFFIX) eq(repoType(name), want, name)
+  return `${SUFFIX.length} names`
+})
+
+t('every repo type that short-circuits the ladder has a profile file', () => {
+  for (const p of ['specs', 'contracts', 'qa']) {
+    const f = join(REPO, 'skills', 'bigin-harness-setup', 'references', `profile-${p}.md`)
+    if (!existsSync(f)) throw new Error(`profile-${p}.md missing`)
+    if (!read(f).includes('## CLAUDE.md Template')) throw new Error(`profile-${p}.md has no CLAUDE.md Template`)
+  }
+  return '3 profiles'
+})
+
+// The ladder must still be the same nine rungs. Phase 0a was added as a
+// pre-step precisely so it could not disturb them, and this is what says so.
+t('the stack ladder is still nine rungs, unrenumbered', () => {
+  const det = read(join(REPO, 'skills', 'bigin-harness-setup', 'references', 'profile-detection.md'))
+  // Fenced blocks are stripped first: rung 8's empty-repo question lists seven
+  // numbered options, and counting those as rungs is how this check lied once.
+  const ladder = det.slice(det.indexOf('# Phase 0: stack-profile detection'))
+    .replace(/```[\s\S]*?```/g, '')
+  const rungs = [...ladder.matchAll(/^(\d)\. /gm)].map(m => Number(m[1]))
+  eq(rungs.length, 9, 'rung count')
+  eq(rungs.join(','), '1,2,3,4,5,6,7,8,9', 'rung numbering')
+  return '9 rungs'
+})
+
+// overlay-matrix.md claims each polyrepo profile installs 6 / 8 / 8 of the nine
+// gates and names which are omitted. The settings.json block in each profile is
+// the truth. Two files, one claim — so check them against each other rather
+// than trusting the table, which is the half a reader believes.
+t('the polyrepo gate matrix matches the settings each profile writes', () => {
+  const NINE = [
+    'bash-guard', 'spec-gate-guard', 'bugfix-test-guard', 'commit-msg-guard',
+    'injection-scan-guard', 'injection-gate-guard', 'session-resume-check',
+    'canary-seed', 'precompact-snapshot'
+  ]
+  const CLAIM = { specs: 6, contracts: 8, qa: 8 }
+  const OMITTED = {
+    specs: ['commit-msg-guard', 'bugfix-test-guard', 'spec-gate-guard'],
+    contracts: ['bugfix-test-guard'],
+    qa: ['spec-gate-guard']
+  }
+  for (const [prof, want] of Object.entries(CLAIM)) {
+    const body = read(join(REPO, 'skills', 'bigin-harness-setup', 'references', `profile-${prof}.md`))
+    const json = body.slice(body.indexOf('```json') + 7, body.lastIndexOf('```'))
+    JSON.parse(json) // a malformed block would silently match zero guards below
+    const present = NINE.filter(g => json.includes(`${g}.mjs`))
+    eq(present.length, want, `${prof}: gates installed`)
+    for (const g of OMITTED[prof]) {
+      if (present.includes(g)) throw new Error(`${prof}: ${g} is installed but the matrix says it is omitted`)
+    }
+  }
+  return '6/8/8'
+})
 
 console.log('\n5. SCAFFOLDER')
 const SC = join(REPO, 'skills/nuxt-marketing-scaffold/scripts/scaffold.mjs')

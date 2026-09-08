@@ -31,12 +31,12 @@ paths:
 ---
 ```
 
-**go:**
+**go:** the contract is at the **repo root**, not under `api/`. `go-scaffold` writes `openapi.yaml` there (`scripts/scaffold.mjs`'s `OAPI_SPEC`) and `profile-go.md`'s layout shows it there; scoping this to `api/openapi.yaml` names a file the repo does not contain, and by the rule above that fails silently — the architecture rule simply never loads while the contract is being edited. `api/openapi.yaml` is flutter's path, not go's.
 ```yaml
 ---
 paths:
   - "**/*.go"
-  - "api/openapi.yaml"
+  - "openapi.yaml"
 ---
 ```
 
@@ -78,6 +78,25 @@ paths:
   - "src/lib/**"
   - "src/proxy.ts"
   - "openapi.json"
+---
+```
+
+**specs / contracts / qa:** these repos hold prose, contracts and test artifacts rather than source trees, so `security.md` scopes to what each actually contains. None of the three gets an `architecture.md` except `contracts` (see `rule-files.md`).
+```yaml
+---
+paths:                      # specs
+  - "docs/**"
+  - "REPO_MAP.md"
+---
+---
+paths:                      # contracts
+  - "openapi/**"
+---
+---
+paths:                      # qa
+  - "cases/**"
+  - "e2e/**"
+  - "traceability/**"
 ---
 ```
 
@@ -146,13 +165,49 @@ handlers/controllers → services → repos/stores
 Never reverse. A repo must never import a handler.
 
 ## API Contract
-- The OpenAPI contract file is the cross-repo agreement between frontend and backend. (Substitute the repo's actual contract path when writing this file — `openapi.yaml` on nuxt, `api/openapi.yaml` on go/flutter, `openapi.json` on next.)
+- The OpenAPI contract file is the cross-repo agreement between frontend and backend. (Substitute the repo's actual contract path when writing this file — `openapi.yaml` on nuxt, go and tauri, `api/openapi.yaml` on flutter, `openapi.json` on next.)
 - Backend leads with backward-compatible (additive) changes.
 - Breaking change = API version bump (`/v2/`). Frontend adopts after backend ships.
 - Frontend generates types from the contract. Never hardcode API response shapes.
 ```
 
 *Profile-specific architecture rules are appended below this by the skill during setup.*
+
+---
+
+## vendored-contract.md
+
+**Written only when Phase 0a set `REPO_TYPE` to `api`, `web` or `mobile`** — a polyrepo consumer repo. Skipped entirely otherwise, including for a standalone repo on the same stack profile.
+
+This is the single source for the vendored-contract rule; the three consumer profiles point at it rather than restating it, so the rule cannot drift between them. Substitute `{SPEC_PATH}`, `{CODEGEN_OUT}` and `{CONTRACTS_REPO}` from this table — the first two differ per stack and both were verified against the shipped scaffolders and profiles:
+
+| `REPO_TYPE` | `{SPEC_PATH}` | `{CODEGEN_OUT}` |
+|---|---|---|
+| `api` (go) | `openapi.yaml` | `internal/openapi/openapi.gen.go` |
+| `web` (nuxt) | `openapi.yaml` | `shared/api-client/schema.d.ts` — `layers/shared/api-client/schema.d.ts` on the `starter` template |
+| `mobile` (flutter) | `api/openapi.yaml` | `api/generated/**` |
+
+`{CONTRACTS_REPO}` is the `repo` field of the entry in `api-contract.lock`.
+
+```markdown
+---
+paths:
+  - "{SPEC_PATH}"
+  - "api-contract.lock"
+---
+
+# Vendored Contract
+
+`{SPEC_PATH}` and `api-contract.lock` are **not editable in this repo**. Both are written only by `contract_sync.mjs`, which vendors the contract from `{CONTRACTS_REPO}` at a commit pinned in the lock and verifies its checksum before writing anything.
+
+- **Need an API change?** It belongs in the contracts repo, in its own session. Say so and stop — never add a shape here to make the client compile.
+- **Take a published change:** `node scripts/contract_sync.mjs bump <tag>`. Lock, spec and generated client move in one commit; a PR carrying only two of the three is wrong.
+- **Re-apply what the lock already pins:** `node scripts/contract_sync.mjs sync`.
+- **A refusal is information, not an obstacle.** A moved tag or a checksum mismatch means a published version now points at different bytes. Report it to the contracts repo; never re-pin past it to make the error go away.
+- `{CODEGEN_OUT}` is generated. Regenerate it; never hand-edit it.
+
+Session start reports whether this repo is behind. Sitting on an older contract version than another repo is a supported state, not drift.
+```
 
 ---
 

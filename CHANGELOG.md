@@ -5,6 +5,60 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.90.0] - 2026-09-08
+
+Phase 2 of the polyrepo project standard: `bigin-harness-setup` learns what kind of repo it is in.
+
+### Added
+
+- **Phase 0a — repo type, read from the repo's own name.** `-specs`, `-contracts`, `-api`, `-web`, `-mobile` and `-qa` map to a `REPO_TYPE`; anything else is `none` and the run proceeds exactly as before, silently. The name is the signal because the standard mandates the naming and no file marker beats it — `qa` has none at all, and a Playwright tree reads as a web repo.
+
+  **Being a name test, it needed no rung in the stack ladder**, which is the point: that ladder is first-match-wins, its ordering is load-bearing, its own documentation says twice never to reorder it, and it is transcribed in three places. Phase 0a runs *before* it and leaves all nine rungs byte-identical. A new regress case asserts exactly that, counting the rungs with fenced blocks stripped — the first version of that check counted the empty-repo question's seven numbered options as rungs and reported 16.
+
+  **The suffix is confirmed, never trusted.** A repo called `foo-api` belonging to no polyrepo project answers "no". The confirmation appears only when a suffix matched, so an ordinary repo is never asked. A name/marker contradiction — a `-specs` repo carrying `go.mod` — does not short-circuit silently either; it says what it found on both sides and asks which is true.
+
+- **Three profiles: `specs`, `contracts`, `qa`.** They are the only profiles that install a **different set of gates** rather than the same set configured differently — 6, 8 and 8 of the nine — on one rule: *a gate is installed where its premise holds*. Installing one whose premise is false teaches people that gates are noise to be worked around, which costs more than the gate was worth.
+
+  `commit-msg-guard` is off in `specs`: its authors are business analysts writing prose, and `feat(scope):` on a user story is dev ceremony with no reader. `bugfix-test-guard` is off in `specs` and `contracts` — and the `contracts` reason is concrete rather than stylistic, checked against the guard's source: its trivial-path allowlist covers `.md`, `.env.example`, `graphify-out/` and a fixed list of JS config files, **not `.yaml`**, so `fix: correct the Order schema` staging `openapi/core.v1.yaml` would be blocked on a regression test that cannot exist and every contract fix would carry `[no-test]`. It stays on in `qa`, where a fix to an E2E spec *is* a test file. `spec-gate-guard` is off in `specs` and `qa`, where writing the story or the test case *is* the work and a plan gate ahead of it inverts the workflow.
+
+  **`contracts` gets no CI from this profile at all.** Lint, `oasdiff` breaking-change gating, tagging and the consumer dispatch are that repo's own workstream; a generated pipeline that tags and dispatches without first checking compatibility would publish breaking changes on a schedule. The gap is named in the Phase 7 summary instead of half-filled.
+
+- **`.claude/rules/vendored-contract.md`** — written only for `REPO_TYPE` `api`/`web`/`mobile`. One path-scoped rule file, single-sourced in `files-shared.md`, rather than the same paragraph restated in three profiles: the vendored spec and `api-contract.lock` are written only by `contract_sync.mjs`, an API change belongs in the contracts repo, and a refusal naming a moved tag is information rather than an obstacle.
+
+- **Four regress cases**, in group 4 rather than a new group. Twelve repo-name cases including the two a looser match gets wrong (`api` bare, `acme-webhooks`); the ladder-is-still-nine-rungs assertion; and a cross-check of `overlay-matrix.md`'s 6/8/8 claim against the `settings.json` block each profile actually writes — two files, one claim, so neither is trusted on its own. Mutation-checked: claiming `specs: 7` turns it red.
+
+### Fixed
+
+- **The architecture rule never loaded while a Go contract was being edited.** `files-shared.md` gave the `go` profile a `paths:` entry of `api/openapi.yaml`. Go's contract is at the **repo root** — `go-scaffold/scripts/scaffold.mjs`'s `OAPI_SPEC` writes it there and `profile-go.md`'s layout shows it there; `api/openapi.yaml` is flutter's path. By that same file's own stated rule, a `paths:` entry naming a file the repo does not contain fails silently: the rule simply never loads. So `architecture.md` — which owns the additive-change and `/v2/` versioning rules, and is scoped to contract files precisely so it loads when the contract is edited — has been absent at exactly the moment it was written for. Found while adding the vendored-contract mode tables, which is what made the path list worth re-reading.
+
+  **Auto-patch for already-scaffolded Go repos.** The anchor is deliberately two lines: `- "api/openapi.yaml"` on its own also appears in **flutter** rule files, where it is correct, and both profiles write the same `target` path — so a single-line anchor would silently corrupt every Flutter repo it touched. `**/*.go` above it is what makes the match Go-only.
+
+```patch
+target: .claude/rules/architecture.md
+anchor: - "**/*.go"
+  - "api/openapi.yaml"
+insert: replace
+---
+- "**/*.go"
+  - "openapi.yaml"
+```
+
+```patch
+target: .claude/rules/security.md
+anchor: - "**/*.go"
+  - "api/openapi.yaml"
+insert: replace
+---
+- "**/*.go"
+  - "openapi.yaml"
+```
+
+### Changed
+
+- **Every consumer profile now states how its contract file arrives**, in a two-row mode table selected by `REPO_TYPE`. `go` is the only one where the difference is *authored vs vendored*; `nuxt` and `flutter` never author a contract, so theirs is *hand-copied vs vendored* — a distinction worth keeping, since calling all three "authored vs vendored" would misdescribe two of them. The codegen command is unchanged by mode in all three: vendoring changes where the contract comes from, never how the client is built from it.
+
+- **`rule-files.md` no longer claims four shared files go to every profile.** `architecture.md` is skipped for `specs` (the repo where architecture is *written*) and `qa` (no application architecture of its own), so the universal claim was false the moment those profiles existed.
+
 ## [1.89.0] - 2026-09-08
 
 Phase 1 of the polyrepo project standard. The corrected specs live in `docs/polyrepo/`; `PLAN.md` governs the remaining phases.

@@ -131,7 +131,7 @@ A `c.ShouldBindJSON` error is the one error text safe to return — it describes
 If you find yourself writing an `if` in a handler that isn't about the wire format, it belongs in `application` or `domain` — a rule in a handler is one no other caller reaches and no DB-free test covers.
 
 ## OpenAPI First
-Write `openapi.yaml` before implementing any new route, then `make generate` before writing the handler. Request validation rides on the contract: put `binding` tags on the schema via `x-oapi-codegen-extra-tags` (`required`, `email`, `min=8`, `notags`) rather than re-validating by hand in the handler.
+**Authored mode only — see the profile's `## Contract ownership` section.** Write `openapi.yaml` before implementing any new route, then `make generate` before writing the handler. Request validation rides on the contract: put `binding` tags on the schema via `x-oapi-codegen-extra-tags` (`required`, `email`, `min=8`, `notags`) rather than re-validating by hand in the handler.
 
 ## Security wiring
 - `internal/api/middleware/selector.go` maps route prefixes to roles and rate limits by matching `c.FullPath()`. Those prefixes are built from `middleware.BaseURL`, the same constant the router registers with — so the two can't drift. What still bites: a **new** path prefix with no case falls through to `default: c.Next()` and is public, compiling, answering 200. `internal/api/router_test.go` asserts both directions; keep it passing.
@@ -347,3 +347,22 @@ Prepend `paths: ["**/*.go"]` as YAML frontmatter when writing `architecture.md` 
   }
 }
 ```
+
+---
+
+## Contract ownership
+
+`openapi.yaml` is owned differently depending on Phase 0a's `REPO_TYPE`, and go is the only profile where the difference is *authored vs vendored* rather than how a copy arrives. Write **one** mode into the generated files — never both, and never a hedged merge of the two.
+
+| `REPO_TYPE` | Mode | Who owns `openapi.yaml` |
+|---|---|---|
+| `none` — a standalone Go service | **authored** | this repo. Contract-first stays exactly as `## OpenAPI First` and `## Editable surface` describe it |
+| `api` — the API repo of a polyrepo project | **vendored** | the contracts repo. This repo holds a copy pinned by `api-contract.lock`, written only by `contract_sync.mjs` |
+
+In **vendored** mode, three things change and they change together:
+
+1. `## Editable surface`'s first bullet becomes `- ~~openapi.yaml~~ — **vendored, not editable here** (see .claude/rules/vendored-contract.md)`.
+2. `## OpenAPI First`'s body is replaced by: *"The contract is owned by the contracts repo. A route this service needs but the contract does not describe is a contract finding, raised there — never added here to unblock a handler. After a bump, `make generate` before writing the handler, exactly as in authored mode."*
+3. `.claude/rules/vendored-contract.md` is written from `files-shared.md` → `## vendored-contract.md`, with `{SPEC_PATH}` = `openapi.yaml` and `{CODEGEN_OUT}` = `internal/openapi/openapi.gen.go`.
+
+`make generate` is the codegen command in **both** modes — vendoring changes where the contract comes from, never how the client is built from it.

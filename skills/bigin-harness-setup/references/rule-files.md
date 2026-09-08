@@ -16,6 +16,9 @@ Four of these files are the same for every profile and are described once, under
 | `flutter` | `conventions.md` | yes | yes |
 | `tauri` | `conventions-frontend.md` + `conventions-rust.md` | yes | yes |
 | `generic` | none | no | **no** |
+| `specs` | none | no | **no** — and no `architecture.md` at all: this repo is where architecture is written |
+| `contracts` | none | no | yes |
+| `qa` | none | **yes** | **no** — no application architecture to respect |
 
 **This matrix is also `{CONVENTIONS_RULE}`.** The knowledge bundle's agent-rules concept cites the profile's conventions rule by path, so a profile whose conventions file is named differently — or absent, as on `generic` — resolves or drops that citation from the same row. See `references/knowledge-bundle.md`.
 
@@ -34,9 +37,9 @@ Only the things a matrix cell can't hold:
 - **`tauri`** — the nuxt/next two-file split, but the second file is the Rust shell rather than a Nitro server: `conventions-frontend.md` scopes to `app/**`, `shared/**`, `nuxt.config.ts`; `conventions-rust.md` to `src-tauri/**`. `testing.md` scopes to `tests/**`, `src-tauri/tests/**` and `vitest.config.ts` — both trees, because a Tauri app has two test runners and the rules that matter (where a regression test may live so `bugfix-test-guard.mjs` can see it, why E2E goes through the WebdriverIO service rather than `tauri-driver`) are about how the two relate.
 - **`flutter`** — the go/nodejs single-`conventions.md` shape **plus** a testing rule, because the test tree is where this profile's two most expensive mistakes live: unpinned goldens and an unmigrated `schemaVersion`. `conventions.md` scopes to `lib/**`, `api/**`, `pubspec.yaml`, `analysis_options.yaml`; `testing.md` to `test/**` + `integration_test/**`, a mirrored tree like nuxt's rather than co-located like next's.
 
-## The four shared files
+## The shared files
 
-Written for **every** profile, `generic` included, all from `references/files-shared.md`:
+`security.md`, `comments.md` and `product.md` go to **every** profile, `generic` included. `architecture.md` goes to every profile **except `specs` and `qa`** — a specs repo is where architecture is written rather than respected, and a qa repo has no application architecture of its own. `vendored-contract.md` is conditional on `REPO_TYPE`. All from `references/files-shared.md`:
 
 | File | Source section | Paths frontmatter |
 |---|---|---|
@@ -44,6 +47,7 @@ Written for **every** profile, `generic` included, all from `references/files-sh
 | `architecture.md` | `## architecture.md`, then append `references/profile-{PROFILE}.md` → `## architecture addendum` (except `generic`, which gets no addendum) | **prepend** the profile's block from `## paths substitutions` |
 | `comments.md` | `## comments.md`, verbatim | **none** — its frontmatter is stack-agnostic and already in the template |
 | `product.md` | `## product.md`, verbatim | **none** — always scopes to `docs/product/**`, the same on every profile |
+| `vendored-contract.md` | `## vendored-contract.md` | **in the template already** — it scopes to that repo's own `{SPEC_PATH}` and `api-contract.lock`. Written **only** when `REPO_TYPE` is `api`, `web` or `mobile`; never for a standalone repo |
 
 `comments.md` and `product.md` are the two to not get clever with. `comments.md` applies to any
 source file, including scripts and tooling outside the app directories, which is why it carries

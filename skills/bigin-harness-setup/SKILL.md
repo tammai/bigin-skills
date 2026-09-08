@@ -1,6 +1,6 @@
 ---
 name: bigin-harness-setup
-description: "Scaffolds BigIn's AI workflow harness into a repo — CLAUDE.md brief, path-scoped .claude/rules/, commit-time guard + context-budget gates, optional Cursor mirror. Profiles: nuxt, nuxt-marketing, next, go, nodejs, flutter, tauri, generic. Triggers: 'set up harness', 'add AI rules', 'add Cursor support', 'migrate off Spec Kit'."
+description: "Scaffolds BigIn's AI workflow harness into a repo — CLAUDE.md brief, path-scoped .claude/rules/, commit-time guard + context-budget gates, optional Cursor mirror. Profiles: nuxt, nuxt-marketing, next, go, nodejs, flutter, tauri, generic + polyrepo specs/contracts/qa. Triggers: 'set up harness', 'add AI rules', 'add Cursor support'."
 effort: medium
 allowed-tools: Bash(git init) Bash(git rev-parse *) Bash(chmod +x *) Bash(ln -sf *)
 ---
@@ -11,9 +11,22 @@ Sets up a standardized AI workflow harness — the `CLAUDE.md` agent brief, path
 
 ---
 
+## Phase 0a: Detect Repo Type (polyrepo projects only)
+
+Runs **before** the stack ladder and never changes it. Read the repo's own name — the `origin` remote's repo name, else the directory basename — lowercased. If it ends in `-specs`, `-contracts`, `-api`, `-web`, `-mobile` or `-qa`, that suffix is a **candidate** repo type.
+
+**Confirm it; never trust it.** Show one line naming what you inferred and let the user correct or reject it — a repo called `foo-api` belonging to no polyrepo project answers "no". No suffix match → set `REPO_TYPE = none`, say nothing at all, and continue to Phase 0 exactly as today. That is the common case and it must stay silent.
+
+- **`specs`, `contracts`, `qa`** — these repos have no stack. Set `PROFILE = REPO_TYPE`, **skip Phase 0 and Phase 0.5 entirely**, and load `references/profile-{REPO_TYPE}.md`. Their users are not developers, so those profiles state their guard messages in plain language and install no consumer-repo gates.
+- **`api`, `web`, `mobile`** — store `REPO_TYPE` and run Phase 0 unchanged. Repo type and stack profile are orthogonal here: the type selects the *consumer overlay* (vendored-spec rules, the contract-sync guard, the SessionStart staleness notice), never the stack.
+
+The **name** is the signal rather than a file marker, because the standard mandates the naming and no marker beats it — `qa` has none at all, and a Playwright tree reads as a web repo. Being a name, it needs no rung in the first-match-wins ladder, which is why that ladder is untouched. Suffix table, confirmation wording, the marker-conflict case, and how the type is recorded for re-runs: **`references/profile-detection.md`**.
+
+---
+
 ## Phase 0: Detect Stack Profile
 
-Check for stack indicators, **first match wins**:
+Skipped entirely when Phase 0a set `PROFILE` to `specs`, `contracts` or `qa` — those repos have no stack to detect. Otherwise check for stack indicators, **first match wins**:
 
 | # | Marker | Profile |
 |---|---|---|
@@ -41,7 +54,7 @@ Store result as `PROFILE`. Load `references/profile-{PROFILE}.md` for all templa
 
 ## Phase 0.5: Project Scaffold (empty repo only)
 
-Runs when the repo lacks the marker file for `PROFILE` — `nuxt.config.ts` (nuxt, nuxt-marketing), `next.config.*` (next), `go.mod` (go), `package.json` (nodejs), `pubspec.yaml` (flutter), `src-tauri/tauri.conf.json` (tauri). Skip the phase entirely otherwise; that's onboarding an existing repo — which is the usual case for `nuxt-marketing`, whose repos arrive from the Marketing Site Factory's template with a `nuxt.config.ts` already in place. An **empty** `nuxt-marketing` repo is scaffolded like any other: it is option 7 of row 8's question, and this phase delegates it to `nuxt-marketing-scaffold`. Also skip the phase entirely for `PROFILE = generic` — there's no scaffold skill for an unknown stack, and generic is only ever reached from a repo that already has code.
+Runs when the repo lacks the marker file for `PROFILE` — `nuxt.config.ts` (nuxt, nuxt-marketing), `next.config.*` (next), `go.mod` (go), `package.json` (nodejs), `pubspec.yaml` (flutter), `src-tauri/tauri.conf.json` (tauri). Skip the phase entirely otherwise; that's onboarding an existing repo — which is the usual case for `nuxt-marketing`, whose repos arrive from the Marketing Site Factory's template with a `nuxt.config.ts` already in place. An **empty** `nuxt-marketing` repo is scaffolded like any other: it is option 7 of row 8's question, and this phase delegates it to `nuxt-marketing-scaffold`. Also skip the phase entirely for `PROFILE = generic` — there's no scaffold skill for an unknown stack, and generic is only ever reached from a repo that already has code. **Skip it for `specs`, `contracts` and `qa` too**, for a different reason: those profiles have no marker file, so the first sentence's test would otherwise say "lacks it" and run. There is nothing to scaffold — a specs repo is seeded by its BA and a contracts repo by its first spec file, neither of which this plugin creates.
 
 Scaffolding is delegated to a deterministic script — that profile's own scaffold skill for five of the seven scaffolded profiles, and the stack's own CLI for the other two: `flutter create` for `flutter`, and `nuxt-scaffold` followed by `pnpm tauri init` for `tauri`, since neither a `flutter-scaffold` nor a `tauri-scaffold` skill exists (`references/scaffold-delegation.md` says what each would have to add and why that isn't a template yet). Either way it is a pinned command line, **not** done conversationally. All questions happen up front, in one batch; zero prompts once scaffolding starts. Per-profile invocation, decisions to gather, and the full procedure: `references/scaffold-delegation.md`.
 
@@ -113,6 +126,8 @@ Store `KNOWLEDGE_BUNDLE`, `GRAPH`, `CI_PROVIDER`, `MODEL_ROUTING`, `AGENT_HOSTS`
 
 Read the content from `references/profile-{PROFILE}.md` → `## CLAUDE.md Template` section.
 
+**When Phase 0a set `REPO_TYPE` to `api`, `web` or `mobile`, append `· polyrepo repo type: {REPO_TYPE}` to the template's `Stack:` line.** That line is the record a later run reads back (`references/profile-detection.md` → `## Recording it`), and it is what tells a session the vendored spec is read-only here. For `specs`, `contracts` and `qa` the profile *is* the repo type, so nothing is appended.
+
 For `generic`, that template needs `{STACK}` plus the `{LINT}`/`{TYPECHECK}`/`{TEST}` commands detected per `references/profile-generic.md` → `## Commands`; detect them once here and reuse the same values in Phases 4, 5-1 and 7.
 
 **Run each command before writing it down — every profile, not just `generic`.** Detection and a fixed template are both claims about this repo, and the seven stack profiles that name a stack ship a template that has checked nothing. Before `CLAUDE.md` is written, execute the **lint, typecheck and test** rows of that profile's Commands table, one at a time and non-interactively. Never execute a `dev`, `build`, `format`, `start`, `watch` or `deploy` row — those wait, rewrite the tree, or run forever; write them as the template has them and say in the Phase 7 summary that they were not checked.
@@ -137,9 +152,11 @@ Skip if `INSTALL_MODE=new` and `CLAUDE.md` already exists.
 
 ## Phase 3: Generate .claude/rules/
 
-Create `.claude/rules/` if it doesn't exist, then write that profile's rule files per **`references/rule-files.md`** — a per-profile matrix (which conventions files, whether a `testing.md` exists, whether an architecture addendum is appended) plus the four files every profile gets: `security.md`, `architecture.md`, `comments.md`, `product.md`.
+Create `.claude/rules/` if it doesn't exist, then write that profile's rule files per **`references/rule-files.md`** — a per-profile matrix (which conventions files, whether a `testing.md` exists, whether an architecture addendum is appended) plus the shared files: `security.md`, `comments.md` and `product.md` on every profile, `architecture.md` on every profile except `specs` and `qa`.
 
 Two things that catch people, both stated there in full: `security.md` and `architecture.md` need the profile's `paths:` frontmatter **prepended** from `references/files-shared.md` → `## paths substitutions`, while `comments.md` and `product.md` are taken verbatim because their frontmatter is deliberately stack-agnostic. Every file: skip if `INSTALL_MODE=new` and it already exists.
+
+**One extra file when Phase 0a set `REPO_TYPE` to `api`, `web` or `mobile`:** `.claude/rules/vendored-contract.md`, from `references/files-shared.md` → `## vendored-contract.md`, with that section's substitution table supplying `{SPEC_PATH}` and `{CODEGEN_OUT}`. It is the single source for the vendored-contract rule — the three consumer profiles point at it rather than restating it, which is what keeps the rule from drifting between them. Never write it for `REPO_TYPE = none`.
 
 ---
 
