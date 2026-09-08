@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.95.0] - 2026-09-08
+
+**CI is a tier of this standard, not a requirement of it.** The pilot proved that the hard way: GitHub bills Actions minutes on private repos, so one organisation-level billing problem takes CI out on every project at once. Every workflow the pilot fired was correctly received and correctly selected, and not one job started.
+
+### Added
+
+- **`contract_sync.mjs verify` — offline integrity for the vendored spec.** Re-hashes the file on disk against the lock. No network, no token, milliseconds, which is what makes it usable as a commit hook.
+
+  **This is the check with no other cover.** The `PreToolUse` guard only sees edits made *through an agent*; a human with an editor bypasses it completely, and before this the only thing that caught them was a CI job — so a repo without CI had nothing at all. Verified against the pilot: a hand-edited `openapi.yaml` is refused at commit time with the lock's digest, the file's digest, and where the change actually belongs.
+
+- **`## pre-commit: polyrepo additions`** in `hook-guard.md` — a block appended to whatever pre-commit script the stack profile already writes, on any repo carrying `api-contract.lock` or `story-sync.json`. Runs `verify`, the orphan warning (never blocking), and the story lint. Each check is guarded by the file that proves the repo is in a polyrepo project, so the block is inert everywhere else and can be written unconditionally.
+
+- **`## Running the standard without CI`** in `ci.md` — the tier table, and the reasoning. The sync scripts are **pull-based**: `check` runs at session start and says what this repo is behind on, `bump` and `sync` are one command each. The dispatch workflows are a push notification on top of that; they save somebody noticing, they are not the mechanism. Tiers layer — adopting CI later changes no script and no lock, only which machine runs them.
+
+  Self-hosted runners get named as the middle tier, because they are the answer for an agency: GitHub bills *GitHub-hosted* minutes only, so one runner registered once at org level gives every private project full CI at no per-minute cost.
+
+### Changed
+
+- The umbrella spec's "one script, three tiers" no longer assumes the third tier exists. It now states the failure mode, names the local-first fallback, and points at the tier table. A design that assumes CI is a design that stops working when an invoice does.
+
+### Notes
+
+- The pilot ran a **real** contract bump end to end with no CI at all: resolved `v1.0.0` in `bigin-io/pilot-contracts`, fetched the blob, verified its checksum, vendored it, ran `make generate`, and left the repo building and green. That is the half of the standard that had never been exercised, and it turns out not to need CI to work — only to be automatic.
+- One gap this exposed and did not close: `contract-bump.yml` and `contract-drift.yml` ship their toolchain block **commented out**, so as-installed both fail at codegen. The harness should write the right block per profile. Recorded, not fixed.
+
 ## [1.94.1] - 2026-09-08
 
 Three defects, all found by standing up a real six-repo pilot project rather than by review. Each had survived every gate in this repo, because each only shows up when the templates are actually run.

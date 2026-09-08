@@ -669,6 +669,32 @@ if (!csBase) {
     return 'points at bump'
   })
 
+  // `verify` is the local-first half: the PreToolUse guard only sees edits made
+  // through an agent, so a human with an editor was caught by CI alone. A repo
+  // with no CI had nothing. This runs offline, in milliseconds, at pre-commit.
+  t('verify catches a hand-edited vendored spec, offline', () => {
+    const dir = consumer('verify', good)
+    eq(cs(dir, ['sync'], csBase).status, 0, 'seed')
+    // Point it at a dead port: verify must not need the network at all.
+    eq(cs(dir, ['verify'], 'http://127.0.0.1:1').status, 0, 'clean, offline')
+    writeFileSync(vendored(dir), `${SPEC_V1}# someone edited this by hand\n`)
+    const r = cs(dir, ['verify'], 'http://127.0.0.1:1')
+    eq(r.status, 1, 'tampered exit')
+    if (!r.stderr.includes('does not match')) throw new Error('did not name the mismatch')
+    if (!r.stderr.includes('by hand')) throw new Error('did not say what happened')
+    return 'offline integrity'
+  })
+
+  t('verify reports a missing vendored spec rather than passing', () => {
+    const dir = consumer('verify-missing', good)
+    eq(cs(dir, ['sync'], csBase).status, 0, 'seed')
+    rmSync(vendored(dir), { force: true })
+    const r = cs(dir, ['verify'], 'http://127.0.0.1:1')
+    eq(r.status, 1, 'exit')
+    if (!r.stderr.includes('missing')) throw new Error('silent on a missing spec')
+    return 'absence is a failure'
+  })
+
   t('a moved tag fails naming both SHAs, writing nothing', () => {
     const dir = consumer('moved', { core: { ...good.core, commit: SHA_B } })
     const r = cs(dir, ['sync'], csBase)

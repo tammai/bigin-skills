@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "bigin-skills",
-  "version": "1.94.1",
+  "version": "1.95.0",
   "description": "BigIn's Claude Code skills for standardized AI-assisted development — a spec-gated task/epic/discovery workflow (approved PLAN.md, independent verifier, PRD-driven decomposition), harness setup (governance + enforcement gates for nuxt/nuxt-marketing/next/go/nodejs/flutter/tauri and for polyrepo specs/contracts/qa repos, Claude Code and Cursor), Nuxt, Nuxt marketing-site, Next.js, Go and Node.js scaffolding, end-of-sprint and pinned-library knowledge distillation, and session handoff.",
   "author": {
     "name": "Tam Mai",

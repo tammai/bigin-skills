@@ -1345,6 +1345,41 @@ main()
 
 ---
 
+## pre-commit: polyrepo additions
+
+Appended to whatever pre-commit script the stack profile already writes — this is a block, never a replacement. Written on any repo that has `api-contract.lock` or `story-sync.json`, whatever its stack.
+
+**This block is what makes the standard work with no CI at all.** Two of its three enforcement tiers are otherwise unavailable to a repo without Actions, and one of them has no other cover: the `PreToolUse` guard only sees edits made *through an agent*, so a human with an editor bypasses it entirely. Before this, only a CI job caught that. Both checks below are offline and take milliseconds — no token, no network, nothing to configure.
+
+```bash
+# --- polyrepo: the checks CI would otherwise own -------------------------
+# Each guarded by the file that says the repo is in a polyrepo project, so this
+# block is inert everywhere else and can be written unconditionally.
+
+if [ -f api-contract.lock ] && [ -f scripts/contract_sync.mjs ]; then
+  # Offline: re-hash the vendored spec and compare with the lock. Catches a hand
+  # edit the in-session guard never saw.
+  node scripts/contract_sync.mjs verify || exit 1
+fi
+
+if [ -f scripts/story_gate.mjs ] && [ -d docs/story-meta ]; then
+  # Warns, never blocks — an orphan means a story was deleted upstream, which is
+  # worth seeing and is not worth stopping a commit over.
+  node scripts/story_gate.mjs orphans || true
+fi
+
+if [ -f scripts/story_lint.mjs ] && [ -d docs/stories ]; then
+  # The specs repo's own gate: every story declares its contract impact.
+  node scripts/story_lint.mjs || exit 1
+fi
+```
+
+**`story_lint.mjs` runs against `docs/stories/` wherever it finds it**, which in a consumer repo is the *synced copy*. That is intentional and harmless: the copies were linted upstream, so it passes, and on the day it does not, the sync brought over something the specs repo should never have merged.
+
+What this block deliberately does **not** do is run `contract_sync.mjs sync` — that needs a token and a network round trip, which is not something a commit hook may depend on. Drift between the lock and the *generated client* stays a CI-tier check; drift between the lock and the *vendored spec* is caught here.
+
+---
+
 ## pre-commit: nuxt
 
 Write to `scripts/pre-commit.sh`.

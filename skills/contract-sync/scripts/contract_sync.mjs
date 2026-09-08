@@ -5,6 +5,7 @@
  *
  * Usage:
  *   node contract_sync.mjs check  [--contract <name>] [--no-cache] [--json]
+ *   node contract_sync.mjs verify [--contract <name>]
  *   node contract_sync.mjs sync   [--contract <name>]
  *   node contract_sync.mjs bump <ref> [--contract <name>] [--file <path>]
  *
@@ -462,6 +463,47 @@ async function cmdCheck(root, lock, names, flags) {
   return 0
 }
 
+// Offline integrity check: does the vendored spec on disk still hash to what the
+// lock recorded? No network, no token, milliseconds — which is what makes it usable
+// as a pre-commit gate.
+//
+// This exists because the PreToolUse guard only sees edits made THROUGH an agent.
+// A human with an editor bypasses it entirely, and before this the only thing that
+// caught them was a CI job. A repo with no CI had no check at all.
+function cmdVerify(root, lock, names, repoType) {
+  const total = Object.keys(lock.contracts).length
+  const problems = []
+  for (const name of names) {
+    const c = lock.contracts[name]
+    const rel = vendoredPath(repoType, name, total)
+    const path = join(root, rel)
+    if (!existsSync(path)) {
+      problems.push(`${rel} is missing — run \`sync\` to restore it from ${c.repo}`)
+      continue
+    }
+    if (!/^[0-9a-f]{64}$/i.test(c.sha256 ?? '')) {
+      problems.push(`${LOCK_NAME} has no usable sha256 for "${name}" — run \`bump ${c.ref}\``)
+      continue
+    }
+    const got = sha256(readFileSync(path))
+    if (got !== c.sha256.toLowerCase()) {
+      problems.push(
+        `${rel} does not match ${LOCK_NAME}\n`
+        + `      lock expects: ${c.sha256}\n`
+        + `      file on disk: ${got}\n`
+        + '      Someone edited the vendored contract by hand. Revert it (`sync`), or take the '
+        + 'change to the contracts repo where it belongs.'
+      )
+    }
+  }
+  if (problems.length === 0) {
+    info(`vendored contract matches the lock (${names.length} contract${names.length === 1 ? '' : 's'})`)
+    return 0
+  }
+  for (const p of problems) console.error(`[contract-sync] ERROR: ${p}`)
+  process.exit(1)
+}
+
 async function cmdSync(root, lock, names, repoType) {
   const auth = token()
   if (!auth) {
@@ -575,6 +617,7 @@ async function cmdBump(root, lock, names, repoType, ref, fileOverride) {
 
 const USAGE = `Usage:
   contract_sync.mjs check  [--contract <name>] [--no-cache] [--repo-type api|web|mobile]
+  contract_sync.mjs verify [--contract <name>] [--repo-type api|web|mobile]   (offline)
   contract_sync.mjs sync   [--contract <name>] [--repo-type api|web|mobile]
   contract_sync.mjs bump <ref> [--contract <name>] [--file <path>] [--repo-type api|web|mobile]`
 
@@ -600,7 +643,7 @@ async function main() {
     console.log(USAGE)
     process.exit(values.help ? 0 : 2)
   }
-  if (!['check', 'sync', 'bump'].includes(command)) {
+  if (!['check', 'verify', 'sync', 'bump'].includes(command)) {
     fail(`unknown command "${command}"\n${USAGE}`, 2)
   }
 
@@ -615,6 +658,7 @@ async function main() {
 
   const repoType = detectRepoType(root, values['repo-type'])
 
+  if (command === 'verify') process.exit(cmdVerify(root, lock, names, repoType))
   if (command === 'sync') process.exit(await cmdSync(root, lock, names, repoType))
 
   const ref = positionals[1]

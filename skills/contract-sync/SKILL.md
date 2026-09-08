@@ -85,6 +85,7 @@ git diff --stat && git diff -- <generated client path>
 | Command | Effect | Writes |
 |---|---|---|
 | `check [--contract <name>] [--no-cache]` | compare lock against the contracts repo's latest tag; report | nothing |
+| `verify [--contract <name>]` | **offline.** re-hash the vendored spec and compare with the lock | nothing |
 | `sync [--contract <name>]` | verify the pinned tag still resolves to the pinned commit, fetch, checksum, vendor, regenerate | spec + generated code |
 | `bump <ref> [--contract <name>] [--file <path>]` | resolve a new ref, record commit + checksum, vendor, regenerate | lock + spec + generated code |
 
@@ -116,8 +117,13 @@ next to a stale client.
 - A PreToolUse guard denies `Edit`/`Write` on the vendored spec and `api-contract.lock` —
   unconditionally, including for you. Editing either by hand is never the answer.
 - SessionStart surfaces `check`'s report as a notice. It writes nothing and never blocks.
-- A CI job runs `sync` and `git diff --exit-code`, so drift introduced outside a session
-  fails the build. Template: `templates/workflows/contract-drift.yml`.
+- **`verify` at pre-commit** re-hashes the vendored spec against the lock, offline and in
+  milliseconds. This is the check with no other cover: the PreToolUse guard only sees edits
+  made *through an agent*, so a human with an editor bypasses it entirely.
+- A CI job runs `sync` and `git diff --exit-code`, so drift between the lock and the
+  *generated client* fails the build. Template: `templates/workflows/contract-drift.yml`.
+  That one is CI-only — reproducing it needs the toolchain and a network fetch, which a
+  commit hook may not depend on.
 - A `repository_dispatch` from the contracts repo opens the bump PR automatically.
   Template: `templates/workflows/contract-bump.yml`.
 

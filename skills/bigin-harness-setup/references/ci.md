@@ -684,6 +684,24 @@ quality:
 
 ---
 
+## Running the standard without CI
+
+CI is a **tier of this standard, not a requirement of it**, and it is worth being explicit about that because the assumption is easy to make and expensive to discover late — GitHub bills Actions minutes on private repos, and an organisation with a billing problem has no CI on any project at once.
+
+The sync scripts are **pull-based**. `contract_sync.mjs check` and `story_sync.mjs check` run at session start and say what this repo is behind on; `bump` and `sync` are one command each. The dispatch workflows are a *push notification* on top of that — they save somebody noticing. They are not the mechanism.
+
+| Tier | Needs | What it gives you | What it costs |
+|---|---|---|---|
+| **Local-first** | nothing | SessionStart staleness notices; `bump`/`sync` by hand; the vendored-spec integrity check and the orphan warning at pre-commit (`hook-guard.md` → `## pre-commit: polyrepo additions`) | nobody hears about a change until they open a session, and a push from a clone with no hooks installed is ungated |
+| **Self-hosted runner** | one always-on machine, registered once at org level | everything below, on private repos, for every project — no per-project setup | you maintain a runner |
+| **GitHub-hosted CI** | Actions minutes (free on public repos) | auto-PRs on contract and story changes, the generated-client drift job, the story gates on every PR | billed per minute on private repos |
+
+The tiers **layer**: adopting CI later changes no script and no lock, only which machine runs them. Do not treat local-first as a degraded state to be migrated off — it is the honest fallback whenever a runner is down, a contractor has no org access, or a repo is a day old, and the pre-commit block belongs on every consumer repo regardless of which tier that project is on.
+
+The one check with no local equivalent is drift between the lock and the **generated client**: reproducing it means running codegen, which needs the toolchain and a network fetch, and a commit hook may not depend on either. That check stays CI-only, and a local-first project accepts it.
+
+---
+
 ## story-sync workflow: github (specs repo)
 
 Write to `.github/workflows/story-dispatch.yml` in the **specs** repo. Fires the event the consumer workflow below listens for.

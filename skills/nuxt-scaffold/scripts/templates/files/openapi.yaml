@@ -1,9 +1,17 @@
-# Committed snapshot of the PAIRED backend's contract (go-scaffold's
-# api/openapi.yaml — the ADR's default Go+Nuxt pairing). It is the input to
-# `pnpm openapi-types`, which regenerates shared/api-client/schema.d.ts (the types
-# behind the $fetch client). This is NOT authored here — the backend owns it. After a
-# backend contract change, copy its api/openapi.yaml over this file and re-run
-# `pnpm openapi-types`. Paths are written in full, including /v1.
+# PLACEHOLDER contract, shipped so the typed client, the proxy and their tests have
+# something coherent to compile against on day one. It is NOT your backend's contract
+# and it is NOT go-scaffold's: that one lives at `openapi.yaml` in the repo ROOT of a
+# go-scaffold project (not `api/`), and its paths differ from these — it has no /v1
+# prefix and a different resource layout. Replacing this file is expected work, not an
+# accident, and it will change `shared/api-client/schema.d.ts` and every composable and
+# test that names a path.
+#
+# Standalone: copy the real backend's contract over this file and run `pnpm openapi-types`.
+# In a polyrepo project the contracts repo owns it — `node scripts/contract_sync.mjs bump
+# <tag>` writes it, and editing it by hand is blocked.
+#
+# This file is the input to `pnpm openapi-types`, which regenerates
+# shared/api-client/schema.d.ts (the types behind the $fetch client).
 openapi: 3.0.3
 info:
   title: "{PROJECT_NAME} API"

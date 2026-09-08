@@ -76,6 +76,8 @@ The `synced: true` stamp lands on the **consumer copy only** — the BA's file i
 
 Every format rule ships as a Node script with zero runtime dependencies (`node:` builtins only, < 1 s) and runs three times: PostToolUse hook in-session (the primary feedback loop — the agent fixes findings before the human sees them), pre-commit, and CI as the final net. CI is never the first place an error surfaces.
 
+**The third tier is optional, and the design must not assume it.** GitHub bills Actions minutes on private repos, so an organisation with one billing problem has no CI across every project simultaneously — the pilot hit exactly that. The scripts are pull-based (`check` at session start, `bump`/`sync` by hand), so the standard runs without CI; the dispatch workflows are a push notification on top. One consequence has to be designed for rather than discovered: the in-session guard only sees edits made **through an agent**, so a hand-edited vendored spec was caught by CI alone. `contract_sync.mjs verify` closes that offline at pre-commit. Tier table: `bigin-harness-setup/references/ci.md` → `## Running the standard without CI`.
+
 C6: "single-file" is not part of the convention — every scaffolder in this repo ships a `scripts/templates/` tree beside its script, as `contract-sync` does itself. Zero *runtime dependencies* is the actual rule.
 
 ## 7. Requirements on bigin-skills
