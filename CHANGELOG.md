@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.96.2] - 2026-09-09
+
+The third and last codegen adapter, run for real. `tool/generate_api.sh` had never been executed end to end — it was written in 1.93.0 from the profile's description of what it should do — and running it produced three defects in a row, each hiding the next.
+
+### Fixed
+
+- **`build_runner` ran in the wrong package, so the client could not compile.** The dart-dio generator emits a **standalone Dart package** under `api/generated/`, with its own `pubspec.yaml` and `build.yaml`. The script ran `build_runner` at the app root, which never sees it: twelve generated files declared `part '*.g.dart'` for files that were therefore never written. The script now builds the client where it lives, then the app's own generated code.
+
+- **The generated package declared an SDK floor below what its own generator needs.** openapi-generator hard-codes `>=3.5.0`, and `json_serializable` emits null-aware elements — a Dart 3.8 language feature — so the formatter refused to parse the generator's own output and failed the build on twelve models. The script raises the floor as part of generation; it owns `api/generated/` wholesale, so this is not a hand edit.
+
+- **The profile's `analyzer: exclude:` could not reach the generated package.** The analyzer resolves options from the file nearest each source, and the generated package ships its own `analysis_options.yaml` — so the app-root exclude never applied and `--fatal-infos` failed on generator noise nobody is allowed to fix. The script now writes that file too, **keeping the generator's own excludes**: dropping them puts the committed `*.g.dart` and the generated tests back under the analyzer, which is more noise rather than less. That was a fourth defect, introduced by the fix for the third and caught by the finding count going up rather than down.
+
+  The root `api/generated/**` line stays — it is necessary and not sufficient, and the profile now says which half does what.
+
+### Notes
+
+- Proven at the far end of the whole chain: the additive `avatar_url` made in the contracts repo, tagged `v1.1.0`, dispatched, vendored and generated, arrives in Dart as `User.avatarUrl` and round-trips through the contract's wire shape. Two tests assert it.
+- One operational cost worth knowing: the mobile drift job re-runs codegen, which pulls a ~1 GB generator image per run. Acceptable on a scheduled or PR-only job; not something to put on every push.
+
 ## [1.96.1] - 2026-09-08
 
 ### Fixed
