@@ -4,7 +4,7 @@
 - **Target release:** bigin-skills vNext
 - **Owner:** Tam Mai
 - **Depends on:** repo type (`specs | contracts | api | web | mobile | qa`, umbrella §7 R1); a contracts repo with per-version spec files (`openapi/<service>.v<major>.yaml`)
-- **Implementation plan:** [../../PLAN.md](../../PLAN.md) Phase 1
+- **Implementation plan:** [the archived plan](../../.claude/memory/PLAN.archive.20260908T031956Z-polyrepo-project-standard.md), Phase 1
 
 ---
 

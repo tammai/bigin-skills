@@ -4,7 +4,7 @@
 - **Target release:** bigin-skills vNext
 - **Owner:** Tam Mai
 - **Depends on:** the flutter profile (repo type `mobile`); a BigIn fork of the Material 3 Design Kit existing as a Figma team library
-- **Implementation plan:** [../../PLAN.md](../../PLAN.md) Phase 7
+- **Implementation plan:** [the archived plan](../../.claude/memory/PLAN.archive.20260908T031956Z-polyrepo-project-standard.md), Phase 7
 - **Renamed from** `SPEC-figma-handoff-flutter.md` — this is a new sibling skill, not an extension (§2).
 
 ---

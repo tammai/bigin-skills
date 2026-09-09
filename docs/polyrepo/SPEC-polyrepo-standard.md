@@ -3,8 +3,9 @@
 - **Status:** Approved (decisions recorded §11; corrections C1–C10 applied 2026-09-08)
 - **Target release:** bigin-skills vNext
 - **Owner:** Tam Mai
-- **Companion specs:** [SPEC-contract-sync.md](./SPEC-contract-sync.md), [SPEC-figma-handoff-flutter.md](./SPEC-figma-handoff-flutter.md)
-- **Implementation plan:** [../../PLAN.md](../../PLAN.md) — that file governs; this one states the requirement.
+- **Companion specs:** [SPEC-contract-sync.md](./SPEC-contract-sync.md), [SPEC-flutter-figma-handoff.md](./SPEC-flutter-figma-handoff.md)
+- **Implementation plan:** [the archived plan](../../.claude/memory/PLAN.archive.20260908T031956Z-polyrepo-project-standard.md) — that file governed; this one states the requirement.
+- **Superseded by the implementation.** All three skills in §8 shipped: `contract-sync` in v1.89.0, `flutter-figma-handoff` in v1.94.0, `project-scaffold` in v1.96.0. This spec is kept as the record of the requirement, not of current status — for that, read `CHANGELOG.md`.
 
 ---
 
@@ -103,7 +104,7 @@ C6: "single-file" is not part of the convention — every scaffolder in this rep
 
 Design impact is NOT in the template — it lives in the sidecar (§5), filled by dev. A `story_lint.mjs` enforces the section's presence and values at write time; the Figma link is enforced at the ready-for-dev gate instead.
 
-Because no BMAD template ships here to append to, and §9 forbids planning BA workflow depth, R4 ships as the fragment plus the lint, built on **stated assumptions** isolated in one parsing function, for rework against the first live specs repo. The assumptions are listed in `PLAN.md` Phase 5.
+Because no BMAD template ships here to append to, and §9 forbids planning BA workflow depth, R4 ships as the fragment plus the lint, built on **stated assumptions** isolated in one parsing function, for rework against the first live specs repo. The assumptions are listed in the archived plan, Phase 5.
 
 **R5 — SessionStart staleness check.** Consumer repo types run `contract_sync.mjs check` plus a story-sync freshness compare; print notices, write nothing, skip silently offline. This **extends `session-resume-check.mjs`** — it does not add a second SessionStart script, which would compete for the same one-shot context injection. Budget per C5: `AbortSignal.timeout(1500)`, at most one fetch per session, result cached under `.claude/memory/`; on timeout or offline, print the lock line alone.
 
@@ -111,9 +112,9 @@ Because no BMAD template ships here to append to, and §9 forbids planning BA wo
 
 | Skill | Status | Scope |
 |---|---|---|
-| `contract-sync` | spec'd (companion) | first to implement — usable by existing projects |
-| `flutter-figma-handoff` | spec'd (companion) | a **new sibling skill**, not a target inside `nuxt-ui-figma-handoff` (see companion §2) |
-| `project-scaffold` | deferred | orchestrates go-scaffold + `flutter create` + Nuxt skeleton + `.bmad-core` seed + connective tissue (REPO_MAP, locks, CI workflows); write only after the pieces it assembles are proven in a pilot |
+| `contract-sync` | spec'd (companion) *(shipped v1.89.0)* | first to implement — usable by existing projects |
+| `flutter-figma-handoff` | spec'd (companion) *(shipped v1.94.0)* | a **new sibling skill**, not a target inside `nuxt-ui-figma-handoff` (see companion §2) |
+| `project-scaffold` | deferred *(at spec time; shipped v1.96.0 under its own plan)* | orchestrates go-scaffold + `flutter create` + Nuxt skeleton + `.bmad-core` seed + connective tissue (REPO_MAP, locks, CI workflows); write only after the pieces it assembles are proven in a pilot |
 
 ## 9. Placeholders (deliberately unresolved)
 

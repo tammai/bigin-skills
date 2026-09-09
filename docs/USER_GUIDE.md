@@ -189,6 +189,38 @@ Re-running setup later is safe. It's idempotent: `settings.json` is merged, `REA
 
 **Two re-run modes worth knowing.** `patch` reads this plugin's `CHANGELOG.md` and applies only the changes between the version your repo was scaffolded with (`.claude/harness-version`) and the current one — that's how an already-set-up repo receives a fixed guard or a tightened permission without a full overwrite. `verify` re-checks an existing `CLAUDE.md` against the repo and **corrects or removes claims that no longer hold**: it runs each lint/typecheck/test command before trusting the row that names it, so a command that stopped existing is rewritten rather than left as a confident lie. A verify pass may shrink `CLAUDE.md` or leave it the same size — one that grows it is a bug. `patch` is the opposite by design: it applies deltas, so it can add a file or a line, and it never touches a target it can't match exactly, reporting those for you to apply by hand instead.
 
+### Six repos at once
+
+A BigIn client project usually isn't one repo — it's six: `<slug>-specs`, `-contracts`, `-api`, `-web`, `-mobile`, `-qa`. `project-scaffold` stands all six up in one run, which by hand is about twenty steps:
+
+```
+Set up a new polyrepo project called acme
+```
+
+It creates each repo, **delegates each code repo to the scaffolder that already owns it** — `go-scaffold` for `api`, `nuxt-scaffold` for `web`, `flutter create` for `mobile`; a missing toolchain skips that one and names it in the summary rather than failing the run — and writes the connective tissue nothing else owns: `REPO_MAP.md`, each consumer's `api-contract.lock`, `story-sync.json`, the sync scripts, and the CI workflows with each repo's toolchain filled in. Adding a repo to a project that already follows the standard is the same command with `--repos`.
+
+**It asks one question you can't take back cheaply:** create the GitHub repos now, or set up locally first. Local-only is a real mode — remotes get added later by re-running with `--owner`. If you do want them, it makes you confirm the **owner** explicitly and never infers it from `gh auth status`; six repos appearing in an organisation nobody meant to touch is the accident worth one extra question. CI credentials are opt-in the same way: `--app-id`/`--app-key` set `CONTRACT_APP_ID`, `CONTRACT_APP_PRIVATE_KEY` and `STORY_CONSUMERS` on every repo, with the key piped from disk to `gh` — never read into the script, logged, or copied.
+
+Then run harness setup **once in each of the six**:
+
+```
+Set up a harness
+```
+
+That second step is deliberate, not an oversight: `project-scaffold` writes no `CLAUDE.md`, no rule file, no guard and no `settings.json`. `bigin-harness-setup` owns the governance layer, and a second implementation inside the scaffolder would drift the day either one changed. Phase 0a reads the repo-name suffix, confirms the type with you, and installs that profile — plus, on `api`/`web`/`mobile`, the consumer overlay and `vendored-contract-guard.mjs`.
+
+Write the real contract in the contracts repo, tag it, then in each consumer `node scripts/contract_sync.mjs bump <tag>` records the commit and checksum, vendors the spec, and regenerates the client **in one commit** — the invariant everything downstream depends on.
+
+**Three things it can't do for you**, each named in its summary when it applies:
+
+1. **Create the GitHub App** — web UI only, and until it exists *and is installed on the owner*, every dispatch fails at "Mint an App token" with a 404.
+2. **Fix Actions billing** — a failed payment or a $0 spending limit blocks Actions across every repo the account owns, and the symptom is a job dying in about three seconds with no log. Check it before blaming a workflow.
+3. **Seed `.bmad-core`** — BA workflow depth is a deliberate placeholder; the specs repo gets the directory structure and `story_lint.mjs`, not a story template.
+
+None of that blocks you: everything the standard needs beyond CI works without it — `bigin-harness-setup/references/ci.md` → "Running the standard without CI".
+
+The standard itself — repo model, session boundaries, the sidecar convention — is [`docs/polyrepo/README.md`](polyrepo/README.md), and [`PILOT.md`](polyrepo/PILOT.md) is the run that proved it on live repos.
+
 ---
 
 ## 4. Day 2 onward — the daily loop

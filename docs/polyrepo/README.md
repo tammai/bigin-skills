@@ -3,7 +3,7 @@
 Source: `bigin-skills-polyrepo-upgrade.zip`. These are the **corrected** copies — the zip's
 drafts asserted several things about this repo that are not true, and implementing them
 verbatim would ship the defect. Corrections C1–C10 are recorded in
-[`../../PLAN.md`](../../PLAN.md), which governs; each spec marks where one was applied.
+[the archived plan](../../.claude/memory/PLAN.archive.20260908T031956Z-polyrepo-project-standard.md), which governed the implementation; each spec marks where one was applied.
 
 | Path | What it is |
 |---|---|
@@ -37,7 +37,7 @@ Local auth `GITHUB_TOKEN` → `gh auth token`; dispatch via an org-installed Git
 `acme-api` spec ownership by repo-type mode; mobile codegen `openapi-generator` dart-dio
 pinned by Docker tag; Flutter theming `ColorScheme.fromSeed` + overrides; repo type from
 the confirmed repo-name suffix in a Phase 0a pre-step; R4 shipped on stated assumptions for
-rework; Flutter handoff as a new sibling skill. Rationale for each: `PLAN.md` → Decisions.
+rework; Flutter handoff as a new sibling skill. Rationale for each: the archived plan → *Decisions taken*.
 
 **Still open, both non-blocking:** REPO_MAP sync scope (defaulting to consumers only), and
 whether the lock file carries a `contractSync` override block.
