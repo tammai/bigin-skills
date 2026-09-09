@@ -5,7 +5,7 @@
 - **Owner:** Tam Mai
 - **Companion specs:** [SPEC-contract-sync.md](./SPEC-contract-sync.md), [SPEC-flutter-figma-handoff.md](./SPEC-flutter-figma-handoff.md)
 - **Implementation plan:** [the archived plan](../../.claude/memory/PLAN.archive.20260908T031956Z-polyrepo-project-standard.md) — that file governed; this one states the requirement.
-- **Superseded by the implementation.** All three skills in §8 shipped: `contract-sync` in v1.89.0, `flutter-figma-handoff` in v1.94.0, `project-scaffold` in v1.96.0. This spec is kept as the record of the requirement, not of current status — for that, read `CHANGELOG.md`.
+- **Superseded by the implementation.** All three skills in §8 shipped: `contract-sync` in v1.89.0, `flutter-figma-handoff` in v1.94.0, `project-scaffold` in v1.96.0. §10's acceptance criteria are ticked with the evidence that closed each one; everything else here is the requirement as specified, not current status — for that, read `CHANGELOG.md`.
 
 ---
 
@@ -124,12 +124,26 @@ Because no BMAD template ships here to append to, and §9 forbids planning BA wo
 
 ## 10. Acceptance criteria
 
-- [ ] Harness setup on a fresh repo reads the name suffix, shows the repo type it inferred, accepts a correction, and installs the matching bundle; `specs` contains no consumer-repo guards; a repo with no suffix behaves exactly as today
-- [ ] Story merged in specs produces auto-PRs in all consumer repos with `synced: true` files only
-- [ ] Editing a synced story or vendored spec in a session is blocked with a plain-language message naming the correct repo to edit
-- [ ] A UI story without a sidecar Figma link fails the ready-for-dev gate; adding the sidecar passes it without touching the story file
-- [ ] Deleting a story in specs removes it from consumers on next sync and surfaces the orphaned sidecar as a CI warning
-- [ ] SessionStart on a stale consumer repo prints lock/latest versions and any open sync PR, makes at most one network call bounded by a 1500 ms timeout, and on timeout or offline prints the lock line alone (C5 — the draft's "< 2 s" was unmeasurable against an unbounded fetch)
+All six met, across v1.89.0–v1.96.3. Evidence is named per criterion: **R** is a case in [`tools/regress.mjs`](../../tools/regress.mjs) (`node tools/regress.mjs`), **P** is the live-repo pilot in [`PILOT.md`](./PILOT.md). Where a clause is procedure rather than something a test can assert, it says so instead of claiming coverage.
+
+- [x] Harness setup on a fresh repo reads the name suffix, shows the repo type it inferred, accepts a correction, and installs the matching bundle; `specs` contains no consumer-repo guards; a repo with no suffix behaves exactly as today
+  - **R** group 4 — *repo name maps to the right repo type* (12 names); *every repo type that short-circuits the ladder has a profile file*; *the polyrepo gate matrix matches the settings each profile writes*, where `specs` installs 6 of the nine core gates and omits `commit-msg-guard`, `bugfix-test-guard` and `spec-gate-guard`; *the stack ladder is still nine rungs, unrenumbered* is the no-suffix clause.
+  - The consumer overlay is one conditional entry in [`bigin-harness-setup/SKILL.md`](../../skills/bigin-harness-setup/SKILL.md) (`api`/`web`/`mobile` only); `profile-specs.md`, `profile-contracts.md` and `profile-qa.md` register `vendored-contract-guard.mjs` zero times between them.
+  - **Procedure, not test-covered:** "confirmed, not trusted" — that the inferred type is shown and a correction accepted — is Phase 0a's own step.
+- [x] Story merged in specs produces auto-PRs in all consumer repos with `synced: true` files only
+  - **R** group 7 — *story sync stamps `synced: true` without a second frontmatter block*; *story sync is idempotent*; *an unsynced file in a synced directory is never deleted*.
+  - **P** — one story merged in `pilot-specs` dispatched to all four consumers, each opening a PR of files stamped `synced: true` with `story-meta/` untouched; all four merged.
+- [x] Editing a synced story or vendored spec in a session is blocked with a plain-language message naming the correct repo to edit
+  - **R** group 8 — *the vendored spec and its lock are denied on every layout* (4 paths); *the refusal names the contracts repo, read out of the lock*; *a synced story is denied and points at its own sidecar*; *what this repo does own is left alone* (5 allowed); *fails closed on unreadable stdin*; *the guard covers every path `contract_sync.mjs` can vendor* (3 specs + 3 dirs), on both host payload shapes.
+  - **P** — the guard refused a live synced-story edit and named its sidecar.
+- [x] A UI story without a sidecar Figma link fails the ready-for-dev gate; adding the sidecar passes it without touching the story file
+  - **R** group 7 — *a UI story needs a final Figma sidecar before dev* (4 states); *the gate passes what it has no business blocking* (sidecar alone flips it).
+  - **P** — `ST-003` (`ui: yes`, no sidecar) was correctly not-ready in all four consumers; `ST-001` was ready only in the one repo holding a sidecar for it.
+- [x] Deleting a story in specs removes it from consumers on next sync and surfaces the orphaned sidecar as a CI warning
+  - **R** group 7 — *a story deleted upstream is deleted here*; *an unsynced file in a synced directory is never deleted*; *an orphaned sidecar warns and never fails*.
+  - `story_gate.mjs orphans` carries `if: always()` on GitHub and sits in `after_script` on GitLab (`bigin-harness-setup/references/ci.md`), so an orphan reports and never blocks the build.
+- [x] SessionStart on a stale consumer repo prints lock/latest versions and any open sync PR, makes at most one network call bounded by a 1500 ms timeout, and on timeout or offline prints the lock line alone (C5 — the draft's "< 2 s" was unmeasurable against an unbounded fetch)
+  - **R** group 8 — *session start reports contract staleness on a consumer repo*; *session start says nothing when there is nothing to say* (3 quiet cases); *a hung check cannot hold up a session*, measured at 2567 ms against a hung endpoint — `AbortSignal.timeout(1500)` on the fetch plus the 2.5 s subprocess backstop that bounds the whole check. **R** group 7 — *check degrades to one skip line, exit 0, when the API is unreachable*.
 
 ## 11. Decisions and open questions
 
