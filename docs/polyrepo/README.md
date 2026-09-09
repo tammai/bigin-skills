@@ -14,6 +14,7 @@ verbatim would ship the defect. Corrections C1–C10 are recorded in
 | [`templates/story-contract-impact.md`](./templates/story-contract-impact.md) | BMAD story template addition (R4). |
 | [`templates/story-meta.schema.yaml`](./templates/story-meta.schema.yaml) | Dev-owned sidecar linking a story to Figma + component context. |
 | [`templates/api-contract.lock.json`](./templates/api-contract.lock.json) | Lock file shape consumed by `contract_sync.mjs`. |
+| [`PILOT.md`](./PILOT.md) | The six-repo pilot that validated all of the above, and the thirteen defects it found. |
 
 ## What changed from the drafts
 
