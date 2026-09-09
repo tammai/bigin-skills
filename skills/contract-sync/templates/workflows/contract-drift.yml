@@ -9,10 +9,37 @@
 
 name: contract-drift
 
+# Only when the contract or its output could have moved. This job re-runs codegen to
+# prove the committed client still matches the spec, and on `mobile` that means pulling
+# a ~1 GB generator image — paying that on a PR which touched only UI code buys nothing.
+# Widen these paths if a repo generates from somewhere else; never drop them for
+# convenience, because the check they gate has no local equivalent.
 on:
   pull_request:
+    paths:
+      - 'openapi.yaml'
+      - 'openapi/**'
+      - 'api/openapi.yaml'
+      - 'api/generated/**'
+      - 'api-contract.lock'
+      - 'scripts/contract_sync.mjs'
+      - 'tool/generate_api.sh'
+      - '.github/workflows/contract-drift.yml'
   push:
     branches: [main]
+    paths:
+      - 'openapi.yaml'
+      - 'openapi/**'
+      - 'api/openapi.yaml'
+      - 'api/generated/**'
+      - 'api-contract.lock'
+      - 'scripts/contract_sync.mjs'
+      - 'tool/generate_api.sh'
+  # Weekly, so drift introduced by a generator or toolchain change — which touches
+  # none of the paths above — surfaces within days rather than at the next bump.
+  schedule:
+    - cron: '17 4 * * 1'
+  workflow_dispatch:
 
 jobs:
   drift:

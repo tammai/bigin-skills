@@ -700,6 +700,8 @@ The tiers **layer**: adopting CI later changes no script and no lock, only which
 
 The one check with no local equivalent is drift between the lock and the **generated client**: reproducing it means running codegen, which needs the toolchain and a network fetch, and a commit hook may not depend on either. That check stays CI-only, and a local-first project accepts it.
 
+**It is also the expensive one, so it is scoped.** `contract-drift` re-runs codegen to prove the committed client still matches the spec — on `mobile` that pulls a ~1 GB generator image — so it triggers only on paths that could have moved the contract or its output, plus a weekly run. The weekly matters: a generator or toolchain bump changes drift without touching any of those paths, and would otherwise surface only at the next contract bump. Widen the path list for a repo that generates from somewhere else; never drop it for convenience.
+
 ---
 
 ## story-sync workflow: github (specs repo)

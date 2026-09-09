@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.96.3] - 2026-09-09
+
+### Changed
+
+- **`contract-drift` no longer runs on every PR.** It re-runs codegen to prove the committed generated client still matches the vendored spec — the one check in this design with no local equivalent, and on `mobile` one that pulls a ~1 GB generator image. Paying that on a PR which touched only UI code buys nothing.
+
+  It now triggers on the paths that could actually have moved the contract or its output (the spec, `api-contract.lock`, the generated tree, `contract_sync.mjs`, `tool/generate_api.sh`, and the workflow itself), plus **weekly**. The schedule is the part worth keeping: a generator or toolchain bump changes what codegen produces without touching any of those paths, so a path-filtered job alone would surface that drift only at the next contract bump, whenever that happened to be.
+
 ## [1.96.2] - 2026-09-09
 
 The third and last codegen adapter, run for real. `tool/generate_api.sh` had never been executed end to end — it was written in 1.93.0 from the profile's description of what it should do — and running it produced three defects in a row, each hiding the next.
