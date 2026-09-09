@@ -316,6 +316,48 @@ if (OWNER) {
   }
 }
 
+// `STORY_CONSUMERS` on the specs repo is a project-level fact, not a per-run one, and
+// deriving it from `built` alone got an incremental add wrong twice over: `--repos mobile`
+// left the variable untouched, so the repo just created never received a story, while
+// `--repos specs,mobile` rewrote it to that run's consumers and silently dropped the three
+// already listed. So: read what is there, union, and never write a subset. Anything that
+// makes the current value unreadable — an API error, a value that is not a JSON array of
+// repos — leaves it alone and says so, because a wrong list here fails silently.
+function setStoryConsumers() {
+  const specsRepo = `${OWNER}/${repoName('specs')}`
+  const mine = STORY_CONSUMERS.filter(t => built.includes(t)).map(t => `${OWNER}/${repoName(t)}`)
+  if (!mine.length) return
+
+  let existing = []
+  const got = run('gh', ['api', `repos/${specsRepo}/actions/variables/STORY_CONSUMERS`, '--jq', '.value'], ROOT)
+  if (got.status !== 0) {
+    // A 404 is the one failure that means "no variable yet" and is safe to write over.
+    if (!/404|not found/i.test(got.stderr || '')) {
+      note(`${specsRepo}: could not read STORY_CONSUMERS — left alone. Set it by hand to ${JSON.stringify(mine)} plus any consumer already there.`)
+      return
+    }
+  } else {
+    try {
+      const v = JSON.parse((got.stdout || '').trim())
+      if (!Array.isArray(v) || v.some(e => typeof e !== 'string')) throw new Error('not a JSON array of repo names')
+      existing = v
+    } catch (e) {
+      note(`${specsRepo}: STORY_CONSUMERS is ${e.message} — left alone rather than overwritten. Add ${JSON.stringify(mine)} by hand.`)
+      return
+    }
+  }
+
+  const merged = [...new Set([...existing, ...mine])].sort()
+  if (merged.length === existing.length) {   // merged ⊇ existing, so equal length means nothing new
+    log(`STORY_CONSUMERS already lists every consumer this run built (${existing.length})`)
+    return
+  }
+  const r = run('gh', ['variable', 'set', 'STORY_CONSUMERS', '--repo', specsRepo,
+    '--body', JSON.stringify(merged)], ROOT)
+  if (r.status !== 0) note(`${specsRepo}: could not set STORY_CONSUMERS — ${(r.stderr || '').trim().split('\n')[0]}`)
+  else log(`STORY_CONSUMERS on ${repoName('specs')}: ${merged.length} consumer(s)`)
+}
+
 // ── credentials, opt-in ─────────────────────────────────────────────────
 
 if (values['app-id'] && OWNER && has('gh')) {
@@ -329,11 +371,7 @@ if (values['app-id'] && OWNER && has('gh')) {
     })
     if (r.status !== 0) note(`${name}: could not set the private key — ${(r.stderr || '').trim().split('\n')[0]}`)
   }
-  if (built.includes('specs')) {
-    const consumers = STORY_CONSUMERS.filter(t => built.includes(t)).map(t => `${OWNER}/${repoName(t)}`)
-    run('gh', ['variable', 'set', 'STORY_CONSUMERS', '--repo', `${OWNER}/${repoName('specs')}`,
-      '--body', JSON.stringify(consumers)], ROOT)
-  }
+  setStoryConsumers()
   log('CI credentials set on every repo')
 }
 

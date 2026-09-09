@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.96.4] - 2026-09-09
+
+### Fixed
+
+- **`STORY_CONSUMERS` was derived from one run's repos, so adding a repo later silently broke story sync.** The variable on the specs repo is the project's consumer list; `project-scaffold` computed it from the repos that run had just built. Two ways that goes wrong, both quiet — stories simply stop arriving at a repo nobody is watching:
+
+  `--repos mobile` never wrote the variable at all, because the write was gated on `specs` being part of the run, so the repo just created received no stories. `--repos specs,mobile` did write it, and replaced `["…-api","…-web","…-qa"]` with `["…-mobile"]`.
+
+  It now reads the current value, unions, and never writes a subset. Anything that makes the current value unreadable — an API error, a value that is not a JSON array of repos — leaves it alone and says what to set by hand; only a 404, which is the one failure that means "no variable yet", is written over. Four `regress.mjs` cases cover it, against a fake `gh` and a rewritten push URL so the group stays offline, and all four fail against the old derivation.
+
+### Notes
+
+- Omitting a repo type was already supported and is now documented where it is decided: a project with no mobile app is `--repos specs,contracts,api,web,qa`, and everything downstream is keyed off repo type, so the omitted one leaves no lock, no codegen workflow and no consumer-list entry.
+
 ## [1.96.3] - 2026-09-09
 
 ### Changed

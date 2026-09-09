@@ -1156,6 +1156,126 @@ if (!psReady) {
     if (!r.stderr.includes('--app-key')) throw new Error('did not name the missing pair')
     return 'refused'
   })
+
+  // ── STORY_CONSUMERS on an incremental add ─────────────────────────────────
+  // The variable is the project's consumer list, and deriving it from this run's
+  // `built` alone was wrong in both directions: `--repos mobile` never wrote it, so
+  // the repo just created received no stories, and `--repos specs,mobile` replaced
+  // three consumers with one. Both fail silently — stories simply stop arriving — so
+  // every case below asserts on the exact body handed to `gh`. A fake `gh` and a
+  // rewritten push URL keep the run offline.
+  const GH_BIN = join(TMP, 'ps-gh-bin')
+  let ghReady = false
+  try {
+    mkdirSync(GH_BIN, { recursive: true })
+    // `which` too: project_scaffold probes for gh with it, so a PATH without it
+    // reports every tool absent and the credentials block never runs. `cat` is what
+    // the stub below reads its state with.
+    for (const tool of ['node', 'git', 'which', 'cat']) {
+      const found = spawnSync('which', [tool], { encoding: 'utf8' }).stdout.trim()
+      if (found) spawnSync('ln', ['-sf', found, join(GH_BIN, tool)])
+    }
+    writeFileSync(join(GH_BIN, 'gh'), [
+      '#!/bin/sh',
+      '# Fake gh: only the surface project_scaffold.mjs touches. State lives under $HOME.',
+      'case "$1 $2" in',
+      '  "api user") exit 0 ;;',
+      'esac',
+      'case "$1" in',
+      '  api)',
+      '    case "$2" in',
+      '      */actions/variables/STORY_CONSUMERS)',
+      '        if [ -f "$HOME/gh-var" ]; then cat "$HOME/gh-var"; exit 0; fi',
+      '        echo "gh: Not Found (HTTP 404)" >&2; exit 1 ;;',
+      '    esac ;;',
+      '  variable)',
+      '    [ "$2" = set ] || exit 0',
+      '    [ "$3" = STORY_CONSUMERS ] || exit 0   # CONTRACT_APP_ID goes the same way',
+      '    while [ $# -gt 0 ]; do',
+      '      if [ "$1" = "--body" ]; then shift; printf \'%s\' "$1" > "$HOME/gh-var-written"; break; fi',
+      '      shift',
+      '    done ;;',
+      '  secret) cat > /dev/null ;;',
+      'esac',
+      'exit 0',
+      ''
+    ].join('\n'))
+    spawnSync('chmod', ['+x', join(GH_BIN, 'gh')])
+    ghReady = existsSync(join(GH_BIN, 'node')) && existsSync(join(GH_BIN, 'git'))
+  } catch { /* falls through to the skip */ }
+
+  if (!ghReady) {
+    skip('STORY_CONSUMERS on an incremental add', 'could not build a PATH carrying the fake gh')
+  } else {
+    const THREE = ['acme/demo-api', 'acme/demo-web', 'acme/demo-qa']
+    // One case fixture: a HOME holding the fake gh's state, a gitconfig that rewrites
+    // github.com to local bare repos, and those repos, so no push leaves the machine.
+    const ghHome = (name, existing) => {
+      const D = join(TMP, `ps-gh-${name}`)
+      rmSync(D, { recursive: true, force: true })
+      mkdirSync(join(D, 'remotes', 'acme'), { recursive: true })
+      writeFileSync(join(D, '.gitconfig'),
+        `[url "${join(D, 'remotes')}/"]\n\tinsteadOf = https://github.com/\n`)
+      for (const type of ['specs', 'contracts', 'api', 'web', 'mobile', 'qa']) {
+        const bare = join(D, 'remotes', 'acme', `demo-${type}.git`)
+        spawnSync('git', ['init', '-q', '--bare', bare], { env: PS_ENV })
+      }
+      if (existing !== undefined) writeFileSync(join(D, 'gh-var'), JSON.stringify(existing))
+      writeFileSync(join(D, 'key.pem'), 'not-a-real-key\n')
+      return D
+    }
+    const psRunGh = (home, repos) => spawnSync('node', [PS,
+      '--project', 'demo', '--dir', join(home, 'repos'), '--owner', 'acme',
+      '--repos', repos, '--app-id', '123', '--app-key', join(home, 'key.pem')
+    ], { cwd: REPO, encoding: 'utf8', env: { ...PS_ENV, PATH: GH_BIN, HOME: home } })
+    const written = home => {
+      const f = join(home, 'gh-var-written')
+      return existsSync(f) ? JSON.parse(read(f)) : null
+    }
+
+    t('an incremental add unions STORY_CONSUMERS instead of narrowing it', () => {
+      const home = ghHome('narrow', THREE)
+      const r = psRunGh(home, 'specs,mobile')
+      eq(r.status, 0, 'exit')
+      const body = written(home)
+      if (!body) throw new Error('never set the variable')
+      for (const repo of THREE) {
+        if (!body.includes(repo)) throw new Error(`dropped ${repo}: wrote ${JSON.stringify(body)}`)
+      }
+      if (!body.includes('acme/demo-mobile')) throw new Error(`did not add the new consumer: ${JSON.stringify(body)}`)
+      eq(body.length, 4, 'consumers')
+      return '4, none dropped'
+    })
+
+    t('a run that never builds specs still registers the consumer it created', () => {
+      const home = ghHome('nospecs', THREE)
+      const r = psRunGh(home, 'mobile')
+      eq(r.status, 0, 'exit')
+      const body = written(home)
+      if (!body) throw new Error('left the variable untouched, so the new repo gets no stories')
+      eq(body.join(), [...THREE, 'acme/demo-mobile'].sort().join(), 'consumers')
+      return 'registered'
+    })
+
+    t('a STORY_CONSUMERS value it cannot parse is reported, never overwritten', () => {
+      const home = ghHome('unparseable')
+      writeFileSync(join(home, 'gh-var'), 'oops, not json\n')
+      const r = psRunGh(home, 'specs,mobile')
+      eq(r.status, 0, 'exit')
+      eq(written(home), null, 'wrote nothing')
+      if (!/STORY_CONSUMERS/.test(r.stdout)) throw new Error('did not report the value it refused to touch')
+      return 'left alone'
+    })
+
+    t('a run that adds no consumer writes no variable', () => {
+      const home = ghHome('noop', [...THREE, 'acme/demo-mobile'])
+      const r = psRunGh(home, 'mobile')
+      eq(r.status, 0, 'exit')
+      eq(written(home), null, 'wrote nothing')
+      if (!/already lists/.test(r.stdout)) throw new Error('did not say the list was already complete')
+      return 'no write'
+    })
+  }
 }
 
 console.log('\n8. GUARDS')
