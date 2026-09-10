@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.98.1] - 2026-09-10
+
+### Fixed
+
+- **`bigin-harness-setup` asked its questions two different ways.** Two runs of v1.96.3 on the same day, same prompt, same empty-repo path: one put the stack-profile pick up as an `AskUserQuestion` widget, the other printed it as a chat code block ending in "Type 1, 2, 3, 4, 5, 6, or 7." and waited. The typed answer arrives with no option descriptions and no validation — that run's user typed `1`, then had to correct it to `2` a turn later.
+
+  The cause was in the skill, not the model: **only Phase 1.5 named the tool.** Every other decision — Phase 0a's repo-type confirmation and its name-vs-marker conflict, Phase 0 row 8's empty-repo pick, Phase 0.5's scaffold decisions, Phase 1's install-mode question, the two "this hook isn't ours" prompts — was specified as prose or a fenced block, and a fenced block of question text reads as something to print. Whether it rendered as a widget was left to the model, so it varied per run.
+
+  Now stated once as `SKILL.md` → `## How this skill asks` (every question uses the tool; the fenced blocks are wording, never output format; the ask sites enumerated), and named again at each site. One carve-out, and it is the delegated scaffold skills' own: a regex-validated field — `go-scaffold`'s module path, a kebab-case project name — stays free text, because a picker cannot validate a typed string. `regress.mjs` group 6 now asserts all ten sites still name the tool and that the empty-repo question has not gone back to a typed-number prompt.
+
+- **The empty-repo branch never gathered `AGENT_HOSTS`**, yet declared Phase 1.5 a no-op. `scaffold-delegation.md` step 1 listed four decisions to batch; Phase 1.5's skip condition tests five. A run following both to the letter would skip the phase with the Cursor-mirror question unasked and unanswered. Step 1 now lists all five, and the skip condition says what "already set" means — the user answered it, not a preselected default nobody has seen.
+
+### Changed
+
+- **`.claude/rules/skill-authoring.md`**: a question with a fixed set of answers is asked with `AskUserQuestion`, and the skill says so where the question lives — not only in a general note elsewhere in the file.
+
 ## [1.98.0] - 2026-09-10
 
 ### Added

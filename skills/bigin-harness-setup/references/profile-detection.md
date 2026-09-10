@@ -16,7 +16,7 @@ The suffix must follow a hyphen after something: `acme-api` matches, a repo name
 
 ## The confirmation
 
-Shown **only** when a suffix matched. A repo with no suffix produces no output at all: that is the overwhelmingly common case, and a question there would tax every ordinary harness run for a standard most repos are not in.
+Asked with `AskUserQuestion` — the block below is its wording, not text to print. Shown **only** when a suffix matched. A repo with no suffix produces no output at all: that is the overwhelmingly common case, and a question there would tax every ordinary harness run for a standard most repos are not in.
 
 ```
 This looks like the `web` repo of a polyrepo project (from the name `acme-web`).
@@ -30,7 +30,7 @@ Right? (yes / no / a different type: specs, contracts, api, web, mobile, qa)
 
 ## When the name and the markers disagree
 
-A repo whose name says `specs`, `contracts` or `qa` but which carries a stack marker (`nuxt.config.ts`, `go.mod`, `pubspec.yaml`, …) is a contradiction: one of the two signals is wrong. **Do not short-circuit silently.** Say what was found on both sides and ask which is true:
+A repo whose name says `specs`, `contracts` or `qa` but which carries a stack marker (`nuxt.config.ts`, `go.mod`, `pubspec.yaml`, …) is a contradiction: one of the two signals is wrong. **Do not short-circuit silently.** Say what was found on both sides and ask which is true — `AskUserQuestion`, the two readings below as its options:
 
 ```
 The name says this is the `specs` repo, but I found `go.mod` — a specs repo holds no code.
@@ -77,7 +77,7 @@ Check for stack indicators, first match wins:
 7. `pubspec.yaml` → profile = `flutter`, **but only if it is a Flutter *app*.** Two checks, both needed:
    - **Is it Flutter at all?** A top-level `flutter:` key, or `flutter:` with `sdk: flutter` under `dependencies:`. A plain Dart package (a CLI, a server, a shared library) has neither — fall through to `generic` rather than writing widget conventions for a package with no widgets.
    - **Is it an app rather than a library?** An app has a runnable entrypoint and native host directories: `lib/main*.dart` plus `android/app/` or `ios/Runner/`. A **plugin** declares `plugin:` under its `flutter:` key; a **package** has neither the `plugin:` key nor the native app directories. Both are Flutter and neither is this profile — flavors, three entrypoints, a dio client and a local database are all app concerns, and a widget library that inherits them gets rules for code it will never contain. Fall through to `generic` for both, and say which one you detected so the choice is visible.
-8. **Empty repo** (no source files, no manifest of any kind) → ask, since the answer picks the scaffold Phase 0.5 runs:
+8. **Empty repo** (no source files, no manifest of any kind) → ask, since the answer picks the scaffold Phase 0.5 runs. **One `AskUserQuestion`, seven options** — the block below is the wording of the question and its option descriptions, never a numbered list to print and wait on:
 
 ```
 Which stack profile?
@@ -89,7 +89,6 @@ Which stack profile?
 6. tauri  — Tauri 2 desktop app against an existing HTTP API: Nuxt 4 SPA frontend, Rust shell owning HTTP, tokens and the local cache — the webview makes no network call
 7. nuxt-marketing — multi-locale Nuxt 4 marketing site (Cloudflare Workers): @nuxt/content collections, @nuxtjs/i18n, Tailwind, fully prerendered — no auth, no BFF, no database
 
-Type 1, 2, 3, 4, 5, 6, or 7.
 ```
 
 9. **Existing code, no marker matched** → `PROFILE = generic`. Do **not** ask and do not offer the seven the question lists — an existing repo that isn't one of them won't become one, and forcing a pick writes conventions for a stack that isn't there. Say one line ("no matching stack profile — installing the stack-neutral harness") and continue to the next phase.

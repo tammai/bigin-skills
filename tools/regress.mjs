@@ -487,7 +487,27 @@ t('Phase 0.5 table has a nuxt-marketing row', () => {
 t('empty-repo question offers option 7', () => {
   const s = rd('skills/bigin-harness-setup/references/profile-detection.md')
   if (!/7\. nuxt-marketing/.test(s)) throw new Error('option 7 missing')
-  if (!/Type 1, 2, 3, 4, 5, 6, or 7\./.test(s)) throw new Error('prompt still says 1-6'); return 'ok' })
+  const block = s.split('```').find(x => /^1\. nuxt\s/m.test(x)) ?? ''
+  for (let i = 1; i <= 7; i++)
+    if (!new RegExp(`^${i}\\. `, 'm').test(block)) throw new Error(`option ${i} missing from the question block`)
+  return '7 options' })
+// v1.98.1: two same-day runs of v1.96.3 split on this very question — one asked
+// it with AskUserQuestion, the other printed it as a code block and waited for a
+// typed number. The wording is not the contract; the tool is.
+t('every ask site in bigin-harness-setup names AskUserQuestion', () => {
+  const skill = rd('skills/bigin-harness-setup/SKILL.md')
+  if (!/## How this skill asks/.test(skill)) throw new Error('the rule section is gone')
+  const sites = [
+    ['SKILL.md', skill, [/Confirm it; never trust it\.\*\* Ask one `AskUserQuestion`/, /empty repo[^|]*\|\s*\*\*ask\*\* — one `AskUserQuestion`/, /show what was found and ask — `AskUserQuestion`/, /ask whether to replace it \(`AskUserQuestion`\)/, /ask before replacing \(`AskUserQuestion`\)/]],
+    ['profile-detection.md', rd('skills/bigin-harness-setup/references/profile-detection.md'), [/Asked with `AskUserQuestion`/, /ask which is true — `AskUserQuestion`/, /One `AskUserQuestion`, seven options/]],
+    ['scaffold-delegation.md', rd('skills/bigin-harness-setup/references/scaffold-delegation.md'), [/Gather every decision now\*\*, with `AskUserQuestion`/]],
+    ['decision-bundle.md', rd('skills/bigin-harness-setup/references/decision-bundle.md'), [/one bundled `AskUserQuestion` call/]],
+  ]
+  for (const [file, body, pats] of sites)
+    for (const p of pats)
+      if (!p.test(body)) throw new Error(`${file}: an ask site stopped naming the tool (${p})`)
+  if (/Type 1, 2, 3/.test(sites[1][1])) throw new Error('profile-detection.md went back to a typed-number prompt')
+  return `${sites.reduce((n, x) => n + x[2].length, 0)} sites` })
 t('the auth-marker rationale is recorded', () => {
   if (!/nuxt-auth-utils/.test(rd('skills/bigin-harness-setup/references/scaffold-delegation.md')))
     throw new Error('rationale absent — someone will merge the scaffolders'); return 'present' })

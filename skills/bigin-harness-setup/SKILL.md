@@ -9,13 +9,21 @@ allowed-tools: Bash(git init) Bash(git rev-parse *) Bash(chmod +x *) Bash(ln -sf
 
 Sets up a standardized AI workflow harness — the `CLAUDE.md` agent brief, path-scoped rules, and commit-time enforcement gates (guard hooks + a context-budget check). Idempotent — re-running on an already-set-up repo is safe.
 
+## How this skill asks
+
+**Every question this skill or its references puts to the user is asked with the `AskUserQuestion` tool. No exceptions, in any phase.** The fenced blocks throughout these files are the *wording* of a question — its text and its options — never its output format. Printing one as chat text and waiting for a typed number is a bug: it loses the option descriptions, accepts a mistyped answer as a real one, and makes two runs of the same skill behave differently.
+
+The ask sites: Phase 0a's repo-type confirmation and its name-vs-marker conflict, Phase 0 row 8's empty-repo stack pick, Phase 0.5's per-profile scaffold decisions, Phase 1's install-mode question, Phase 1.5's decision bundle, the two "this hook isn't ours — replace it?" prompts in Phase 5-1b and 5-2g, and every other point where these files say to confirm before overwriting something. Batch them per the phase that owns them (`AskUserQuestion` takes at most four questions per call; split into back-to-back calls in the stated order when more apply), and write no file until every question in the batch is answered.
+
+**One carve-out, and it is the delegated scaffold skills', not this one's.** A field that needs regex validation rather than a menu — `go-scaffold`'s module path, the kebab-case project name each `*-scaffold` skill takes — is free text by those skills' own design, because a picker cannot validate a typed string. Ask those as their `SKILL.md` says; everything with a fixed set of answers is still `AskUserQuestion`.
+
 ---
 
 ## Phase 0a: Detect Repo Type (polyrepo projects only)
 
 Runs **before** the stack ladder and never changes it. Read the repo's own name — the `origin` remote's repo name, else the directory basename — lowercased. If it ends in `-specs`, `-contracts`, `-api`, `-web`, `-mobile` or `-qa`, that suffix is a **candidate** repo type.
 
-**Confirm it; never trust it.** Show one line naming what you inferred and let the user correct or reject it — a repo called `foo-api` belonging to no polyrepo project answers "no". No suffix match → set `REPO_TYPE = none`, say nothing at all, and continue to Phase 0 exactly as today. That is the common case and it must stay silent.
+**Confirm it; never trust it.** Ask one `AskUserQuestion` naming what you inferred and let the user correct or reject it — a repo called `foo-api` belonging to no polyrepo project answers "no". No suffix match → set `REPO_TYPE = none`, say nothing at all, and continue to Phase 0 exactly as today. That is the common case and it must stay silent.
 
 - **`specs`, `contracts`, `qa`** — these repos have no stack. Set `PROFILE = REPO_TYPE`, **skip Phase 0 and Phase 0.5 entirely**, and load `references/profile-{REPO_TYPE}.md`. Their users are not developers, so those profiles state their guard messages in plain language and install no consumer-repo gates.
 - **`api`, `web`, `mobile`** — store `REPO_TYPE` and run Phase 0 unchanged. Repo type and stack profile are orthogonal here: the type selects the *consumer overlay* (vendored-spec rules, the contract-sync guard, the SessionStart staleness notice), never the stack.
@@ -37,7 +45,7 @@ Skipped entirely when Phase 0a set `PROFILE` to `specs`, `contracts` or `qa` —
 | 5 | `package.json` with express/fastify/hono/koa in dependencies | `nodejs` |
 | 6 | `next.config.ts` / `.js` / `.mjs` | `next` |
 | 7 | `pubspec.yaml` **plus both Flutter-app checks** | `flutter` |
-| 8 | empty repo — no source files, no manifest | **ask** (the answer picks the scaffold Phase 0.5 runs) |
+| 8 | empty repo — no source files, no manifest | **ask** — one `AskUserQuestion` (the answer picks the scaffold Phase 0.5 runs) |
 | 9 | existing code, nothing matched | `generic` |
 
 **Rows 1 and 2 are above row 3 on purpose and must never be reordered.** Both carry row 3's `nuxt.config.ts` marker as well as their own, so on first-match-wins each has to precede it. A Tauri desktop app with a Nuxt frontend matched as `nuxt` gets onboarded as a web app — SSR left on, a `server/` BFF that does not exist at runtime, and no rule about capabilities, the IPC trust boundary, the updater key or code signing. A multi-locale marketing site matched as `nuxt` gets BFF-proxy, sealed-session and Pinia-Colada conventions for a repo with no server half and no auth, and no way to say the one thing that matters there — that a client's content editor may change content files and locale bundles and nothing else.
@@ -79,7 +87,7 @@ Check for existing harness files:
 CLAUDE.md | AI_TASK_GUIDE.md | AI_REVIEW_CHECKLIST.md | .claude/rules/
 ```
 
-If any exist, show what was found and ask:
+If any exist, show what was found and ask — `AskUserQuestion`, with the five below as its options:
 ```
 Found existing harness files: [list them]
 
@@ -112,7 +120,7 @@ Full procedure in **`references/verify-mode.md`**: inventory the checkable claim
 
 ## Phase 1.5: Gather Remaining Decisions
 
-Skip this phase entirely if `KNOWLEDGE_BUNDLE`, `GRAPH`, `CI_PROVIDER`, `MODEL_ROUTING`, and `AGENT_HOSTS` are already set (Phase 0.5/0.5b asked them alongside the nuxt-scaffold/go-scaffold batch for the empty-repo branch).
+Skip this phase entirely only if `KNOWLEDGE_BUNDLE`, `GRAPH`, `CI_PROVIDER`, `MODEL_ROUTING` **and** `AGENT_HOSTS` were all answered in Phase 0.5's batch on the empty-repo branch (`references/scaffold-delegation.md` → step 1 lists all five). "Already set" means the user answered it — an auto-detected default nobody has seen is not an answer, so a variable that only has a preselected default still gets asked.
 
 Otherwise ask **one bundled `AskUserQuestion` call**, before writing any files. The six questions, their auto-detected defaults, and the exact option wording are in **`references/decision-bundle.md`**. `AskUserQuestion` accepts at most four per call, so when more than four apply, split into two back-to-back calls keeping that file's order — still no file written until all of them are answered.
 
@@ -188,7 +196,7 @@ Only when 5-1 created `scripts/pre-commit.sh`. The hook lives in `.git/hooks/`, 
    - If it fails (not a repo), run `git init` and tell the user a repo was initialized.
    - If it already is a repo, do nothing.
 
-2. **Install the hook** (idempotent — never clobber a foreign hook silently). Absent, or already a symlink to `../../scripts/pre-commit.sh` → `ln -sf ../../scripts/pre-commit.sh .git/hooks/pre-commit`. Anything else → do **not** overwrite: show the existing hook, ask whether to replace it, and record the answer in the summary.
+2. **Install the hook** (idempotent — never clobber a foreign hook silently). Absent, or already a symlink to `../../scripts/pre-commit.sh` → `ln -sf ../../scripts/pre-commit.sh .git/hooks/pre-commit`. Anything else → do **not** overwrite: show the existing hook, ask whether to replace it (`AskUserQuestion`), and record the answer in the summary.
 
 3. Confirm to the user that the hook is installed (or was left untouched).
 
@@ -247,7 +255,7 @@ Enforces the Conventional Commits subject line that `bugfix-test-guard.mjs`'s `f
 2. **Install the git `commit-msg` hook.** Requires a git repo — if 5-1b didn't run (no `scripts/pre-commit.sh` was created), check `git rev-parse --is-inside-work-tree 2>/dev/null` first and `git init` if it fails. Then, matching whatever already gates commits in this repo:
    - **`simple-git-hooks`** (key in `package.json`) → add `"commit-msg": "node .claude/guards/commit-msg-guard.mjs $1"` to that object, then re-run `pnpm simple-git-hooks` (or `npx simple-git-hooks`) so it's written into `.git/hooks/`. This is the `SCAFFOLDED = true` nuxt/next case.
    - **`husky`** (`.husky/` dir) → write `.husky/commit-msg` containing `node .claude/guards/commit-msg-guard.mjs "$1"`, then `chmod +x .husky/commit-msg`.
-   - **Plain git** (go / nodejs / flutter / generic, or any repo with no hook manager — including `tauri` if `nuxt-scaffold` did not run) → read `references/hook-guard.md` → `## commit-msg: all profiles`, write `scripts/commit-msg.sh`, `chmod +x scripts/commit-msg.sh`, then install it the same way 5-1b installs pre-commit — `ln -sf ../../scripts/commit-msg.sh .git/hooks/commit-msg` if that path is absent or already our symlink; if it exists and is **not** ours, show it and ask before replacing, exactly as 5-1b does. Never clobber a foreign hook silently.
+   - **Plain git** (go / nodejs / flutter / generic, or any repo with no hook manager — including `tauri` if `nuxt-scaffold` did not run) → read `references/hook-guard.md` → `## commit-msg: all profiles`, write `scripts/commit-msg.sh`, `chmod +x scripts/commit-msg.sh`, then install it the same way 5-1b installs pre-commit — `ln -sf ../../scripts/commit-msg.sh .git/hooks/commit-msg` if that path is absent or already our symlink; if it exists and is **not** ours, show it and ask before replacing (`AskUserQuestion`), exactly as 5-1b does. Never clobber a foreign hook silently.
 
    Say which of the three paths was taken in the Phase 7 summary. As with pre-commit, `.git/hooks/` isn't version-controlled — Phase 6's README onboarding covers the fresh-clone step.
 

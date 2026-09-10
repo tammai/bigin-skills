@@ -1,6 +1,6 @@
 # Scaffold Delegation (Phase 0.5)
 
-One deterministic script per profile owns creating the app; this skill only overlays governance on top. Nothing here is conversational — the script runs unattended, and this skill writes no project files while it does.
+One deterministic script per profile owns creating the app; this skill only overlays governance on top. Nothing here is conversational — the script runs unattended, and this skill writes no project files while it does. The decisions the script needs are gathered before it starts, with `AskUserQuestion` like every other question in this skill (`SKILL.md` → `## How this skill asks`).
 
 ---
 
@@ -73,7 +73,7 @@ flutter create --project-name <snake_case_name> --org <com.example> --platforms=
 
 ## Procedure — identical for all six scaffolded profiles
 
-1. **Gather every decision now**, in one turn, back-to-back: that profile's row above, then Phase 1.5's bundle (Knowledge Bundle/Graphify + CI config + model routing profile — an empty repo can't hit Phase 1's existing-harness conflict, so only those three apply). Confirm the summary once. Store `KNOWLEDGE_BUNDLE` / `GRAPH` / `CI_PROVIDER` / `MODEL_ROUTING` now; Phase 1.5 is a no-op later on this branch.
+1. **Gather every decision now**, with `AskUserQuestion` for everything that has a fixed set of answers (the delegated skill's own regex-validated free-text fields — module path, project name — stay free text as its `SKILL.md` specifies), in one turn, back-to-back: that profile's row above, then Phase 1.5's bundle (Knowledge Bundle/Graphify + CI config + model routing profile + agent hosts — an empty repo can't hit Phase 1's existing-harness conflict, so those four are all that apply). Four questions is one call's maximum, so the profile row's own decisions go in a second, back-to-back call. Confirm the summary once. Store `KNOWLEDGE_BUNDLE` / `GRAPH` / `CI_PROVIDER` / `MODEL_ROUTING` / `AGENT_HOSTS` now; only then is Phase 1.5 a no-op later on this branch — leave any of the five unasked and Phase 1.5 still runs for the rest.
 2. **Run the command and stream its output.** Several minutes for `nuxt`/`next` (installs + verify gates), roughly a minute for `go` (first run downloads/builds `oapi-codegen`), a couple for `nodejs`. `tauri` is the longest by a wide margin: the `nuxt-scaffold` half, then `tauri init`, then a first `cargo` build of the Tauri dependency tree — tell the user it is minutes, not seconds, before starting.
 3. **Exit 0** = scaffolded, verified, committed → set `SCAFFOLDED = true`. **Non-zero** → report the script's last `[scaffold] ERROR:` line and stop; do not improvise the remaining steps by hand. For `tauri`, the `nuxt-scaffold` half behaves exactly as the `nuxt` profile's does — including the commit — and the `tauri init` half verifies nothing, so treat a non-zero `tauri init` as a stop too and leave the committed frontend in place rather than unwinding it. `flutter create` is the exception on both halves: it verifies nothing and commits nothing, so exit 0 means "files exist, uncommitted" — check `pubspec.yaml` is present, then let Phase 5-1b's `git rev-parse` handle the repo (`git init` if `flutter create` didn't) and let the harness install be the first commit.
 
