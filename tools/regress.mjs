@@ -527,6 +527,51 @@ t('no stale separate-Worker wording survives', () => {
 // quietly editing files a Claude Code teammate cannot — a silent, per-person
 // difference in what the repo enforces, which is the failure mode the
 // one-body-two-hosts rule exists to prevent.
+// A SKILL.md citing a reference that does not exist is a dead end at run time, and
+// nothing else here reads those paths. Two forms are checked: `references/x.md`, which
+// the authoring rules define as relative to that skill's own directory, and an explicit
+// ${CLAUDE_PLUGIN_ROOT}/... path into this repo.
+t('every reference a SKILL.md cites exists', () => {
+  let checked = 0
+  const missing = []
+  for (const dir of readdirSync(join(REPO, 'skills'))) {
+    const skill = join(REPO, 'skills', dir, 'SKILL.md')
+    if (!existsSync(skill)) continue
+    const body = read(skill)
+    const cited = new Set()
+    for (const m of body.matchAll(/`references\/([A-Za-z0-9._-]+\.md)`/g)) {
+      cited.add(join(REPO, 'skills', dir, 'references', m[1]))
+    }
+    for (const m of body.matchAll(/\$\{CLAUDE_PLUGIN_ROOT\}\/([A-Za-z0-9._/-]+\.(?:md|mjs))/g)) {
+      cited.add(join(REPO, m[1]))
+    }
+    for (const path of cited) {
+      checked++
+      if (!existsSync(path)) missing.push(`${dir}: ${path.slice(REPO.length + 1)}`)
+    }
+  }
+  if (missing.length) throw new Error(missing.join('; '))
+  return `${checked} citations`
+})
+
+// The design doc is the one epic-workflow artifact with no gate script behind it, so the
+// three rules that make it work rather than rot are asserted here instead.
+t('the epic design doc carries its skip rule, its diagram rule and the MADR shape', () => {
+  const ref = read(join(REPO, 'skills', 'epic-workflow', 'references', 'design-doc.md'))
+  const skill = read(join(REPO, 'skills', 'epic-workflow', 'SKILL.md'))
+  if (!/skipped it and why/.test(ref) || !/skipped it and why/.test(skill)) {
+    throw new Error('the say-the-skip-out-loud rule is missing from the reference or the skill')
+  }
+  if (!/```mermaid/.test(ref)) throw new Error('the template shows no mermaid block')
+  if (!/mermaid/.test(skill)) throw new Error('the skill never tells the author to draw one')
+  for (const heading of ['Context and Problem Statement', 'Decision Drivers', 'Considered Options', 'Decision Outcome']) {
+    if (!ref.includes(heading)) throw new Error(`the MADR shape is missing "${heading}"`)
+  }
+  if (!/adr\.github\.io\/madr/.test(ref)) throw new Error('MADR is copied but not credited')
+  if (!/docs\/design\//.test(skill)) throw new Error('the skill never names where the doc lands')
+  return 'skip rule, diagram, MADR'
+})
+
 t('every gate a profile registers is registered on Cursor too', () => {
   const REF = join(REPO, 'skills', 'bigin-harness-setup', 'references')
   // Documented Claude-Code-only, and not gates: a Setup bootstrap, a formatter,

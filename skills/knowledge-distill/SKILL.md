@@ -28,7 +28,8 @@ rule in that reference is there because the validator enforces it.
   `library:` key and has no `pin.md` beside it, that bundle predates v1.62.0 — stop and run
   `node tools/knowledge_migrate_okf.mjs` (dry run first, then `--write`). Distilling over a
   legacy bundle leaves two pins in one directory, and only one of them is the one the drift
-  guard reads. The script is in `bigin-harness-setup`'s `references/knowledge-migration.md`
+  guard reads. The script is in
+  `${CLAUDE_PLUGIN_ROOT}/skills/bigin-harness-setup/references/knowledge-migration.md`
   if the repo doesn't have it yet.
 
 ## Phase 0a — Bootstrap the bundle (only when it's absent)

@@ -113,6 +113,7 @@ flowchart TD
         C["knowledge-distill<br/>library at a pinned SHA"]
         E["discovery-workflow<br/>decisions the product forced"]
         F["epic-workflow · Cleanup<br/>decision, boundary, invariant"]
+        DD["docs/design/{slug}.md<br/>each decision it settled"]
     end
 
     in --> K[("knowledge/<br/>concept files")]
@@ -151,13 +152,14 @@ The exemption runs the other way too: `sprint-distill` never *writes* to `implem
 
 ## 6. Where a fact belongs
 
-Seven surfaces, one question each. Putting a fact in the wrong one is the most common way this convention goes wrong, because the wrong home has no mechanism to expire it.
+Eight surfaces, one question each. Putting a fact in the wrong one is the most common way this convention goes wrong, because the wrong home has no mechanism to expire it.
 
 | Surface | Question | Lifetime |
 |---|---|---|
 | `knowledge/` | What is the system, and why? | Outlives sprints; expires on behavior change |
 | `knowledge/implementation/` | How did this piece come to be, and what was rejected? | Append-only; never expires, never edited |
 | `docs/product/prd.md` | What did we promise a user, and how is it checked? | Outlives every epic derived from it; amended, never renumbered |
+| `docs/design/{slug}.md` | How is this initiative built, and what lost? | Outlives the epic; updated when reality diverges, never archived |
 | `.claude/rules/` | How do we work here? | Outlives projects; changes by decision |
 | `graphify-out/` | Where is the code, and what connects? | Regenerated; expires every commit |
 | `PLAN.md` | What are we doing right now? | Archived verbatim at task end |

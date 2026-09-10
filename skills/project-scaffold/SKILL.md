@@ -66,4 +66,4 @@ Three things this cannot do, and the summary should name whichever apply:
 2. **Fix Actions billing.** A failed payment or a $0 spending limit blocks Actions across every repo an account owns, and the symptom is a job dying in about three seconds with no log. Worth checking before blaming a workflow.
 3. **Seed `.bmad-core`.** BA workflow depth is a deliberate placeholder; the specs repo gets the directory structure and `story_lint.mjs`, not a story template.
 
-Everything the standard needs beyond that works without CI at all — see `references/ci.md` → `## Running the standard without CI`.
+Everything the standard needs beyond that works without CI at all — see `${CLAUDE_PLUGIN_ROOT}/skills/bigin-harness-setup/references/ci.md` → `## Running the standard without CI`.

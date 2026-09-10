@@ -322,32 +322,36 @@ Two limits worth knowing: amendment rounds **don't** count against the 3-round f
 
 If the request needs three or five plans rather than one, `epic-workflow` runs first and `task-workflow` runs underneath it:
 
-```
-/epic-workflow "multi-tenant billing"
-        ↓
-  triage — the shared ladder: rung 2 continues · rung 1 → task-workflow · rung 3 → discovery-workflow
-        ↓
-  approved PRD on disk? → zero questions, decompose from it · else → ≤3 questions, decomposition-level only
-        ↓
-  ordered units, each one plan's worth and independently shippable
-        ↓
-  YOU APPROVE THE DECOMPOSITION  ← the epic's only gate
-        ↓
-  .claude/memory/EPIC.md written
-        ↓
-  unit 1 → task-workflow (its own spec gate, its own PLAN.md)
-        ↓
-  row flipped to Done → next unit, unless it changed what unit 2 inherits
-                          (then it stops: /clear and re-invoke)
+```mermaid
+flowchart TD
+    A["/epic-workflow · multi-tenant billing"] --> B{"Triage —<br/>the shared ladder"}
+    B -->|"rung 1"| T1["task-workflow"]
+    B -->|"rung 3"| D1["discovery-workflow"]
+    B -->|"rung 2"| C{"Approved PRD<br/>on disk?"}
+    C -->|yes| C1["Zero questions —<br/>decompose from it"]
+    C -->|no| C2["≤3 questions,<br/>decomposition-level only"]
+    C1 --> E["Ordered units — each one plan's worth,<br/>independently shippable"]
+    C2 --> E
+    E --> F["Design doc drafted<br/><i>— or skipped, out loud</i>"]
+    F --> G(["YOU APPROVE<br/>decomposition + design doc"])
+    G --> H[".claude/memory/EPIC.md<br/>docs/design/slug.md"]
+    H --> I["Unit 1 → task-workflow<br/><i>its own spec gate, its own PLAN.md</i>"]
+    I --> J{"Row flipped to Done —<br/>did it change what<br/>the next unit inherits?"}
+    J -->|no| I
+    J -->|yes| K["Stops: /clear and re-invoke"]
+
+    classDef gate fill:#fde68a,stroke:#b45309,color:#000
+    class G gate
 ```
 
-Three things to hold onto:
+Four things to hold onto:
 
-- **Approving an epic approves the decomposition, nothing else.** Every unit still faces the spec gate on its own merits. `EPIC.md` deliberately doesn't satisfy the guard — one epic-level approval standing in for five unwritten specs is exactly the drift the gate exists to stop.
+- **Approving an epic approves the decomposition and its design doc, nothing else.** Every unit still faces the spec gate on its own merits. `EPIC.md` deliberately doesn't satisfy the guard — one epic-level approval standing in for five unwritten specs is exactly the drift the gate exists to stop.
 - **One unit at a time, and it usually keeps going.** Most of a unit's weight never reaches your session — the implementer and the verifier are subagents — so it continues to the next unit rather than stopping by default. It stops and asks you to `/clear` when context is genuinely tight, or when the finished unit changed something the next one inherits and you should see that before its spec is drafted. The queue file is the complete handoff package either way, so a `/clear` at any point costs nothing.
+- **It writes a design doc, when the epic earns one.** The decomposition says what the units are; the design doc says how the initiative is built and what was rejected — context, goals and non-goals, the design opening with a `mermaid` diagram, alternatives considered, cross-cutting concerns, risks. One to three pages at `docs/design/{slug}.md`, approved at that same single gate. It is skipped when the shape is obvious or every unit follows a pattern the repo already has — but the skip is said out loud, in one sentence, because a silent one is indistinguishable from forgetting. Template and the bar for writing one: [`skills/epic-workflow/references/design-doc.md`](../skills/epic-workflow/references/design-doc.md).
 - **It refuses in both directions.** Below the bar it hands straight back to `task-workflow`; above ~8 units it says the scope is a roadmap, proposes the first epic-sized slice, and names what it deferred.
 
-Epic cleanup is also where the `knowledge/` distillation usually pays off. A single `PLAN.md` rarely establishes anything durable; an epic that settled a contract or a boundary did.
+Epic cleanup is also where the `knowledge/` distillation usually pays off. A single `PLAN.md` rarely establishes anything durable; an epic that settled a contract or a boundary did — and each decision the design doc settled becomes one [MADR](https://adr.github.io/madr/)-shaped file under `knowledge/architecture/`. The design doc itself is never archived: it stays as the entry point for whoever touches that system next, with its `Status:` line updated where reality diverged from it.
 
 ### When nobody can say what the thing is yet
 

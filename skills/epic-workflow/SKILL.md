@@ -1,6 +1,6 @@
 ---
 name: epic-workflow
-description: "Breaks an initiative too big for one PLAN.md into ordered, independently shippable units, gets the decomposition approved, then dispatches them one at a time through task-workflow. Triggers: 'break this epic down', 'too big for one task', /epic-workflow."
+description: "Breaks an initiative too big for one PLAN.md into ordered, independently shippable units, drafts the epic's one-page design doc, gets both approved, then dispatches the units one at a time through task-workflow. Triggers: 'break this epic down', 'too big for one task', 'design doc for this epic', /epic-workflow."
 argument-hint: [initiative]
 effort: low
 ---
@@ -58,9 +58,13 @@ It adds no gate of its own. Every unit still goes through `task-workflow`'s spec
 
    **Ceiling: ~8 units.** Past that the scope is a roadmap, not an epic. Say so, then propose the first epic-sized slice of it and note what you've deferred — don't queue twenty rows nobody will reach.
 
-4. **Approval gate.** Present the unit table in chat and wait. This is the epic's one gate. Write nothing to disk before approval — an unapproved queue file on disk is indistinguishable from an approved one on the next session's resume.
+3b. **Design doc — when the epic earns one.** The decomposition says *what* the units are; nothing else in this harness says *how* the initiative is built or what was rejected, and that reasoning otherwise survives only in merged PR descriptions. Draft `docs/design/{slug}.md` to the template in `references/design-doc.md`, which carries the bar for when one is warranted.
 
-5. **Write the queue** to `.claude/memory/EPIC.md`. Format and worked example: `references/epic-queue.md`. When the decomposition came from a PRD, the queue gains a `PRD:` header line and a `Covers` column, both PRD-derived-only. If a file is already there with open rows, that's step 8, not this step.
+    Three of its rules matter enough to state here. **Skipping is normal** — an obvious shape, or every unit following a pattern the repo already has, means no doc — **but a silent skip is not**: say in one sentence that you skipped it and why, in the same message as the decomposition. **The Design section opens with a `mermaid` diagram**, because this is a document humans read and a system's shape lands in a picture faster than in three paragraphs. And it is **drafted, not written** — step 4's gate covers it, step 5 writes it.
+
+4. **Approval gate.** Present the unit table — and the design doc, where step 3b drafted one — in chat and wait. This is the epic's one gate, and it now covers both artifacts. Write nothing to disk before approval — an unapproved queue file on disk is indistinguishable from an approved one on the next session's resume.
+
+5. **Write the queue** to `.claude/memory/EPIC.md`. Format and worked example: `references/epic-queue.md`. When the decomposition came from a PRD, the queue gains a `PRD:` header line and a `Covers` column, both PRD-derived-only. If a file is already there with open rows, that's step 8, not this step. Where step 3b drafted a design doc, write it to `docs/design/{slug}.md` in the same step, same slug — the two are read together.
 
 6. **Dispatch one unit.** Take the first row that is neither `Done` nor `Blocked` and whose every `Blocked by` row is `Done`. If no row qualifies, don't dispatch: when every row is `Done`, go to step 10; when rows remain but each is `Blocked` or waiting on an unfinished dependency, stop and say which rows are held and on what — that is a decomposition problem for step 9, not something to work around. State the unit number, its acceptance criteria, and any epic-level constraint it inherits — then run `task-workflow` on that unit as the task statement. `task-workflow` owns it completely from there: its own spec gate, its own `PLAN.md`, its own verifier rounds.
 
@@ -85,6 +89,8 @@ It adds no gate of its own. Every unit still goes through `task-workflow`'s spec
     Two things happen before the archive, both proposed rather than run silently:
 
     - **Distill, and expect to find something.** This is the layer where durable decisions actually live — a single `PLAN.md` usually establishes nothing worth keeping, but an epic that settled a contract, a boundary, or an invariant did. Propose the specific `knowledge/` edit (which concept file, what line), preferring an amendment to an existing concept over a new file; every new file needs a summary line in `knowledge/index.md`. Read the `## Amendments` log before proposing — a decomposition that had to change usually changed because of something worth writing down. Skip if the repo has no `knowledge/` bundle.
+    - **The design doc's decisions become records.** Where step 3b wrote `docs/design/{slug}.md`, each decision it actually settled becomes one file under `knowledge/architecture/`, in the MADR shape in `references/design-doc.md`. The doc itself **stays where it is and is never archived** — it is the entry point for whoever touches this system next. Update its `Status:` line, and the sections reality diverged from, before proposing the records.
+
     - **Rebuild the graph** if `graphify-out/graph.json` exists: propose `graphify update .`.
 
     **Then archive it**, to exactly one of two destinations — never both:

@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.98.0] - 2026-09-10
+
+### Added
+
+- **`epic-workflow` writes the epic's design doc.** The harness had a hole between artifacts: `docs/product/prd.md` says what we promised, `PLAN.md` says how one unit is built and dies at cleanup, `knowledge/` says what is invariably true afterwards. Nothing held the system-level reasoning *at the moment it was decided* — which options lost, what forced the shape, which risks were accepted — so it survived only in merged PR descriptions.
+
+  New step 3b drafts `docs/design/{slug}.md`, one to three pages, presented at the epic's existing single gate and written with the queue. Template, and the bar for when an epic earns one: `skills/epic-workflow/references/design-doc.md`. Skipping is a normal outcome — an obvious shape, or every unit following a pattern the repo already has — but the skip is said out loud in one sentence, because a silent skip is indistinguishable from forgetting.
+
+  Structure is [Design Docs at Google](https://www.industrialempathy.com/posts/design-docs-at-google/): context and scope, goals and non-goals, the design, alternatives considered, cross-cutting concerns — plus risks and open questions. Its **Design section opens with a `mermaid` diagram**; these documents are read by people, and a system's shape lands in a picture faster than in three paragraphs. At epic cleanup each decision it settled becomes one `knowledge/architecture/` file in the [MADR 4.0.0](https://adr.github.io/madr/) shape (MIT/CC0, copied verbatim); the design doc itself is never archived, because it is the entry point for whoever touches that system next. [arc42](https://arc42.org/overview) is referenced for the rare whole-system document and deliberately not copied — CC BY-SA 4.0 would follow it into the file.
+
+### Fixed
+
+- **Two SKILL.md files cited references that do not exist**, both found by the new regression case below rather than by reading. `knowledge-distill` pointed at `references/knowledge-migration.md`, which lives in `bigin-harness-setup`, and `project-scaffold` pointed at `references/ci.md` in a skill that has no `references/` directory at all. Both now use the `${CLAUDE_PLUGIN_ROOT}` form the authoring rules require for a sibling skill's file.
+
+### Notes
+
+- Two `regress.mjs` cases in group 6. One is general and worth more than this release: **every `references/…` path a `SKILL.md` cites must resolve** — 62 citations across 21 skills, checked in both the relative and `${CLAUDE_PLUGIN_ROOT}` forms. The other asserts the design doc's three load-bearing rules survive editing: the say-the-skip-out-loud sentence, the diagram, and the MADR headings with their attribution.
+
 ## [1.97.0] - 2026-09-10
 
 ### Changed
