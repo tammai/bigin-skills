@@ -295,12 +295,14 @@ for (const type of wanted) {
 
 // ── remotes, opt-in ─────────────────────────────────────────────────────
 
+let ghLive = false   // gh is installed and the API answered: everything remote hangs off this
 if (OWNER) {
   if (!has('gh')) {
     note('gh is not installed — no remote was created. Everything above is local and complete.')
   } else if (run('gh', ['api', 'user'], ROOT).status !== 0) {
     note('gh cannot reach the GitHub API — no remote was created. Everything above is local and complete.')
   } else {
+    ghLive = true
     for (const type of built) {
       const dir = repoDir(type)
       const name = `${OWNER}/${repoName(type)}`
@@ -360,7 +362,7 @@ function setStoryConsumers() {
 
 // ── credentials, opt-in ─────────────────────────────────────────────────
 
-if (values['app-id'] && OWNER && has('gh')) {
+if (values['app-id'] && ghLive) {
   for (const type of built) {
     const name = `${OWNER}/${repoName(type)}`
     run('gh', ['variable', 'set', 'CONTRACT_APP_ID', '--repo', name, '--body', values['app-id']], ROOT)
@@ -371,9 +373,13 @@ if (values['app-id'] && OWNER && has('gh')) {
     })
     if (r.status !== 0) note(`${name}: could not set the private key — ${(r.stderr || '').trim().split('\n')[0]}`)
   }
-  setStoryConsumers()
   log('CI credentials set on every repo')
 }
+
+// Not a credential: the specs repo's story-dispatch workflow reads this list whoever
+// created the App, so `--owner` alone is enough to keep it right. It stays after the
+// credentials block only because it needs the repos to exist on GitHub first.
+if (ghLive) setStoryConsumers()
 
 // ── summary ─────────────────────────────────────────────────────────────
 

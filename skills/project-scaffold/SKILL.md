@@ -38,9 +38,9 @@ node ${CLAUDE_SKILL_DIR}/scripts/project_scaffold.mjs --project <slug> [--dir <p
 
 Stream its output. It creates each repo, seeds it, wires it, commits, and — with `--owner` — creates and pushes the remote. Every skipped step is named in the summary rather than passed over: a missing toolchain, an unreachable API, a repo it adopted rather than created.
 
-`--app-id`/`--app-key` set `CONTRACT_APP_ID`, `CONTRACT_APP_PRIVATE_KEY` and `STORY_CONSUMERS` on every repo. The key goes from disk to `gh` and is never read into the script, logged, or copied. It needs `--owner`, since there is nothing to set them on otherwise.
+`--app-id`/`--app-key` set `CONTRACT_APP_ID` and `CONTRACT_APP_PRIVATE_KEY` on every repo. The key goes from disk to `gh` and is never read into the script, logged, or copied. They need `--owner`, since there is nothing to set them on otherwise.
 
-`STORY_CONSUMERS` is the project's consumer list, so a `--repos` run that adds one repo **unions** it into whatever the specs repo already carries rather than replacing it — and a value it cannot read or parse is reported and left alone, since a wrong list here fails silently.
+`STORY_CONSUMERS` on the specs repo is **wiring, not a credential** — the story-dispatch workflow reads it whoever created the App — so `--owner` alone sets it. It is the project's consumer list, so a `--repos` run that adds one repo **unions** it into whatever is already there rather than replacing it, and a value it cannot read or parse is reported and left alone, since a wrong list here fails silently.
 
 ## Step 3: Install the harness in each repo
 

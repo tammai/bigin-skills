@@ -1224,9 +1224,9 @@ if (!psReady) {
       writeFileSync(join(D, 'key.pem'), 'not-a-real-key\n')
       return D
     }
-    const psRunGh = (home, repos) => spawnSync('node', [PS,
-      '--project', 'demo', '--dir', join(home, 'repos'), '--owner', 'acme',
-      '--repos', repos, '--app-id', '123', '--app-key', join(home, 'key.pem')
+    const psRunGh = (home, repos, { creds = true } = {}) => spawnSync('node', [PS,
+      '--project', 'demo', '--dir', join(home, 'repos'), '--owner', 'acme', '--repos', repos,
+      ...(creds ? ['--app-id', '123', '--app-key', join(home, 'key.pem')] : [])
     ], { cwd: REPO, encoding: 'utf8', env: { ...PS_ENV, PATH: GH_BIN, HOME: home } })
     const written = home => {
       const f = join(home, 'gh-var-written')
@@ -1265,6 +1265,19 @@ if (!psReady) {
       eq(written(home), null, 'wrote nothing')
       if (!/STORY_CONSUMERS/.test(r.stdout)) throw new Error('did not report the value it refused to touch')
       return 'left alone'
+    })
+
+    // The list is wiring the specs repo's dispatch workflow reads, not a credential:
+    // whoever creates the GitHub App, a consumer missing from it receives no stories.
+    t('the consumer list is set with --owner alone, no credentials', () => {
+      const home = ghHome('nocreds', THREE)
+      const r = psRunGh(home, 'mobile', { creds: false })
+      eq(r.status, 0, 'exit')
+      const body = written(home)
+      if (!body) throw new Error('set nothing without --app-id, so the list is stale until someone notices')
+      eq(body.join(), [...THREE, 'acme/demo-mobile'].sort().join(), 'consumers')
+      if (/CI credentials set/.test(r.stdout)) throw new Error('claimed to set credentials it was never given')
+      return 'set, no credentials'
     })
 
     t('a run that adds no consumer writes no variable', () => {

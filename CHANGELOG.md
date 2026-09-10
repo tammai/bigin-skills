@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.97.0] - 2026-09-10
+
+### Changed
+
+- **`STORY_CONSUMERS` is set by `--owner` alone, not only alongside CI credentials.** It rode in the `--app-id` block because that is where the other `gh variable set` calls live, but it is not a credential: the specs repo's story-dispatch workflow reads the list whoever created the GitHub App, and a consumer missing from it receives no stories. A project set up with `--owner` and no App — the normal order, since the App is created in a web UI afterwards — therefore started with a list that was empty or, on an incremental add, stale.
+
+  Both remote steps now hang off one `ghLive` flag, so credentials are attempted only when `gh` is installed **and** the API answered, rather than on `has('gh')` alone. A fifth `regress.mjs` case covers the new path and fails when the call is moved back inside the credentials block.
+
 ## [1.96.4] - 2026-09-09
 
 ### Fixed
