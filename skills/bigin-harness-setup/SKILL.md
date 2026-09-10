@@ -15,6 +15,8 @@ Sets up a standardized AI workflow harness — the `CLAUDE.md` agent brief, path
 
 The ask sites: Phase 0a's repo-type confirmation and its name-vs-marker conflict, Phase 0 row 8's empty-repo stack pick, Phase 0.5's per-profile scaffold decisions, Phase 1's install-mode question, Phase 1.5's decision bundle, the two "this hook isn't ours — replace it?" prompts in Phase 5-1b and 5-2g, and every other point where these files say to confirm before overwriting something. Batch them per the phase that owns them (`AskUserQuestion` takes at most four questions per call; split into back-to-back calls in the stated order when more apply), and write no file until every question in the batch is answered.
 
+**Two caps, and both are the tool's, not preferences.** At most **four questions per call** — split into back-to-back calls when more apply — and at most **four options per question**. A question with more than four answers does not get a fifth option; it gets three named options plus a fourth whose description names the rest, and the user reaches them through the free-text `Other` the tool supplies automatically (never label an option `Other` yourself). Two questions here exceed the cap and each states its own mapping: Phase 0 row 8's seven profiles (`references/profile-detection.md`) and Phase 1's five install modes below. Validate a free-text answer against the real set and re-ask if it misses — it is the one input a picker did not constrain.
+
 **One carve-out, and it is the delegated scaffold skills', not this one's.** A field that needs regex validation rather than a menu — `go-scaffold`'s module path, the kebab-case project name each `*-scaffold` skill takes — is free text by those skills' own design, because a picker cannot validate a typed string. Ask those as their `SKILL.md` says; everything with a fixed set of answers is still `AskUserQuestion`.
 
 ---
@@ -87,11 +89,12 @@ Check for existing harness files:
 CLAUDE.md | AI_TASK_GUIDE.md | AI_REVIEW_CHECKLIST.md | .claude/rules/
 ```
 
-If any exist, show what was found and ask — `AskUserQuestion`, with the five below as its options:
+If any exist, show what was found and ask — `AskUserQuestion`. **Five answers, four option slots:** offer `verify`, `patch`, `new` and `yes`, and say in the question text that cancelling means answering `Other` with `cancel` (or interrupting). `cancel` is the one that loses its slot because it is the only answer the user can also reach by simply stopping.
 ```
 Found existing harness files: [list them]
 
-Overwrite all? (yes) / Create missing only? (new) / Patch to latest? (patch) / Re-verify what's there? (verify) / Cancel? (cancel)
+Re-verify what's there? (verify) / Patch to latest? (patch) / Create missing only? (new) / Overwrite all? (yes)
+Cancel by answering Other with `cancel`.
 ```
 
 - `yes` → overwrite all (show what will be replaced before writing)
@@ -100,7 +103,7 @@ Overwrite all? (yes) / Create missing only? (new) / Patch to latest? (patch) / R
 - `verify` → install nothing; re-check every claim in the existing `CLAUDE.md` against this repo and correct or remove what no longer holds (see Phase 1b)
 - `cancel` → stop immediately
 
-Store choice as `INSTALL_MODE`. If `INSTALL_MODE=patch`, skip directly to Phase 1a; if `INSTALL_MODE=verify`, skip directly to Phase 1b — do not fold this question into Phase 1.5's bundle for either one, neither mode needs any further decision. Otherwise, if this question fires, fold it into Phase 1.5's bundle below instead of asking it standalone here (it's question 5 of the six there) — resolve it in the same `AskUserQuestion` call.
+Store choice as `INSTALL_MODE`. **Ask this one first and alone, before Phase 1.5's bundle** — `patch` and `verify` are self-contained phases that skip 1.5 through 8 entirely, so every other question becomes moot the moment either is picked. It used to be question 5 of the bundle, which meant a `verify` run answered four questions it then discarded; that is a round trip spent on nothing, and it happened on a real run. Then: `patch` → Phase 1a, `verify` → Phase 1b, and `yes` / `new` continue into Phase 1.5 with four questions left rather than five.
 
 ---
 
@@ -122,11 +125,11 @@ Full procedure in **`references/verify-mode.md`**: inventory the checkable claim
 
 Skip this phase entirely only if `KNOWLEDGE_BUNDLE`, `GRAPH`, `CI_PROVIDER`, `MODEL_ROUTING` **and** `AGENT_HOSTS` were all answered in Phase 0.5's batch on the empty-repo branch (`references/scaffold-delegation.md` → step 1 lists all five). "Already set" means the user answered it — an auto-detected default nobody has seen is not an answer, so a variable that only has a preselected default still gets asked.
 
-Otherwise ask **one bundled `AskUserQuestion` call**, before writing any files. The six questions, their auto-detected defaults, and the exact option wording are in **`references/decision-bundle.md`**. `AskUserQuestion` accepts at most four per call, so when more than four apply, split into two back-to-back calls keeping that file's order — still no file written until all of them are answered.
+Otherwise ask **one bundled `AskUserQuestion` call**, before writing any files. The five questions, their auto-detected defaults, and the exact option wording are in **`references/decision-bundle.md`**. Four of the five always apply, so they fit one call; the fifth (Spec Kit) fires only when Phase 0.7 found it, and then goes in a second back-to-back call — still no file written until all of them are answered.
 
-Two of the six are conditional: **install mode** only if Phase 1 found an existing-harness conflict, and **Spec Kit handling** only if Phase 0.7 found Spec Kit. The CI question is **omitted entirely** for `PROFILE = generic` (set `CI_PROVIDER = no` and say so in the Phase 7 summary).
+One of the remaining five is conditional: **Spec Kit handling**, only if Phase 0.7 found Spec Kit. Install mode is no longer part of this bundle at all — Phase 1 asks and resolves it first, for the reason stated there. The CI question is **omitted entirely** for `PROFILE = generic` (set `CI_PROVIDER = no` and say so in the Phase 7 summary).
 
-Store `KNOWLEDGE_BUNDLE`, `GRAPH`, `CI_PROVIDER`, `MODEL_ROUTING`, `AGENT_HOSTS` (and `INSTALL_MODE` / `SPECKIT` if included). Run the chosen Spec Kit path immediately after this phase resolves and before Phase 2 — `migrate` must finish removing Spec Kit before any harness file is written, and `leave` stops the run here. Code and security review are not scaffolded as project-local agents — point the user at the `/code-review` and `/security-review` skills instead (see Phase 7 summary).
+Store `KNOWLEDGE_BUNDLE`, `GRAPH`, `CI_PROVIDER`, `MODEL_ROUTING`, `AGENT_HOSTS` (and `SPECKIT` if included; `INSTALL_MODE` was already resolved in Phase 1). Run the chosen Spec Kit path immediately after this phase resolves and before Phase 2 — `migrate` must finish removing Spec Kit before any harness file is written, and `leave` stops the run here. Code and security review are not scaffolded as project-local agents — point the user at the `/code-review` and `/security-review` skills instead (see Phase 7 summary).
 
 ---
 

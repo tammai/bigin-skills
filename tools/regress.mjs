@@ -484,13 +484,33 @@ const rd = f => readFileSync(join(REPO,f),'utf8')
 t('Phase 0.5 table has a nuxt-marketing row', () => {
   if (!/\|\s*`nuxt-marketing`\s*\|.*`nuxt-marketing-scaffold`/.test(rd('skills/bigin-harness-setup/references/scaffold-delegation.md')))
     throw new Error('no delegation row'); return 'present' })
-t('empty-repo question offers option 7', () => {
+t('empty-repo question reaches all seven profiles', () => {
   const s = rd('skills/bigin-harness-setup/references/profile-detection.md')
-  if (!/7\. nuxt-marketing/.test(s)) throw new Error('option 7 missing')
   const block = s.split('```').find(x => /^1\. nuxt\s/m.test(x)) ?? ''
-  for (let i = 1; i <= 7; i++)
-    if (!new RegExp(`^${i}\\. `, 'm').test(block)) throw new Error(`option ${i} missing from the question block`)
-  return '7 options' })
+  // v1.98.2: AskUserQuestion takes at most four options, so the seven profiles are
+  // three named plus a fourth naming the rest — the shape nuxt-scaffold already uses.
+  const opts = block.match(/^\d+\. /gm) ?? []
+  if (opts.length !== 4) throw new Error(`the question offers ${opts.length} options; the tool caps them at 4`)
+  for (const slug of ['nuxt', 'go', 'flutter', 'nodejs', 'next', 'tauri', 'nuxt-marketing'])
+    if (!new RegExp(`\\b${slug.replace('-', '\\-')}\\b`).test(block)) throw new Error(`profile ${slug} is no longer reachable from the question`)
+  if (/^\d+\. Other\b/m.test(block)) throw new Error("an option is labelled 'Other' — that slot belongs to the tool")
+  return '4 options, 7 profiles' })
+t('no ask site promises more options than the tool allows', () => {
+  const files = ['skills/bigin-harness-setup/SKILL.md', 'skills/bigin-harness-setup/references/profile-detection.md',
+    'skills/bigin-harness-setup/references/decision-bundle.md']
+  for (const f of files) {
+    const m = rd(f).match(/`AskUserQuestion`[^.\n]{0,60}?\b(five|six|seven|eight|nine)\s+options/i)
+    if (m) throw new Error(`${f} promises ${m[1]} options in one question: "${m[0]}"`)
+  }
+  return `${files.length} files clean` })
+t('install mode is asked before the bundle, not inside it', () => {
+  const skill = rd('skills/bigin-harness-setup/SKILL.md')
+  const bundle = rd('skills/bigin-harness-setup/references/decision-bundle.md')
+  if (!/\*\*Ask this one first and alone, before Phase 1\.5's bundle\*\*/.test(skill))
+    throw new Error('Phase 1 no longer asks install mode first')
+  if (/^\d+\. \*\*Install mode\*\*/m.test(bundle)) throw new Error('install mode is back in the bundle')
+  if (!/five install modes|Five answers, four option slots/.test(skill)) throw new Error('the 5-answers-into-4-slots mapping is gone')
+  return 'first and alone' })
 // v1.98.1: two same-day runs of v1.96.3 split on this very question — one asked
 // it with AskUserQuestion, the other printed it as a code block and waited for a
 // typed number. The wording is not the contract; the tool is.
@@ -499,7 +519,7 @@ t('every ask site in bigin-harness-setup names AskUserQuestion', () => {
   if (!/## How this skill asks/.test(skill)) throw new Error('the rule section is gone')
   const sites = [
     ['SKILL.md', skill, [/Confirm it; never trust it\.\*\* Ask one `AskUserQuestion`/, /empty repo[^|]*\|\s*\*\*ask\*\* — one `AskUserQuestion`/, /show what was found and ask — `AskUserQuestion`/, /ask whether to replace it \(`AskUserQuestion`\)/, /ask before replacing \(`AskUserQuestion`\)/]],
-    ['profile-detection.md', rd('skills/bigin-harness-setup/references/profile-detection.md'), [/Asked with `AskUserQuestion`/, /ask which is true — `AskUserQuestion`/, /One `AskUserQuestion`, seven options/]],
+    ['profile-detection.md', rd('skills/bigin-harness-setup/references/profile-detection.md'), [/Asked with `AskUserQuestion`/, /ask which is true — `AskUserQuestion`/, /One `AskUserQuestion` — but seven profiles do not fit in it/]],
     ['scaffold-delegation.md', rd('skills/bigin-harness-setup/references/scaffold-delegation.md'), [/Gather every decision now\*\*, with `AskUserQuestion`/]],
     ['decision-bundle.md', rd('skills/bigin-harness-setup/references/decision-bundle.md'), [/one bundled `AskUserQuestion` call/]],
   ]

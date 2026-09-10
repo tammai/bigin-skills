@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.98.2] - 2026-09-10
+
+Both fixes came out of running v1.98.1 on a real repo an hour after shipping it. The first is a defect *in* v1.98.1.
+
+### Fixed
+
+- **`AskUserQuestion` caps options at four, and v1.98.1 mandated the tool at two sites that need more.** Phase 1's install mode has five answers; Phase 0 row 8 has seven profiles, and `profile-detection.md` said in as many words "One `AskUserQuestion`, seven options" — which the API rejects with `too_big, maximum: 4`. Found by the call being refused mid-run, not by reading.
+
+  This also **corrects v1.98.1's account of the original bug.** That entry blamed fenced blocks reading as text. Real, but secondary: a seven-option question *cannot* be expressed as one call, so a model that tries hits a validation error and falls back to printing the list. The cap is the mechanical cause; the wording is why the fallback looked reasonable.
+
+  Row 8 now uses the shape `nuxt-scaffold` already proved on its nine templates — three named options plus a fourth whose description names the remaining four, reached through the free-text `Other` the tool adds by itself (never label an option `Other` yourself). The three named are the polyrepo standard's own trio, `nuxt` / `go` / `flutter`, because a single repo picking `next` over `nuxt` or `nodejs` over `go` is choosing an alternate, and the fourth option is where alternates belong. Install mode drops `cancel` from its slots — the one answer a user can also reach by interrupting. Both caps are now stated once in `SKILL.md` → `## How this skill asks`, with the instruction to validate a free-text answer against the real set and re-ask.
+
+- **A `verify` run answered four questions it then discarded.** Install mode was question 5 of Phase 1.5's bundle, but `patch` and `verify` are self-contained phases that skip 1.5 through 8 entirely — so on a real re-run of an existing harness, knowledge, CI, model ladder and agent hosts were all collected and thrown away. Phase 1 now asks install mode **first and alone**; only `yes` and `new` reach the bundle, which is five questions rather than six.
+
+- `regress.mjs` group 6 gains three cases: the empty-repo question offers exactly four options and still reaches all seven profiles, no ask site anywhere promises more options than the tool allows, and install mode is asked in Phase 1 rather than the bundle.
+
 ## [1.98.1] - 2026-09-10
 
 ### Fixed

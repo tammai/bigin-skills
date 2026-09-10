@@ -1,6 +1,8 @@
 # Phase 1.5: the decision bundle
 
-The six questions Phase 1.5 asks, with their auto-detected defaults and the exact option wording. Ask them in **one bundled `AskUserQuestion` call** where they fit (max four per call — split into two back-to-back calls in this order when more apply), and write no file until every one is answered.
+The five questions Phase 1.5 asks, with their auto-detected defaults and the exact option wording. Ask them in **one bundled `AskUserQuestion` call** where they fit — the tool takes at most four questions per call and at most four options per question, so the four unconditional ones are one call and Spec Kit, when it applies, is a second back-to-back call in this order. Write no file until every one is answered.
+
+**Install mode is not in this bundle.** It was question 5 here until v1.98.2, and putting it last meant a `patch` or `verify` answer discarded the four already given — both skip Phases 1.5 through 8 entirely. `SKILL.md` → Phase 1 now asks it first and alone, and only `yes` / `new` reach this bundle.
 
 1. **Knowledge Bundle & Graphify** (four-way):
    ```
@@ -40,5 +42,4 @@ The six questions Phase 1.5 asks, with their auto-detected defaults and the exac
    See references/cursor-parity.md for what the mirror contains and the one behavior that degrades.
    ```
    Store `AGENT_HOSTS`. Options 2 and 3 are the same install — say so rather than pretending a Cursor-only layout exists, since `.cursor/rules/` is generated *from* `.claude/rules/` and deleting the source would break the gate on the next commit.
-5. **Install mode** — only if Phase 1 detected an existing-harness conflict in this run: the `yes` / `new` / `patch` / `verify` / `cancel` question, worded in `SKILL.md` → Phase 1. Two of those five answers end the run in their own self-contained phase — `patch` at Phase 1a, `verify` at Phase 1b — so on either one the remaining answers in this bundle go unused: neither mode needs another decision, and Phases 1.5 through 8 are skipped entirely.
-6. **Spec Kit handling** — only if Phase 0.7 found Spec Kit: the `migrate | coexist | leave` question, worded in `references/speckit-migration.md` → "The decision". On `migrate`, `KNOWLEDGE_BUNDLE` stops being a free choice — it's where the `specs/` rationale lands, so if the user declines both, say the "why" has nowhere to go before accepting it.
+5. **Spec Kit handling** — only if Phase 0.7 found Spec Kit: the `migrate | coexist | leave` question, worded in `references/speckit-migration.md` → "The decision". On `migrate`, `KNOWLEDGE_BUNDLE` stops being a free choice — it's where the `specs/` rationale lands, so if the user declines both, say the "why" has nowhere to go before accepting it.

@@ -103,7 +103,7 @@ The skill detects your stack, asks a small batch of questions **before writing a
 | none of the above, but the repo has code | `generic` — no question asked, setup keeps going. A plain Dart package lands here, and so do a Flutter **package** and a Flutter **plugin** (`plugin:` under `flutter:`): flavors, a dio client and a local database are app concerns, and a widget library should not inherit rules for code it will never contain. The run says which one it detected. |
 | empty repo | asks which stack, then scaffolds the app first — `nuxt-marketing` is option 7, and Phase 0.5 delegates it to `nuxt-marketing-scaffold` |
 
-**The questions you'll be asked** (bundled, all optional to change — `AskUserQuestion` takes at most four at a time, so six applicable questions arrive as two back-to-back prompts):
+**The questions you'll be asked** (bundled, all optional to change — `AskUserQuestion` takes at most four questions at a time and four options each, so a run with Spec Kit in it arrives as two back-to-back prompts). **On a repo that already has a harness, one question comes first and alone:** overwrite / create-missing / patch / re-verify. `patch` and `verify` finish the run on their own, so nothing below is asked in either case.
 
 | Question | Default | What it means |
 | --- | --- | --- |

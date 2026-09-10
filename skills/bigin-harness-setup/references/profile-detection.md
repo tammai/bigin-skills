@@ -77,19 +77,29 @@ Check for stack indicators, first match wins:
 7. `pubspec.yaml` → profile = `flutter`, **but only if it is a Flutter *app*.** Two checks, both needed:
    - **Is it Flutter at all?** A top-level `flutter:` key, or `flutter:` with `sdk: flutter` under `dependencies:`. A plain Dart package (a CLI, a server, a shared library) has neither — fall through to `generic` rather than writing widget conventions for a package with no widgets.
    - **Is it an app rather than a library?** An app has a runnable entrypoint and native host directories: `lib/main*.dart` plus `android/app/` or `ios/Runner/`. A **plugin** declares `plugin:` under its `flutter:` key; a **package** has neither the `plugin:` key nor the native app directories. Both are Flutter and neither is this profile — flavors, three entrypoints, a dio client and a local database are all app concerns, and a widget library that inherits them gets rules for code it will never contain. Fall through to `generic` for both, and say which one you detected so the choice is visible.
-8. **Empty repo** (no source files, no manifest of any kind) → ask, since the answer picks the scaffold Phase 0.5 runs. **One `AskUserQuestion`, seven options** — the block below is the wording of the question and its option descriptions, never a numbered list to print and wait on:
+8. **Empty repo** (no source files, no manifest of any kind) → ask, since the answer picks the scaffold Phase 0.5 runs. **One `AskUserQuestion` — but seven profiles do not fit in it.** The tool takes at most four options per question, so this is the same shape `nuxt-scaffold` uses for its nine templates: three named options, then a fourth whose *description* spells out the remaining four by name, so the user knows what to type before reaching the free-text `Other` the tool adds by itself. Never label an option literally `Other` — that one is the tool's. The three named are the polyrepo standard's own trio (web, api, mobile), which is why they and not the alternates: a single repo picking `next` over `nuxt` or `nodejs` over `go` is choosing an alternate, and an alternate is exactly what the fourth option is for. The block below is the wording, never a numbered list to print and wait on:
 
 ```
-Which stack profile?
-1. nuxt   — Nuxt 4 fullstack (Cloudflare Pages): Nuxt UI, Pinia + Colada, VueUse, nuxt-auth-utils, Vitest, Zod — BFF proxy layer, no direct DB access
-2. go     — Go REST API backend
-3. nodejs — Node.js TypeScript REST API backend
-4. next   — Next.js App Router fullstack (Vercel): shadcn/ui, Zustand, TanStack Query, iron-session, Vitest, Zod — BFF proxy layer, no direct DB access
-5. flutter — Flutter mobile client against an existing HTTP API: Riverpod, go_router, Drift, generated dio client — the API is frozen input, not a decision made here
-6. tauri  — Tauri 2 desktop app against an existing HTTP API: Nuxt 4 SPA frontend, Rust shell owning HTTP, tokens and the local cache — the webview makes no network call
-7. nuxt-marketing — multi-locale Nuxt 4 marketing site (Cloudflare Workers): @nuxt/content collections, @nuxtjs/i18n, Tailwind, fully prerendered — no auth, no BFF, no database
+Which stack profile should I scaffold and onboard?
 
+1. nuxt — Nuxt 4 fullstack (Cloudflare Pages): Nuxt UI, Pinia + Colada, VueUse,
+   nuxt-auth-utils, Vitest, Zod — BFF proxy layer, no direct DB access
+2. go — Go REST API backend: Gin, contract-first oapi-codegen, GORM + Postgres,
+   JWT access/refresh, test-enforced module boundaries
+3. flutter — Flutter mobile client against an existing HTTP API: Riverpod, go_router,
+   Drift, generated dio client — the API is frozen input, not a decision made here
+4. Another stack — type the slug at the Other prompt:
+   `nodejs` (Node.js TypeScript REST API: Fastify, TypeBox OpenAPI, Drizzle + Postgres),
+   `next` (Next.js App Router fullstack on Vercel: shadcn/ui, Zustand, TanStack Query,
+   iron-session — BFF proxy layer, no direct DB access),
+   `tauri` (Tauri 2 desktop app: Nuxt 4 SPA frontend, Rust shell owning HTTP, tokens
+   and the local cache — the webview makes no network call),
+   `nuxt-marketing` (multi-locale Nuxt 4 marketing site on Cloudflare Workers:
+   @nuxt/content collections, @nuxtjs/i18n, Tailwind, fully prerendered — no auth,
+   no BFF, no database)
 ```
+
+If the typed value is not one of the seven slugs, say which seven and ask again — a free-text answer is the one input here that can be wrong, so it is the one that needs checking.
 
 9. **Existing code, no marker matched** → `PROFILE = generic`. Do **not** ask and do not offer the seven the question lists — an existing repo that isn't one of them won't become one, and forcing a pick writes conventions for a stack that isn't there. Say one line ("no matching stack profile — installing the stack-neutral harness") and continue to the next phase.
 
