@@ -1701,6 +1701,75 @@ if (guardsReady) {
     })
   }
 
+  // ── patch blocks are code, not prose ─────────────────────────────────
+  // A CHANGELOG patch block is what an already-scaffolded repo receives; the
+  // template beside it is what a fresh install receives. They are written
+  // separately and nothing compared them, so v1.98.3's first draft shipped an
+  // `insert: after` whose content ended in `} else {` — it left the outer `if`
+  // unclosed. Valid-looking in review, a SyntaxError once applied, and silent
+  // in the repo that applied it: a SessionStart hook that fails to parse exits
+  // non-zero, which both hosts treat as non-blocking, so the guard simply stops
+  // speaking. This gate applies the current release's guard blocks the way
+  // patch mode would and checks the result parses and equals the template.
+  const guardFrom = (md, name) => {
+    const i = md.indexOf(`## ${name}`)
+    if (i === -1) throw new Error(`no "## ${name}" section`)
+    const start = md.indexOf('```javascript', i)
+    const end = md.indexOf('```', start + 13)
+    if (start === -1 || end === -1) throw new Error(`no javascript block under "## ${name}"`)
+    return md.slice(start + 14, end)
+  }
+  const stripped = t => t.trim().split('\n').map(l => l.trim())
+
+  const changelog = read(join(REPO, 'CHANGELOG.md'))
+  const headings = [...changelog.matchAll(/^## \[(\d+\.\d+\.\d+)\][^\n]*$/gm)]
+  const guardBlocks = headings.length < 2 ? [] :
+    [...changelog.slice(headings[0].index, headings[1].index).matchAll(/```patch\ntarget: ([^\n]+)\n([\s\S]*?)```/g)]
+      .filter(m => /^\.claude\/guards\/[\w-]+\.mjs$/.test(m[1].trim()))
+  let prevDoc = null
+  if (guardBlocks.length) {
+    const prevTag = `v${headings[1][1]}`
+    const r = spawnSync('git', ['show', `${prevTag}:skills/bigin-harness-setup/references/hook-guard.md`],
+      { cwd: REPO, encoding: 'utf8' })
+    if (r.status === 0) prevDoc = r.stdout
+    else skip(`apply ${headings[0][1]}'s guard patch blocks`, `${prevTag} not available locally`)
+  }
+
+  if (guardBlocks.length && prevDoc) {
+    t(`this release's guard patch blocks apply to the previous release`, () => {
+      const nowDoc = read(join(REPO, 'skills', 'bigin-harness-setup', 'references', 'hook-guard.md'))
+      for (const [, rawTarget, body] of guardBlocks) {
+        const target = rawTarget.trim()
+        const name = target.replace('.claude/guards/', '')
+        const [head, content] = body.split(/\n---\n/)
+        if (/^mode:\s*create-if-missing/m.test(head)) continue // nothing existing to anchor against
+        const mode = (head.match(/^insert:\s*(after|before|replace)\s*$/m) ?? [])[1]
+        if (!mode) throw new Error(`${target}: block has neither insert: nor mode: create-if-missing`)
+        const anchor = head.slice(head.indexOf('anchor:') + 7, head.search(/^insert:/m))
+        const before = guardFrom(prevDoc, name).split('\n')
+        const a = stripped(anchor)
+        const at = before.findIndex((_, i) =>
+          before.slice(i, i + a.length).map(l => l.trim()).join('\n') === a.join('\n'))
+        if (at === -1) throw new Error(`${target}: anchor not found in the previous release's guard`)
+        const indent = before[at].match(/^\s*/)[0]
+        const lines = stripped(content).map(l => (l ? indent + l : l))
+        const after = mode === 'replace' ? [...before.slice(0, at), ...lines, ...before.slice(at + a.length)]
+          : mode === 'after' ? [...before.slice(0, at + a.length), ...lines, ...before.slice(at + a.length)]
+            : [...before.slice(0, at), ...lines, ...before.slice(at)]
+        const out = join(TMP, `patched-${name}`)
+        writeFileSync(out, after.join('\n'))
+        const parsed = spawnSync('node', ['--check', out], { encoding: 'utf8' })
+        if (parsed.status !== 0) throw new Error(`${target}: patched guard does not parse — ${(parsed.stderr || '').split('\n').find(l => /Error/.test(l)) ?? 'see node --check'}`)
+        const want = stripped(guardFrom(nowDoc, name)).join('\n')
+        if (stripped(after.join('\n')).join('\n') !== want)
+          throw new Error(`${target}: the patched guard and the shipped template disagree — an existing repo and a fresh install would diverge`)
+      }
+      return `${guardBlocks.length} block(s) applied, parsed, matched`
+    })
+  } else if (headings.length >= 2 && !guardBlocks.length) {
+    t('this release ships no guard patch blocks', () => 'nothing to apply')
+  }
+
   t('a PreToolUse gate fails closed on unreadable stdin', () => {
     eq(gate(null, { payload: '{ not json' }), 2, 'malformed')
     eq(gate(null, { payload: '' }), 2, 'empty')

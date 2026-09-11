@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.98.4] - 2026-09-11
+
+### Added
+
+- **`regress.mjs` now applies this release's guard patch blocks instead of trusting them.** A CHANGELOG patch block is executable content living in a document, and the two halves of a templated fix are authored separately — the template for fresh installs, the block for existing ones. Nothing compared them, which is how v1.98.3's first draft shipped an `insert: after` that left an `if` unclosed: it read correctly, produced a SyntaxError once applied, and would have been silent in every repo that ran patch mode, because a SessionStart hook that fails to parse exits non-zero and both hosts treat that as non-blocking.
+
+  Group 8 now parses the newest release heading for `.claude/guards/*.mjs` blocks, extracts that guard from the previous tag's `hook-guard.md`, applies the block the way patch mode does (whitespace-insensitive anchor match, `after` / `before` / `replace`), then runs `node --check` on the result and compares it to the shipped template. Both halves are proven to fire, against the real defect: the parse check reproduces `SyntaxError: Unexpected token 'catch'`, and the drift check catches a block that parses but duplicates the branch it was meant to replace.
+
+  Deliberately narrow. It covers the **newest** release only — the 171 historical blocks were written against code that has since moved, and grandfathering them would cost more than it protects. A block written for an older release is still verified by hand. It also skips when the previous tag isn't available locally rather than failing, so a shallow clone doesn't turn a missing tag into a red suite.
+
 ## [1.98.3] - 2026-09-11
 
 ### Fixed

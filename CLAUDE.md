@@ -23,7 +23,8 @@ tools/context_budget.mjs  ← budget gate (also templated for target repos)
 tools/docs_sync.mjs       ← generates README's skills/agents tables; --check fails the commit on drift
 tools/docs-manifest.json  ← its input; every new skill and agent needs an entry or --check fails closed
 tools/regress.mjs         ← regression suite: manifests, skill inventory, detection,
-                             scaffolders, sync scripts, the guards;
+                             scaffolders, sync scripts, the guards, this release's
+                             CHANGELOG patch blocks;
                              --build adds a real install+build of a scaffolded site
 scripts/git-hooks/        ← pre-commit running the budget gate + docs_sync.mjs --check + site_build.mjs --check + regress.mjs
 ```
