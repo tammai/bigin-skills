@@ -5,6 +5,48 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.98.3] - 2026-09-11
+
+### Fixed
+
+- **An empty precompact autosave was announced as a resumable session, every session, forever.** `precompact-snapshot.mjs` writes `.claude/memory/SESSION.md` with `status: in-progress` on every compaction, even when all it captured was `git status`. `session-resume-check.mjs` keyed on that status alone, so it could not tell that file from a real handoff save and opened every session with a resume-or-archive question whose answer was always "archive" — and which came back until someone did.
+
+  The reader now checks whether the file still carries both the `<!-- precompact-autosave -->` marker and its untouched placeholders. If it does, there is nothing to restore that `git status` does not already show, so the guard emits a dated one-line notice and explicitly tells the session not to ask. A save with real content in it — a handoff save, or an autosave a later save filled in — keeps the prompt unchanged. The writer is untouched: the placeholder file is what a later save fills in, and changing its `status` would break the contract `session-handoff` documents.
+
+  Four regression cases, both payload shapes: empty autosave → notice and no prompt, filled-in autosave → prompt, hand-written pre-1.98.3 file with no marker → prompt, Cursor payload → same notice.
+
+```patch
+target: .claude/guards/session-resume-check.mjs
+anchor: if (match && match[1].toLowerCase() === 'in-progress') {
+  lines.push('Found .claude/memory/SESSION.md with status: in-progress. Before doing anything else, ask the user: resume this session (restore tasks and context) or start fresh (archive it)? See the session-handoff skill.')
+}
+insert: replace
+---
+if (match && match[1].toLowerCase() === 'in-progress') {
+  // An autosave nobody has filled in yet carries the precompact marker AND its
+  // original placeholders. There is nothing in it to restore that `git status`
+  // does not already say, so it gets a notice rather than a question: a decision
+  // demanded at every session start, whose answer is always "archive it", is a
+  // tax on every session in the repo until someone happens to clear the file.
+  // A real handoff save, or an autosave a later save filled in, keeps the prompt.
+  const untouched = content.includes('<!-- precompact-autosave -->')
+    && content.includes('no summary captured yet')
+    && content.includes('none captured by autosave')
+  if (untouched) {
+    const saved = (content.match(/^\*\*Session saved:\*\*\s*(\S+)/m) ?? [])[1] ?? 'an earlier session'
+    lines.push(`Note: .claude/memory/SESSION.md is an empty precompact autosave from ${saved} — no summary, tasks or decisions were captured, so there is nothing to restore beyond what \`git status\` shows. Archive or delete it when convenient; do not ask the user about it.`)
+  } else {
+    lines.push('Found .claude/memory/SESSION.md with status: in-progress. Before doing anything else, ask the user: resume this session (restore tasks and context) or start fresh (archive it)? See the session-handoff skill.')
+  }
+}
+```
+
+  It replaces the whole `in-progress` branch rather than inserting into it — the new code wraps the existing prompt in an `else`, which an insert cannot close. A repo on 1.96.3 or later picks the fix up with `patch` instead of a full re-run.
+
+### Changed
+
+- **Row 8's four-option question now narrows with a second question instead of free text.** A v1.98.2 run reached for that shape on its own — pick "Another stack", get a second `AskUserQuestion` holding `nodejs` / `next` / `tauri` / `nuxt-marketing` — and it is better than typing a slug, because a picked option cannot be mistyped. Free text stays the fallback. Observed, then written down.
+
 ## [1.98.2] - 2026-09-10
 
 Both fixes came out of running v1.98.1 on a real repo an hour after shipping it. The first is a defect *in* v1.98.1.

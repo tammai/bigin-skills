@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "bigin plugins for Cursor",
-    "version": "1.98.2"
+    "version": "1.98.3"
   },
   "plugins": [
     {
       "name": "bigin-skills",
       "source": "./",
       "description": "BigIn's skills for standardized AI-assisted development — a spec-gated task/epic/discovery workflow (approved PLAN.md, independent verifier, PRD-driven decomposition), harness setup (governance + enforcement gates for nuxt/nuxt-marketing/next/go/nodejs/flutter/tauri and for polyrepo specs/contracts/qa repos, Claude Code and Cursor), Nuxt, Nuxt marketing-site, Next.js, Go and Node.js scaffolding, OpenAPI contract sync for polyrepo projects, end-of-sprint and pinned-library knowledge distillation, and session handoff.",
-      "version": "1.98.2",
+      "version": "1.98.3",
       "author": {
         "name": "Tam Mai",
         "email": "tam.mai@bigin.vn"

@@ -891,7 +891,21 @@ if (existsSync(sessionPath)) {
     const content = readFileSync(sessionPath, 'utf-8')
     const match = content.match(/^status:\s*(\S+)/m)
     if (match && match[1].toLowerCase() === 'in-progress') {
-      lines.push('Found .claude/memory/SESSION.md with status: in-progress. Before doing anything else, ask the user: resume this session (restore tasks and context) or start fresh (archive it)? See the session-handoff skill.')
+      // An autosave nobody has filled in yet carries the precompact marker AND its
+      // original placeholders. There is nothing in it to restore that `git status`
+      // does not already say, so it gets a notice rather than a question: a decision
+      // demanded at every session start, whose answer is always "archive it", is a
+      // tax on every session in the repo until someone happens to clear the file.
+      // A real handoff save, or an autosave a later save filled in, keeps the prompt.
+      const untouched = content.includes('<!-- precompact-autosave -->')
+        && content.includes('no summary captured yet')
+        && content.includes('none captured by autosave')
+      if (untouched) {
+        const saved = (content.match(/^\*\*Session saved:\*\*\s*(\S+)/m) ?? [])[1] ?? 'an earlier session'
+        lines.push(`Note: .claude/memory/SESSION.md is an empty precompact autosave from ${saved} — no summary, tasks or decisions were captured, so there is nothing to restore beyond what \`git status\` shows. Archive or delete it when convenient; do not ask the user about it.`)
+      } else {
+        lines.push('Found .claude/memory/SESSION.md with status: in-progress. Before doing anything else, ask the user: resume this session (restore tasks and context) or start fresh (archive it)? See the session-handoff skill.')
+      }
     }
   } catch {
     // degrade silently, same as before

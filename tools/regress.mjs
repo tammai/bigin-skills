@@ -1635,6 +1635,60 @@ if (guardsReady) {
       return '3 quiet cases'
     })
 
+    // v1.98.3: an empty precompact autosave was announced as a resumable session at
+    // every SessionStart, so the same question came back until someone archived the
+    // file. A notice is not a question; only a save with real content earns the prompt.
+    const mkSession = (name, body) => {
+      const dir = join(TMP, `srck-${name}`)
+      rmSync(dir, { recursive: true, force: true })
+      mkdirSync(join(dir, '.claude', 'memory'), { recursive: true })
+      writeFileSync(join(dir, '.claude', 'memory', 'SESSION.md'), body)
+      return dir
+    }
+    const AUTOSAVE = [
+      '---', 'session-id: abc', 'status: in-progress', '---', '<!-- precompact-autosave -->',
+      '', '**Session saved:** 2026-09-09T09:03:58.873Z', '',
+      '## What We Were Working On', '',
+      '(autosaved before compaction — no summary captured yet; fill in on next manual save)', '',
+      '### Tasks', '', '(none captured by autosave — see TaskList)', '',
+      '### Decisions Made', '', '(none captured by autosave)', ''
+    ].join('\n')
+
+    t('an empty precompact autosave is a notice, never a question', () => {
+      const r = session(mkSession('autosave', AUTOSAVE))
+      eq(r.status, 0, 'exit')
+      if (!/empty precompact autosave/.test(r.stdout)) throw new Error(`no notice: ${r.stdout.trim().slice(0, 140)}`)
+      if (/resume this session/.test(r.stdout)) throw new Error('still asks the user to decide')
+      if (!r.stdout.includes('2026-09-09T09:03:58.873Z')) throw new Error('the notice does not date the autosave')
+      return 'notice, not a prompt'
+    })
+
+    t('a real handoff save still earns the resume prompt', () => {
+      // Same marker, but a later save replaced the placeholders — that is content worth resuming.
+      const filled = AUTOSAVE
+        .replace('(autosaved before compaction — no summary captured yet; fill in on next manual save)', 'Refactoring the token repository behind the users module.')
+        .replace('(none captured by autosave — see TaskList)', '1. Finish the refresh-token migration')
+        .replace('(none captured by autosave)', 'Chose GORM soft-deletes over a status column.')
+      const r = session(mkSession('filled', filled))
+      if (!/resume this session/.test(r.stdout)) throw new Error('a real save stopped prompting')
+      if (/empty precompact autosave/.test(r.stdout)) throw new Error('a real save was mistaken for an empty one')
+      // A file with no marker at all — the pre-1.98.3 shape — must also still prompt.
+      const legacy = session(mkSession('legacy', '---\nstatus: in-progress\n---\n\n# Session Handoff\n\nHand-written.\n'))
+      if (!/resume this session/.test(legacy.stdout)) throw new Error('a hand-written save stopped prompting')
+      return 'both shapes prompt'
+    })
+
+    t('the autosave notice reaches a Cursor session too', () => {
+      const dir = mkSession('cursor', AUTOSAVE)
+      const r = spawnSync('node', [SRC], {
+        cwd: dir, encoding: 'utf8', env: CLEAN_ENV,
+        input: JSON.stringify({ workspace_roots: [dir], conversation_id: 'c1', cursor_version: '1.0', hook_event_name: 'sessionStart' })
+      })
+      eq(r.status, 0, 'exit')
+      if (!/empty precompact autosave/.test(r.stdout)) throw new Error(`no notice on the Cursor payload: ${r.stdout.trim().slice(0, 140)}`)
+      return 'both payload shapes'
+    })
+
     t('a hung check cannot hold up a session', () => {
       const dir = mkConsumer('hung', { script: 'setTimeout(() => {}, 60000)\n' })
       const t0 = Date.now()

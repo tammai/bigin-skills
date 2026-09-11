@@ -99,7 +99,7 @@ Which stack profile should I scaffold and onboard?
    no BFF, no database)
 ```
 
-If the typed value is not one of the seven slugs, say which seven and ask again — a free-text answer is the one input here that can be wrong, so it is the one that needs checking.
+**Preferred: narrow with a second question rather than free text.** When the user picks option 4, ask one more `AskUserQuestion` whose four options are `nodejs`, `next`, `tauri` and `nuxt-marketing` — four alternates fit a second call exactly, and a picked option cannot be mistyped. A real v1.98.2 run arrived at this by itself, which is the argument for writing it down. Free text stays the fallback for a user who types a slug straight into `Other`: if the typed value is not one of the seven, say which seven and ask again.
 
 9. **Existing code, no marker matched** → `PROFILE = generic`. Do **not** ask and do not offer the seven the question lists — an existing repo that isn't one of them won't become one, and forcing a pick writes conventions for a stack that isn't there. Say one line ("no matching stack profile — installing the stack-neutral harness") and continue to the next phase.
 
