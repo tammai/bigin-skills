@@ -490,7 +490,7 @@ Flutter never authors a contract either: `api/openapi.yaml` is always frozen ups
 | `none` — a standalone Flutter client | **hand-copied** | a developer copies the upstream contract in and regenerates. The "frozen upstream" rule already stated above is the whole discipline |
 | `mobile` — the mobile repo of a polyrepo project | **vendored** | `contract_sync.mjs` writes it from the contracts repo at a pinned commit; edits are blocked in-session and drift fails CI |
 
-In **vendored** mode, `.claude/rules/vendored-contract.md` is written from `files-shared.md` → `## vendored-contract.md` with `{SPEC_PATH}` = `api/openapi.yaml` and `{CODEGEN_OUT}` = `api/generated/**`.
+In **vendored** mode, `.claude/rules/vendored-contract.md` is written from `files-shared.md` → `## vendored-contract.md` with `{CODEGEN_OUT}` = `api/generated/**` and `{SPEC_PATH}` resolved per that section — `api/openapi.yaml` is this profile's default, not a guarantee about the repo in front of you.
 
 Design handoff on this profile is the **`flutter-figma-handoff`** skill: a Material 3 Figma frame resolves to real widgets through its mapping table, and its theme emitter writes `lib/core/design/app_theme.dart`. It is a sibling of `nuxt-ui-figma-handoff`, not a mode of it — the two share no theme model and no component vocabulary.
 

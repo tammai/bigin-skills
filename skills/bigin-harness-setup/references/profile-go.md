@@ -363,6 +363,6 @@ In **vendored** mode, three things change and they change together:
 
 1. `## Editable surface`'s first bullet becomes `- ~~openapi.yaml~~ — **vendored, not editable here** (see .claude/rules/vendored-contract.md)`.
 2. `## OpenAPI First`'s body is replaced by: *"The contract is owned by the contracts repo. A route this service needs but the contract does not describe is a contract finding, raised there — never added here to unblock a handler. After a bump, `make generate` before writing the handler, exactly as in authored mode."*
-3. `.claude/rules/vendored-contract.md` is written from `files-shared.md` → `## vendored-contract.md`, with `{SPEC_PATH}` = `openapi.yaml` and `{CODEGEN_OUT}` = `internal/openapi/openapi.gen.go`.
+3. `.claude/rules/vendored-contract.md` is written from `files-shared.md` → `## vendored-contract.md`, with `{CODEGEN_OUT}` = `internal/openapi/openapi.gen.go` and `{SPEC_PATH}` **resolved, not assumed** — a vendored contract may sit anywhere the repo keeps it, `api/openapi.yaml` included. `files-shared.md` → `## vendored-contract.md` has the one command that answers it.
 
 `make generate` is the codegen command in **both** modes — vendoring changes where the contract comes from, never how the client is built from it.

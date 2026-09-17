@@ -410,6 +410,6 @@ Nuxt never authors a contract — `openapi.yaml` is always a snapshot of the pai
 | `none` — a standalone Nuxt app | **hand-copied** | a developer copies the backend's contract over it and runs `pnpm openapi-types`. This is what `nuxt-scaffold`'s next-steps describes |
 | `web` — the web repo of a polyrepo project | **vendored** | `contract_sync.mjs` writes it from the contracts repo at a pinned commit. Hand-copying is blocked in-session and caught by the CI drift job |
 
-In **vendored** mode: `## OpenAPI Types` gains the line *"This file is vendored — see `.claude/rules/vendored-contract.md`. Do not copy a new one over it by hand,"* and `.claude/rules/vendored-contract.md` is written from `files-shared.md` → `## vendored-contract.md` with `{SPEC_PATH}` = `openapi.yaml` and `{CODEGEN_OUT}` = `shared/api-client/schema.d.ts` (`layers/shared/api-client/schema.d.ts` on the `starter` template).
+In **vendored** mode: `## OpenAPI Types` gains the line *"This file is vendored — see `.claude/rules/vendored-contract.md`. Do not copy a new one over it by hand,"* and `.claude/rules/vendored-contract.md` is written from `files-shared.md` → `## vendored-contract.md` with `{CODEGEN_OUT}` = `shared/api-client/schema.d.ts` (`layers/shared/api-client/schema.d.ts` on the `starter` template) and `{SPEC_PATH}` resolved per that section — a Nuxt repo vendoring to `api/openapi.yaml` is as common as one at the root.
 
 `pnpm openapi-types` is the codegen command in both modes.

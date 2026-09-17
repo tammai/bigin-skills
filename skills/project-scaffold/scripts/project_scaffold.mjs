@@ -40,22 +40,22 @@ const TYPES = ['specs', 'contracts', 'api', 'web', 'mobile', 'qa']
 const CONSUMERS = ['api', 'web', 'mobile']          // vendor a contract
 const STORY_CONSUMERS = ['api', 'web', 'mobile', 'qa']  // receive synced stories
 
-// Per repo type: where its vendored spec lives, and the CI toolchain block its
-// codegen needs. The commented placeholder in the shipped workflow template is what
-// broke both consumer repos in the pilot — this is the fix, applied at write time.
+// Per repo type: the CI toolchain block its codegen needs. The commented
+// placeholder in the shipped workflow template is what broke both consumer repos
+// in the pilot — this is the fix, applied at write time.
+//
+// No `spec:` here on purpose. Where a repo vendors its contract is resolved by
+// contract_sync.mjs (`where`), never restated — see fillSpecPath() below.
 const ADAPTER = {
   api: {
-    spec: 'openapi.yaml',
     toolchain: '      - uses: actions/setup-go@v5\n        with:\n          go-version-file: go.mod\n'
   },
   web: {
-    spec: 'openapi.yaml',
     // No `version:` — package.json's packageManager is the pin, and passing both
     // makes pnpm/action-setup fail outright.
     toolchain: '      - uses: pnpm/action-setup@v4\n      - run: pnpm install --no-frozen-lockfile\n'
   },
   mobile: {
-    spec: 'api/openapi.yaml',
     toolchain: '      - uses: subosito/flutter-action@v2\n        with:\n          channel: stable\n'
   }
 }
@@ -146,7 +146,9 @@ function seedSpecs(dir) {
     .replaceAll('{{project}}', PROJECT)
     // replaceAll, not replace: the template names it twice, and the explanatory
     // HTML comment below has done its job once the value is substituted.
-    .replaceAll('{{vendored-spec-path}}', 'openapi.yaml (api, web) · api/openapi.yaml (mobile)')
+    // Per repo, not per repo type — each consumer's lock records its own, and the
+    // REPO_MAP comment below says where to read it from.
+    .replaceAll('{{vendored-spec-path}}', 'see each repo\'s api-contract.lock -> vendoredTo')
     .replace(/<!--[^>]*is per repo type[\s\S]*?-->\n\n?/, '')
     .replace(/\{\{deprecation-window[^}]*\}\}/, 'TODO: agree a window, e.g. 90 days after mobile release adoption')
     .replace('{{tunnel-url}}', 'TODO: not yet provisioned')
@@ -211,6 +213,22 @@ function fillToolchain(yaml, type) {
   return yaml.slice(0, start) + (ADAPTER[type]?.toolchain ?? '') + yaml.slice(end)
 }
 
+// The drift job's triggers have to name this repo's actual spec path, and only
+// one thing knows it. Asking the resolver costs a subprocess and removes the
+// fourth copy of a constant that was wrong in three of them.
+function fillSpecPath(yaml, dir, type) {
+  const cs = join(PLUGIN, 'skills', 'contract-sync', 'scripts', 'contract_sync.mjs')
+  const r = run('node', [cs, 'where', '--repo-type', type], dir)
+  const paths = (r.status === 0 ? r.stdout : '').trim().split('\n').filter(Boolean)
+  if (paths.length === 0) {
+    note(`${repoName(type)}: could not resolve the vendored spec path — contract-drift.yml still says {SPEC_PATH}, fill it in with \`node scripts/contract_sync.mjs where\``)
+    return yaml
+  }
+  // One placeholder line becomes one line per contract, at the placeholder's indent.
+  return yaml.replace(/^(\s*)- '\{SPEC_PATH\}'.*$/gm,
+    (_, indent) => paths.map(p => `${indent}- '${p}'`).join('\n'))
+}
+
 function writeWorkflows(dir, type) {
   const wf = join(dir, '.github', 'workflows')
   mkdirSync(wf, { recursive: true })
@@ -224,7 +242,9 @@ function writeWorkflows(dir, type) {
   if (!CONSUMERS.includes(type)) return
   const tmplDir = join(PLUGIN, 'skills', 'contract-sync', 'templates', 'workflows')
   for (const f of ['contract-bump.yml', 'contract-drift.yml']) {
-    writeFileSync(join(wf, f), fillToolchain(readFileSync(join(tmplDir, f), 'utf8'), type))
+    let yaml = fillToolchain(readFileSync(join(tmplDir, f), 'utf8'), type)
+    if (f === 'contract-drift.yml') yaml = fillSpecPath(yaml, dir, type)
+    writeFileSync(join(wf, f), yaml)
   }
 }
 

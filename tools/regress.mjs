@@ -882,6 +882,149 @@ if (!csBase) {
     return 'lock + spec in step'
   })
 
+  // ── where the spec lives, resolved rather than assumed ───────────────
+  //
+  // The constant this replaced was wrong in both directions at once: right for a
+  // scaffolded Go repo, wrong for one that vendors to api/openapi.yaml because its
+  // server reads that file at runtime. Both directions are covered here, because a
+  // suite that only covered the scaffolded layout is how it shipped.
+
+  const where = (dir, args = []) => cs(dir, ['where', ...args], 'http://127.0.0.1:1')
+
+  t('a fresh scaffold still lands on its repo type default', () => {
+    const dir = consumer('where-default', good)
+    eq(where(dir).stdout.trim(), 'api/openapi.yaml', 'mobile default')
+    eq(where(dir, ['--repo-type', 'api']).stdout.trim(), 'openapi.yaml', 'go default: repo root')
+    eq(where(dir, ['--repo-type', 'web']).stdout.trim(), 'openapi.yaml', 'nuxt default: repo root')
+    return 'defaults unchanged'
+  })
+
+  t('a spec already on disk wins over the repo type default', () => {
+    const dir = consumer('where-disk', good)
+    mkdirSync(join(dir, 'api'), { recursive: true })
+    writeFileSync(join(dir, 'api', 'openapi.yaml'), 'openapi: 3.0.3\n')
+    // The reported case: a Go repo vendoring api/openapi.yaml keeps it.
+    eq(where(dir, ['--repo-type', 'api']).stdout.trim(), 'api/openapi.yaml', 'go, vendored under api/')
+    const two = consumer('where-disk-root', good)
+    writeFileSync(join(two, 'openapi.yaml'), 'openapi: 3.0.3\n')
+    eq(where(two).stdout.trim(), 'openapi.yaml', 'mobile, vendored at the root')
+    return 'both directions'
+  })
+
+  t('the lock beats the disk, and --spec-path beats the lock', () => {
+    const dir = consumer('where-lock', { core: { ...good.core, vendoredTo: 'contracts/core.yaml' } })
+    mkdirSync(join(dir, 'api'), { recursive: true })
+    writeFileSync(join(dir, 'api', 'openapi.yaml'), 'openapi: 3.0.3\n')
+    eq(where(dir).stdout.trim(), 'contracts/core.yaml', 'vendoredTo')
+    eq(where(dir, ['--spec-path', 'other.yaml']).stdout.trim(), 'other.yaml', 'override')
+    return 'precedence holds'
+  })
+
+  t('two candidate specs and no vendoredTo is a refusal, not a guess', () => {
+    const dir = consumer('where-ambiguous', good)
+    mkdirSync(join(dir, 'api'), { recursive: true })
+    for (const f of ['openapi.yaml', 'api/openapi.yaml']) writeFileSync(join(dir, f), 'openapi: 3.0.3\n')
+    const r = where(dir)
+    eq(r.status, 1, 'exit')
+    for (const want of ['openapi.yaml', 'api/openapi.yaml', 'vendoredTo']) {
+      if (!r.stderr.includes(want)) throw new Error(`stderr did not name ${want}`)
+    }
+    return 'refused'
+  })
+
+  t('where answers with no lock at all, for a repo being set up', () => {
+    const dir = consumer('where-nolock', good)
+    rmSync(join(dir, 'api-contract.lock'), { force: true })
+    const r = where(dir, ['--repo-type', 'api'])
+    eq(r.status, 0, 'exit')
+    eq(r.stdout.trim(), 'openapi.yaml', 'default')
+    return 'no lock needed'
+  })
+
+  t('a multi-contract repo still vendors one file per contract', () => {
+    const dir = consumer('where-multi', {
+      core: { ...good.core },
+      billing: { ...good.core, file: 'openapi/core.v2.yaml' }
+    })
+    eq(where(dir).stdout.trim().split('\n').join(' '), 'api/openapi/core.yaml api/openapi/billing.yaml', 'paths')
+    return 'multiDir rule intact'
+  })
+
+  // The other half of the reported bug: the script would not have found the real
+  // spec either, so it wrote a second copy at the default and left the first stale.
+  t('sync updates the spec where the repo keeps it, with no second copy', () => {
+    const dir = consumer('sync-in-place', good)
+    writeFileSync(join(dir, 'openapi.yaml'), 'openapi: 3.0.3  # stale\n')
+    eq(cs(dir, ['sync'], csBase).status, 0, 'exit')
+    eq(read(join(dir, 'openapi.yaml')), SPEC_V1, 'updated in place')
+    eq(existsSync(vendored(dir)), false, 'no second copy at the type default')
+    return 'one file'
+  })
+
+  t('sync honours a vendoredTo the file has not reached yet', () => {
+    const dir = consumer('sync-asyncapi', {
+      core: { ...good.core, vendoredTo: join('api', 'collab.yaml') }
+    })
+    eq(cs(dir, ['sync'], csBase).status, 0, 'exit')
+    eq(read(join(dir, 'api', 'collab.yaml')), SPEC_V1, 'vendored where the lock says')
+    eq(existsSync(vendored(dir)), false, 'not at the default')
+    // Nothing parses the document, so its kind is the repo's business, not this script's.
+    eq(cs(dir, ['verify'], 'http://127.0.0.1:1').status, 0, 'verify follows the same path')
+    return 'arbitrary path'
+  })
+
+  t('bump records where it vendored, so nothing has to probe again', () => {
+    const dir = consumer('bump-records', good)
+    writeFileSync(join(dir, 'openapi.yaml'), 'openapi: 3.0.3  # stale\n')
+    eq(cs(dir, ['bump', 'v2.0.0'], csBase).status, 0, 'exit')
+    eq(JSON.parse(read(join(dir, 'api-contract.lock'))).contracts.core.vendoredTo, 'openapi.yaml', 'recorded')
+    return 'lock is authoritative after one bump'
+  })
+
+  t('a vendoredTo pointing outside the repo is refused', () => {
+    const dir = consumer('escape', { core: { ...good.core, vendoredTo: '../../etc/passwd' } })
+    const r = where(dir)
+    eq(r.status, 1, 'exit')
+    if (!r.stderr.includes('outside the repo')) throw new Error(`unclear: ${r.stderr.trim()}`)
+    return 'rejected'
+  })
+
+  // One source of truth is a property of the tree, not of one file — so assert it
+  // over the tree. Every surface that needs a vendored path asks `where`; the only
+  // remaining literals are the adapter defaults and the docs table describing them.
+  t('no spec path constant is restated outside the adapters', () => {
+    const table = read(join(REPO, 'skills', 'contract-sync', 'references', 'lock-format.md'))
+    const src = read(join(REPO, 'skills', 'contract-sync', 'scripts', 'contract_sync.mjs'))
+    const specs = [...src.matchAll(/spec: (?:'([^']+)'|join\('([^']+)', '([^']+)'\))/g)]
+      .map(m => m[1] ?? `${m[2]}/${m[3]}`)
+    // The documented defaults are the adapter's defaults, or the table is a fifth copy.
+    const documented = [...table.matchAll(/^\| `(?:api|web|mobile)`[^|]*\| `([^`]+)`/gm)].map(m => m[1])
+    eq(documented.join(','), specs.join(','), 'lock-format.md table vs ADAPTERS')
+
+    // Everything that has to name a consumer repo's vendored path resolves it. The
+    // profile `paths:` blocks in files-shared.md keep their literals on purpose —
+    // those are each stack's default for a repo that scaffolded its own contract,
+    // the same defaults ADAPTERS holds — but the vendored-contract rule, which is
+    // written only for a consumer repo, may not.
+    const shared = read(join(REPO, 'skills', 'bigin-harness-setup', 'references', 'files-shared.md'))
+    const section = shared.slice(shared.indexOf('## vendored-contract.md'),
+      shared.indexOf('## comments.md'))
+    const offenders = []
+    const surfaces = {
+      'skills/contract-sync/templates/workflows/contract-drift.yml': read(join(REPO, 'skills', 'contract-sync', 'templates', 'workflows', 'contract-drift.yml')),
+      'skills/project-scaffold/scripts/project_scaffold.mjs': read(join(REPO, 'skills', 'project-scaffold', 'scripts', 'project_scaffold.mjs')),
+      'files-shared.md -> ## vendored-contract.md': section
+    }
+    for (const [name, body] of Object.entries(surfaces)) {
+      if (!body.includes('{SPEC_PATH}')) offenders.push(`${name} does not resolve {SPEC_PATH}`)
+      if (/['"`]api\/openapi\.yaml['"`]|\| `api\/openapi\.yaml`/.test(body)) {
+        offenders.push(`${name} restates a spec path`)
+      }
+    }
+    if (offenders.length) throw new Error(offenders.join('; '))
+    return 'resolver only'
+  })
+
   t('check degrades to one skip line, exit 0, when the API is unreachable', () => {
     const dir = consumer('offline', good)
     // Port 1 on loopback: refuses instantly, so this asserts the degrade path
@@ -1511,8 +1654,12 @@ if (guardsReady) {
     }
     gitq(VREPO, 'init', '-q', '.')
     writeFileSync(join(VREPO, 'api-contract.lock'), JSON.stringify({
-      contracts: { core: { repo: 'bigin-io/acme-contracts', file: 'openapi/core.v1.yaml', ref: 'v1.0.0', commit: 'a', sha256: 'b' } }
+      contracts: {
+        core: { repo: 'bigin-io/acme-contracts', file: 'openapi/core.v1.yaml', ref: 'v1.0.0', commit: 'a', sha256: 'b' },
+        collab: { repo: 'bigin-io/acme-contracts', file: 'asyncapi/collab.v1.yaml', vendoredTo: 'api/collab.yaml', ref: 'v1.0.0', commit: 'a', sha256: 'b' }
+      }
     }))
+    writeFileSync(join(VREPO, 'api/collab.yaml'), 'asyncapi: 2.6.0\n')
     for (const f of ['openapi.yaml', 'api/openapi.yaml', 'api/openapi/core.yaml']) {
       writeFileSync(join(VREPO, f), 'openapi: 3.0.3\n')
     }
@@ -1538,6 +1685,17 @@ if (guardsReady) {
         if (!r.stderr.includes('contract_sync.mjs bump')) throw new Error(`${f}: message names no way forward`)
       }
       return '4 paths'
+    })
+
+    // The regex covers the default layouts and nothing else, so a repo that vendors
+    // somewhere of its own — an AsyncAPI document the filename convention cannot even
+    // express — was editable with the guard installed and saying nothing.
+    t('a path only the lock knows about is denied too', () => {
+      const r = vcg('api/collab.yaml')
+      eq(r.status, 2, 'exit')
+      if (!r.stderr.includes('contract_sync.mjs bump')) throw new Error('message names no way forward')
+      eq(vcg('api/collab-notes.md').status, 0, 'a near-miss name is still the repo\'s own')
+      return 'vendoredTo honoured'
     })
 
     t('the refusal names the contracts repo, read out of the lock', () => {
@@ -1768,6 +1926,37 @@ if (guardsReady) {
     })
   } else if (headings.length >= 2 && !guardBlocks.length) {
     t('this release ships no guard patch blocks', () => 'nothing to apply')
+  }
+
+  // Same discipline, other half of the block grammar: a rule-file block's anchor is
+  // a claim about text this plugin ships. An anchor that matches nothing is not an
+  // error at apply time — patch mode skips and flags it — so the repo stays on the
+  // broken glob and the release looks like it fixed something it did not.
+  const ruleBlocks = headings.length < 2 ? [] :
+    [...changelog.slice(headings[0].index, headings[1].index).matchAll(/```patch\ntarget: ([^\n]+)\n([\s\S]*?)```/g)]
+      .filter(m => /^\.claude\/rules\/[\w-]+\.md$/.test(m[1].trim()))
+
+  if (ruleBlocks.length) {
+    t("this release's rule patch blocks anchor on text the templates contain", () => {
+      const refs = join(REPO, 'skills', 'bigin-harness-setup', 'references')
+      const haystack = readdirSync(refs).filter(f => f.endsWith('.md'))
+        .map(f => stripped(read(join(refs, f))).join('\n')).join('\n@@@\n')
+      for (const [, rawTarget, body] of ruleBlocks) {
+        const target = rawTarget.trim()
+        const [head, content] = body.split(/\n---\n/)
+        if (/^mode:\s*create-if-missing/m.test(head)) continue
+        const anchor = head.slice(head.indexOf('anchor:') + 7, head.search(/^(insert|resolve):/m))
+        if (!haystack.includes(stripped(anchor).join('\n'))) {
+          throw new Error(`${target}: anchor matches nothing in references/ — it would skip in every repo`)
+        }
+        // A resolve: block substitutes a path it cannot know; one that shipped a
+        // literal instead would hardcode the constant this grammar exists to remove.
+        if (/^resolve:\s*SPEC_PATH\s*$/m.test(head) && !content.includes('{SPEC_PATH}')) {
+          throw new Error(`${target}: declares resolve: SPEC_PATH but its content has no {SPEC_PATH}`)
+        }
+      }
+      return `${ruleBlocks.length} anchor(s) found`
+    })
   }
 
   t('a PreToolUse gate fails closed on unreadable stdin', () => {

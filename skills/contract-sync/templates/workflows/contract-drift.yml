@@ -17,9 +17,13 @@ name: contract-drift
 on:
   pull_request:
     paths:
-      - 'openapi.yaml'
-      - 'openapi/**'
-      - 'api/openapi.yaml'
+      # {SPEC_PATH} — replaced at install time with this repo's vendored spec
+      # path, one line per contract, from:
+      #   node scripts/contract_sync.mjs where
+      # Guessing here is what this placeholder exists to prevent: a paths: entry
+      # naming a file the repo does not contain matches nothing, and the job then
+      # never runs on the one file it exists to guard.
+      - '{SPEC_PATH}'
       - 'api/generated/**'
       - 'api-contract.lock'
       - 'scripts/contract_sync.mjs'
@@ -28,9 +32,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'openapi.yaml'
-      - 'openapi/**'
-      - 'api/openapi.yaml'
+      - '{SPEC_PATH}'          # same substitution as above
       - 'api/generated/**'
       - 'api-contract.lock'
       - 'scripts/contract_sync.mjs'

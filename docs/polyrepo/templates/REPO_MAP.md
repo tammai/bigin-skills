@@ -40,11 +40,14 @@
 - A UI story (`ui: yes`) enters a sprint only when its sidecar has a Figma node-id and `status: final`.
 - Breaking API changes open a new version file; the old file lives until: {{deprecation-window, e.g. "90 days after mobile release adoption"}}.
 
-<!-- {{vendored-spec-path}} is per repo type, resolved by contract_sync.mjs — never hardcode it:
+<!-- {{vendored-spec-path}} is resolved per repo, not per repo type. Each consumer
+     records its own in api-contract.lock -> vendoredTo; `node scripts/contract_sync.mjs
+     where` prints it. The per-type values below are only where a repo that has vendored
+     nothing yet starts:
        api (go)        openapi.yaml          repo root
        web (nuxt)      openapi.yaml          repo root
        mobile (flutter) api/openapi.yaml
-     See SPEC-contract-sync.md §6. -->
+     See SPEC-contract-sync.md §6 and contract-sync/references/lock-format.md. -->
 
 ## Local dev
 

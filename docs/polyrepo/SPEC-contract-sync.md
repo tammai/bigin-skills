@@ -83,11 +83,13 @@ core: lock v2.3.0 (8f2a91c) — latest v2.5.0; sync PR #142 open
 
 Adapter selected by repo type, invoked after the spec is written. **This table was corrected against the shipped profiles and scaffolders (C2) — every row of the draft named an output this repo does not produce.**
 
-| Repo type | Vendored spec (C3) | Command | Output |
+| Repo type | Vendored spec — **default only**, see below (C3) | Command | Output |
 |---|---|---|---|
 | `api` (go) | `openapi.yaml` (repo root) | `make generate` | `internal/openapi/openapi.gen.go` |
 | `web` (nuxt) | `openapi.yaml` (repo root) | `pnpm openapi-types` | `shared/api-client/schema.d.ts` — `layers/shared/api-client/schema.d.ts` on the `starter` template |
 | `mobile` (flutter) | `api/openapi.yaml` | pinned `openapi-generator` (dart-dio, Docker tag) → `dart run build_runner build` | `api/generated/**` |
+
+**Since 1.99.0 the spec column is a default, not an address.** Where a repo vendors its contract is resolved — `api-contract.lock`'s `vendoredTo`, then the spec on disk, then this column — and `contract_sync.mjs where` is the one place that answers it. A Go repo vendoring to `api/openapi.yaml` because its server reads that file at runtime is filing it correctly. See `contract-sync/references/lock-format.md` → "Vendored paths".
 
 Evidence: `profile-go.md:17,45,79` and `go-scaffold/scripts/scaffold.mjs:38-41,206` (one `oapi-codegen` run against one config — **not** per-module `include-tags`, and not `internal/gen/`); `profile-nuxt.md:168-174` and `nuxt-scaffold/scripts/scaffold.mjs:627-636`; `profile-flutter.md:95,210`.
 

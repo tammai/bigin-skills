@@ -86,12 +86,22 @@ git diff --stat && git diff -- <generated client path>
 |---|---|---|
 | `check [--contract <name>] [--no-cache]` | compare lock against the contracts repo's latest tag; report | nothing |
 | `verify [--contract <name>]` | **offline.** re-hash the vendored spec and compare with the lock | nothing |
+| `where [--contract <name>] [--json]` | **offline.** print where this repo vendors its contract, one path per line | nothing |
 | `sync [--contract <name>]` | verify the pinned tag still resolves to the pinned commit, fetch, checksum, vendor, regenerate | spec + generated code |
 | `bump <ref> [--contract <name>] [--file <path>]` | resolve a new ref, record commit + checksum, vendor, regenerate | lock + spec + generated code |
 
 `--repo-type api\|web\|mobile` overrides detection, which normally reads `go.mod`,
 `nuxt.config.*` or `pubspec.yaml`. `--file` on `bump` switches which API version file this
 repo consumes — that is how mobile stays on `core.v1.yaml` while web moves to `core.v2.yaml`.
+
+**Where the spec lands is resolved, not assumed** — the lock's `vendoredTo`, then the spec
+already on disk, then the repo type's default; `--spec-path` overrides all three and `bump`
+records what it used. A Go service that vendors to `api/openapi.yaml` because it serves that
+file at runtime keeps it there. `where` is that resolver exposed, and it is what everything
+else asks rather than restating a path: `bigin-harness-setup` substitutes `{SPEC_PATH}` from
+it, `contract-drift.yml`'s trigger globs are filled from it at install time, and patch mode
+repairs an existing repo's `paths:` globs from it. Precedence and the multi-contract rule:
+`references/lock-format.md`.
 
 Exit codes: `0` ok, `1` runtime failure, `2` bad usage.
 
@@ -121,7 +131,9 @@ next to a stale client.
   milliseconds. This is the check with no other cover: the PreToolUse guard only sees edits
   made *through an agent*, so a human with an editor bypasses it entirely.
 - A CI job runs `sync` and `git diff --exit-code`, so drift between the lock and the
-  *generated client* fails the build. Template: `templates/workflows/contract-drift.yml`.
+  *generated client* fails the build. Template: `templates/workflows/contract-drift.yml` —
+  replace its `{SPEC_PATH}` line with `where`'s output (one line per contract) when you copy
+  it in, or the job never triggers on the contract it guards.
   That one is CI-only — reproducing it needs the toolchain and a network fetch, which a
   commit hook may not depend on.
 - A `repository_dispatch` from the contracts repo opens the bump PR automatically.

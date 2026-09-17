@@ -134,7 +134,7 @@ It denies edits to three things:
 
 | What | Why |
 |---|---|
-| the vendored API spec (`openapi.yaml`, `api/openapi.yaml`, `openapi/<name>.yaml`) | it's a copy of a contract another repo owns, pinned to a commit and checksum-verified. Editing it here makes the client compile against a contract the server never agreed to |
+| the vendored API spec — wherever this repo keeps it (`api-contract.lock`'s `vendoredTo`, plus the default layouts `openapi.yaml`, `api/openapi.yaml`, `openapi/<name>.yaml`) | it's a copy of a contract another repo owns, pinned to a commit and checksum-verified. Editing it here makes the client compile against a contract the server never agreed to |
 | `api-contract.lock` | it records which commit you're pinned to. Hand-editing it either breaks the next sync or blesses bytes nobody verified |
 | any file carrying `synced: true` frontmatter | it's regenerated wholesale from the repo that owns it, so an edit here is thrown away on the next sync |
 

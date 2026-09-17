@@ -5,6 +5,84 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.99.0] - 2026-09-15
+
+### Fixed
+
+- **"Resolved per repo type — never hardcoded" was neither.** `lock-format.md` claimed the vendored spec path was resolved; it was hardcoded, once per repo type, and then restated in four more places: `contract_sync.mjs`'s `ADAPTERS`, that doc's own table, `files-shared.md`'s `{SPEC_PATH}` substitution table, `contract-drift.yml`'s trigger globs — and a fifth, dead copy in `project_scaffold.mjs`. Nothing in a repo recorded where its own contract was vendored, so every consumer re-derived it from its own copy of the constant.
+
+  v1.90.0 named the failure mode exactly right — *a `paths:` entry naming a file the repo does not contain fails silently: the rule simply never loads* — and then fixed it by swapping one constant for another. That is correct for a repo `go-scaffold` produced, which writes `openapi.yaml` at the root, and silently wrong in the same way for a Go repo that vendors to `api/openapi.yaml` because its server reads that file at runtime to serve `/openapi.yaml` and `/docs`. Observed on a real four-repo polyrepo: patch mode from 1.64.0 applied the v1.90.0 block and de-scoped both `architecture.md` and `security.md` off the actual contract file, caught only because an unrelated validator went red. `contract_sync.mjs` would not have found those specs either — it would have written a **second** copy at the default and left the real one stale.
+
+  **The path is now resolved, and recorded where it belongs.** `api-contract.lock` gains an optional per-contract `vendoredTo`, and `vendoredPath()` resolves in this order: `--spec-path`, then `vendoredTo`, then the spec already on disk (probed across every known layout), then the repo type's default. Two candidate specs on disk and no `vendoredTo` is a hard failure naming both, never a guess. `bump` records what it resolved, so after one bump the repo that owns the decision is authoritative about it. `sync` deliberately does not write the lock: `contract-drift.yml` runs `sync` and then `git diff --exit-code`, so a sync that mutated the lock would turn every upgraded repo's CI red once, under a message telling people not to commit the diff.
+
+  A freshly scaffolded Go repo is byte-identical to before — with nothing vendored, rung 4 is the same constant it always was.
+
+- **One resolver, asked rather than copied.** New `contract_sync.mjs where` prints the answer — offline, no lock, no credentials, so it also works in a repo mid-setup. `bigin-harness-setup` substitutes `{SPEC_PATH}` from it instead of its own table (the `{CODEGEN_OUT}` column stays; that is not a spec path), `project_scaffold.mjs` fills `contract-drift.yml`'s trigger globs from it at install time, and patch mode repairs an installed repo's `paths:` globs from it. The dead `spec:` keys in `project_scaffold.mjs`'s own `ADAPTER` are gone. A regress case asserts over the tree that no spec-path constant is restated: `lock-format.md`'s table is checked against `ADAPTERS`, and each remaining surface must resolve `{SPEC_PATH}` and contain no literal.
+
+- **`vendored-contract-guard.mjs` was blind to any path it could not pattern-match.** Its `VENDORED_SPEC` regex covers the default layouts, so a repo vendoring anywhere of its own could edit its contract with the guard installed and saying nothing. It now also matches `vendoredTo` out of the lock it already reads.
+
+- **A vendored AsyncAPI document is supported, and `lock-format.md` now says so.** `file` names the document upstream, `vendoredTo` names it here, and the repo's own codegen command interprets it — nothing in between parses or validates it, so `api/collab.yaml` holding AsyncAPI 2.6.0 works at the only place the old scheme could not represent it: the filename. What is still **out of scope**, and now stated rather than implied, is a repo type with no adapter — a Node service has no marker distinguishing it from any other `package.json` repo, so `--repo-type` cannot name one. That is a repo-type gap, not a spec-kind one.
+
+### Added
+
+- **`resolve: SPEC_PATH` on a patch block.** A static block cannot know where a repo vendors its contract, which is how v1.90.0's blocks came to rewrite a glob to a file the repo did not contain. A block carrying it holds `{SPEC_PATH}` in its content; patch mode runs `where` in the target repo, substitutes, skips silently when the file is already correct, and flags rather than guessing when the resolver cannot tell. Grammar in `.claude/rules/skill-authoring.md`, procedure in `patch-mode.md`.
+
+- **Eleven regress cases**, covering **both** directions — a repo at the root and a repo under `api/` — since a suite that only covered the scaffolded layout is how this shipped in the first place. Defaults unchanged, disk beats default, lock beats disk, `--spec-path` beats the lock, ambiguity refuses, `where` with no lock, the multi-contract `<multiDir>/<name>.yaml` rule intact, sync updating in place with no second copy, an arbitrary `vendoredTo` round-tripping through sync and verify, `bump` recording it, a `vendoredTo` escaping the repo refused, the guard honouring it, and the no-restatement sweep. Mutation-checked: disabling the disk probe turns four of them red.
+
+### Patch blocks
+
+The globs v1.90.0 wrote are correct for a repo whose contract is at its stack's default and wrong, silently, for any other. These restore each one to wherever the repo's spec actually is, and skip when it already matches. The two-line `**/*.go` anchor discipline is unchanged and is still load-bearing: `- "api/openapi.yaml"` on its own also appears in **flutter** rule files, where it is right. Flutter gets no block for the same reason — its default is its real path in every repo `project-scaffold` produces.
+
+Every repo reaching 1.99.0 through patch mode has `- "openapi.yaml"` under `**/*.go` by the time these run: either it was already there (≥1.90.0) or v1.90.0's own block, applied earlier in the same run, put it there. A skip here therefore means the file was hand-edited, which is exactly when a human should look.
+
+```patch
+target: .claude/rules/architecture.md
+anchor: - "**/*.go"
+  - "openapi.yaml"
+insert: replace
+resolve: SPEC_PATH
+---
+- "**/*.go"
+  - "{SPEC_PATH}"
+```
+
+```patch
+target: .claude/rules/security.md
+anchor: - "**/*.go"
+  - "openapi.yaml"
+insert: replace
+resolve: SPEC_PATH
+---
+- "**/*.go"
+  - "{SPEC_PATH}"
+```
+
+```patch
+target: .claude/rules/architecture.md
+anchor: - "server/**"
+  - "app/**"
+  - "openapi.yaml"
+insert: replace
+resolve: SPEC_PATH
+---
+- "server/**"
+  - "app/**"
+  - "{SPEC_PATH}"
+```
+
+```patch
+target: .claude/rules/security.md
+anchor: - "server/**"
+  - "app/**"
+  - "openapi.yaml"
+insert: replace
+resolve: SPEC_PATH
+---
+- "server/**"
+  - "app/**"
+  - "{SPEC_PATH}"
+```
+
 ## [1.98.4] - 2026-09-11
 
 ### Added

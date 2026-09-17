@@ -443,21 +443,36 @@ const rel = relative(root, join(realDir(filePath), basename(filePath))).split(se
 // Outside the repo entirely — not ours to judge.
 if (rel.startsWith('../')) process.exit(0)
 
-// Every vendored-spec layout contract_sync.mjs can write: the single-contract path
-// for each repo type, and the <dir>/<name>.yaml form a multi-contract repo uses.
+// The DEFAULT vendored-spec layouts contract_sync.mjs can write: the single-contract
+// path for each repo type, and the <dir>/<name>.yaml form a multi-contract repo uses.
 // regress.mjs asserts this covers every path in that script's adapter table, so the
 // two cannot drift apart silently.
+//
+// It is a fallback, not the whole answer. A repo may vendor anywhere and record it in
+// the lock's `vendoredTo` — a Go service vendoring to api/openapi.yaml because it
+// serves that file at runtime, a service vendoring an AsyncAPI document as
+// api/collab.yaml. Those are matched from the lock below; hardcoding a pattern as the
+// only test is what left this guard blind to them.
 const VENDORED_SPEC = /^(api\/)?openapi(\.yaml|\/[^/]+\.yaml)$/
 const LOCK = 'api-contract.lock'
 
-function contractsRepo() {
+function lockContracts() {
   try {
-    const lock = JSON.parse(readFileSync(join(root, LOCK), 'utf-8'))
-    const first = Object.values(lock.contracts ?? {})[0]
-    return typeof first?.repo === 'string' ? first.repo : 'the contracts repo'
+    return Object.values(JSON.parse(readFileSync(join(root, LOCK), 'utf-8')).contracts ?? {})
   } catch {
-    return 'the contracts repo'
+    return []
   }
+}
+
+function contractsRepo() {
+  const first = lockContracts()[0]
+  return typeof first?.repo === 'string' ? first.repo : 'the contracts repo'
+}
+
+function isVendoredSpec(path) {
+  if (VENDORED_SPEC.test(path)) return true
+  return lockContracts().some(c => typeof c?.vendoredTo === 'string'
+    && c.vendoredTo.split(/[\\/]/).join('/') === path)
 }
 
 // A synced file is generated wholesale by the sync script and carries a frontmatter
@@ -490,7 +505,7 @@ if (rel === LOCK) {
   )
 }
 
-if (VENDORED_SPEC.test(rel)) {
+if (isVendoredSpec(rel)) {
   refuse(
     `${rel} is vendored from ${contractsRepo()} at a pinned commit and is not editable here. `
     + 'An API change belongs in that repo, in its own session — if a shape this app needs is '

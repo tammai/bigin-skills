@@ -31,7 +31,7 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync, rmSync } from 'node:fs'
 import { createHash } from 'node:crypto'
-import { join, dirname } from 'node:path'
+import { join, dirname, isAbsolute } from 'node:path'
 import { execFileSync, spawnSync } from 'node:child_process'
 import { parseArgs } from 'node:util'
 
@@ -74,8 +74,17 @@ const CACHE_TTL_MS = 15 * 60 * 1000
 //
 // Corrected against the shipped profiles and scaffolders (SPEC-contract-sync.md
 // §6, correction C2) — every row of the original draft named an output this repo
-// does not produce. The vendored path differs per type and is NEVER hardcoded
-// elsewhere (C3).
+// does not produce.
+//
+// `spec` and `multiDir` are DEFAULTS, not the answer. They say where a repo that
+// has vendored nothing yet should start; where a repo's contract actually lives
+// is resolved by vendoredPath() below, and every other consumer of that answer —
+// bigin-harness-setup's {SPEC_PATH}, contract-drift.yml's trigger globs,
+// project_scaffold.mjs — asks this script for it through `where` instead of
+// restating these strings. They were restated in four places once, and every
+// copy was wrong for any repo that vendors somewhere else: a `paths:` glob
+// naming a file the repo does not contain fails silently, and a sync would have
+// written a second spec at the default and left the real one stale.
 //
 // The command is always the repo's OWN pinned tool. This script carries no
 // codegen logic: it writes the spec, then shells out. `mobile` points at a repo
@@ -106,12 +115,56 @@ const ADAPTERS = {
 // A repo consuming exactly one contract vendors it at the adapter's single path —
 // which is what every shipped profile's codegen config already points at. A repo
 // consuming several cannot: one path cannot hold two specs, and silently letting
-// the second overwrite the first is the defect this function exists to prevent.
+// the second overwrite the first is the defect this rule exists to prevent.
 // Multiples go to <multiDir>/<name>.yaml, and that repo's own codegen config has
 // to point there — the script writes the files, it never rewrites their config.
-function vendoredPath(repoType, name, total) {
+function defaultSpecPath(repoType, name, total) {
   const a = ADAPTERS[repoType]
   return total === 1 ? a.spec : join(a.multiDir, `${name}.yaml`)
+}
+
+// Every layout any shipped adapter would choose, own type first. Probing all of
+// them rather than only this type's is the point: a Go repo that vendors to
+// `api/openapi.yaml` is not misconfigured, it is filing its contract where its
+// server reads it from at runtime.
+function candidateSpecPaths(repoType, name, total) {
+  const own = defaultSpecPath(repoType, name, total)
+  const out = [own]
+  for (const type of Object.keys(ADAPTERS)) {
+    const p = defaultSpecPath(type, name, total)
+    if (!out.includes(p)) out.push(p)
+  }
+  return out
+}
+
+// Where this repo's contract lives. Resolved, never assumed:
+//
+//   1. --spec-path, the explicit override (and what `bump` then records).
+//   2. the lock's `vendoredTo`, if the repo has recorded one. Authoritative even
+//      when the file is absent — that is how `sync` restores it to the right
+//      place in a fresh clone.
+//   3. the spec already on disk, probed across every known layout. For a repo
+//      whose lock predates the field, or that vendored by its own hand once.
+//   4. the per-type default — only for a repo with no vendored spec at all.
+//
+// Two specs on disk and no `vendoredTo` is a hard failure, not a guess: picking
+// one silently is the same class of bug as the constant this replaced.
+function vendoredPath(root, repoType, name, total, entry, override) {
+  if (override) return override
+  const declared = entry?.vendoredTo
+  if (typeof declared === 'string' && declared.length > 0) return declared
+
+  const candidates = candidateSpecPaths(repoType, name, total)
+  const found = candidates.filter(p => existsSync(join(root, p)))
+  if (found.length === 1) return found[0]
+  if (found.length > 1) {
+    fail(
+      `cannot tell which file is the vendored contract for "${name}" — found ${found.join(' and ')}.\n`
+      + `  Add "vendoredTo": "<path>" to that contract's entry in ${LOCK_NAME} (or pass --spec-path) `
+      + 'to say which one this repo vendors. Nothing was written.'
+    )
+  }
+  return candidates[0]
 }
 
 // ── output ──────────────────────────────────────────────────────────────
@@ -188,9 +241,13 @@ function lockPath(root) {
   return join(root, LOCK_NAME)
 }
 
-function loadLock(root) {
+function loadLock(root, { optional = false } = {}) {
   const p = lockPath(root)
   if (!existsSync(p)) {
+    // `where` answers from the adapters and the disk, so it is useful in a repo
+    // that has not been set up yet — which is exactly when bigin-harness-setup
+    // asks it where the contract goes.
+    if (optional) return null
     fail(`no ${LOCK_NAME} at ${root} — this is not a consumer repo, or it has not been set up yet.`)
   }
   let parsed
@@ -207,6 +264,18 @@ function loadLock(root) {
     for (const field of ['repo', 'file', 'ref']) {
       if (typeof entry?.[field] !== 'string' || entry[field].length === 0) {
         fail(`${LOCK_NAME}: contract "${name}" is missing "${field}"`)
+      }
+    }
+    // Optional, and the one lock field a human may set: it records a filing
+    // decision the consumer repo owns, not something fetched or verified. It is
+    // still a path this script writes to, so it stays inside the repo.
+    const to = entry.vendoredTo
+    if (to !== undefined) {
+      if (typeof to !== 'string' || to.length === 0) {
+        fail(`${LOCK_NAME}: contract "${name}" has a "vendoredTo" that is not a path`)
+      }
+      if (isAbsolute(to) || to.split(/[\\/]/).includes('..')) {
+        fail(`${LOCK_NAME}: contract "${name}" has a "vendoredTo" outside the repo ("${to}")`)
       }
     }
   }
@@ -493,12 +562,12 @@ async function cmdCheck(root, lock, names, flags) {
 // This exists because the PreToolUse guard only sees edits made THROUGH an agent.
 // A human with an editor bypasses it entirely, and before this the only thing that
 // caught them was a CI job. A repo with no CI had no check at all.
-function cmdVerify(root, lock, names, repoType) {
+function cmdVerify(root, lock, names, repoType, specPath) {
   const total = Object.keys(lock.contracts).length
   const problems = []
   for (const name of names) {
     const c = lock.contracts[name]
-    const rel = vendoredPath(repoType, name, total)
+    const rel = vendoredPath(root, repoType, name, total, c, specPath)
     const path = join(root, rel)
     const pinned = /^[0-9a-f]{64}$/i.test(c.sha256 ?? '')
 
@@ -536,7 +605,23 @@ function cmdVerify(root, lock, names, repoType) {
   process.exit(1)
 }
 
-async function cmdSync(root, lock, names, repoType) {
+// The resolver, exposed. This is what makes "one source of truth" enforceable
+// rather than aspirational: bigin-harness-setup substitutes {SPEC_PATH} from it,
+// project_scaffold.mjs fills contract-drift.yml's trigger globs from it, and
+// patch mode repairs an existing repo's `paths:` glob from it. No lock and no
+// network required — a repo being set up has neither yet.
+function cmdWhere(root, lock, names, repoType, specPath, json) {
+  const total = lock ? Object.keys(lock.contracts).length : 1
+  const entries = (lock ? names : ['core']).map(name => [
+    name,
+    vendoredPath(root, repoType, name, total, lock?.contracts[name], specPath)
+  ])
+  if (json) console.log(JSON.stringify(Object.fromEntries(entries)))
+  else for (const [, path] of entries) console.log(path)
+  return 0
+}
+
+async function cmdSync(root, lock, names, repoType, specPath) {
   const auth = token()
   if (!auth) {
     fail(
@@ -546,10 +631,13 @@ async function cmdSync(root, lock, names, repoType) {
   }
   assertCodegenReady(root, repoType)
   const total = Object.keys(lock.contracts).length
-  const shots = snapshot(names.map(n => join(root, vendoredPath(repoType, n, total))))
+  const paths = Object.fromEntries(
+    names.map(n => [n, vendoredPath(root, repoType, n, total, lock.contracts[n], specPath)])
+  )
+  const shots = snapshot(names.map(n => join(root, paths[n])))
 
   for (const name of names) {
-    const specRel = vendoredPath(repoType, name, total)
+    const specRel = paths[name]
     const c = lock.contracts[name]
     // Shape, not presence. The lock template ships descriptive placeholders
     // ("<sha recorded by contract_sync.mjs bump>") which are perfectly truthy, so a
@@ -609,14 +697,14 @@ async function cmdSync(root, lock, names, repoType) {
   return 0
 }
 
-async function cmdBump(root, lock, names, repoType, ref, fileOverride) {
+async function cmdBump(root, lock, names, repoType, ref, fileOverride, specPath) {
   const auth = token()
   if (!auth) fail('no credentials: set GITHUB_TOKEN or run `gh auth login`.')
 
   assertCodegenReady(root, repoType)
   const name = names[0]
-  const specRel = vendoredPath(repoType, name, Object.keys(lock.contracts).length)
   const c = lock.contracts[name]
+  const specRel = vendoredPath(root, repoType, name, Object.keys(lock.contracts).length, c, specPath)
   const file = fileOverride ?? c.file
 
   let resolved
@@ -642,7 +730,13 @@ async function cmdBump(root, lock, names, repoType, ref, fileOverride) {
 
   const shots = snapshot([join(root, specRel), lockPath(root)])
   writeAtomic(join(root, specRel), blob)
-  lock.contracts[name] = { ...c, file, ref, commit: resolved, sha256: digest }
+  // Record where this repo vendors, so nothing downstream has to probe for it
+  // again — the lock is the only file in the repo that can be authoritative
+  // about this. `sync` deliberately does not write it: contract-drift.yml runs
+  // `sync` and then `git diff --exit-code`, so a sync that mutated the lock
+  // would turn every upgraded repo's CI red once, under a message telling people
+  // not to commit the diff.
+  lock.contracts[name] = { ...c, file, vendoredTo: specRel, ref, commit: resolved, sha256: digest }
   saveLock(root, lock)
   info(`${name}: ${c.ref} → ${ref} (${resolved.slice(0, 7)}), ${file} → ${specRel}`)
 
@@ -660,8 +754,13 @@ async function cmdBump(root, lock, names, repoType, ref, fileOverride) {
 const USAGE = `Usage:
   contract_sync.mjs check  [--contract <name>] [--no-cache] [--repo-type api|web|mobile]
   contract_sync.mjs verify [--contract <name>] [--repo-type api|web|mobile]   (offline)
+  contract_sync.mjs where  [--contract <name>] [--repo-type api|web|mobile] [--json]  (offline)
   contract_sync.mjs sync   [--contract <name>] [--repo-type api|web|mobile]
-  contract_sync.mjs bump <ref> [--contract <name>] [--file <path>] [--repo-type api|web|mobile]`
+  contract_sync.mjs bump <ref> [--contract <name>] [--file <path>] [--repo-type api|web|mobile]
+
+  --spec-path <path> overrides where the contract is vendored, for every command
+  but check. Normally resolved from the lock's "vendoredTo", then the spec on
+  disk, then the repo type's default.`
 
 async function main() {
   let values, positionals
@@ -672,6 +771,8 @@ async function main() {
         'contract': { type: 'string' },
         'file': { type: 'string' },
         'repo-type': { type: 'string' },
+        'spec-path': { type: 'string' },
+        'json': { type: 'boolean', default: false },
         'no-cache': { type: 'boolean', default: false },
         'help': { type: 'boolean', default: false }
       }
@@ -685,13 +786,19 @@ async function main() {
     console.log(USAGE)
     process.exit(values.help ? 0 : 2)
   }
-  if (!['check', 'verify', 'sync', 'bump'].includes(command)) {
+  if (!['check', 'verify', 'where', 'sync', 'bump'].includes(command)) {
     fail(`unknown command "${command}"\n${USAGE}`, 2)
   }
 
   const root = repoRoot()
-  const lock = loadLock(root)
-  const names = pickContracts(lock, values.contract, command)
+  const lock = loadLock(root, { optional: command === 'where' })
+  const names = lock ? pickContracts(lock, values.contract, command) : []
+
+  if (command === 'where') {
+    process.exit(cmdWhere(
+      root, lock, names, detectRepoType(root, values['repo-type']), values['spec-path'], values.json
+    ))
+  }
 
   if (command === 'check') {
     // check never needs to know the repo type — it writes nothing.
@@ -700,12 +807,14 @@ async function main() {
 
   const repoType = detectRepoType(root, values['repo-type'])
 
-  if (command === 'verify') process.exit(cmdVerify(root, lock, names, repoType))
-  if (command === 'sync') process.exit(await cmdSync(root, lock, names, repoType))
+  const specPath = values['spec-path']
+
+  if (command === 'verify') process.exit(cmdVerify(root, lock, names, repoType, specPath))
+  if (command === 'sync') process.exit(await cmdSync(root, lock, names, repoType, specPath))
 
   const ref = positionals[1]
   if (!ref) fail(`bump needs a ref\n${USAGE}`, 2)
-  process.exit(await cmdBump(root, lock, names, repoType, ref, values.file))
+  process.exit(await cmdBump(root, lock, names, repoType, ref, values.file, specPath))
 }
 
 main().catch(e => fail(e?.message ?? String(e)))

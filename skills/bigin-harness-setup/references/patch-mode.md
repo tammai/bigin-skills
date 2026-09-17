@@ -20,6 +20,12 @@ Self-contained — skip Phases 1.5 through 8 entirely when this runs; it ends wi
        - Found → apply the operation: `insert: after` / `insert: before` (add `content` as a new line adjacent to `anchor`, reusing the anchor line's own indentation, and keep `anchor`) or `insert: replace` (replace the matched `anchor` text with `content`, preserving the anchor's indentation).
        - Not found (likely hand-edited) → skip, note "anchor not found — apply manually, see CHANGELOG.md vX.Y.Z".
      - Never fuzzy-match on *meaning* — the anchor's words must match exactly (whitespace aside). An exact-match miss is a skip, not a best-effort insert.
+   - **A block carrying `resolve: SPEC_PATH`** is an anchor-based block whose content holds `{SPEC_PATH}`, which no static block can know: where a repo vendors its contract is a property of *that* repo. Before matching, run this in the target repo and substitute the result (one line per contract, at the placeholder line's own indentation):
+     ```sh
+     node ${CLAUDE_PLUGIN_ROOT}/skills/contract-sync/scripts/contract_sync.mjs where
+     ```
+     - The command needs no lock, no network and no credentials. It exits non-zero only when it cannot tell (two candidate specs on disk, or a repo type it does not recognise) → skip the block and note "could not resolve the vendored spec path — apply manually", never substitute a guess.
+     - **If the substituted content equals what is already in `target`, skip it** and say nothing: the repo is already correct, and this is the common case for a repo whose layout matches its scaffolder's default.
 
 5. **Write `.claude/harness-version`** with `TO_VERSION`, even if some patches were skipped — re-running patch mode later shouldn't replay changes that already landed or were already flagged from this version range.
 

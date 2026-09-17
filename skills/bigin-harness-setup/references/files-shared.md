@@ -10,6 +10,14 @@ When writing `.claude/rules/security.md` and `.claude/rules/architecture.md`, pr
 
 Every profile that has an API contract lists its contract file: `architecture.md` owns the versioning rule (additive changes, `/v2/` on a break), so it has to load when the contract itself is the file being edited — not only when source files are. The filename differs by profile (`openapi.yaml`, `api/openapi.yaml`, `openapi.json`); use the one the repo actually has, since a `paths:` entry that names a file the repo doesn't contain fails silently — the rule simply never loads. `nodejs` and `nuxt-marketing` are the two with no contract line: `nodejs` generates its OpenAPI document code-first rather than committing a snapshot, and `nuxt-marketing` has no API at all — its `content.config.ts` collection schemas are the contract that file loads for instead.
 
+**On a consumer repo (Phase 0a set `REPO_TYPE` to `api`, `web` or `mobile`) the contract line is not a literal — resolve it**, the same way `{SPEC_PATH}` is resolved below:
+
+```sh
+node ${CLAUDE_PLUGIN_ROOT}/skills/contract-sync/scripts/contract_sync.mjs where --repo-type <REPO_TYPE>
+```
+
+The literals in the blocks below are each profile's **default** — right for a repo that scaffolded its own contract, and wrong for any consumer that vendors elsewhere. Getting it wrong is silent in exactly the way this paragraph warns about, which is what v1.90.0 fixed for `go` by swapping one literal for another and v1.99.0 stopped doing by hand.
+
 **nuxt:**
 ```yaml
 ---
@@ -31,7 +39,7 @@ paths:
 ---
 ```
 
-**go:** the contract is at the **repo root**, not under `api/`. `go-scaffold` writes `openapi.yaml` there (`scripts/scaffold.mjs`'s `OAPI_SPEC`) and `profile-go.md`'s layout shows it there; scoping this to `api/openapi.yaml` names a file the repo does not contain, and by the rule above that fails silently — the architecture rule simply never loads while the contract is being edited. `api/openapi.yaml` is flutter's path, not go's.
+**go:** a scaffolded Go repo keeps its contract at the **repo root** — `go-scaffold` writes `openapi.yaml` there (`scripts/scaffold.mjs`'s `OAPI_SPEC`) and `profile-go.md`'s layout shows it there, so that is the default below. A Go repo that *vendors* one may hold it anywhere, `api/openapi.yaml` included (that layout is load-bearing where the server reads the file at runtime to serve `/openapi.yaml`), so on a consumer repo resolve it rather than writing either literal.
 ```yaml
 ---
 paths:
@@ -179,13 +187,23 @@ Never reverse. A repo must never import a handler.
 
 **Written only when Phase 0a set `REPO_TYPE` to `api`, `web` or `mobile`** — a polyrepo consumer repo. Skipped entirely otherwise, including for a standalone repo on the same stack profile.
 
-This is the single source for the vendored-contract rule; the three consumer profiles point at it rather than restating it, so the rule cannot drift between them. Substitute `{SPEC_PATH}`, `{CODEGEN_OUT}` and `{CONTRACTS_REPO}` from this table — the first two differ per stack and both were verified against the shipped scaffolders and profiles:
+This is the single source for the vendored-contract rule; the three consumer profiles point at it rather than restating it, so the rule cannot drift between them.
 
-| `REPO_TYPE` | `{SPEC_PATH}` | `{CODEGEN_OUT}` |
-|---|---|---|
-| `api` (go) | `openapi.yaml` | `internal/openapi/openapi.gen.go` |
-| `web` (nuxt) | `openapi.yaml` | `shared/api-client/schema.d.ts` — `layers/shared/api-client/schema.d.ts` on the `starter` template |
-| `mobile` (flutter) | `api/openapi.yaml` | `api/generated/**` |
+**`{SPEC_PATH}` is asked for, never looked up.** Run this in the target repo — it needs no lock, no network and no credentials, and it is the same resolver `contract_sync.mjs` itself writes through, so the rule cannot end up scoped to a file the repo does not contain:
+
+```sh
+node ${CLAUDE_PLUGIN_ROOT}/skills/contract-sync/scripts/contract_sync.mjs where --repo-type <REPO_TYPE>
+```
+
+One path per line; a repo consuming several contracts prints several, and all of them go in the `paths:` list. It reads the lock's `vendoredTo`, then the spec already on disk, then the repo type's default — the precedence, and the reason a table here would be wrong, are in `contract-sync/references/lock-format.md` → "Vendored paths". If the command cannot run (no Node, no plugin copy), ask the user where the repo vendors its contract; do not assume a default.
+
+`{CODEGEN_OUT}` is per stack and is not a spec path, so it stays a table — verified against the shipped scaffolders and profiles:
+
+| `REPO_TYPE` | `{CODEGEN_OUT}` |
+|---|---|
+| `api` (go) | `internal/openapi/openapi.gen.go` |
+| `web` (nuxt) | `shared/api-client/schema.d.ts` — `layers/shared/api-client/schema.d.ts` on the `starter` template |
+| `mobile` (flutter) | `api/generated/**` |
 
 `{CONTRACTS_REPO}` is the `repo` field of the entry in `api-contract.lock`.
 
