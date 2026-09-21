@@ -29,7 +29,7 @@ The five questions Phase 1.5 asks, with their auto-detected defaults and the exa
    Which model ladder should subagents use? (opus-centric/frontier/lean)
    1. opus-centric (default) — quick=sonnet/low, standard=opus/medium, deep=opus/high, verifier=sonnet/high. Matches an Opus-default session; the deep tier escalates on effort, not on model.
    2. frontier — quick=sonnet/low, standard=opus/high, deep=fable/high, verifier=sonnet/high. Everything above quick at full effort, deep on the top model.
-   3. lean — quick=sonnet/low, standard=sonnet/high, deep=opus/high, verifier=sonnet/medium. Cost-first, trading model capability for effort on the standard tier; deep still escalates to opus.
+   3. lean — quick=sonnet/low, standard=sonnet/high, deep=opus/high, verifier=sonnet/high. Cost-first, trading model capability for effort on the standard tier; deep still escalates to opus, and the verifier is never routed down.
    Per-tier overrides and the full schema: `${CLAUDE_PLUGIN_ROOT}/skills/model-router/references/model-profiles.md` (this plugin's own tree).
    ```
    Store `MODEL_ROUTING` (the profile name).

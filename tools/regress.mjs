@@ -217,6 +217,47 @@ t("CLAUDE.md's scripts-count claim is true", () => {
   eq(claimed, actual, 'scripts-count'); return `${actual}`
 })
 
+// The ladder is stated once in code and re-stated as a table in five documents,
+// four of them hand-maintained. Changing one pin meant editing all five by hand,
+// and a reader who trusts the wrong table configures a project for a ladder that
+// does not exist. So check every table against the code.
+const { PROFILES, EFFORTS } = await import(join(REPO, 'skills', 'model-router', 'scripts', 'classify.mjs'))
+t('every documented ladder table matches classify.mjs', () => {
+  const TIERS = ['quick', 'standard', 'deep', 'verifier']
+  const docs = [
+    'README.md',
+    'docs/ROUTING.md',
+    'docs/USER_GUIDE.md',
+    'skills/model-router/references/model-profiles.md',
+    'skills/model-router/SKILL.md'
+  ]
+  // `sonnet`/low, sonnet/low and "`verifier` — sonnet/high" all normalise the same.
+  const norm = c => c.replace(/`/g, '').replace(/\s+/g, '').replace(/^.*—/, '')
+  let checked = 0
+  for (const doc of docs) {
+    const body = read(join(REPO, doc))
+    for (const [profile, models] of Object.entries(PROFILES)) {
+      const want = TIERS.map(tier => `${models[tier]}/${EFFORTS[profile][tier]}`)
+      // Only rows that actually carry four tier pins; prose mentioning a profile
+      // is not a table and is not this check's business.
+      for (const line of body.split('\n')) {
+        const cells = line.split('|').map(c => c.trim())
+        if (cells.length < 6 || norm(cells[1]) !== profile) continue
+        const got = cells.slice(2, 6).map(norm)
+        if (!got.every(c => /^(fable|opus|sonnet|haiku)\/(low|medium|high)$/.test(c))) continue
+        if (got.join(' ') !== want.join(' ')) {
+          throw new Error(`${doc}: "${profile}" row says ${got.join(' ')}, classify.mjs says ${want.join(' ')}`)
+        }
+        checked++
+      }
+    }
+  }
+  if (checked < Object.keys(PROFILES).length * 2) {
+    throw new Error(`only found ${checked} ladder rows across ${docs.length} documents — a table was renamed or dropped`)
+  }
+  return `${checked} rows`
+})
+
 console.log('\n4. DETECTION')
 const LAD = [
   ['marketing site',            ['nuxt.config.ts','content.config.ts','content/'], {dependencies:{'@nuxt/content':'1','@nuxtjs/i18n':'1'}}, 'nuxt-marketing'],

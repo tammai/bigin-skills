@@ -8,7 +8,7 @@ Self-contained — skip Phases 1.5 through 8 entirely when this runs; it ends wi
 
 2. **Read the current version.** From this plugin's own `.claude-plugin/plugin.json` → `version`. Call it `TO_VERSION`. If `FROM_VERSION == TO_VERSION`, tell the user the harness is already current and stop.
 
-3. **Collect eligible changes.** Read this plugin's own `CHANGELOG.md`. For every version strictly between `FROM_VERSION` (exclusive) and `TO_VERSION` (inclusive), in ascending order, extract every fenced ` ```patch ` block in that entry (format in `.claude/rules/skill-authoring.md`). Entries with no `patch` block are informational-only for target repos — skip them.
+3. **Collect eligible changes.** Read this plugin's own `CHANGELOG.md`. For every version strictly between `FROM_VERSION` (exclusive) and `TO_VERSION` (inclusive), in ascending order — **compare the three components numerically, not as text**: `1.100.0` is newer than `1.99.0`, and sorting those as strings silently skips every block in between — extract every fenced ` ```patch ` block in that entry (format in `.claude/rules/skill-authoring.md`). Entries with no `patch` block are informational-only for target repos — skip them.
 
 4. **Apply each patch block, in order:**
    - **`mode: create-if-missing` blocks** (`target` + full file content, no `anchor`/`insert` — used for a wholly new file with nothing existing to anchor against, e.g. a new guard script):

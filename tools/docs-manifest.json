@@ -107,8 +107,8 @@
       "summary": "Read-only — audits a diff against `PLAN.md`, not the implementer's summary. Fresh each round."
     },
     "verifier-medium": {
-      "routed": "`task-workflow` — `lean`",
-      "summary": "Same role as `verifier`, pinned lower; spawned instead of it on that ladder."
+      "routed": "no profile",
+      "summary": "Same role as `verifier`, pinned lower. Spawned by no ladder since 1.100.0 — kept as the mechanism a future profile would use to pin the verifier down."
     },
     "knowledge-auditor": {
       "routed": "`knowledge-distill`",

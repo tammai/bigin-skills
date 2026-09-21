@@ -46,7 +46,7 @@ const MODELS = new Set(['fable', 'opus', 'sonnet', 'haiku']);
 const EFFORTS = {
   'opus-centric': { quick: 'low', standard: 'medium', deep: 'high', verifier: 'high' },
   frontier: { quick: 'low', standard: 'high', deep: 'high', verifier: 'high' },
-  lean: { quick: 'low', standard: 'high', deep: 'high', verifier: 'medium' },
+  lean: { quick: 'low', standard: 'high', deep: 'high', verifier: 'high' },
 };
 const AGENTS = {
   quick: { low: 'quick-executor' },

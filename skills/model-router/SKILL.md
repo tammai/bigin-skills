@@ -15,7 +15,7 @@ Scores a task, then hands it off to the matching subagent. Three tiers, one each
 | Quick    | `quick-executor` — sonnet/low     | `quick-executor` — sonnet/low         | `quick-executor` — sonnet/low          |
 | Standard | `standard-worker` — opus/medium   | `standard-worker-high` — opus/high    | `standard-worker-high` — sonnet/high   |
 | Deep     | `deep-architect` — opus/high      | `deep-architect` — fable/high         | `deep-architect` — opus/high           |
-| Verifier | `verifier` — sonnet/high          | `verifier` — sonnet/high              | `verifier-medium` — sonnet/medium      |
+| Verifier | `verifier` — sonnet/high          | `verifier` — sonnet/high              | `verifier` — sonnet/high               |
 
 The **agent** varies by profile, not just the model: effort comes only from an agent file's frontmatter (the Agent tool has no effort parameter), so a profile pinning a tier at a different effort routes to a variant agent. Read both off `routing.agents[tier]` and `routing.models[tier]` — never assume the agent from the tier name.
 
@@ -104,7 +104,7 @@ The tier decides *which* rung; the profile decides both the model and the effort
   1. **On-demand instruction in this request** ("run it on fable", "use the lean ladder here") — this spawn only. Don't edit the project config for a one-off.
   2. **`routing.models[tier]`** from Step 1 (resolved from `.claude/model-routing.json`).
   3. The `opus-centric` default, which is what `routing` already reports when no config exists.
-- **Agent** — `routing.agents[tier]`, which is the `subagent_type` for Step 5. **Don't derive it from the tier name.** Effort can't be passed at spawn time, so a profile that pins a tier at a non-default effort routes to a variant agent instead: the standard tier is `standard-worker-high` under both `frontier` and `lean` (only `opus-centric` uses `standard-worker`), and the verifier is `verifier-medium` under `lean`. Spawning the base agent there would silently run the task at the wrong effort.
+- **Agent** — `routing.agents[tier]`, which is the `subagent_type` for Step 5. **Don't derive it from the tier name.** Effort can't be passed at spawn time, so a profile that pins a tier at a non-default effort routes to a variant agent instead: the standard tier is `standard-worker-high` under both `frontier` and `lean` (only `opus-centric` uses `standard-worker`). Spawning the base agent there would silently run the task at the wrong effort. The verifier resolves to `verifier` on all three profiles today — read it off `routing` anyway, since that is what changes when a ladder does.
 
 `routing.efforts[tier]` reports the effort that agent carries; it's informational (state it in Step 4), never something you pass. If a user asks for a different effort level, say so plainly — there is no way to honor it at the call site.
 

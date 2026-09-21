@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.100.0] - 2026-09-21
+
+### Changed
+
+- **`lean` runs the verifier at `high`, like every other profile.** It was the one ladder that routed the verifier down, to `sonnet`/`medium`, on the argument that the verifier runs on every round of every task and was that profile's largest single line item. The saving was real. It was also taken against the one agent in the loop whose failure mode is silent: a false `FAIL` costs one round, a false `PASS` voids the guarantee the loop exists for, and nothing downstream notices. `lean` now economises on the model axis alone — `sonnet` where the others run `opus` — which is the axis whose mistakes a later round can still catch.
+
+  The three ladders now differ only on model and on the standard tier's effort. `verifier-medium` is spawned by no profile; it stays in `agents/` and in `AGENTS` as the mechanism a future ladder would use, and since effort is not settable in `.claude/model-routing.json`, nothing in a project can reach it either.
+
+  **No patch block, and none needed.** A target repo's `.claude/model-routing.json` records the profile *name*; the ladder behind it lives in this plugin's `classify.mjs`, so every repo on `lean` picks this up on its next session with nothing to apply.
+
+- **A regress case now checks every documented ladder against the code.** The ladder is stated once in `classify.mjs` and restated as a table in five documents, four of them hand-maintained — this change had to touch all five, which is the definition of a surface that drifts. `README.md`, `docs/ROUTING.md`, `docs/USER_GUIDE.md`, `model-profiles.md` and `model-router/SKILL.md` are now parsed and compared against `PROFILES`/`EFFORTS`, and the case fails if it cannot find at least two rows per profile — so deleting a table to satisfy it does not work either. Mutation-checked.
+
 ## [1.99.0] - 2026-09-15
 
 ### Fixed

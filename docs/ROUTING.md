@@ -57,13 +57,13 @@ A profile sets both the model and the effort of every tier.
 |---|---|---|---|---|
 | `opus-centric` (default) | `sonnet`/low | `opus`/medium | `opus`/high | `sonnet`/high |
 | `frontier` | `sonnet`/low | `opus`/high | `fable`/high | `sonnet`/high |
-| `lean` | `sonnet`/low | `sonnet`/high | `opus`/high | `sonnet`/medium |
+| `lean` | `sonnet`/low | `sonnet`/high | `opus`/high | `sonnet`/high |
 
 **`opus-centric`** — the cost-aware default. Its standard tier runs `opus` at `medium` and leans on the verifier round for the checking. Under this ladder the deep tier's entire escalation over standard is **effort**, not model — both run `opus`. That's the design: work reaching deep is diagnosed as "didn't check its work," which is the effort axis.
 
 **`frontier`** — everything above quick at full effort, deep on the top model. Opt in when architectural calls are frequent, or when standard-tier work at `medium` returns verifier `FAIL`s often enough that paying up front beats paying per loop round.
 
-**`lean`** — cost-first, trading the other way: a cheaper model at fuller effort. Standard drops `opus`→`sonnet` but keeps `high`, buying back with thoroughness what it gives up in capability.
+**`lean`** — cost-first, trading the other way: a cheaper model at fuller effort. Standard drops `opus`→`sonnet` but keeps `high`, buying back with thoroughness what it gives up in capability. The saving is taken on the model axis only; the verifier runs at `high` here as everywhere.
 
 ### The agent is not the tier name
 
@@ -74,7 +74,7 @@ Effort can't be passed at spawn time — it comes only from the spawned agent's 
 | Quick | `quick-executor` | `quick-executor` | `quick-executor` |
 | Standard | `standard-worker` | **`standard-worker-high`** | **`standard-worker-high`** |
 | Deep | `deep-architect` | `deep-architect` | `deep-architect` |
-| Verifier | `verifier` | `verifier` | **`verifier-medium`** |
+| Verifier | `verifier` | `verifier` | `verifier` |
 
 The router spawns `routing.agents[tier]` verbatim rather than deriving a name from the tier. Deriving it would silently run the task at the wrong effort — which is invisible in the output.
 
@@ -139,7 +139,7 @@ Two pins are deliberately below default, and only under `opus-centric`:
 
 The verifier sits at `high` on purpose. Its output is one JSON object, but the analysis is hard: it must catch **omissions**, which is harder than judging what's present. And the error is asymmetric — a false `FAIL` costs one loop round, a false `PASS` silently voids the guarantee the whole loop exists for.
 
-That asymmetry is why `lean`'s `verifier-medium` is a knowing bet, not an oversight: the verifier runs on every round of every task and is that profile's largest line item. If a project depends on the loop's guarantee, it's the first thing to buy back.
+That asymmetry is why **no profile routes the verifier below `high` any more**. `lean` used to, as a knowing bet — the verifier runs on every round of every task and was that profile's largest single line item. The saving was real; it was just taken against the one agent whose failures nobody sees. A cheap tier that silently passes a bad diff costs more than it saves. `verifier-medium` still exists as the mechanism, and no ladder spawns it.
 
 ---
 
@@ -158,7 +158,7 @@ Valid profiles: `opus-centric` · `frontier` · `lean`. Tier keys: `quick` · `s
 
 **There is no `effort` key** — for the reason in [§2](#2-the-three-ladders). Setting one produces a warning and is otherwise ignored; pick the profile whose effort ladder you want instead.
 
-Buying back `lean`'s verifier — model only, since the `medium` pin isn't settable here:
+Raising `lean`'s verifier above `sonnet` — model only, since effort isn't settable here (and at `high` everywhere, there is nothing left to set):
 
 ```json
 { "profile": "lean", "models": { "verifier": "opus" } }

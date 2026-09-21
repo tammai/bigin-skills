@@ -128,15 +128,15 @@ Each scaffold skill's `SKILL.md` is the reference for what it generates. What se
 `agents/<name>.md` — plugin-level subagents spawned through the Agent tool as `bigin-skills:<name>`, not invoked as skills. A ladder name in the **Spawned by** column means that agent is only reached under those routing profiles.
 
 <!-- gen:agents-table -->
-| Agent                  | Model / effort | Spawned by                          | Purpose                                                                                                           |
-| ---------------------- | -------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `quick-executor`       | sonnet/low     | `model-router`                      | Mechanical, single-file, low-risk tasks — the quick tier.                                                         |
-| `standard-worker`      | opus/medium    | `model-router`                      | Default tier: most feature and bug-fix work.                                                                      |
-| `standard-worker-high` | opus/high      | `model-router` — `frontier`, `lean` | Same role as `standard-worker`, pinned higher; spawned instead of it on those ladders.                            |
-| `deep-architect`       | opus/high      | `model-router`                      | Architectural decisions, breaking contract changes, row-transforming migrations, full-spec tier.                  |
-| `verifier`             | sonnet/high    | `task-workflow`                     | Read-only — audits a diff against `PLAN.md`, not the implementer's summary. Fresh each round.                     |
-| `verifier-medium`      | sonnet/medium  | `task-workflow` — `lean`            | Same role as `verifier`, pinned lower; spawned instead of it on that ladder.                                      |
-| `knowledge-auditor`    | sonnet/high    | `knowledge-distill`                 | Read-only — audits a distilled bundle against the library's cloned source at the pinned commit. Fresh each round. |
+| Agent                  | Model / effort | Spawned by                          | Purpose                                                                                                                                                |
+| ---------------------- | -------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `quick-executor`       | sonnet/low     | `model-router`                      | Mechanical, single-file, low-risk tasks — the quick tier.                                                                                              |
+| `standard-worker`      | opus/medium    | `model-router`                      | Default tier: most feature and bug-fix work.                                                                                                           |
+| `standard-worker-high` | opus/high      | `model-router` — `frontier`, `lean` | Same role as `standard-worker`, pinned higher; spawned instead of it on those ladders.                                                                 |
+| `deep-architect`       | opus/high      | `model-router`                      | Architectural decisions, breaking contract changes, row-transforming migrations, full-spec tier.                                                       |
+| `verifier`             | sonnet/high    | `task-workflow`                     | Read-only — audits a diff against `PLAN.md`, not the implementer's summary. Fresh each round.                                                          |
+| `verifier-medium`      | sonnet/medium  | no profile                          | Same role as `verifier`, pinned lower. Spawned by no ladder since 1.100.0 — kept as the mechanism a future profile would use to pin the verifier down. |
+| `knowledge-auditor`    | sonnet/high    | `knowledge-distill`                 | Read-only — audits a distilled bundle against the library's cloned source at the pinned commit. Fresh each round.                                      |
 <!-- /gen:agents-table -->
 
 The **Model / effort** column comes from each agent's frontmatter. `model-router` overrides `model` per spawn from the project's ladder; **effort can't be passed at spawn time**, which is why two tiers ship an *effort variant* instead.
@@ -147,7 +147,7 @@ The **Model / effort** column comes from each agent's frontmatter. `model-router
 | --- | --- | --- | --- | --- | --- |
 | `opus-centric` (default) | `sonnet`/low | `opus`/medium | `opus`/high | `sonnet`/high | Cost-aware default — standard leans on the verifier round; deep escalates on effort, not model |
 | `frontier` | `sonnet`/low | `opus`/high | `fable`/high | `sonnet`/high | Everything above quick at full effort — pay up front instead of per verifier round |
-| `lean` | `sonnet`/low | `sonnet`/high | `opus`/high | `sonnet`/medium | Cost-first — a cheaper standard tier at fuller effort; deep still escalates to opus |
+| `lean` | `sonnet`/low | `sonnet`/high | `opus`/high | `sonnet`/high | Cost-first — a cheaper standard tier at fuller effort; deep still escalates to opus; saves on model, never on the verifier |
 
 `high` is the ceiling on every profile: no tier pins above it, because what an above-default pin would buy is already supplied structurally by the implement/verify loop.
 

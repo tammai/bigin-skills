@@ -14,7 +14,7 @@ There is no effort option on the Agent tool: effort comes from the spawned agent
 | Quick    | `quick-executor` (low)     | —                                                          |
 | Standard | `standard-worker` (medium) | `standard-worker-high` (high) — `frontier`, `lean`         |
 | Deep     | `deep-architect` (high)    | —                                                          |
-| Verifier | `verifier` (high)          | `verifier-medium` (medium) — `lean`                        |
+| Verifier | `verifier` (high)          | `verifier-medium` (medium) — no profile since 1.100.0      |
 
 The variant fixes only the effort — the model still comes from `routing.models[tier]`, so `standard-worker-high` runs on `opus` under `frontier` and `sonnet` under `lean`.
 

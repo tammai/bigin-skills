@@ -526,7 +526,7 @@ Set it in your repo's `.claude/model-routing.json`:
 | --- | --- | --- | --- | --- | --- |
 | `opus-centric` (default) | sonnet/low | opus/medium | opus/high | sonnet/high | The cost-aware default. Standard runs at `medium` and leans on the verifier round; the deep tier escalates on **effort**, not on model. |
 | `frontier` | sonnet/low | opus/high | fable/high | sonnet/high | Everything above quick at full effort, deep on the top model. Pay up front rather than per verifier round. |
-| `lean` | sonnet/low | sonnet/high | opus/high | sonnet/medium | Cost-first, trading the other way: a cheaper standard tier run at *fuller* effort. Deep still escalates to opus. |
+| `lean` | sonnet/low | sonnet/high | opus/high | sonnet/high | Cost-first, trading the other way: a cheaper standard tier run at *fuller* effort. Deep still escalates to opus, and the verifier stays at `high` like everywhere else. |
 
 `opus-centric` is the only ladder that runs the standard tier below `high` — the other two differ from each other on model, not effort. Switch to `frontier` when you keep seeing either failure mode: standard-tier work returning verifier `FAIL`s, or a model that had full context, clearly tried, and still got the structure wrong.
 
@@ -540,7 +540,7 @@ Per-tier **model** overrides layer on top. There is no `effort` key — setting 
 
 ### Why effort isn't a config key
 
-Claude Code's Agent tool takes a `model` argument but no `effort` one — effort is read from the agent file being spawned. So when a ladder wants a tier at a different effort, the router spawns a *different agent file*: `standard-worker-high` under `frontier` and `lean`, `verifier-medium` under `lean`, each identical to its base except for the pin. The variant fixes only the effort — `standard-worker-high` still runs on `opus` under `frontier` and `sonnet` under `lean`.
+Claude Code's Agent tool takes a `model` argument but no `effort` one — effort is read from the agent file being spawned. So when a ladder wants a tier at a different effort, the router spawns a *different agent file*: `standard-worker-high` under `frontier` and `lean`, identical to its base except for the pin. The variant fixes only the effort — it still runs on `opus` under `frontier` and `sonnet` under `lean`. (`verifier-medium` is the same mechanism for the verifier tier, and since 1.100.0 no ladder uses it.)
 
 You'll only notice this in the routing line ("Routed to standard-worker-high on sonnet"). What it does mean practically: **switching ladders changes effort, but a one-off request can't.** "Run this on fable" works; "run this at max effort" has nothing to set, and the router will tell you so rather than quietly ignoring it.
 
