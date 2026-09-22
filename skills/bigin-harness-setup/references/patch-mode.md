@@ -2,6 +2,8 @@
 
 Self-contained — skip Phases 1.5 through 8 entirely when this runs; it ends with its own summary below.
 
+Usually reached because the plugin's `SessionStart` notice (`hooks/harness-drift-check.mjs`) said this repo has unapplied patch blocks. That notice counts blocks rather than versions, so if it fired there is something here to apply.
+
 1. **Read the installed version.** Look for `.claude/harness-version` in the target repo.
    - Found → that's `FROM_VERSION`.
    - Missing → ask: `No .claude/harness-version found — which bigin-skills version was this harness last set up or patched with? (check git log for a "bigin-harness-setup" commit, or CHANGELOG.md history)`. If the user doesn't know, tell them patch mode can't determine a safe starting point and suggest `yes` (full overwrite, diffed first) or `new` instead, then stop.

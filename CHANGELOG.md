@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.101.0] - 2026-09-22
+
+### Added
+
+- **The plugin now says when a repo has harness changes it never applied.** Until now an installed harness sat at whatever version it was scaffolded or last patched with, and nothing noticed — patch mode only ran when someone thought to ask for it, which means the repos furthest behind were the ones least likely to be caught up.
+
+  `hooks/hooks.json` + `hooks/harness-drift-check.mjs`, a `SessionStart` hook that ships **with the plugin, not with the harness**. That distinction is the whole design: anything templated into a repo only reaches repos that have already run patch mode, which is the problem it would be trying to solve. Living in the plugin, it reaches every repo that ever installed the harness — one scaffolded at 1.64.0 two months ago starts reporting the moment the plugin updates, with nothing to install.
+
+  **It counts unapplied patch blocks, not versions behind.** Of the 176 releases so far, 43 carry a patch block; the other 133 changed only plugin-side content — skills, references, agents, the workflows themselves — which a repo already has the moment the plugin updates. Reporting "12 versions behind" when all twelve were plugin-side is a permanent warning that is wrong three times in four, and a warning people learn to skip is worse than no warning at all. So the notice reads `2 unapplied patch blocks touching .claude/rules/architecture.md, .claude/guards/spec-gate-guard.mjs`, and stays silent when the count is zero even though the stamp is stale.
+
+  Three things it deliberately does not do. It **never applies anything**: a block can apply cleanly and still produce a broken guard, and a hook that fails to parse exits non-zero, which the host treats as non-blocking — so an auto-applied bad block would be invisible, exactly as v1.98.3's draft would have been. It **never asks**: a session-start question whose answer is usually "not now" is a tax on every session in the repo until someone clears it. And it **never writes** — not even to refresh a stamp it can see is only cosmetically stale.
+
+  Version comparison is numeric per component, which is live from this release on: `1.100.0` is newer than `1.99.0`, and a string compare would hide every block between them. Silent, and exit 0, in every degraded case — no stamp, no plugin root, an unparseable manifest, no `CHANGELOG.md`. The one thing it will not pass over quietly is a `harness-version` that is not a version at all, because patch mode cannot pick a starting point from that either.
+
+  **Claude Code only.** Cursor's plugin manifest declares skills and agents, with no plugin-level hook to attach this to, so a Cursor-only repo hears about a release one patch run late. That is a host gap, named rather than papered over — there is no second copy of this script, and the never-fork-a-guard rule covers guards templated into repos, which run on both hosts. This one has exactly one host.
+
+- **Nine regress cases**, against a synthetic plugin fixture rather than the real `CHANGELOG.md`, so they do not change meaning as releases land: silent with no harness, silent when current, silent when everything since was plugin-side, blocks counted with targets named, `1.100.0` recognised as newer than `1.99.0`, an unreadable stamp reported, exit 0 through four kinds of breakage, and `hooks.json` proven to point at a file that exists. Mutation-checked both ways — swapping the numeric compare for a string one turns two red, and announcing on version alone turns the plugin-side case red.
+
 ## [1.100.0] - 2026-09-21
 
 ### Changed

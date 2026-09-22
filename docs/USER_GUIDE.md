@@ -187,6 +187,8 @@ teammate.
 
 Re-running setup later is safe. It's idempotent: `settings.json` is merged, `README.md` is append-only, and nothing is clobbered without asking you first.
 
+**You'll be told when a re-run is worth it.** The plugin ships its own `SessionStart` hook — not part of the harness, so it works in repos set up long before it existed — which compares `.claude/harness-version` against the installed plugin and prints one line when there are patch blocks you haven't applied. It counts *blocks*, not versions: roughly three releases in four change only plugin-side content (skills, references, agents), which your repo already has the moment you update the plugin, so those stay quiet. It never asks and never applies anything.
+
 **Two re-run modes worth knowing.** `patch` reads this plugin's `CHANGELOG.md` and applies only the changes between the version your repo was scaffolded with (`.claude/harness-version`) and the current one — that's how an already-set-up repo receives a fixed guard or a tightened permission without a full overwrite. `verify` re-checks an existing `CLAUDE.md` against the repo and **corrects or removes claims that no longer hold**: it runs each lint/typecheck/test command before trusting the row that names it, so a command that stopped existing is rewritten rather than left as a confident lie. A verify pass may shrink `CLAUDE.md` or leave it the same size — one that grows it is a bug. `patch` is the opposite by design: it applies deltas, so it can add a file or a line, and it never touches a target it can't match exactly, reporting those for you to apply by hand instead.
 
 ### Six repos at once

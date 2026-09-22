@@ -2000,6 +2000,125 @@ if (guardsReady) {
     })
   }
 
+  // ── the plugin's own SessionStart drift notice ───────────────────────
+  //
+  // It ships with the PLUGIN, not the harness, because anything templated into a
+  // repo only reaches repos that already ran patch mode — the very thing it exists
+  // to prompt. Fixtures are synthetic: pointing these at the real CHANGELOG would
+  // make them pass or fail depending on what the next release happens to contain.
+
+  const DRIFT = join(REPO, 'hooks', 'harness-drift-check.mjs')
+
+  // A plugin root with a known version and a known set of patch blocks. 1.100.0
+  // carries one; 1.99.0 carries none — so "behind" and "has something to apply"
+  // can be told apart, which is the whole design.
+  const fakePlugin = (version, entries) => {
+    const dir = join(TMP, `drift-plugin-${version}`)
+    rmSync(dir, { recursive: true, force: true })
+    mkdirSync(join(dir, '.claude-plugin'), { recursive: true })
+    writeFileSync(join(dir, '.claude-plugin', 'plugin.json'), JSON.stringify({ version }))
+    const body = entries.map(([v, targets]) =>
+      `## [${v}] - 2026-01-01\n\n### Fixed\n\n- something\n\n`
+      + targets.map(t => `\`\`\`patch\ntarget: ${t}\nanchor: x\ninsert: replace\n---\ny\n\`\`\`\n\n`).join('')
+    ).join('')
+    writeFileSync(join(dir, 'CHANGELOG.md'), `# Changelog\n\n${body}`)
+    return dir
+  }
+
+  const fakeRepo = (name, stamp) => {
+    const dir = join(TMP, `drift-repo-${name}`)
+    rmSync(dir, { recursive: true, force: true })
+    mkdirSync(join(dir, '.claude'), { recursive: true })
+    if (stamp !== null) writeFileSync(join(dir, '.claude', 'harness-version'), `${stamp}\n`)
+    return dir
+  }
+
+  const drift = (pluginDir, repoDir, env = {}) => {
+    const r = spawnSync('node', [DRIFT], {
+      encoding: 'utf8', input: '',
+      env: { ...CLEAN_ENV, CLAUDE_PLUGIN_ROOT: pluginDir, CLAUDE_PROJECT_DIR: repoDir, ...env }
+    })
+    if (r.status !== 0) throw new Error(`exited ${r.status} — a SessionStart hook must never fail a session`)
+    const out = r.stdout.trim()
+    if (!out) return null
+    return JSON.parse(out).hookSpecificOutput.additionalContext
+  }
+
+  // 1.99.0 → 1.100.0 also pins the ordering: a string compare puts "1.100.0"
+  // BELOW "1.99.0" and would drop every release in between.
+  const PLUGIN_NOW = () => fakePlugin('1.100.0', [
+    ['1.100.0', ['.claude/rules/architecture.md']],
+    ['1.99.0', []],
+    ['1.98.0', ['.claude/guards/spec-gate-guard.mjs', '.claude/rules/security.md']]
+  ])
+
+  t('the drift notice says nothing in a repo with no harness', () => {
+    eq(drift(PLUGIN_NOW(), fakeRepo('bare', null)), null, 'output')
+    return 'silent'
+  })
+
+  t('the drift notice says nothing when the stamp is current', () => {
+    eq(drift(PLUGIN_NOW(), fakeRepo('current', '1.100.0')), null, 'output')
+    return 'silent'
+  })
+
+  // The case that decides whether anyone keeps reading it. Three releases in four
+  // carry no patch block at all, and a warning that is wrong most of the time is
+  // one people learn to skip.
+  t('a stale stamp with nothing to apply is not announced', () => {
+    const plugin = fakePlugin('1.100.0', [['1.100.0', []], ['1.99.0', []]])
+    eq(drift(plugin, fakeRepo('plugin-side', '1.98.0')), null, 'output')
+    return 'stamp stale, repo current'
+  })
+
+  t('unapplied blocks are counted and their targets named', () => {
+    const msg = drift(PLUGIN_NOW(), fakeRepo('behind', '1.97.0'))
+    if (!msg) throw new Error('said nothing about 3 unapplied blocks')
+    if (!msg.includes('3 unapplied patch blocks')) throw new Error(`wrong count: ${msg}`)
+    for (const want of ['.claude/rules/architecture.md', '.claude/guards/spec-gate-guard.mjs', 'patch mode']) {
+      if (!msg.includes(want)) throw new Error(`did not name ${want}`)
+    }
+    return '3 blocks, targets named'
+  })
+
+  t('1.100.0 counts as newer than 1.99.0', () => {
+    const msg = drift(PLUGIN_NOW(), fakeRepo('ordering', '1.99.0'))
+    if (!msg?.includes('1 unapplied patch block')) {
+      throw new Error(`a string compare would hide 1.100.0 here — got: ${msg ?? 'silence'}`)
+    }
+    if (msg.includes('blocks')) throw new Error('pluralised a single block')
+    return 'numeric compare'
+  })
+
+  t('an unreadable stamp is reported rather than ignored', () => {
+    const msg = drift(PLUGIN_NOW(), fakeRepo('malformed', '1.64'))
+    if (!msg?.includes('not a version')) throw new Error(`stayed quiet on "1.64": ${msg ?? 'silence'}`)
+    return 'named'
+  })
+
+  t('the drift notice never fails a session, whatever it is handed', () => {
+    const plugin = fakePlugin('1.100.0', [['1.100.0', ['.claude/rules/architecture.md']]])
+    writeFileSync(join(plugin, '.claude-plugin', 'plugin.json'), '{ not json')
+    eq(drift(plugin, fakeRepo('broken-manifest', '1.97.0')), null, 'unparseable manifest')
+    eq(drift(join(TMP, 'no-such-plugin-dir'), fakeRepo('no-plugin', '1.97.0')), null, 'missing plugin root')
+    const r = spawnSync('node', [DRIFT], { encoding: 'utf8', input: '{ not json', env: CLEAN_ENV })
+    eq(r.status, 0, 'no env, malformed stdin')
+    return 'exit 0 four ways'
+  })
+
+  // A manifest that does not parse, or points at nothing, means no hook and no
+  // error — the silent failure this whole notice exists to end.
+  t('hooks.json registers the script that actually exists', () => {
+    const manifest = JSON.parse(read(join(REPO, 'hooks', 'hooks.json')))
+    const entries = manifest.hooks?.SessionStart ?? []
+    const commands = entries.flatMap(e => (e.hooks ?? []).map(h => h.command))
+    if (commands.length !== 1) throw new Error(`expected one SessionStart command, found ${commands.length}`)
+    const m = /\$\{CLAUDE_PLUGIN_ROOT\}\/(\S+?)"/.exec(commands[0])
+    if (!m) throw new Error(`command does not resolve through \${CLAUDE_PLUGIN_ROOT}: ${commands[0]}`)
+    if (!existsSync(join(REPO, m[1]))) throw new Error(`hooks.json points at ${m[1]}, which does not exist`)
+    return m[1]
+  })
+
   t('a PreToolUse gate fails closed on unreadable stdin', () => {
     eq(gate(null, { payload: '{ not json' }), 2, 'malformed')
     eq(gate(null, { payload: '' }), 2, 'empty')
