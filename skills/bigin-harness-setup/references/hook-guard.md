@@ -4,6 +4,16 @@ Scripts for enforcement gates. Written into the target project during setup. Gua
 
 **One guard body, two hosts.** The same nine scripts serve Claude Code (`.claude/settings.json` → `hooks`) and Cursor (`.cursor/hooks.json`). They are never forked or mirrored — `lib/hook-io.mjs` below normalizes the payload differences and emits host-correct output, and every guard reads its fields through it. The registration side lives in the profile `settings.json` templates and in `cursor-parity.md` → `## .cursor/hooks.json`.
 
+**The two hosts resolve the command path differently, and the templates differ on purpose — do not harmonize them.** Claude Code runs a hook command *in the session's current directory*, which moves whenever the agent works inside a subdirectory, so every command there is absolute:
+
+```json
+"command": "node \"${CLAUDE_PROJECT_DIR}/.claude/guards/bash-guard.mjs\""
+```
+
+Cursor runs a project hook *from the project root*, so `.cursor/hooks.json` keeps the relative form its own documentation asks for. Writing `${CLAUDE_PROJECT_DIR}` there would point Cursor at an unset variable.
+
+This is not cosmetic. A relative command that misses does not fail the gate — it fails to *load* it: `node` exits 1 with `Cannot find module`, and 1 is non-blocking on both hosts, so the gate silently allows everything it was installed to stop. A repo scaffolded before 1.101.1 lost `--no-verify` protection, the commit-message check, the bugfix-test check and the injection gate for the whole time any session sat in a subdirectory, and said so only as a yellow `hook error` line naming a Node internal.
+
 ---
 
 ## Testing a guard by hand
@@ -1184,7 +1194,7 @@ To turn it on, add to `.claude/settings.json` and set `CLAUDE_HARNESS_TRACE=1`:
 
 ```json
 "InstructionsLoaded": [
-  { "hooks": [{ "type": "command", "command": "node .claude/guards/instructions-trace.mjs" }] }
+  { "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/guards/instructions-trace.mjs\"" }] }
 ]
 ```
 

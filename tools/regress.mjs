@@ -1975,20 +1975,38 @@ if (guardsReady) {
   // broken glob and the release looks like it fixed something it did not.
   const ruleBlocks = headings.length < 2 ? [] :
     [...changelog.slice(headings[0].index, headings[1].index).matchAll(/```patch\ntarget: ([^\n]+)\n([\s\S]*?)```/g)]
-      .filter(m => /^\.claude\/rules\/[\w-]+\.md$/.test(m[1].trim()))
+      .filter(m => /^\.claude\/(rules\/[\w-]+\.md|settings\.json)$/.test(m[1].trim()))
 
   if (ruleBlocks.length) {
-    t("this release's rule patch blocks anchor on text the templates contain", () => {
-      const refs = join(REPO, 'skills', 'bigin-harness-setup', 'references')
-      const haystack = readdirSync(refs).filter(f => f.endsWith('.md'))
-        .map(f => stripped(read(join(refs, f))).join('\n')).join('\n@@@\n')
+    // Checked against the PREVIOUS release, not the current tree. A patch block
+    // exists to rewrite what an already-scaffolded repo holds, and that repo was
+    // scaffolded from the previous release — so the anchor has to match THERE.
+    // Against the current tree it is backwards: the usual fix changes the template
+    // and the anchor together, leaving the anchor matching nothing here by design.
+    // (1.100.0 shipped this check the wrong way round; it passed only because that
+    // release's blocks happened to anchor on lines the templates still carried.)
+    const prevRefs = (() => {
+      const tag = `v${headings[1][1]}`
+      const r = spawnSync('git', ['show', `${tag}:skills/bigin-harness-setup/references`],
+        { cwd: REPO, encoding: 'utf8' })
+      if (r.status !== 0) return null
+      const files = r.stdout.split('\n').filter(f => f.endsWith('.md'))
+      return files.map(f => {
+        const g = spawnSync('git', ['show', `${tag}:skills/bigin-harness-setup/references/${f}`],
+          { cwd: REPO, encoding: 'utf8' })
+        return g.status === 0 ? stripped(g.stdout).join('\n') : ''
+      }).join('\n@@@\n')
+    })()
+
+    t("this release's rule patch blocks anchor on text the previous release wrote", () => {
+      if (prevRefs === null) return `v${headings[1][1]} not available locally — skipped`
       for (const [, rawTarget, body] of ruleBlocks) {
         const target = rawTarget.trim()
         const [head, content] = body.split(/\n---\n/)
         if (/^mode:\s*create-if-missing/m.test(head)) continue
-        const anchor = head.slice(head.indexOf('anchor:') + 7, head.search(/^(insert|resolve):/m))
-        if (!haystack.includes(stripped(anchor).join('\n'))) {
-          throw new Error(`${target}: anchor matches nothing in references/ — it would skip in every repo`)
+        const anchor = head.slice(head.indexOf('anchor:') + 7, head.search(/^(insert|resolve|optional):/m))
+        if (!prevRefs.includes(stripped(anchor).join('\n'))) {
+          throw new Error(`${target}: anchor matches nothing in v${headings[1][1]} — it would skip in every repo`)
         }
         // A resolve: block substitutes a path it cannot know; one that shipped a
         // literal instead would hardcode the constant this grammar exists to remove.
@@ -1996,7 +2014,7 @@ if (guardsReady) {
           throw new Error(`${target}: declares resolve: SPEC_PATH but its content has no {SPEC_PATH}`)
         }
       }
-      return `${ruleBlocks.length} anchor(s) found`
+      return `${ruleBlocks.length} anchor(s) found in v${headings[1][1]}`
     })
   }
 
@@ -2108,6 +2126,34 @@ if (guardsReady) {
 
   // A manifest that does not parse, or points at nothing, means no hook and no
   // error — the silent failure this whole notice exists to end.
+  // The backstop for repos the patch blocks miss: read the broken state, do not
+  // infer it from a version stamp that may never move.
+  t('the notice reports relative hook commands, whatever the version says', () => {
+    const repo = fakeRepo('relative-hooks', '1.101.1')   // stamp CURRENT: version alone would say nothing
+    writeFileSync(join(repo, '.claude', 'settings.json'), JSON.stringify({
+      hooks: {
+        PreToolUse: [{ matcher: 'Bash', hooks: [
+          { type: 'command', command: 'node .claude/guards/bash-guard.mjs' },
+          { type: 'command', command: 'node .claude/guards/commit-msg-guard.mjs' }
+        ] }]
+      }
+    }, null, 2))
+    const msg = drift(PLUGIN_NOW(), repo)
+    if (!msg?.includes('2 hook commands')) throw new Error(`missed the relative commands: ${msg ?? 'silence'}`)
+    if (!msg.includes('CLAUDE_PROJECT_DIR')) throw new Error('did not say how to fix it')
+
+    // And it stays quiet once they are absolute.
+    writeFileSync(join(repo, '.claude', 'settings.json'), JSON.stringify({
+      hooks: {
+        PreToolUse: [{ matcher: 'Bash', hooks: [
+          { type: 'command', command: 'node "${CLAUDE_PROJECT_DIR}/.claude/guards/bash-guard.mjs"' }
+        ] }]
+      }
+    }, null, 2))
+    eq(drift(PLUGIN_NOW(), repo), null, 'absolute commands, current stamp')
+    return 'read, not inferred'
+  })
+
   t('hooks.json registers the script that actually exists', () => {
     const manifest = JSON.parse(read(join(REPO, 'hooks', 'hooks.json')))
     const entries = manifest.hooks?.SessionStart ?? []
@@ -2117,6 +2163,73 @@ if (guardsReady) {
     if (!m) throw new Error(`command does not resolve through \${CLAUDE_PLUGIN_ROOT}: ${commands[0]}`)
     if (!existsSync(join(REPO, m[1]))) throw new Error(`hooks.json points at ${m[1]}, which does not exist`)
     return m[1]
+  })
+
+  // ── hook commands resolve from anywhere the session wanders ──────────
+  //
+  // Claude Code runs a hook command in the session's CURRENT directory, which
+  // moves the moment the agent works inside a subdirectory. A relative command
+  // then fails to LOAD the guard — node exits 1 with "Cannot find module", and 1
+  // is non-blocking, so the gate allows everything it was installed to stop. It
+  // announces itself only as a yellow line naming a Node internal. Found in a
+  // downstream repo where 111 messages of one session ran from skills/... .
+  //
+  // Cursor is the opposite: it runs project hooks FROM the project root, and
+  // ${CLAUDE_PROJECT_DIR} is not set there. So the two templates must disagree,
+  // and both directions are asserted — neither can be "harmonized" into the other.
+
+  t('every Claude-side hook command resolves through ${CLAUDE_PROJECT_DIR}', () => {
+    const refs = join(REPO, 'skills', 'bigin-harness-setup', 'references')
+    const files = [
+      ...readdirSync(refs).filter(f => f.endsWith('.md')).map(f => join(refs, f)),
+      join(REPO, 'skills', 'bigin-harness-setup', 'SKILL.md'),
+      join(REPO, 'skills', 'nuxt-scaffold', 'scripts', 'templates', 'merge', 'claude-settings.json'),
+      join(REPO, 'skills', 'next-scaffold', 'scripts', 'templates', 'merge', 'claude-settings.json')
+    ]
+    const cursorDoc = join(refs, 'cursor-parity.md')
+    let claudeSide = 0
+    const offenders = []
+    for (const f of files) {
+      for (const line of read(f).split('\n')) {
+        if (!/"command":\s*"node .*\.claude\/guards\//.test(line)) continue
+        const absolute = line.includes('${CLAUDE_PROJECT_DIR}/.claude/guards/')
+        if (f === cursorDoc) {
+          // Cursor's own file: relative is correct and the variable would be empty.
+          if (absolute) offenders.push(`cursor-parity.md must stay relative: ${line.trim()}`)
+        } else if (!absolute) {
+          offenders.push(`${f.replace(REPO + '/', '')}: ${line.trim()}`)
+        } else {
+          claudeSide++
+        }
+      }
+    }
+    if (offenders.length) throw new Error(`${offenders.length} bad command(s): ${offenders.slice(0, 3).join(' | ')}`)
+    if (claudeSide < 100) throw new Error(`only found ${claudeSide} Claude-side commands — a settings template was renamed or dropped`)
+    return `${claudeSide} absolute, cursor relative`
+  })
+
+  // The textual check above proves the templates say the right thing; this proves
+  // the thing they say actually works, against the exact call that was let through.
+  t('a guard still blocks when the session sits in a subdirectory', () => {
+    const root = join(TMP, 'cwd-drift')
+    rmSync(root, { recursive: true, force: true })
+    mkdirSync(join(root, '.claude', 'guards', 'lib'), { recursive: true })
+    mkdirSync(join(root, 'packages', 'site'), { recursive: true })
+    writeFileSync(join(root, '.claude', 'guards', 'lib', 'hook-io.mjs'), guardSource('lib/hook-io.mjs'))
+    writeFileSync(join(root, '.claude', 'guards', 'bash-guard.mjs'), guardSource('bash-guard.mjs'))
+    const payload = JSON.stringify({
+      tool_name: 'Bash', tool_input: { command: 'git commit --no-verify -m "x"' }
+    })
+    const run = command => spawnSync('sh', ['-c', command], {
+      cwd: join(root, 'packages', 'site'), encoding: 'utf8', input: payload,
+      env: { ...CLEAN_ENV, CLAUDE_PROJECT_DIR: root }
+    }).status
+
+    // What every repo scaffolded before 1.101.1 was running.
+    eq(run('node .claude/guards/bash-guard.mjs'), 1, 'the relative form: 1 is non-blocking, so --no-verify sails through')
+    // What the templates write now.
+    eq(run('node "${CLAUDE_PROJECT_DIR}/.claude/guards/bash-guard.mjs"'), 2, 'the templated form blocks')
+    return 'blocked from a subdirectory'
   })
 
   t('a PreToolUse gate fails closed on unreadable stdin', () => {

@@ -90,12 +90,41 @@ function unappliedBlocks(changelog, installed, current) {
   return { count, targets }
 }
 
+// A hook command that resolves relative to the session's current directory, which
+// moves whenever the agent works inside a subdirectory. From there node cannot find
+// the guard, exits 1 — non-blocking — and the gate allows everything it was
+// installed to stop, announcing it only as a yellow line naming a Node internal.
+// Repos scaffolded before 1.101.1 all carry this. Checked on its own, not behind the
+// version comparison: a repo that never runs patch mode, or whose anchors missed,
+// still needs to hear about it, and this reads the state rather than inferring it.
+function relativeGuardCommands(dir) {
+  const settings = join(dir, '.claude', 'settings.json')
+  if (!existsSync(settings)) return 0
+  try {
+    return (readFileSync(settings, 'utf8').match(/"command":\s*"node \.claude\/guards\//g) ?? []).length
+  } catch {
+    return 0
+  }
+}
+
 function main() {
   const root = process.env.CLAUDE_PLUGIN_ROOT
   if (!root) return // not running as a plugin hook; nothing to compare against
 
-  const stampPath = join(projectDir(), '.claude', 'harness-version')
+  const dir = projectDir()
+  const stampPath = join(dir, '.claude', 'harness-version')
   if (!existsSync(stampPath)) return // no harness here, so there is no drift
+
+  const relative = relativeGuardCommands(dir)
+  if (relative > 0) {
+    say(`${TAG} ${relative} hook command${relative === 1 ? '' : 's'} in .claude/settings.json `
+      + 'resolve relative to the working directory, so every gate silently stops gating '
+      + 'whenever a session works in a subdirectory — node cannot load the guard, exits 1, '
+      + 'and 1 is non-blocking. Fix: give each one an absolute path, '
+      + 'node "${CLAUDE_PROJECT_DIR}/.claude/guards/<name>.mjs". '
+      + 'Run bigin-harness-setup in patch mode to do it, or edit the file directly.')
+    return // the louder problem; do not bury it under a version line
+  }
 
   const manifestPath = join(root, '.claude-plugin', 'plugin.json')
   if (!existsSync(manifestPath)) return

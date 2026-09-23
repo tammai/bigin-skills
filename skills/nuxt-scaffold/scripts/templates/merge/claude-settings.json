@@ -28,7 +28,7 @@
       {
         "matcher": "Write|Edit|MultiEdit",
         "hooks": [
-          { "type": "command", "command": "node .claude/guards/lint-fix-file.mjs" }
+          { "type": "command", "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/guards/lint-fix-file.mjs\"" }
         ]
       }
     ]

@@ -273,7 +273,7 @@ Governance superset: `permissions` + `PostToolUse` lint-fix (the `nuxt-scaffold`
         "hooks": [
           {
             "type": "command",
-            "command": "node .claude/guards/bash-guard.mjs"
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/guards/bash-guard.mjs\""
           }
         ]
       },
@@ -282,7 +282,7 @@ Governance superset: `permissions` + `PostToolUse` lint-fix (the `nuxt-scaffold`
         "hooks": [
           {
             "type": "command",
-            "command": "node .claude/guards/bugfix-test-guard.mjs"
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/guards/bugfix-test-guard.mjs\""
           }
         ]
       },
@@ -291,7 +291,7 @@ Governance superset: `permissions` + `PostToolUse` lint-fix (the `nuxt-scaffold`
         "hooks": [
           {
             "type": "command",
-            "command": "node .claude/guards/commit-msg-guard.mjs"
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/guards/commit-msg-guard.mjs\""
           }
         ]
       },
@@ -300,7 +300,7 @@ Governance superset: `permissions` + `PostToolUse` lint-fix (the `nuxt-scaffold`
         "hooks": [
           {
             "type": "command",
-            "command": "node .claude/guards/spec-gate-guard.mjs"
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/guards/spec-gate-guard.mjs\""
           }
         ]
       },
@@ -309,7 +309,7 @@ Governance superset: `permissions` + `PostToolUse` lint-fix (the `nuxt-scaffold`
         "hooks": [
           {
             "type": "command",
-            "command": "node .claude/guards/injection-gate-guard.mjs"
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/guards/injection-gate-guard.mjs\""
           }
         ]
       }
@@ -320,7 +320,7 @@ Governance superset: `permissions` + `PostToolUse` lint-fix (the `nuxt-scaffold`
         "hooks": [
           {
             "type": "command",
-            "command": "node .claude/guards/lint-fix-file.mjs"
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/guards/lint-fix-file.mjs\""
           }
         ]
       },
@@ -329,7 +329,7 @@ Governance superset: `permissions` + `PostToolUse` lint-fix (the `nuxt-scaffold`
         "hooks": [
           {
             "type": "command",
-            "command": "node .claude/guards/injection-scan-guard.mjs"
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/guards/injection-scan-guard.mjs\""
           }
         ]
       }
@@ -339,11 +339,11 @@ Governance superset: `permissions` + `PostToolUse` lint-fix (the `nuxt-scaffold`
         "hooks": [
           {
             "type": "command",
-            "command": "node .claude/guards/canary-seed.mjs"
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/guards/canary-seed.mjs\""
           },
           {
             "type": "command",
-            "command": "node .claude/guards/session-resume-check.mjs"
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/guards/session-resume-check.mjs\""
           }
         ]
       }
@@ -353,7 +353,7 @@ Governance superset: `permissions` + `PostToolUse` lint-fix (the `nuxt-scaffold`
         "hooks": [
           {
             "type": "command",
-            "command": "node .claude/guards/precompact-snapshot.mjs"
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/guards/precompact-snapshot.mjs\""
           }
         ]
       }
@@ -363,7 +363,7 @@ Governance superset: `permissions` + `PostToolUse` lint-fix (the `nuxt-scaffold`
         "hooks": [
           {
             "type": "command",
-            "command": "node .claude/guards/precompact-snapshot.mjs"
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/guards/precompact-snapshot.mjs\""
           }
         ]
       }
@@ -373,7 +373,7 @@ Governance superset: `permissions` + `PostToolUse` lint-fix (the `nuxt-scaffold`
         "hooks": [
           {
             "type": "command",
-            "command": "node .claude/guards/install-hooks.mjs"
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/guards/install-hooks.mjs\""
           }
         ]
       }

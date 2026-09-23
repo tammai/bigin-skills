@@ -5,6 +5,182 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.101.1] - 2026-09-23
+
+### Fixed
+
+- **Every gate silently stopped gating whenever a session worked in a subdirectory.** Found in a downstream repo, reported as a wall of `PreToolUse:Bash hook error — Failed with non-blocking status code: node:internal/modules/cjs/loader:1386`, which reads like a cosmetic hook wobble and is not one.
+
+  Claude Code runs a hook command **in the session's current directory**, and every profile registered its guards by relative path (`node .claude/guards/bash-guard.mjs`). The moment a session's cwd moved into a subdirectory — a monorepo package, a `skills/` subtree, a scaffolded site — that path missed. Node then exits **1** with `Cannot find module`, and 1 is *non-blocking*: the gate does not fail, it fails to load, and the call it was installed to stop goes through. `cjs/loader:1386` is only the throw site, and the first stderr line is all the host prints, which is why the real message never reached anyone.
+
+  Confirmed against the affected repo: `git commit --no-verify` from `skills/site-factory` exits 1 and is allowed; from the repo root it exits 2 and is blocked. For the length of that drift, `bash-guard`, `bugfix-test-guard`, `commit-msg-guard` and `injection-gate-guard` were all inert. Its session transcript shows 111 messages outside the repo root.
+
+  **Every Claude-side hook command is now absolute** — `node "${CLAUDE_PROJECT_DIR}/.claude/guards/<name>.mjs"`, which the hooks documentation names as the way to reference project scripts "regardless of the working directory when the hook runs". 124 commands across 15 templates: all eleven profiles, `hook-guard.md`, `bigin-harness-setup`'s own `SKILL.md`, and the `nuxt`/`next` scaffolders' `claude-settings.json`.
+
+  **`.cursor/hooks.json` deliberately keeps relative paths** and is the one file the sweep skipped. Cursor runs project hooks *from the project root* and sets `CURSOR_PROJECT_DIR`, not `CLAUDE_PROJECT_DIR`, so Cursor never had this bug and the variable would resolve to nothing there. `hook-guard.md` now states the split so the two are not "harmonized" later.
+
+- **The drift notice detects this state directly, rather than inferring it from a version.** `harness-drift-check.mjs` (1.101.0) now reads `.claude/settings.json` first and reports relative guard commands whatever the version stamp says — so a repo that never runs patch mode, or whose anchors miss because someone reformatted the file, still hears about it. It outranks the version line rather than queueing behind it.
+
+- **The rule-patch-block check was formulated backwards.** 1.100.0 added a case asserting a block's anchor matches text in the shipped templates. That is the wrong tree: a block rewrites what an *already-scaffolded* repo holds, and that repo came from the **previous** release — the usual fix changes the template and the anchor together, leaving the anchor matching nothing in the current one. It passed only because 1.99.0's blocks happened to anchor on lines the templates still carried; this release's would have failed it for being correct. It now resolves the previous tag, and skips when that tag isn't available locally.
+
+### Added
+
+- **`optional: true` on a patch block** — an anchor miss is expected rather than reported, for a line that exists only in some profiles. The guard set differs per profile, so eleven "not found" entries for guards a repo never installed would bury the misses that actually mean a hand-edited file.
+
+- **Three regress cases.** Every Claude-side templated hook command must resolve through `${CLAUDE_PROJECT_DIR}` **and** `cursor-parity.md` must stay relative, so neither can be edited into the other; a functional case that writes a guard into a temp repo, runs it from a subdirectory both ways, and asserts the old form returns 1 (allowed) while the templated form returns 2 (blocked); and the drift notice reporting relative commands ahead of any version comparison.
+
+### Patch blocks
+
+Fourteen, one per registered guard, all `optional: true` because which guards a repo installed depends on its profile. `precompact-snapshot.mjs` is registered twice, under `PreCompact` and `SessionEnd`, so those two anchor on the event key as well — a single-line anchor cannot say which one it means.
+
+A repo whose `.claude/settings.json` has been reformatted will not match these, and that is what the drift notice above is for: it re-reads the file every session and keeps saying so until the commands are absolute.
+
+```patch
+target: .claude/settings.json
+anchor: "command": "node .claude/guards/bash-guard.mjs"
+insert: replace
+optional: true
+---
+"command": "node \"${CLAUDE_PROJECT_DIR}/.claude/guards/bash-guard.mjs\""
+```
+
+```patch
+target: .claude/settings.json
+anchor: "command": "node .claude/guards/bugfix-test-guard.mjs"
+insert: replace
+optional: true
+---
+"command": "node \"${CLAUDE_PROJECT_DIR}/.claude/guards/bugfix-test-guard.mjs\""
+```
+
+```patch
+target: .claude/settings.json
+anchor: "command": "node .claude/guards/commit-msg-guard.mjs"
+insert: replace
+optional: true
+---
+"command": "node \"${CLAUDE_PROJECT_DIR}/.claude/guards/commit-msg-guard.mjs\""
+```
+
+```patch
+target: .claude/settings.json
+anchor: "command": "node .claude/guards/spec-gate-guard.mjs"
+insert: replace
+optional: true
+---
+"command": "node \"${CLAUDE_PROJECT_DIR}/.claude/guards/spec-gate-guard.mjs\""
+```
+
+```patch
+target: .claude/settings.json
+anchor: "command": "node .claude/guards/injection-gate-guard.mjs"
+insert: replace
+optional: true
+---
+"command": "node \"${CLAUDE_PROJECT_DIR}/.claude/guards/injection-gate-guard.mjs\""
+```
+
+```patch
+target: .claude/settings.json
+anchor: "command": "node .claude/guards/injection-scan-guard.mjs"
+insert: replace
+optional: true
+---
+"command": "node \"${CLAUDE_PROJECT_DIR}/.claude/guards/injection-scan-guard.mjs\""
+```
+
+```patch
+target: .claude/settings.json
+anchor: "command": "node .claude/guards/canary-seed.mjs"
+insert: replace
+optional: true
+---
+"command": "node \"${CLAUDE_PROJECT_DIR}/.claude/guards/canary-seed.mjs\""
+```
+
+```patch
+target: .claude/settings.json
+anchor: "command": "node .claude/guards/session-resume-check.mjs"
+insert: replace
+optional: true
+---
+"command": "node \"${CLAUDE_PROJECT_DIR}/.claude/guards/session-resume-check.mjs\""
+```
+
+```patch
+target: .claude/settings.json
+anchor: "command": "node .claude/guards/install-hooks.mjs"
+insert: replace
+optional: true
+---
+"command": "node \"${CLAUDE_PROJECT_DIR}/.claude/guards/install-hooks.mjs\""
+```
+
+```patch
+target: .claude/settings.json
+anchor: "command": "node .claude/guards/lint-fix-file.mjs"
+insert: replace
+optional: true
+---
+"command": "node \"${CLAUDE_PROJECT_DIR}/.claude/guards/lint-fix-file.mjs\""
+```
+
+```patch
+target: .claude/settings.json
+anchor: "command": "node .claude/guards/vendored-contract-guard.mjs"
+insert: replace
+optional: true
+---
+"command": "node \"${CLAUDE_PROJECT_DIR}/.claude/guards/vendored-contract-guard.mjs\""
+```
+
+```patch
+target: .claude/settings.json
+anchor: "command": "node .claude/guards/instructions-trace.mjs"
+insert: replace
+optional: true
+---
+"command": "node \"${CLAUDE_PROJECT_DIR}/.claude/guards/instructions-trace.mjs\""
+```
+
+```patch
+target: .claude/settings.json
+anchor: "PreCompact": [
+  {
+    "hooks": [
+      {
+        "type": "command",
+        "command": "node .claude/guards/precompact-snapshot.mjs"
+insert: replace
+optional: true
+---
+"PreCompact": [
+  {
+    "hooks": [
+      {
+        "type": "command",
+        "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/guards/precompact-snapshot.mjs\""
+```
+
+```patch
+target: .claude/settings.json
+anchor: "SessionEnd": [
+  {
+    "hooks": [
+      {
+        "type": "command",
+        "command": "node .claude/guards/precompact-snapshot.mjs"
+insert: replace
+optional: true
+---
+"SessionEnd": [
+  {
+    "hooks": [
+      {
+        "type": "command",
+        "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/guards/precompact-snapshot.mjs\""
+```
+
 ## [1.101.0] - 2026-09-22
 
 ### Added

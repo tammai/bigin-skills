@@ -293,7 +293,7 @@ Both shapes register seven events: `PreToolUse`, `PostToolUse`, `SessionStart`, 
   "hooks": [
     {
       "type": "command",
-      "command": "node .claude/guards/vendored-contract-guard.mjs"
+      "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/guards/vendored-contract-guard.mjs\""
     }
   ]
 }
