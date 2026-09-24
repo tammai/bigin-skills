@@ -15,6 +15,11 @@ questions, not a fresh budget.
 A round is one message: ask, wait, use the answers. Never ask a follow-up inside the same turn
 you received an answer in — that is how a round becomes an interrogation.
 
+**When step 2.5 offers framings, that is round 1** — see `framing.md`. It is not an extra round,
+and the totals above are unchanged: a discovery that frames then runs boundaries and numbers has
+used all three. The cap lives here and only here; `framing.md` points at it rather than restating
+the numbers.
+
 **When the cap is reached, stop asking and write the brief anyway.** Every unresolved item
 becomes a row in the brief's `## Open questions` table with a deciding role and a working
 assumption, and the brief says in one line that elicitation hit the cap. That is a better

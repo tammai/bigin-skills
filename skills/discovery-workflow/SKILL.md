@@ -39,7 +39,15 @@ It writes exactly three kinds of artifact, into two homes that never cross:
 
    The rung-2/rung-3 boundary is the one this skill turns on, and the ladder's second discriminator is what decides it. Read that question there and answer it before continuing — it is not repeated here, because a second copy is a copy that can go stale.
 
-2. **Read before asking.** If the repo has anything in it, the repo answers some of the questions, and asking them anyway is how a discovery session loses the user's trust in the first five minutes. Follow `references/established-repo.md`: what to read and in what order, the run-it-before-you-write-it-down rule for every command a claim rests on, and the provenance-not-value rule for anything that touches a secret. On a genuinely empty repo, say there is nothing to derive from and go to step 3.
+2. **Read before asking.** If the repo has anything in it, the repo answers some of the questions, and asking them anyway is how a discovery session loses the user's trust in the first five minutes. Follow `references/established-repo.md`: what to read and in what order, the run-it-before-you-write-it-down rule for every command a claim rests on, and the provenance-not-value rule for anything that touches a secret. On a genuinely empty repo, say there is nothing to derive from and go to step 2.5.
+
+**Step 2.5 — offer framings, before anything is written down.** Everything after this step converges; this is the one place the skill diverges. Read `references/framing.md`: what a framing is (problem, user, **what it refuses**, first slice), the four rules that keep three options from being one option with three names, and when to skip.
+
+**Ask with `AskUserQuestion`, at most 4 options** — the tool's hard cap, and three is usually right. "Other" is automatic, and is where a merge or the user's own framing lands.
+
+**This round *is* elicitation round 1.** It adds no round: the cap in `references/elicitation.md` is unchanged and stays the single source for the total. Skip the step when the user arrives having already decided the shape, when the existing product fixes it, or when a constraint admits only one approach — and say in one line that you are skipping, and why.
+
+Writes nothing. The chosen framing seeds the brief in step 4; the losing ones become one line each in its `## Framings considered`.
 
 3. **Elicit what the repo cannot answer** — and nothing else. `references/elicitation.md` carries the named techniques, the hard cap on how much you may ask, and what to do when the cap is reached instead of asking more. Read it before the first question; the bare "up to 3 clarifying questions" default is not enough structure for a product question and too much license for a small one.
 

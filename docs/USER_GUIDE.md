@@ -357,7 +357,9 @@ Epic cleanup is also where the `knowledge/` distillation usually pays off. A sin
 
 ### When nobody can say what the thing is yet
 
-`epic-workflow` assumes the initiative arrives already stated, and `task-workflow` assumes the task does. When neither is true — a client says "we want a portal", or the ask is a new product surface nobody has written acceptance criteria for — `discovery-workflow` runs first:
+`epic-workflow` assumes the initiative arrives already stated, and `task-workflow` assumes the task does. When neither is true — a client says "we want a portal", or the ask is a new product surface nobody has written acceptance criteria for — `discovery-workflow` runs first.
+
+It is the one skill that **diverges before it narrows**. Everything else in the harness extracts: it asks what you already know about a thing you can already name. Step 2.5 instead offers up to four *framings* of the idea — each one a stance, carrying the problem it treats as primary, the user it serves, **what it refuses to do**, and the first slice that would prove it right. You pick one, merge two, or write your own; the rest of the funnel runs on the result, and the ones that lost get a line each in the brief so next quarter doesn't regenerate them. It costs nothing extra: that round *is* elicitation round 1, and it is skipped outright when you arrive having already decided the shape.
 
 ```
 /discovery-workflow "we want a client portal"
@@ -365,6 +367,8 @@ Epic cleanup is also where the `knowledge/` distillation usually pays off. A sin
   triage — the shared ladder: rung 1 → task-workflow · rung 2 → epic-workflow · rung 3 → continue
         ↓
   read the repo before asking anything (and run every command before writing it down)
+        ↓
+  framings — up to 4 stances on the idea, you pick, merge, or write your own
         ↓
   structured elicitation, hard-capped — 3 rounds, 12 questions, then it writes anyway
         ↓

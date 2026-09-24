@@ -45,6 +45,14 @@ chosen, a compliance rule, a deadline, a team size. Each with where it comes fro
 {What this deliberately does not do, and — where it's a live temptation — one clause on why.
 The cheapest section to write and the most expensive one to omit.}
 
+## Framings considered
+
+{Step 2.5 only — omit the section entirely when framing was skipped, and say so in `## Derived
+from` instead. One line per framing that lost: what it was, and why. The chosen one needs no line
+here; it is the rest of this document.}
+
+- {framing} — {why it lost}
+
 ## Open questions
 
 | # | Question | Deciding role | Working assumption |

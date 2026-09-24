@@ -538,12 +538,29 @@ t('empty-repo question reaches all seven profiles', () => {
   return '4 options, 7 profiles' })
 t('no ask site promises more options than the tool allows', () => {
   const files = ['skills/bigin-harness-setup/SKILL.md', 'skills/bigin-harness-setup/references/profile-detection.md',
-    'skills/bigin-harness-setup/references/decision-bundle.md']
+    'skills/bigin-harness-setup/references/decision-bundle.md',
+    'skills/discovery-workflow/SKILL.md', 'skills/discovery-workflow/references/framing.md']
   for (const f of files) {
     const m = rd(f).match(/`AskUserQuestion`[^.\n]{0,60}?\b(five|six|seven|eight|nine)\s+options/i)
     if (m) throw new Error(`${f} promises ${m[1]} options in one question: "${m[0]}"`)
   }
   return `${files.length} files clean` })
+// The framing step spends a round. If it ever claims its own budget, every discovery
+// gets longer — which is the opposite of why it exists. elicitation.md owns the totals;
+// framing.md must point at them rather than restate a number that can drift.
+t('framing spends an elicitation round rather than adding one', () => {
+  const eli = rd('skills/discovery-workflow/references/elicitation.md')
+  const fra = rd('skills/discovery-workflow/references/framing.md')
+  const cap = /\*\*3 rounds\. At most 4 questions per round\. 12 questions for the whole discovery/
+  if (!cap.test(eli)) throw new Error('elicitation.md no longer states the cap in the expected shape')
+  if (!/that is round 1/.test(eli)) throw new Error('elicitation.md does not account for the framing round')
+  if (!/is elicitation round 1/.test(fra)) throw new Error('framing.md does not say it spends round 1')
+  // framing.md may name the numbers once, quoting the single source; it may not invent a 4th round.
+  const rounds = fra.match(/(\d+)\s+rounds/g) ?? []
+  for (const r of rounds)
+    if (!/^3\s+rounds$/.test(r)) throw new Error(`framing.md states "${r}" — the cap is 3 rounds, set in elicitation.md`)
+  return '3 rounds, one source'
+})
 t('install mode is asked before the bundle, not inside it', () => {
   const skill = rd('skills/bigin-harness-setup/SKILL.md')
   const bundle = rd('skills/bigin-harness-setup/references/decision-bundle.md')
@@ -555,7 +572,7 @@ t('install mode is asked before the bundle, not inside it', () => {
 // v1.98.1: two same-day runs of v1.96.3 split on this very question — one asked
 // it with AskUserQuestion, the other printed it as a code block and waited for a
 // typed number. The wording is not the contract; the tool is.
-t('every ask site in bigin-harness-setup names AskUserQuestion', () => {
+t('every ask site names AskUserQuestion', () => {
   const skill = rd('skills/bigin-harness-setup/SKILL.md')
   if (!/## How this skill asks/.test(skill)) throw new Error('the rule section is gone')
   const sites = [
@@ -563,6 +580,11 @@ t('every ask site in bigin-harness-setup names AskUserQuestion', () => {
     ['profile-detection.md', rd('skills/bigin-harness-setup/references/profile-detection.md'), [/Asked with `AskUserQuestion`/, /ask which is true — `AskUserQuestion`/, /One `AskUserQuestion` — but seven profiles do not fit in it/]],
     ['scaffold-delegation.md', rd('skills/bigin-harness-setup/references/scaffold-delegation.md'), [/Gather every decision now\*\*, with `AskUserQuestion`/]],
     ['decision-bundle.md', rd('skills/bigin-harness-setup/references/decision-bundle.md'), [/one bundled `AskUserQuestion` call/]],
+    // discovery-workflow's only ask site: step 2.5's framing choice. Same rule, same
+    // failure if it regresses — a fenced block of options reads as something to print,
+    // and the typed answer arrives with no descriptions and no validation.
+    ['discovery-workflow/SKILL.md', rd('skills/discovery-workflow/SKILL.md'), [/\*\*Ask with `AskUserQuestion`, at most 4 options\*\*/]],
+    ['framing.md', rd('skills/discovery-workflow/references/framing.md'), [/\*\*Use `AskUserQuestion`\.\*\*/, /At most 4 options/]],
   ]
   for (const [file, body, pats] of sites)
     for (const p of pats)

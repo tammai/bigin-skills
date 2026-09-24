@@ -6,6 +6,8 @@
   {"query":"we need a product brief before we start on this","should_trigger":true},
   {"query":"work out what this repo does today and what the next version should be","should_trigger":true},
   {"query":"discovery for the new onboarding flow","should_trigger":true},
+  {"query":"brainstorm a few directions for this before we commit to one","should_trigger":true},
+  {"query":"what are some different ways we could approach this problem","should_trigger":true},
   {"query":"what are the acceptance criteria for the workspace invites feature","should_trigger":true},
   {"query":"break this epic down into units I can ship one at a time","should_trigger":false},
   {"query":"implement the rate limiter for the public API endpoints","should_trigger":false},

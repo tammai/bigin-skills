@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.102.0] - 2026-09-24
+
+### Added
+
+- **`discovery-workflow` now diverges before it narrows.** Every technique it had was an *extraction* technique: the seven in `elicitation.md` pull out what the user already implicitly knows about a thing they can already name. That is the right instrument once the shape is settled and the wrong one when it is not — an ask of "we want a portal" ran straight through to a good PRD for a portal, and nothing ever asked whether a portal was the right shape. The only place alternatives were weighed was `epic-workflow`'s design doc, which is architecture, after the *what* is decided.
+
+  **Step 2.5 offers up to four framings**, each one a stance rather than a proposal: the problem it treats as primary, the user it serves, **what it refuses to do**, and the first slice that would prove it right. The user picks one, merges two, or writes their own in "Other". New reference `references/framing.md` carries the substance.
+
+  **The refusal line is the load-bearing one**, and the four distinctness rules exist because of it: vary the primary user rather than the feature list; vary the mechanism class (replace the manual process / make it visible / remove the need for it); always include the cheapest intervention that could plausibly work, as the baseline the others must earn their cost against; and collapse any two framings whose first slice is identical. Three framings with the same non-goals are one framing with three names, and the user cannot tell them apart until after they have picked.
+
+  **It spends no extra budget.** The framing round *is* elicitation round 1 — the cap stays 3 rounds, 4 questions each, 12 for the discovery, and `elicitation.md` remains the single source for those numbers with `framing.md` pointing at them. A phase that quietly added a fourth round would make every discovery longer, which is the opposite of the point. It skips outright when the user arrives having already decided the shape, when the existing product fixes the framing, or when a constraint admits one approach — and says so in one line rather than skipping silently.
+
+  **It writes nothing.** Framings live in the conversation; the chosen one seeds the brief's Problem, Users, Outcome and Non-goals at step 4, which still presents and waits. The losers get one line each in the brief's new `## Framings considered` section — the same argument `epic-workflow`'s design doc already makes for `## Alternatives considered`, and it holds harder here, where the decision is older and the next session has less context. Three lines, and next quarter does not regenerate the same three options.
+
+  Deliberately **not** a standalone `brainstorm` skill: it would need its own copy of the triage ladder, the question cap and both approval gates, which is the drift this repo keeps paying down. Rungs 1 and 2 never reach the step; the ladder exits before it.
+
+- **Three regress cases**, two of them by extending checks that were scoped to `bigin-harness-setup`. Every ask site in `discovery-workflow` must name `AskUserQuestion` and state `At most 4 options` — four is the tool's cap, and v1.98.1/v1.98.2 is what re-learning that costs. And a case asserting the budget is stated once: `elicitation.md` holds the totals, `framing.md` may not invent a fourth round. Mutation-checked — claiming 4 rounds, dropping the tool name, and raising the stated option cap each turn one red.
+
+  Worth recording precisely, because it is a limit of an older check: the `no ask site promises more options than the tool allows` regex requires no `.` between the tool name and the number, so it does not fire on `framing.md`'s prose style. The stated cap there is protected by the literal `At most 4 options` assertion instead, which is what the mutation confirms.
+
+**No patch block.** Nothing here is templated into a target repo — `discovery-workflow` is read live from the plugin, so every repo gets this the moment the plugin updates.
+
 ## [1.101.1] - 2026-09-23
 
 ### Fixed
