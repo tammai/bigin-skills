@@ -277,7 +277,8 @@ model-router scores the task
         ↓
   spawns quick-executor | standard-worker | deep-architect
         ↓
-  implementer writes code, runs lint + typecheck + tests itself
+  implementer writes code, runs lint + typecheck + the tests covering it
+  (full suite once, on PASS, before Review)
         ↓
   a FRESH verifier subagent audits the DIFF against PLAN.md
    (read-only, no memory, never sees the implementer's summary)

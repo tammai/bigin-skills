@@ -5,6 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.103.0] - 2026-09-29
+
+### Changed
+
+- **"Tests" now says which tests.** `standard-worker`, `standard-worker-high` and `deep-architect` each said "lint + typecheck + tests", and `task-workflow` made the implementer pass "lint + typecheck + tests" before reporting any diff. With no scope, "tests" reads as "the suite", and the fix loop runs up to three rounds — so a task paid for the whole suite once per round. In one product rebuild, agents from this plugin made about 110 test runs, and the orchestrator ran most of the rest itself, in the context that carries the whole session into every turn.
+
+  Now: each round runs the tests covering what the diff touches (changed packages, files or specs) and a fix round re-runs only those. On `PASS`, the orchestrator resumes the implementer once more to run the **full** suite a single time and takes that output as the evidence — it never runs a suite itself. A cadence the caller sets (a pipeline brief, or `PLAN.md`'s Testing strategy) overrides both. The worker agents also background any run over about two minutes and treat the process exit as the signal, because a lane that watched a long run with a Monitor (which expires at 30 minutes) sat idle for up to 2½ hours after the run had ended.
+
+- **`go`: DB-backed tests pay for Postgres once, not per test.** `go-scaffold` ships only database-free tests and `conventions.md` said nothing about the other kind, so each project invented its own — and one ran `initdb` plus all 56 migrations before every test: ~2s of setup around assertions that take milliseconds, a 7–10 minute `go test ./...`. Caching the migrated cluster and cloning it per test brought that to 4½ minutes with isolation unchanged. `conventions.md` `## Testing` now says to start and migrate once per package and give each test a fresh database from that state, and to measure setup cost.
+
+- **`nuxt`: a Vitest worker cap, and E2E that is not throttled by its own backend.** `nuxt-scaffold`'s `vitest.config.ts` now sets `maxWorkers: 4` — the default is one fork per core, each booting a Nuxt environment, and at 12 one repo pegged its machine at load 25–48. `testing.md` gains `## Workers` and `## E2E (when the repo has Playwright)`, and its `paths:` now cover `e2e/**` and `playwright.config.ts` so the rule loads where E2E is written. The E2E rule comes from a suite that signed up a fresh user and workspace through the app for every test, against a backend allowing 100 requests a minute: a second worker failed 24 of 43 specs on 429 pages, so it ran at one worker for ~25 minutes and one spec was re-run 23 times in a session. Arrange state through a path the limiter does not count, log in once per worker with `storageState`, run one spec while building and the full suite once, and treat a 429 or a pass-on-rerun as a harness finding rather than a flake.
+
+**Patch blocks** below update `.claude/rules/conventions.md` (go) and `.claude/rules/testing.md` (nuxt) in already-scaffolded repos. Each is `optional: true` because its anchor exists in only one profile. There is no block for `vitest.config.ts`: a scaffolder writes a repo once and never returns to it, so an existing Nuxt repo adds `maxWorkers: 4` to its `test` block by hand. Two further manual steps for an existing `nuxt` repo, neither of which reduces to a safe anchor: add `- "e2e/**"` and `- "playwright.config.ts"` to `testing.md`'s `paths:` (its frontmatter ends in a `---` line, which is also a patch block's separator, and the two path lines above it are shared with `nuxt-marketing`), so the E2E section loads where E2E is written.
+
+```patch
+target: .claude/rules/conventions.md
+anchor: - `internal/arch` tests the checker as well as the repo. If you add a boundary rule, add both fixtures: the illegal import it catches and the legal shape it must not.
+insert: after
+optional: true
+---
+- **Tests that need a real Postgres pay for it once, not per test.** Start the server and apply the migrations once per package (`TestMain`, or a `sync.Once` in a shared `internal/testutil`), then give each test a fresh database from that migrated state: `CREATE DATABASE t_<n> TEMPLATE <migrated>`, or a copy-on-write clone of a stopped, migrated data directory when each test needs its own server. Never `initdb` + all migrations per test: at 56 migrations that was ~2s of setup around assertions taking milliseconds, and it made `go test ./...` 7–10 minutes instead of 4½.
+- Measure it. Time one DB-backed package with `go test -v -count=1` and compare the slowest tests to what they assert; setup that dominates is a harness bug, fixed before anyone starts skipping the suite to save time.
+```
+
+```patch
+target: .claude/rules/testing.md
+anchor: Mock only the true I/O boundary — `$fetch`, session read/write (`getUserSession`/`setUserSession`). Wire real implementations of internal collaborators (your own composables, utils, server helpers) as globals instead of mocking them — mocking internals couples tests to implementation and hides real breakage.
+insert: after
+optional: true
+---
+
+## Workers
+`vitest.config.ts` caps `maxWorkers` at 4. Vitest's default is one fork per core, and each fork boots a Nuxt environment: at 12 workers one repo pegged its machine at load 25–48 and ran slower, not faster. Raise the cap only with a measurement that says more workers finished sooner.
+
+## E2E (when the repo has Playwright)
+The suite is only as fast as its slowest shared resource, and in a BFF that is almost never the browser.
+
+- **Arrange state without the UI, and without the rate limiter.** A fixture that signs up a user and creates a workspace through the app for every test spends the backend's rate-limit budget on setup. One repo's backend allowed 100 requests a minute from one address; with a fresh user per test, a second worker failed 24 of 43 specs on HTTP 429 pages, so the suite ran at one worker for ~25 minutes. Seed through a path the limiter does not count (a test-only seeding endpoint, direct database seeding, or a raised limit in the backend's E2E environment), and derive `workers` from that budget rather than hard-coding it.
+- **Log in once per worker, not once per test.** Save the session with `storageState` in a worker-scoped fixture; specs that only read share it. A spec that mutates what others read gets its own user.
+- **Run one spec while building** (`playwright test <spec>` or `--grep`). The full suite runs once, when the task or slice is done — a green single spec is the loop, not a re-run of everything.
+- **A 429, a timeout in fixture setup, or a red that passes on rerun is a harness finding, not a flake to retry.** Fix the fixture or the budget; re-running until green hides the one real failure the next time it happens.
+```
+
 ## [1.102.0] - 2026-09-24
 
 ### Added

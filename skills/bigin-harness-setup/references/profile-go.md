@@ -171,6 +171,8 @@ Create the four layers plus `module.go`, embed its `Handlers` in `internal/api/s
 - Cover the negative cases directly: expired token, foreign signing secret, `alg=none`, unlisted CORS origin, replayed refresh token, and an unclassified error not leaking its text.
 - Nil-guard tests (e.g. `/readyz` with no DB connected) are worth keeping — they catch the class of bug that only shows up when a dependency is legitimately absent.
 - `internal/arch` tests the checker as well as the repo. If you add a boundary rule, add both fixtures: the illegal import it catches and the legal shape it must not.
+- **Tests that need a real Postgres pay for it once, not per test.** Start the server and apply the migrations once per package (`TestMain`, or a `sync.Once` in a shared `internal/testutil`), then give each test a fresh database from that migrated state: `CREATE DATABASE t_<n> TEMPLATE <migrated>`, or a copy-on-write clone of a stopped, migrated data directory when each test needs its own server. Never `initdb` + all migrations per test: at 56 migrations that was ~2s of setup around assertions taking milliseconds, and it made `go test ./...` 7–10 minutes instead of 4½.
+- Measure it. Time one DB-backed package with `go test -v -count=1` and compare the slowest tests to what they assert; setup that dominates is a harness bug, fixed before anyone starts skipping the suite to save time.
 ```
 
 ---

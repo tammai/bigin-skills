@@ -184,13 +184,15 @@ Never define API response shapes inline — always use generated types.
 
 ## testing.md Template
 
-Paths frontmatter scopes this file to tests/ + vitest.config.ts — only loaded when test files are in context.
+Paths frontmatter scopes this file to tests/, e2e/ and the two runner configs — only loaded when test files are in context.
 
 ```markdown
 ---
 paths:
   - "tests/**"
   - "vitest.config.ts"
+  - "e2e/**"
+  - "playwright.config.ts"
 ---
 # Testing Conventions
 
@@ -213,6 +215,17 @@ import { foo } from '~~/app/utils/foo'
 Server tests run outside Nitro's auto-import context — `defineEventHandler`, `useRuntimeConfig`, etc. aren't globally available. Stub them via a shared `tests/support/` helper, not per-test.
 
 Mock only the true I/O boundary — `$fetch`, session read/write (`getUserSession`/`setUserSession`). Wire real implementations of internal collaborators (your own composables, utils, server helpers) as globals instead of mocking them — mocking internals couples tests to implementation and hides real breakage.
+
+## Workers
+`vitest.config.ts` caps `maxWorkers` at 4. Vitest's default is one fork per core, and each fork boots a Nuxt environment: at 12 workers one repo pegged its machine at load 25–48 and ran slower, not faster. Raise the cap only with a measurement that says more workers finished sooner.
+
+## E2E (when the repo has Playwright)
+The suite is only as fast as its slowest shared resource, and in a BFF that is almost never the browser.
+
+- **Arrange state without the UI, and without the rate limiter.** A fixture that signs up a user and creates a workspace through the app for every test spends the backend's rate-limit budget on setup. One repo's backend allowed 100 requests a minute from one address; with a fresh user per test, a second worker failed 24 of 43 specs on HTTP 429 pages, so the suite ran at one worker for ~25 minutes. Seed through a path the limiter does not count (a test-only seeding endpoint, direct database seeding, or a raised limit in the backend's E2E environment), and derive `workers` from that budget rather than hard-coding it.
+- **Log in once per worker, not once per test.** Save the session with `storageState` in a worker-scoped fixture; specs that only read share it. A spec that mutates what others read gets its own user.
+- **Run one spec while building** (`playwright test <spec>` or `--grep`). The full suite runs once, when the task or slice is done — a green single spec is the loop, not a re-run of everything.
+- **A 429, a timeout in fixture setup, or a red that passes on rerun is a harness finding, not a flake to retry.** Fix the fixture or the budget; re-running until green hides the one real failure the next time it happens.
 ```
 
 ---

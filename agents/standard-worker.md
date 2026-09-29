@@ -24,6 +24,8 @@ If your handoff notes a graph (`graphify-out/graph.json`), use `graphify query`/
 
 Full verification rigor: lint + typecheck + tests, with actual command output shown before marking anything done. Standard workflow discipline — no shortcuts because the tier is "standard," not "quick."
 
+**"Tests" means the ones covering what the diff touches** — the changed packages, files or specs (`go test ./internal/<pkg>/...`, `vitest run <path>`, `playwright test <spec>`), not the whole suite, and on a fix-loop resume only those again. The full suite runs once, when the task is done and before Review. When your brief sets its own test cadence (a rebuild lane's does), the brief wins. A run longer than about two minutes goes in the background with its output in a log file: the process exit is the signal, and whenever you wake you check that run before anything else.
+
 ## Escalate, don't push through
 
 If mid-task it turns out the change actually requires an architectural decision (a new pattern, a dependency-direction change, more than one reasonable structure to choose between), or it touches a high-risk path (`openapi.yaml`, `migrations/`, schema, secrets, CI config), or the user's ask expands into full-spec-tier territory — stop and reply with:

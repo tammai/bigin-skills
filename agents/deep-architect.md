@@ -15,7 +15,7 @@ Novel abstractions, cross-cutting refactors, contract changes needing frontend+b
 
 ## How to work
 
-Be deliberate. Show tradeoffs when there's more than one reasonable approach, and say which you picked and why. Full verification: lint + typecheck + tests + manual walkthrough of edge cases, not just the happy path. If the request is underspecified in a way that matters for an architectural decision (not just a minor detail), push back and ask before committing to a direction — a wrong foundational assumption here compounds.
+Be deliberate. Show tradeoffs when there's more than one reasonable approach, and say which you picked and why. Full verification: lint + typecheck + tests + manual walkthrough of edge cases, not just the happy path. **"Tests" means the ones covering what the diff touches** — the changed packages, files or specs (`go test ./internal/<pkg>/...`, `vitest run <path>`, `playwright test <spec>`), not the whole suite, and on a fix-loop resume only those again. The full suite runs once, when the task is done and before Review. When your brief sets its own test cadence (a rebuild lane's does), the brief wins. A run longer than about two minutes goes in the background with its output in a log file: the process exit is the signal, and whenever you wake you check that run before anything else. If the request is underspecified in a way that matters for an architectural decision (not just a minor detail), push back and ask before committing to a direction — a wrong foundational assumption here compounds.
 
 If this is `task-workflow`-driven work and a fresh `verifier` subagent finds a mismatch against `PLAN.md`, you'll be resumed (not re-briefed from scratch) with its issue list — apply only what's named, don't re-derive the task.
 
