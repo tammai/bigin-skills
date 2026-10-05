@@ -111,7 +111,7 @@ The skill detects your stack, asks a small batch of questions **before writing a
 | --- | --- | --- |
 | Knowledge bundle & graph | knowledge + graphify | `knowledge/` holds decisions and invariants (the "why"); `graphify-out/` is a structural code graph for navigation |
 | CI config | auto-detected from your git remote | Generates a workflow running lint + typecheck + test on push and PRs |
-| Model ladder | `opus-centric` | Which models the three execution tiers spawn on — see [§7](#7-tuning-cost-and-depth) |
+| Model ladder | `balanced` | Which models the two execution tiers and the verifier spawn on — see [§7](#7-tuning-cost-and-depth) |
 | Agent hosts | auto-detected — `both` if `.cursor/` exists, else `claude` | Whether to also generate the Cursor mirror so the same rules and gates apply in Cursor — see [`GATES.md` §7](GATES.md#7-the-same-gates-in-cursor) |
 
 If the repo is empty, the app itself gets scaffolded first (by `nuxt-scaffold` / `nuxt-marketing-scaffold` / `next-scaffold` / `go-scaffold` / `nodejs-scaffold`, by `flutter create` for the `flutter` profile, or by `nuxt-scaffold` followed by `pnpm tauri init` for `tauri`), and the governance layer is overlaid on top additively. A `nuxt-marketing` repo that arrives from the Marketing Site Factory's template is already scaffolded and skips that step, like any other repo whose marker file exists.
@@ -241,7 +241,7 @@ Trigger it with plain language — "implement X", "add a feature", "fix the bug 
 | **1. Scope + triage** | States in one sentence what's changing and why, then checks it against the shared ladder. **Only rung 1 continues** — rung 2 stops and hands to `epic-workflow`, rung 3 to `discovery-workflow` | Skim it. If it misread you, correct it now — it's one sentence, not a diff. |
 | **2. Spec gate** | Drafts a spec and **stops** | **Approve, edit, or reject.** Nothing downstream can fix a spec you waved through. |
 | **3. Plan file** | Writes the approved spec + task table to `PLAN.md`, reads it back for coverage, then mirrors the rows into Claude Code's task list (3+ rows only — one-way and disposable; `PLAN.md` stays canonical) | Nothing. |
-| **4. Implement/verify** | Routes to a tier, implements, then spawns an independent verifier. Loops up to 3× on FAIL. Skipped entirely only when the spec gate was skipped **and** the verification bar came back "normal gates" — then it implements inline and just runs lint/typecheck/tests. | Nothing, unless the tier comes back `deep-architect` (it asks) or the round cap is hit. |
+| **4. Implement/verify** | Routes to a tier, implements, then spawns an independent verifier. Loops up to 3× on FAIL. Skipped entirely only when the spec gate was skipped **and** the verification bar came back "normal gates" — then it implements inline and just runs lint/typecheck/tests. | Nothing, unless the tier comes back architect (it asks) or the round cap is hit. |
 | **5. Review** | Asks whether to run `/code-review` (+ `/security-review` if the change touches auth/secrets/PII/untrusted input) | Say yes or no. Neither runs automatically. |
 | **6. Cleanup** | Archives `PLAN.md` verbatim out of the repo root, proposes distilling anything durable into `knowledge/`, proposes a graph rebuild | Approve or decline the proposals. |
 
@@ -271,14 +271,14 @@ If the request is too vague to fill the spec confidently, the agent asks up to 3
 
 Say **"write a full spec"** / **"AI-friendly spec"** / **"spec-driven"**. That adds User Stories, numbered Functional Requirements, an API Contract, a Data Model, a Component Tree (frontend only), and a `Covers` column linking every task to the requirement it implements.
 
-It's **opt-in only** — the workflow will never escalate to it because a task "feels big." The single exception: if capability scoring comes back `deep-architect`, it offers the full format once, with its reasoning, and you pick.
+It's **opt-in only** — the workflow will never escalate to it because a task "feels big." The single exception: if capability scoring comes back on the architect tier, it offers the full format once, with its reasoning, and you pick.
 
 ### The implement/verify loop, concretely
 
 ```
 model-router scores the task
         ↓
-  spawns quick-executor | standard-worker | deep-architect
+  spawns worker | architect  (or their -frontier variants)
         ↓
   implementer writes code, runs lint + typecheck + the tests covering it
   (full suite once, on PASS, before Review)
@@ -517,54 +517,64 @@ Caps `CLAUDE.md` at 60 lines, unscoped rule files at 40, and each skill and agen
 
 ## 7. Tuning cost and depth
 
-Full guide — the three ladders, how a tier is scored, the verification bar, and why effort isn't settable: [`ROUTING.md`](ROUTING.md).
+Full guide — the two ladders, how a tier is scored, the verification bar, and why effort isn't settable: [`ROUTING.md`](ROUTING.md).
 
-Three execution tiers, each a subagent, plus the verifier. Your chosen ladder sets both the model and the effort of each.
+Two execution tiers, each a subagent, plus the verifier. Your chosen ladder sets both the model and the effort of each.
 
-| Tier | Subagent (default ladder) | Effort | Used for |
+```mermaid
+flowchart LR
+    S["capability score"] -->|"0–4"| W["worker tier"]
+    S -->|"5+ or auto-override"| A["architect tier"]
+    W --> P{"profile"}
+    A --> P
+    P -->|balanced| B["worker · sonnet/high<br/>architect · opus/medium"]
+    P -->|frontier| F["worker-frontier · opus/medium<br/>architect-frontier · opus/high"]
+    B --> V["verifier · sonnet/high<br/>audits the diff"]
+    F --> V
+```
+
+| Tier | Subagent (default ladder) | Model / effort | Used for |
 | --- | --- | --- | --- |
-| Quick | `quick-executor` | low | Mechanical, single-file, low-risk |
-| Standard | `standard-worker` | medium | Default — most feature and bug-fix work |
-| Deep | `deep-architect` | high | Architecture, breaking contracts, row-transforming migrations |
-| — | `verifier` | high | Read-only audit, spawned alongside whichever tier implemented |
+| Worker | `worker` | sonnet/high | Capability 0–4: from a copy fix to most feature and bug-fix work |
+| Architect | `architect` | opus/medium | Capability 5+ or an auto-override: architecture, breaking contracts, row-transforming migrations, unknown-root-cause bugs, full-spec plans |
+| — | `verifier` | sonnet/high | Read-only audit, spawned alongside whichever tier implemented |
 
-`high` is the documented default effort, and **nothing pins above it on any ladder.** Quick and standard route *down* — mechanical and pattern-following work doesn't need full effort, especially with an approved `PLAN.md` already naming the files and edge cases. The checking a higher pin would buy is supplied structurally instead, by the verifier round.
+**Nothing pins above `high` on any ladder.** The checking a higher pin would buy is supplied structurally instead, by the verifier round.
 
 ### Pick a ladder
 
 Set it in your repo's `.claude/model-routing.json`:
 
-| Profile | quick | standard | deep | verifier | Pick it when |
-| --- | --- | --- | --- | --- | --- |
-| `opus-centric` (default) | sonnet/low | opus/medium | opus/high | sonnet/high | The cost-aware default. Standard runs at `medium` and leans on the verifier round; the deep tier escalates on **effort**, not on model. |
-| `frontier` | sonnet/low | opus/high | fable/high | sonnet/high | Everything above quick at full effort, deep on the top model. Pay up front rather than per verifier round. |
-| `lean` | sonnet/low | sonnet/high | opus/high | sonnet/high | Cost-first, trading the other way: a cheaper standard tier run at *fuller* effort. Deep still escalates to opus, and the verifier stays at `high` like everywhere else. |
+| Profile | worker | architect | verifier | Pick it when |
+| --- | --- | --- | --- | --- |
+| `balanced` (default) | sonnet/high | opus/medium | sonnet/high | The cost-aware default. Volume work on Sonnet at full effort; Opus only for architect-tier work, at its own default effort. |
+| `frontier` | opus/medium | opus/high | sonnet/high | Capability first: worker-tier work on Opus, architect one effort step higher. Same verifier. |
 
-`opus-centric` is the only ladder that runs the standard tier below `high` — the other two differ from each other on model, not effort. Switch to `frontier` when you keep seeing either failure mode: standard-tier work returning verifier `FAIL`s, or a model that had full context, clearly tried, and still got the structure wrong.
+Switch to `frontier` when worker-tier work keeps returning verifier `FAIL`s that a stronger model would have avoided — a model that had full context, clearly tried, and still got it wrong.
 
-Per-tier **model** overrides layer on top. There is no `effort` key — setting one is ignored with a warning:
+Per-tier **model** overrides layer on top — Fable is reachable only this way. There is no `effort` key — setting one is ignored with a warning:
 
 ```json
-{ "profile": "opus-centric", "models": { "deep": "fable" } }
+{ "profile": "balanced", "models": { "architect": "fable" } }
 ```
 
-**Precedence:** something you say in the request ("run this one on fable") > `.claude/model-routing.json` > the `opus-centric` default. A malformed config never blocks routing — it degrades to the default and tells you. Deleting the file is safe.
+**Precedence:** something you say in the request ("run this one on fable") > `.claude/model-routing.json` > the `balanced` default. A malformed config never blocks routing — it degrades to the default and tells you. Deleting the file is safe. A file still naming the retired `opus-centric`/`lean` profiles or `quick`/`standard`/`deep` keys is malformed in exactly that way: rename them (see the v1.105.0 CHANGELOG entry).
 
 ### Why effort isn't a config key
 
-Claude Code's Agent tool takes a `model` argument but no `effort` one — effort is read from the agent file being spawned. So when a ladder wants a tier at a different effort, the router spawns a *different agent file*: `standard-worker-high` under `frontier` and `lean`, identical to its base except for the pin. The variant fixes only the effort — it still runs on `opus` under `frontier` and `sonnet` under `lean`. (`verifier-medium` is the same mechanism for the verifier tier, and since 1.100.0 no ladder uses it.)
+Claude Code's Agent tool takes a `model` argument but no `effort` one — effort is read from the agent file being spawned. So when a ladder wants a tier at a different effort, the router spawns a *different agent file*: `worker-frontier` and `architect-frontier` under `frontier`, identical to their bases except for the frontmatter pins.
 
-You'll only notice this in the routing line ("Routed to standard-worker-high on sonnet"). What it does mean practically: **switching ladders changes effort, but a one-off request can't.** "Run this on fable" works; "run this at max effort" has nothing to set, and the router will tell you so rather than quietly ignoring it.
+You'll only notice this in the routing line ("Routed to worker-frontier on opus"). What it does mean practically: **switching ladders changes effort, but a one-off request can't.** "Run this on fable" works; "run this at max effort" has nothing to set, and the router will tell you so rather than quietly ignoring it.
 
 ### Two axes, not one
 
-`model-router` scores **capability** (can the model do this at all → picks the tier) and **verification** (how carefully must this be checked → sets the gate discipline) *separately*. A change can be mechanically simple and still need heavy verification — touching a contract, a migration, or CI. In that case the quick tier gets skipped in favor of `standard-worker`, even though the capability score was low.
+`model-router` scores **capability** (can the model do this at all → picks the tier) and **verification** (how carefully must this be checked → sets the gate discipline) *separately*. A change can be mechanically simple and still need heavy verification — touching a contract, a migration, or CI. In that case the worker tier still runs it, and the payload demands the heavier checking.
 
-Verification bar triggers: high-risk path, test coverage under 0.3, a planned new code file, 5+ files, flaky symptoms. Coverage and "new file" only look at code types the script can find a test for (`.js .jsx .ts .tsx .mjs .cjs .vue .go .py .dart .rs`). A new doc or config file is not a "new file" for routing, so a plan that adds a new doc page or JSON config no longer gets pushed off the quick tier for it.
+Verification bar triggers: high-risk path, test coverage under 0.3, a planned new code file, 5+ files, flaky symptoms. Coverage and "new file" only look at code types the script can find a test for (`.js .jsx .ts .tsx .mjs .cjs .vue .go .py .dart .rs`). A new doc or config file is not a "new file" for routing, so a plan that adds a new doc page or JSON config doesn't trip tests-first for it.
 
 ### The one confirmation you'll see
 
-If scoring lands on `deep-architect`, the workflow **pauses and asks** before spawning it — it's the most expensive tier (`opus/high` by default) and the biggest behavior swing. `standard-worker` and `quick-executor` spawn without asking.
+If scoring lands on the architect tier, the workflow **pauses and asks** before spawning it — it's the most expensive tier (opus on both ladders) and the biggest behavior swing. The worker tier spawns without asking.
 
 Rationale per tier lives in [`skills/model-router/references/model-profiles.md`](../skills/model-router/references/model-profiles.md).
 
@@ -643,7 +653,7 @@ Check two lines: `Status:` must read `approved`, and `Branch:` must match `git b
 At 3 rounds the loop stops and shows you the issue list. Usually the plan is wrong, not the code — the implementer is doing what `PLAN.md` says and the verifier is comparing against something else. Fix `PLAN.md`, then continue.
 
 **"The agent picked an expensive tier."**
-Say which one you want: "run this on the quick tier" or "use sonnet." An explicit instruction skips scoring entirely and takes precedence over everything.
+Say which one you want: "run this on the worker tier" or "use sonnet." An explicit instruction skips scoring entirely and takes precedence over everything.
 
 **"Pre-commit fails on the context budget."**
 `CLAUDE.md` went over 60 lines or an unscoped rule went over 40. Move the content into a path-scoped rule file with `paths:` frontmatter. See [§6](#6-living-with-the-gates).
@@ -668,9 +678,9 @@ Probably the injection gate (stage 2) after a recent web fetch. Check what was f
 | **Repo type** | Which repo of a *polyrepo project* this is — `specs`, `contracts`, `api`, `web`, `mobile`, `qa`, or `none`. Read from the repo name and confirmed, before any stack detection. `specs`/`contracts`/`qa` replace the profile; `api`/`web`/`mobile` sit alongside it and add the vendored-contract overlay. |
 | **Guard** | A hook script under `.claude/guards/` that blocks or confirms a tool call. The load-bearing part of the system. |
 | **Gate** | A checkpoint that fails closed — the spec gate, the pre-commit script, the budget gate. |
-| **Tier** | One of the three execution subagents: quick / standard / deep. |
-| **Ladder** | The model *and effort* assigned to each tier: `opus-centric` (default), `frontier`, or `lean`. |
-| **Effort variant** | A second copy of a tier's agent that differs only in its effort pin (`standard-worker-high`, `verifier-medium`). Exists because effort can't be passed at spawn time. |
+| **Tier** | One of the two execution tiers: worker / architect. |
+| **Ladder** | The model *and effort* assigned to each tier: `balanced` (default) or `frontier`. |
+| **Variant** | A second copy of a tier's agent with the same body and different frontmatter pins (`worker-frontier`, `architect-frontier`). Exists because effort can't be passed at spawn time. |
 | **Verifier** | A fresh, read-only, memoryless subagent that audits a diff against `PLAN.md`. |
 | **Bundle** | The `knowledge/` directory — concept files holding decisions, invariants, and pinned library APIs, plus `implementation/`, the append-only record log written at task and epic cleanup. |
 | **Three-tier loading** | Always-loaded `CLAUDE.md` → path-scoped rules → on-demand skills. How the context budget stays small. |

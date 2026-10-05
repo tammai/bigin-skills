@@ -9,7 +9,7 @@ The canonical references are [`references/model-profiles.md`](../skills/model-ro
 **Contents**
 
 1. [Two axes, not one](#1-two-axes-not-one)
-2. [The three ladders](#2-the-three-ladders)
+2. [The two ladders](#2-the-two-ladders)
 3. [How a tier gets chosen](#3-how-a-tier-gets-chosen)
 4. [The verification bar](#4-the-verification-bar)
 5. [Effort, and why you can't set it](#5-effort-and-why-you-cant-set-it)
@@ -24,7 +24,7 @@ The canonical references are [`references/model-profiles.md`](../skills/model-ro
 
 Those are different questions with different inputs, so they're scored separately:
 
-- **Capability** → picks the tier (`quick` / `standard` / `deep`). Inputs: is there a pattern to follow, is there a structural judgment call, is the problem understood, how many files at once.
+- **Capability** → picks the tier (`worker` / `architect`). Inputs: is there a pattern to follow, is there a structural judgment call, is the problem understood, how many files at once.
 - **Verification** → sets the bar (what the payload demands). Inputs: high-risk paths, coverage, new files, breadth, flaky symptoms.
 
 A change can be mechanically trivial and still need heavy checking — a one-line edit to a contract or a migration. Scoring them together would either overpay for the model or underpay for the checking. Notably, **reversibility and blast radius are deliberately not capability signals**; they belong to the verification axis.
@@ -32,61 +32,69 @@ A change can be mechanically trivial and still need heavy checking — a one-lin
 ```mermaid
 flowchart TD
     A["classify.mjs --paths<br/>planned scope"] --> B{"Auto-override?"}
-    B -->|"full-spec PLAN.md ·<br/>breaking contract ·<br/>row-transforming migration"| D["Deep"]
+    B -->|"full-spec PLAN.md ·<br/>breaking contract ·<br/>row-transforming migration ·<br/>unknown root cause"| AR["Architect tier"]
     B -->|no| C["Score 4 capability signals"]
-    C -->|"0–1"| Q["Quick"]
-    C -->|"2–4"| S["Standard"]
-    C -->|"5+"| D
+    C -->|"0–4"| W["Worker tier"]
+    C -->|"5+"| AR
+
+    W --> R["routing.agents[tier] +<br/>routing.models[tier]<br/>(profile: balanced · frontier)"]
+    AR --> R
 
     A --> V["Verification bar<br/>(independent)"]
     V --> P["Spawn payload<br/>definition-of-done"]
-    Q --> P
-    S --> P
-    D --> P
+    R --> P
 ```
 
-The bar never changes which model runs. It changes what the spawned agent is required to deliver.
+The bar never changes which tier or model runs. It changes what the spawned agent is required to deliver.
 
 ---
 
-## 2. The three ladders
+## 2. The two ladders
 
 A profile sets both the model and the effort of every tier.
 
-| Profile | quick | standard | deep | verifier |
-|---|---|---|---|---|
-| `opus-centric` (default) | `sonnet`/low | `opus`/medium | `opus`/high | `sonnet`/high |
-| `frontier` | `sonnet`/low | `opus`/high | `fable`/high | `sonnet`/high |
-| `lean` | `sonnet`/low | `sonnet`/high | `opus`/high | `sonnet`/high |
+| Profile | worker | architect | verifier |
+|---|---|---|---|
+| `balanced` (default) | `sonnet`/high | `opus`/medium | `sonnet`/high |
+| `frontier` | `opus`/medium | `opus`/high | `sonnet`/high |
 
-**`opus-centric`** — the cost-aware default. Its standard tier runs `opus` at `medium` and leans on the verifier round for the checking. Under this ladder the deep tier's entire escalation over standard is **effort**, not model — both run `opus`. That's the design: work reaching deep is diagnosed as "didn't check its work," which is the effort axis.
+**`balanced`** — the cost-aware default. The worker tier, which takes everything from a copy fix to a multi-file feature on an established pattern, runs on Sonnet 5.5 at full effort: half Opus's per-token price, with effort buying the thoroughness that pattern-following work mostly needs. Opus is spent only on architect-tier work, at `medium` — its own default.
 
-**`frontier`** — everything above quick at full effort, deep on the top model. Opt in when architectural calls are frequent, or when standard-tier work at `medium` returns verifier `FAIL`s often enough that paying up front beats paying per loop round.
+**`frontier`** — capability first. Worker-tier work moves to Opus at its default effort, and the architect tier gets one step more (`high`). Opt in when worker-tier misses are "it tried and got it wrong" rather than "it skipped a step", or when architectural calls are frequent and expensive to get wrong.
 
-**`lean`** — cost-first, trading the other way: a cheaper model at fuller effort. Standard drops `opus`→`sonnet` but keeps `high`, buying back with thoroughness what it gives up in capability. The saving is taken on the model axis only; the verifier runs at `high` here as everywhere.
+Fable is on neither ladder. It is reachable as a per-tier override (`"models": { "architect": "fable" }`), at two and a half times Opus's price.
 
 ### The agent is not the tier name
 
-Effort can't be passed at spawn time — it comes only from the spawned agent's frontmatter. So a profile that wants a tier at a non-default effort routes to a **variant agent**:
+Effort can't be passed at spawn time — it comes only from the spawned agent's frontmatter. So a profile that wants a tier at a different effort routes to a **variant agent**:
 
-| Tier | `opus-centric` | `frontier` | `lean` |
-|---|---|---|---|
-| Quick | `quick-executor` | `quick-executor` | `quick-executor` |
-| Standard | `standard-worker` | **`standard-worker-high`** | **`standard-worker-high`** |
-| Deep | `deep-architect` | `deep-architect` | `deep-architect` |
-| Verifier | `verifier` | `verifier` | `verifier` |
+| Tier | `balanced` | `frontier` |
+|---|---|---|
+| Worker | `worker` | **`worker-frontier`** |
+| Architect | `architect` | **`architect-frontier`** |
+| Verifier | `verifier` | `verifier` |
 
-The router spawns `routing.agents[tier]` verbatim rather than deriving a name from the tier. Deriving it would silently run the task at the wrong effort — which is invisible in the output.
+A `-frontier` agent has the same body as its base; only its name, model, effort and description differ, and the pre-commit gate keeps it that way. The router spawns `routing.agents[tier]` verbatim rather than deriving a name from the tier. Deriving it would silently run the task at the wrong effort — which is invisible in the output.
+
+```mermaid
+flowchart LR
+    T["tier from scoring"] --> K{"profile in<br/>.claude/model-routing.json"}
+    K -->|"balanced (or no file)"| B1["worker → worker · sonnet/high<br/>architect → architect · opus/medium"]
+    K -->|frontier| F1["worker → worker-frontier · opus/medium<br/>architect → architect-frontier · opus/high"]
+    B1 --> S["Agent tool:<br/>subagent_type + model"]
+    F1 --> S
+```
 
 ---
 
 ## 3. How a tier gets chosen
 
-**Auto-overrides first.** Three conditions skip scoring entirely and go straight to Deep:
+**Auto-overrides first.** Four conditions skip scoring entirely and go straight to the architect tier:
 
 - a full-spec `PLAN.md` already exists (`fullSpecDetected` — an explicit user signal)
 - a **breaking** contract change
 - a data migration that **transforms existing rows**
+- a bug whose **root cause is unknown**, however small the scope: with the worker tier on Sonnet, a confident wrong fix costs more than an architect run
 
 A high-risk path match is **not** an override. Additive contract changes and version bumps touch the same paths and are ordinary work. What high-risk paths do change is the verification bar.
 
@@ -99,9 +107,9 @@ A high-risk path match is **not** an override. Additive contract changes and ver
 | Problem understood | requirements + cause clear | some ambiguity | unfamiliar domain / unknown cause | |
 | Simultaneous context | ≤2 files | 3–9 files | 10+ files | |
 
-**0–1 → Quick · 2–4 → Standard · 5+ → Deep.**
+**0–4 → Worker · 5+ → Architect.**
 
-You're asked to confirm only when the score sits exactly on a bucket boundary *and* the signals were ambiguous. Separately, `task-workflow` pauses before spawning `deep-architect` regardless — it's the most expensive tier and the biggest behavior swing. Standard and quick spawn without asking.
+You're asked to confirm only when the score sits exactly on a bucket boundary *and* the signals were ambiguous. Separately, `task-workflow` pauses before spawning the architect tier regardless — it's the most expensive tier and the biggest behavior swing. The worker tier spawns without asking.
 
 **Signals come from planned scope, not the working tree.** Routing happens before work starts, so `classify.mjs` is called with `--paths` naming the files you're *about* to change. Without it, it falls back to uncommitted changes and then the branch diff — correct mid-task, wrong at the start.
 
@@ -109,7 +117,7 @@ You're asked to confirm only when the score sits exactly on a bucket boundary *a
 
 ## 4. The verification bar
 
-Set from the mechanical signals, independent of tier. **Triggers stack.**
+Set from the mechanical signals, independent of tier. **Triggers stack**, and none of them changes the tier.
 
 | Trigger | Bar |
 |---|---|
@@ -122,24 +130,19 @@ Set from the mechanical signals, independent of tier. **Triggers stack.**
 
 The bar travels in the spawn payload's **`definition-of-done`**, so an unmet bar is a concrete gap at return-evaluation rather than a footnote someone can wave through.
 
-One interaction worth knowing: `task-workflow` will spawn `standard` instead of `quick` whenever *any* bar trigger fired, even on a capability score of 0–1. A task adding a new code file therefore rarely runs at the quick tier — writing a fresh test suite is the part that doesn't belong at `low` effort.
-
 ---
 
 ## 5. Effort, and why you can't set it
 
-**`high` is the documented default** on every model that supports effort (only Opus 4.7 defaults to `xhigh`). The guidance is to use the default unless a failure diagnoses otherwise — a wrong answer despite full context means reach for a better **model**; a skipped file or unrun tests means raise **effort**. So every pin away from `high` has to earn it.
+The guidance is to stay at a model's default effort unless a failure diagnoses otherwise — a wrong answer despite full context means reach for a better **model**; a skipped file or unrun tests means raise **effort**. Defaults differ per model: Opus 5.5's is `medium`, so the `balanced` architect sits exactly at it. Every pin is argued against its own model's default in [`model-profiles.md`](../skills/model-router/references/model-profiles.md).
 
-Two pins are deliberately below default, and only under `opus-centric`:
+- **Worker at `high` on Sonnet (`balanced`)** — the cheaper model at full effort. Worker-tier failures are mostly "didn't check its work", which is the effort axis; the verifier round catches what still slips, on the tasks that actually miss.
+- **Worker at `medium` on Opus (`frontier`)** — the other trade: the stronger model at its default, for projects whose misses effort doesn't fix.
+- **Architect at `high` (`frontier`)** — one step above Opus's default, at the ceiling.
 
-- **Quick at `low`** — short, scoped, latency-sensitive work that isn't intelligence-sensitive. High effort on a mechanical single-file edit produces slow, hedged output; routing down is the point of the tier.
-- **Standard at `medium`** — the volume tier. Work reaching it has an established pattern and an approved `PLAN.md` already naming the files and edge cases, so most of what default effort buys is re-deriving decisions the plan already made. The failure it risks — a skipped file, an unrun test — is exactly what the verifier round catches, and only on the tasks that actually miss.
+> **`high` is the ceiling. No tier pins to `xhigh` or `max`, on any profile, ever.** Not for the architect tier, not for a new agent, not "just this once." The checking a higher pin would buy is already supplied structurally by the implement/verify loop, which re-reads the diff against `PLAN.md` with a fresh agent. Buying it twice produces hedged, slow output on work that didn't need it. **If architect-tier work comes back wrong, the fix is upstream — an under-specified `PLAN.md` or a missing convention in `.claude/rules/` — not a higher pin.**
 
-> **`high` is the ceiling. No tier pins to `xhigh` or `max`, on any profile, ever.** Not for deep, not for a new agent, not "just this once." The checking a higher pin would buy is already supplied structurally by the implement/verify loop, which re-reads the diff against `PLAN.md` with a fresh agent. Buying it twice produces hedged, slow output on work that didn't need it. **If deep-tier work comes back wrong, the fix is upstream — an under-specified `PLAN.md` or a missing convention in `.claude/rules/` — not a higher pin.**
-
-The verifier sits at `high` on purpose. Its output is one JSON object, but the analysis is hard: it must catch **omissions**, which is harder than judging what's present. And the error is asymmetric — a false `FAIL` costs one loop round, a false `PASS` silently voids the guarantee the whole loop exists for.
-
-That asymmetry is why **no profile routes the verifier below `high` any more**. `lean` used to, as a knowing bet — the verifier runs on every round of every task and was that profile's largest single line item. The saving was real; it was just taken against the one agent whose failures nobody sees. A cheap tier that silently passes a bad diff costs more than it saves. `verifier-medium` still exists as the mechanism, and no ladder spawns it.
+The verifier sits at `sonnet`/high on both profiles, on purpose. Its output is one JSON object, but the analysis is hard: it must catch **omissions**, which is harder than judging what's present. And the error is asymmetric — a false `FAIL` costs one loop round, a false `PASS` silently voids the guarantee the whole loop exists for. No profile economises on the one agent whose failures nobody sees.
 
 ---
 
@@ -149,30 +152,30 @@ That asymmetry is why **no profile routes the verifier below `high` any more**. 
 
 ```json
 {
-  "profile": "opus-centric",
-  "models": { "deep": "fable" }
+  "profile": "balanced",
+  "models": { "architect": "fable" }
 }
 ```
 
-Valid profiles: `opus-centric` · `frontier` · `lean`. Tier keys: `quick` · `standard` · `deep` · `verifier`. Models: `fable` · `opus` · `sonnet` · `haiku`.
+Valid profiles: `balanced` · `frontier`. Tier keys: `worker` · `architect` · `verifier`. Models: `fable` · `opus` · `sonnet` · `haiku`.
 
-**There is no `effort` key** — for the reason in [§2](#2-the-three-ladders). Setting one produces a warning and is otherwise ignored; pick the profile whose effort ladder you want instead.
+**There is no `effort` key** — for the reason in [§2](#2-the-two-ladders). Setting one produces a warning and is otherwise ignored; pick the profile whose effort ladder you want instead.
 
-Raising `lean`'s verifier above `sonnet` — model only, since effort isn't settable here (and at `high` everywhere, there is nothing left to set):
+Raising the verifier above `sonnet` — model only, since effort isn't settable here (and at `high` already, there is nothing left to set):
 
 ```json
-{ "profile": "lean", "models": { "verifier": "opus" } }
+{ "profile": "balanced", "models": { "verifier": "opus" } }
 ```
 
 **Precedence:**
 
-1. **On-demand instruction this request** — "run this one on fable", "use lean here". That spawn only; the project config isn't edited for a one-off.
+1. **On-demand instruction this request** — "run this one on fable", "use frontier here". That spawn only; the project config isn't edited for a one-off.
 2. **`.claude/model-routing.json`** — the project's standing choice.
-3. **`opus-centric`** default when there's no file.
+3. **`balanced`** default when there's no file.
 
 An on-demand instruction names a **model**, not an effort: *"run this on fable at max effort"* isn't satisfiable at spawn time, and you should be told so rather than have the effort part silently dropped. Asking for a *ladder* does move effort, since that changes which agent is spawned.
 
-**Malformed config never blocks a routing decision** — bad JSON, unknown profile, unknown tier, or unknown model all degrade to the default and land in `warnings`, which get relayed to you. A config you think is active but isn't is worse than no config.
+**Malformed config never blocks a routing decision** — bad JSON, unknown profile, unknown tier, or unknown model all degrade to the default and land in `warnings`, which get relayed to you. The retired three-tier names (`opus-centric`, `lean`, `quick`/`standard`/`deep`) are unknown values now, not aliases. A config you think is active but isn't is worse than no config.
 
 ---
 
@@ -182,12 +185,12 @@ An on-demand instruction names a **model**, not an effort: *"run this on fable a
 
 **A scope that's entirely new files reports `testCoverageRatio: null`, not `0`.** Files that don't exist yet are excluded from the ratio and reported separately as `plannedNewFiles`. A file with no code in it can't be "untested," and folding it in produced a 0 that read as risk when it only meant "new." The new-file case still raises the bar — via its own trigger, not a fake coverage number.
 
-**Both numbers only see code the script can find a test for.** The ratio and `plannedNewFiles` use one allowlist: `.js .jsx .ts .tsx .mjs .cjs .vue .go .py .dart .rs`. Docs, config, `.env*`, `.sql`, `.html`, YAML, styles and assets are in neither, so a plan that adds `docs/new.md` or `config/new.json` reports no planned new files and stays eligible for the quick tier. A scope touching none of those code types reports `null` ("no code touched"); logic hiding in a `.sql` file is yours to flag.
+**Both numbers only see code the script can find a test for.** The ratio and `plannedNewFiles` use one allowlist: `.js .jsx .ts .tsx .mjs .cjs .vue .go .py .dart .rs`. Docs, config, `.env*`, `.sql`, `.html`, YAML, styles and assets are in neither, so a plan that adds `docs/new.md` or `config/new.json` reports no planned new files and doesn't trip the tests-first bar. A scope touching none of those code types reports `null` ("no code touched"); logic hiding in a `.sql` file is yours to flag.
 
-**Exhaustion never escalates to Deep.** If the return-evaluation loop hits its cap (2 follow-up cycles, 3 dispatches total), quick-tier exhaustion buys exactly one `standard-worker` attempt with the full loop history folded in. Standard and deep exhaustion surface to you. Deep is reachable through the capability score or its auto-overrides — never by failing your way up.
+**Exhaustion never escalates to the architect tier.** If the return-evaluation loop hits its cap (2 follow-up cycles, 3 dispatches total), it surfaces to you with the full loop history. The architect tier is reachable through the capability score or its auto-overrides — never by failing your way up.
 
 **`ROUTING_MISMATCH:` short-circuits.** If a spawned agent reports the tier was wrong, that jumps straight to re-scoring rather than continuing the retry loop — a wrong tier makes definition-of-done checks meaningless. Model and effort are fixed once an agent is spawned; the answer is a new spawn, never mutating the running one.
 
 **Haiku accepts no effort level.** No profile routes to it, but it remains a valid override — and any tier overridden to `haiku` runs with its frontmatter effort pin inert. Overriding the verifier to `haiku` gives up effort control on the one agent whose failures are invisible.
 
-**The routing line is worth reading.** You'll see something like *"Standard tier → `standard-worker-high` on sonnet/high (lean ladder), bar: tests first"* — that names what you're actually paying for. "Standard tier" alone doesn't.
+**The routing line is worth reading.** You'll see something like *"Worker tier → `worker-frontier` on opus/medium (frontier ladder), bar: tests first"* — that names what you're actually paying for. "Worker tier" alone doesn't.

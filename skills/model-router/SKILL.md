@@ -1,6 +1,6 @@
 ---
 name: model-router
-description: "Scores task capability and verification needs on separate axes, then routes execution to the quick-executor, standard-worker, or deep-architect subagent; also sets the project's model ladder. Triggers: 'route this task', 'which model should handle this', 'quick or deep'."
+description: "Scores task capability and verification needs on separate axes, then routes execution to the worker or architect subagent; also sets the project's model ladder. Triggers: 'route this task', 'which model should handle this', 'does this need the architect'."
 argument-hint: [task description]
 effort: medium
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/classify.mjs *) Bash(git status *) Bash(git diff *)
@@ -8,14 +8,13 @@ allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/classify.mjs *) Bash(git st
 
 # model-router
 
-Scores a task, then hands it off to the matching subagent. Three tiers, one each — effort is fixed per tier, the model is whatever the project's profile resolves to.
+Scores a task, then hands it off to the matching subagent. Two implementer tiers plus the verifier — effort is fixed per agent, the model is whatever the project's profile resolves to.
 
-| Tier     | `opus-centric` (default)          | `frontier`                            | `lean`                                 |
-| -------- | --------------------------------- | ------------------------------------- | -------------------------------------- |
-| Quick    | `quick-executor` — sonnet/low     | `quick-executor` — sonnet/low         | `quick-executor` — sonnet/low          |
-| Standard | `standard-worker` — opus/medium   | `standard-worker-high` — opus/high    | `standard-worker-high` — sonnet/high   |
-| Deep     | `deep-architect` — opus/high      | `deep-architect` — fable/high         | `deep-architect` — opus/high           |
-| Verifier | `verifier` — sonnet/high          | `verifier` — sonnet/high              | `verifier` — sonnet/high               |
+| Tier      | `balanced` (default)        | `frontier`                          |
+| --------- | --------------------------- | ----------------------------------- |
+| Worker    | `worker` — sonnet/high      | `worker-frontier` — opus/medium     |
+| Architect | `architect` — opus/medium   | `architect-frontier` — opus/high    |
+| Verifier  | `verifier` — sonnet/high    | `verifier` — sonnet/high            |
 
 The **agent** varies by profile, not just the model: effort comes only from an agent file's frontmatter (the Agent tool has no effort parameter), so a profile pinning a tier at a different effort routes to a variant agent. Read both off `routing.agents[tier]` and `routing.models[tier]` — never assume the agent from the tier name.
 
@@ -24,14 +23,14 @@ Two axes, scored separately, because they answer different questions:
 - **Capability** picks the tier, and therefore the model. Raise it when the model had the context, clearly tried, and still got it wrong.
 - **Verification** sets the gate discipline in the spawn payload, and never touches the model. Raise it when the failure was a skipped file, unrun tests, or a refactor abandoned partway.
 
-Breadth, coverage, and blast radius are *verification* signals. Spending them on a bigger model over-provisions routine work (a 30-file rename is not hard, just wide) and under-provisions small-but-hard work (a one-file bug in an unfamiliar subsystem is the case that actually wants a stronger model). Routes down as well as up: a one-line fix gets the fast/cheap tier, not the default.
+Breadth, coverage, and blast radius are *verification* signals. Spending them on a bigger model over-provisions routine work (a 30-file rename is not hard, just wide) and under-provisions small-but-hard work (a one-file bug in an unfamiliar subsystem is the case that actually wants a stronger model).
 
 Mechanical signals come from `scripts/classify.mjs`. The capability signals are mostly *not* mechanically detectable and must be reasoned about directly — never invent them from a diff.
 
 ## When not to use
 
 - The user already named **both** the tier and the model for work they want done right now ("use opus for this") — honor that directly instead of re-scoring. Setting the project's standing ladder in `.claude/model-routing.json` *is* this skill's job, so that request does belong here.
-- The spec-format decision — `task-workflow`'s full-spec tier fires only on an explicit request, never on perceived complexity. This skill only picks the executing tier once work is about to start (an already-produced full-spec `PLAN.md` is an automatic high-tier signal).
+- The spec-format decision — `task-workflow`'s full-spec tier fires only on an explicit request, never on perceived complexity. This skill only picks the executing tier once work is about to start (an already-produced full-spec `PLAN.md` is an automatic architect-tier signal).
 
 ## Step 1: Gather mechanical signals
 
@@ -61,10 +60,11 @@ These predict capability. Note what's *not* here: reversibility and blast radius
 
 ## Step 3: Score capability → tier
 
-**Auto-overrides — skip scoring, go straight to Deep:**
+**Auto-overrides — skip scoring, go straight to Architect:**
 
 - `fullSpecDetected` is true (`PLAN.md` carries the `[full-spec]` marker of `task-workflow`'s full-spec tier — an explicit user signal; FR/NFR citations alone don't count)
 - The change is a **breaking** contract change, or a **data migration that transforms existing rows**
+- **The root cause is unknown** (a bug whose cause you can't yet name, in code or a domain the worker would be learning on the job) — the "problem understood" row at its top value. Small scope doesn't make it safe: this is where a stronger model gets it right and a cheaper one confidently fixes the wrong thing
 
 A non-empty `highRiskMatches` is *not* an override. It's a prompt to ask whether the second bullet applies — additive contract changes and version bumps touch the same paths and are ordinary edits. What high-risk paths do change is the verification bar (Step 3b).
 
@@ -74,16 +74,16 @@ A non-empty `highRiskMatches` is *not* an override. It's a prompt to ask whether
 | -------------------- | ------------------------------------- | ------------------------------ | ---------------------------------------------------------- | -------------------------------------- |
 | Pattern to follow    | An equivalent exists in this codebase | Similar, needs real adaptation |                                                            | None — needs a new pattern/abstraction |
 | Structural judgment  | One obvious structure                 |                                | More than one reasonable structure, and the choice matters |                                        |
-| Problem understood   | Requirements and cause are clear      | Some ambiguity to resolve      | Unfamiliar domain, or root cause unknown                   |                                        |
+| Problem understood   | Requirements and cause are clear      | Some ambiguity to resolve      | Unfamiliar domain (root cause unknown is an auto-override) |                                        |
 | Simultaneous context | ≤2 files                              | 3–9 files                      | 10+ files                                                  |                                        |
 
-Total 0-1 → Quick · 2-4 → Standard · 5+ → Deep.
+Total 0-4 → Worker · 5+ → Architect.
 
 Full tables plus five worked examples: `references/scoring-rubric.md`.
 
 ## Step 3b: Set the verification bar (independent of tier)
 
-From the mechanical signals — this changes what the payload demands, never which model runs:
+From the mechanical signals — this changes what the payload demands, never which tier or model runs:
 
 | Trigger                                              | Bar                                                                                                              |
 | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
@@ -101,10 +101,10 @@ Triggers stack.
 The tier decides *which* rung; the profile decides both the model and the effort on it. Take both from Step 1's `routing`:
 
 - **Model** — `routing.models[tier]`. Precedence:
-  1. **On-demand instruction in this request** ("run it on fable", "use the lean ladder here") — this spawn only. Don't edit the project config for a one-off.
+  1. **On-demand instruction in this request** ("run it on fable", "use the frontier ladder here") — this spawn only. Don't edit the project config for a one-off.
   2. **`routing.models[tier]`** from Step 1 (resolved from `.claude/model-routing.json`).
-  3. The `opus-centric` default, which is what `routing` already reports when no config exists.
-- **Agent** — `routing.agents[tier]`, which is the `subagent_type` for Step 5. **Don't derive it from the tier name.** Effort can't be passed at spawn time, so a profile that pins a tier at a non-default effort routes to a variant agent instead: the standard tier is `standard-worker-high` under both `frontier` and `lean` (only `opus-centric` uses `standard-worker`). Spawning the base agent there would silently run the task at the wrong effort. The verifier resolves to `verifier` on all three profiles today — read it off `routing` anyway, since that is what changes when a ladder does.
+  3. The `balanced` default, which is what `routing` already reports when no config exists.
+- **Agent** — `routing.agents[tier]`, which is the `subagent_type` for Step 5. **Don't derive it from the tier name.** Effort can't be passed at spawn time, so a profile that pins a tier at a different effort routes to a variant agent instead: under `frontier` the worker tier is `worker-frontier` and the architect tier `architect-frontier`. Spawning the base agent there would silently run the task at the wrong effort. The verifier resolves to `verifier` on both profiles today — read it off `routing` anyway, since that is what changes when a ladder does.
 
 `routing.efforts[tier]` reports the effort that agent carries; it's informational (state it in Step 4), never something you pass. If a user asks for a different effort level, say so plainly — there is no way to honor it at the call site.
 
@@ -114,7 +114,7 @@ Profiles, config schema, and the effort rationale per model: `references/model-p
 
 ## Step 4: State tier + agent + model/effort + verification bar + rationale
 
-One line: the chosen tier, the agent that will run it, its model and effort (and where they came from if not the default), the verification bar from Step 3b, and the deciding signal(s). Name the agent whenever it isn't the tier's base — "Standard tier → `standard-worker-high` on sonnet/high (lean ladder)" tells the user what they're actually paying for; "Standard tier" alone doesn't. Only ask the user (single yes/no) if the capability score sits exactly on a bucket boundary **and** the Step 2 signals were ambiguous — don't ask by default, that reintroduces the triage overhead this skill exists to remove.
+One line: the chosen tier, the agent that will run it, its model and effort (and where they came from if not the default), the verification bar from Step 3b, and the deciding signal(s). Name the agent whenever it isn't the tier's base — "Worker tier → `worker-frontier` on opus/medium (frontier ladder)" tells the user what they're actually paying for; "Worker tier" alone doesn't. Only ask the user (single yes/no) if the capability score sits exactly on a bucket boundary **and** the Step 2 signals were ambiguous — don't ask by default, that reintroduces the triage overhead this skill exists to remove.
 
 ## Step 5: Spawn
 
@@ -129,10 +129,9 @@ After the subagent returns, check it against the payload's `definition-of-done` 
 - **Met** — proceed to Step 7 (or use the result directly if nothing else applies).
 - **Partial/unmet** — resume the *same* subagent (`SendMessage` to its agent ID, not a fresh Agent call) naming the specific gap against the definition-of-done. Track the cycle count in your own working context — max **2 follow-up cycles** (3 dispatches total, including the original spawn).
 - **Cycle cap hit:**
-  - Quick-tier exhaustion → exactly one attempt at the **standard tier's resolved agent** (`routing.agents.standard` — `standard-worker-high` under `frontier` and `lean`, never assumed from the tier name), with the full loop history (every prior return + the gaps named) folded into its payload.
-  - Standard-tier or Deep-tier exhaustion → surface to the user; don't retry further and don't escalate tiers on this path.
+  - Either tier → surface to the user, with every prior return and the gaps named; don't retry further and don't escalate tiers on this path.
 - Never spawn `bigin-skills:verifier` from this step — that's a separate, `task-workflow`-only mechanism scoped to auditing a diff against `PLAN.md`. This evaluation is deliberately lighter than a verifier round.
-- Never auto-escalate into `deep-architect` from exhaustion — Deep is reachable via Step 3's capability score or its auto-overrides (`fullSpecDetected`, a breaking contract change or row-transforming migration), not by exhausting a lower tier.
+- Never auto-escalate into the architect tier from exhaustion — it is reachable via Step 3's capability score or its auto-overrides (`fullSpecDetected`, a breaking contract change or row-transforming migration, an unknown root cause), not by exhausting the worker tier. A worker that hits a real architectural decision says so with `ROUTING_MISMATCH:` (Step 7).
 
 A `ROUTING_MISMATCH:` reply at any point during this loop short-circuits straight to Step 7 — re-scoring wins over continuing the retry loop, since a wrong tier makes definition-of-done checks meaningless.
 

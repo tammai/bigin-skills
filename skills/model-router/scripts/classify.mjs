@@ -26,13 +26,12 @@ const LOCKFILES = new Set(['package-lock.json', 'pnpm-lock.yaml', 'yarn.lock', '
 // --- Model ladder resolution (see references/model-profiles.md) ---
 
 const ROUTING_CONFIG = '.claude/model-routing.json';
-const DEFAULT_PROFILE = 'opus-centric';
+const DEFAULT_PROFILE = 'balanced';
 const PROFILES = {
-  'opus-centric': { quick: 'sonnet', standard: 'opus', deep: 'opus', verifier: 'sonnet' },
-  frontier: { quick: 'sonnet', standard: 'opus', deep: 'fable', verifier: 'sonnet' },
-  lean: { quick: 'sonnet', standard: 'sonnet', deep: 'opus', verifier: 'sonnet' },
+  balanced: { worker: 'sonnet', architect: 'opus', verifier: 'sonnet' },
+  frontier: { worker: 'opus', architect: 'opus', verifier: 'sonnet' },
 };
-const TIERS = ['quick', 'standard', 'deep', 'verifier'];
+const TIERS = ['worker', 'architect', 'verifier'];
 const MODELS = new Set(['fable', 'opus', 'sonnet', 'haiku']);
 
 // Effort is NOT settable in .claude/model-routing.json and is not overridable at
@@ -40,19 +39,18 @@ const MODELS = new Set(['fable', 'opus', 'sonnet', 'haiku']);
 // agent file's frontmatter. A profile that wants a different effort for a tier
 // therefore has to name a different *agent*; AGENTS below maps (tier, effort) to the
 // file that carries it, and every pair used in EFFORTS must exist there.
-// These three tables are the single source of truth: tools/docs_sync.mjs imports them
-// and fails the commit on an EFFORTS pair with no AGENTS entry, an AGENTS entry with no
-// file, or a variant that has drifted from its base.
+// These tables are the single source of truth: tools/docs_sync.mjs imports them and
+// fails the commit on an EFFORTS pair with no AGENTS entry, an AGENTS entry with no
+// file, a frontmatter model/effort that disagrees with the ladder, or a variant that
+// has drifted from its base.
 const EFFORTS = {
-  'opus-centric': { quick: 'low', standard: 'medium', deep: 'high', verifier: 'high' },
-  frontier: { quick: 'low', standard: 'high', deep: 'high', verifier: 'high' },
-  lean: { quick: 'low', standard: 'high', deep: 'high', verifier: 'high' },
+  balanced: { worker: 'high', architect: 'medium', verifier: 'high' },
+  frontier: { worker: 'medium', architect: 'high', verifier: 'high' },
 };
 const AGENTS = {
-  quick: { low: 'quick-executor' },
-  standard: { medium: 'standard-worker', high: 'standard-worker-high' },
-  deep: { high: 'deep-architect' },
-  verifier: { high: 'verifier', medium: 'verifier-medium' },
+  worker: { high: 'worker', medium: 'worker-frontier' },
+  architect: { medium: 'architect', high: 'architect-frontier' },
+  verifier: { high: 'verifier' },
 };
 
 // Resolves profile + per-tier overrides into one model-per-tier map. Every
@@ -85,7 +83,7 @@ function resolveRouting() {
   routing.source = 'config';
 
   if (config.profile !== undefined) {
-    if (Object.hasOwn(PROFILES, config.profile)) {
+    if (typeof config.profile === 'string' && Object.hasOwn(PROFILES, config.profile)) {
       routing.profile = config.profile;
       routing.models = { ...PROFILES[config.profile] };
       routing.efforts = { ...EFFORTS[config.profile] };
@@ -141,7 +139,7 @@ const TEST_FILE_RE = /\.(test|spec)\.[jt]sx?$|_test\.go$|(^|\/)test_[^/]+\.py$|[
 // YAML, styles, assets) stays in touchedFiles/filesChanged/highRiskMatches but is kept
 // out of the ratio. A type with no test convention we can look up would always score
 // "uncovered", so counting it produced a guaranteed 0 for a README or a config tweak,
-// which tripped the tests-first bar and promoted a copy fix out of the quick tier.
+// which tripped the tests-first bar on a copy fix.
 // Keep this set and hasSiblingTest() in step.
 const JS_EXT = ['.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs'];
 const COVERABLE_EXT = new Set([...JS_EXT, '.vue', '.go', '.py', '.dart', '.rs']);
@@ -281,7 +279,7 @@ function hasSiblingTest(file) {
 // Keys only on the explicit marker task-workflow's full-spec template writes into its
 // Spec heading. FR-n / NFR-n citations and a "Covers" line are not evidence: every unit
 // epic-workflow derives from a PRD cites its requirements, and matching them sent each
-// of those units to deep-architect.
+// of those units to the architect tier.
 function detectFullSpec() {
   if (!existsSync('PLAN.md')) return false;
   return /\[full-spec\]/.test(readFileSync('PLAN.md', 'utf8'));
@@ -317,11 +315,11 @@ function classify(argv) {
 
   // A planned file that doesn't exist yet cannot be assessed for coverage. Counting it as
   // uncovered conflates "existing code with no tests" (a real risk signal) with "no code
-  // written yet" (not one), and the resulting 0 silently escalated the tier for a reason
+  // written yet" (not one), and the resulting 0 silently raised the bar for a reason
   // the number didn't actually state. Report it as its own signal and keep it out of the
   // denominator; the tests-first bar still fires, now off `plannedNewFiles`. Only new
   // code counts: a new doc or config file has nothing a test would cover, so it must not
-  // trip tests-first or promote a quick task.
+  // trip tests-first.
   const plannedNewFiles = nonTestFiles.filter((f) => !existsSync(f) && isCoverableCode(f));
   // Only code a test could cover goes in the denominator. A scope with none (docs,
   // config, assets) reports null, meaning "no code touched", not 0.

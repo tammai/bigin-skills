@@ -233,15 +233,34 @@ console.log('\n2b. GATE TOOLS')
     return 'both fail closed'
   })
 
+  t('docs_sync --check gates the -frontier variants against their base and the ladder', () => {
+    const d = copy('variant')
+    const f = join(d, 'agents', 'worker-frontier.md')
+    const orig = read(f)
+    writeFileSync(f, orig + '\nOne extra line.\n')
+    const drift = gate(d, 'docs_sync.mjs', ['--check'])
+    eq(drift.status, 1, 'body drift')
+    if (!/worker-frontier\.md body has drifted/.test(drift.stdout)) throw new Error(drift.stdout.trim())
+    writeFileSync(f, orig.replace(/^model: opus$/m, 'model: sonnet'))
+    const model = gate(d, 'docs_sync.mjs', ['--check'])
+    eq(model.status, 1, 'frontmatter model off the ladder')
+    if (!/worker-frontier\.md pins model "sonnet"/.test(model.stdout)) throw new Error(model.stdout.trim())
+    writeFileSync(f, orig.replace(/^effort: medium$/m, 'effort: medium\nmaxTurns: 9'))
+    eq(gate(d, 'docs_sync.mjs', ['--check']).status, 1, 'extra frontmatter key')
+    writeFileSync(f, orig)
+    eq(gate(d, 'docs_sync.mjs', ['--check']).status, 0, 'restored')
+    return 'body, model and extra key all fail closed'
+  })
+
   t('context_budget counts agent descriptions and skips user-only skills', () => {
     const d = copy('budget')
     const base = total(gate(d, 'context_budget.mjs').stdout)
-    const agent = join(d, 'agents', 'quick-executor.md')
+    const agent = join(d, 'agents', 'worker.md')
     const before = read(agent)
     setDesc(agent, 'x'.repeat(351))
     const r = gate(d, 'context_budget.mjs')
     eq(r.status, 1, 'exit on a 351-char agent description')
-    if (!/agents\/quick-executor\.md: description is 351/.test(r.stdout)) throw new Error(r.stdout.trim())
+    if (!/agents\/worker\.md: description is 351/.test(r.stdout)) throw new Error(r.stdout.trim())
     writeFileSync(agent, before)
     setDesc(join(d, 'skills', 'napkin', 'SKILL.md'), '"' + 'y'.repeat(300) + '"')
     eq(total(gate(d, 'context_budget.mjs').stdout), base, 'total after growing a disable-model-invocation skill')
@@ -350,9 +369,8 @@ t("CLAUDE.md's scripts-count claim is true", () => {
 // four of them hand-maintained. Changing one pin meant editing all five by hand,
 // and a reader who trusts the wrong table configures a project for a ladder that
 // does not exist. So check every table against the code.
-const { PROFILES, EFFORTS } = await import(join(REPO, 'skills', 'model-router', 'scripts', 'classify.mjs'))
+const { PROFILES, EFFORTS, AGENTS, TIERS, DEFAULT_PROFILE } = await import(join(REPO, 'skills', 'model-router', 'scripts', 'classify.mjs'))
 t('every documented ladder table matches classify.mjs', () => {
-  const TIERS = ['quick', 'standard', 'deep', 'verifier']
   const docs = [
     'README.md',
     'docs/ROUTING.md',
@@ -360,19 +378,19 @@ t('every documented ladder table matches classify.mjs', () => {
     'skills/model-router/references/model-profiles.md',
     'skills/model-router/SKILL.md'
   ]
-  // `sonnet`/low, sonnet/low and "`verifier` — sonnet/high" all normalise the same.
-  const norm = c => c.replace(/`/g, '').replace(/\s+/g, '').replace(/^.*—/, '')
+  // `sonnet`/low, sonnet/low and "`worker` — sonnet/high" all normalise the same.
+  const norm = c => c.replace(/`/g, '').replace(/\s+/g, '').replace(/^.*—/, '').replace(/\(default\)$/, '')
   let checked = 0
   for (const doc of docs) {
     const body = read(join(REPO, doc))
     for (const [profile, models] of Object.entries(PROFILES)) {
       const want = TIERS.map(tier => `${models[tier]}/${EFFORTS[profile][tier]}`)
-      // Only rows that actually carry four tier pins; prose mentioning a profile
+      // Only rows that actually carry one pin per tier; prose mentioning a profile
       // is not a table and is not this check's business.
       for (const line of body.split('\n')) {
         const cells = line.split('|').map(c => c.trim())
-        if (cells.length < 6 || norm(cells[1]) !== profile) continue
-        const got = cells.slice(2, 6).map(norm)
+        if (cells.length < TIERS.length + 3 || norm(cells[1]) !== profile) continue
+        const got = cells.slice(2, 2 + TIERS.length).map(norm)
         if (!got.every(c => /^(fable|opus|sonnet|haiku)\/(low|medium|high)$/.test(c))) continue
         if (got.join(' ') !== want.join(' ')) {
           throw new Error(`${doc}: "${profile}" row says ${got.join(' ')}, classify.mjs says ${want.join(' ')}`)
@@ -386,6 +404,38 @@ t('every documented ladder table matches classify.mjs', () => {
   }
   return `${checked} rows`
 })
+
+// classify.mjs resolves .claude/model-routing.json; every malformed input degrades to
+// the default with a warning. Each case runs the real script in a scratch dir with that
+// config and asserts the resolved routing plus whether a warning names the problem.
+{
+  const dir = join(TMP, 'routing')
+  mkdirSync(join(dir, '.claude'), { recursive: true })
+  const route = (config) => {
+    const f = join(dir, '.claude', 'model-routing.json')
+    if (config === undefined) rmSync(f, { force: true })
+    else writeFileSync(f, typeof config === 'string' ? config : JSON.stringify(config))
+    const r = sh('node', [join(REPO, 'skills', 'model-router', 'scripts', 'classify.mjs'), '--paths', 'README.md'], { cwd: dir })
+    return JSON.parse(r.stdout).routing
+  }
+  const ladder = (r, profile) => {
+    eq(r.profile, profile, 'profile')
+    for (const tier of TIERS) {
+      eq(r.models[tier], PROFILES[profile][tier], `models.${tier}`)
+      eq(r.agents[tier], AGENTS[tier][EFFORTS[profile][tier]], `agents.${tier}`)
+    }
+  }
+  const warns = (r, re) => { if (!r.warnings.some(w => re.test(w))) throw new Error(`no warning matching ${re}: ${JSON.stringify(r.warnings)}`) }
+  const ROUTES = [
+    ['no config resolves the balanced default', undefined, r => { ladder(r, DEFAULT_PROFILE); eq(DEFAULT_PROFILE, 'balanced', 'default'); eq(r.source, 'default', 'source'); eq(r.warnings.length, 0, 'warnings') }],
+    ['frontier resolves to the -frontier agents', { profile: 'frontier' }, r => { ladder(r, 'frontier'); eq(r.agents.worker, 'worker-frontier', 'worker agent'); eq(r.warnings.length, 0, 'warnings') }],
+    ['unknown tier is ignored, warned', { models: { deep: 'fable' } }, r => { ladder(r, 'balanced'); warns(r, /unknown tier "deep"/) }],
+    ['unknown model keeps the profile model, warned', { models: { worker: 'mythos' } }, r => { ladder(r, 'balanced'); warns(r, /unknown model "mythos"/) }],
+    ['unknown profile (a retired name too) degrades to the default, warned', { profile: 'opus-centric' }, r => { ladder(r, 'balanced'); warns(r, /unknown profile "opus-centric"/) }],
+    ['malformed JSON degrades to the default, warned', '{nope', r => { ladder(r, 'balanced'); warns(r, /not valid JSON/) }]
+  ]
+  for (const [name, config, check] of ROUTES) t(`classify routing: ${name}`, () => { check(route(config)) })
+}
 
 console.log('\n4. DETECTION')
 const LAD = [

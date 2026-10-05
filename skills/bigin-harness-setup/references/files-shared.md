@@ -121,7 +121,7 @@ paths:
 
 ## model-routing.json
 
-Written to `.claude/model-routing.json` (Phase 5-3d). `{MODEL_ROUTING}` is the profile chosen in Phase 1.5 — `opus-centric` (default) | `frontier` | `lean`.
+Written to `.claude/model-routing.json` (Phase 5-3d). `{MODEL_ROUTING}` is the profile chosen in Phase 1.5 — `balanced` (default) | `frontier`.
 
 ```json
 {
@@ -129,16 +129,16 @@ Written to `.claude/model-routing.json` (Phase 5-3d). `{MODEL_ROUTING}` is the p
 }
 ```
 
-A profile sets each tier's model **and** effort. Only the model is overridable here — add a `models` object with `quick` | `standard` | `deep` | `verifier` → `fable` | `opus` | `sonnet` | `haiku`. There is no `effort` key (effort comes from the spawned agent's frontmatter, which the Agent tool can't override):
+A profile sets each tier's model **and** effort. Only the model is overridable here — add a `models` object with `worker` | `architect` | `verifier` → `fable` | `opus` | `sonnet` | `haiku`. There is no `effort` key (effort comes from the spawned agent's frontmatter, which the Agent tool can't override):
 
 ```json
 {
-  "profile": "opus-centric",
-  "models": { "deep": "fable" }
+  "profile": "balanced",
+  "models": { "architect": "fable" }
 }
 ```
 
-Effort comes from the plugin's own agent definitions and is **not** settable here — the profile picks it by picking which agent each tier spawns. Under `opus-centric` that's quick `low`, standard `medium`, deep `high`, verifier `high`; `frontier` raises standard to `high` and `lean` also drops the verifier to `medium`. Ladders, precedence, and the effort rationale: `bigin-skills` → `skills/model-router/references/model-profiles.md`.
+Effort comes from the plugin's own agent definitions and is **not** settable here — the profile picks it by picking which agent each tier spawns. Under `balanced` that's worker `high`, architect `medium`, verifier `high`; `frontier` moves the worker to opus at `medium` and raises the architect to `high`. Ladders, precedence, and the effort rationale: `bigin-skills` → `skills/model-router/references/model-profiles.md`.
 
 ---
 

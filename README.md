@@ -106,7 +106,7 @@ Each scaffold skill's `SKILL.md` is the reference for what it generates. What se
 | **knowledge-distill**       | Distills a library's docs/source at a pinned version into audited knowledge/libraries/<lib>/ concept files, plus a version-drift commit guard.               |
 | **write-tests**             | On-demand test authoring (/write-tests): style-matched, edge-case-first unit tests for one unit, or an E2E spec from a PRD `FR-n/AC-m` criterion.            |
 | **debug-workflow**          | On-demand systematic debugging (/debug-workflow): triage → fast path for obvious bugs, full guarded workflow for flaky/env/repeat-failure bugs.              |
-| **model-router**            | Scores capability and verification needs separately, then routes to the quick/standard/deep tier on a per-project model + effort ladder.                     |
+| **model-router**            | Scores capability and verification needs separately, then routes to the worker or architect tier on a per-project model + effort ladder.                     |
 | **napkin**                  | Explains a topic as a picture (/napkin): offers 2-4 candidate shapes, then draws your pick as an HTML artifact or an embeddable SVG/PNG, geometry-checked.   |
 | **nuxt-marketing-scaffold** | Scaffolds a multi-locale Nuxt 4 marketing site — @nuxt/content, @nuxtjs/i18n, prerendered to Cloudflare Workers. No auth, so it detects as nuxt-marketing.   |
 | **contract-sync**           | Vendors an OpenAPI contract at a pinned commit and regenerates the client (check/sync/bump); the only writer of the vendored spec and api-contract.lock.     |
@@ -128,36 +128,48 @@ Each scaffold skill's `SKILL.md` is the reference for what it generates. What se
 `agents/<name>.md` — plugin-level subagents spawned through the Agent tool as `bigin-skills:<name>`, not invoked as skills. A ladder name in the **Spawned by** column means that agent is only reached under those routing profiles.
 
 <!-- gen:agents-table -->
-| Agent                  | Model / effort | Spawned by                          | Purpose                                                                                                                                                |
-| ---------------------- | -------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `quick-executor`       | sonnet/low     | `model-router`                      | Mechanical, single-file, low-risk tasks — the quick tier.                                                                                              |
-| `standard-worker`      | opus/medium    | `model-router`                      | Default tier: most feature and bug-fix work.                                                                                                           |
-| `standard-worker-high` | opus/high      | `model-router` — `frontier`, `lean` | Same role as `standard-worker`, pinned higher; spawned instead of it on those ladders.                                                                 |
-| `deep-architect`       | opus/high      | `model-router`                      | Architectural decisions, breaking contract changes, row-transforming migrations, full-spec tier.                                                       |
-| `verifier`             | sonnet/high    | `task-workflow`                     | Read-only — audits a diff against `PLAN.md`, not the implementer's summary. Fresh each round.                                                          |
-| `verifier-medium`      | sonnet/medium  | no profile                          | Same role as `verifier`, pinned lower. Spawned by no ladder since 1.100.0 — kept as the mechanism a future profile would use to pin the verifier down. |
-| `knowledge-auditor`    | sonnet/high    | `knowledge-distill`                 | Read-only — audits a distilled bundle against the library's cloned source at the pinned commit. Fresh each round.                                      |
+| Agent                | Model / effort | Spawned by                  | Purpose                                                                                                                                                       |
+| -------------------- | -------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `worker`             | sonnet/high    | `model-router` — `balanced` | Worker tier (capability 0–4): mechanical edits through most feature and bug-fix work.                                                                         |
+| `worker-frontier`    | opus/medium    | `model-router` — `frontier` | Same role and body as `worker`, on opus at medium; spawned instead of it on the `frontier` ladder.                                                            |
+| `architect`          | opus/medium    | `model-router` — `balanced` | Architect tier (capability 5+ or an auto-override): architecture, breaking contract changes, row-transforming migrations, unknown-root-cause bugs, full-spec. |
+| `architect-frontier` | opus/high      | `model-router` — `frontier` | Same role and body as `architect`, pinned at high; spawned instead of it on the `frontier` ladder.                                                            |
+| `verifier`           | sonnet/high    | `task-workflow`             | Read-only — audits a diff against `PLAN.md`, not the implementer's summary. Fresh each round.                                                                 |
+| `knowledge-auditor`  | sonnet/high    | `knowledge-distill`         | Read-only — audits a distilled bundle against the library's cloned source at the pinned commit. Fresh each round.                                             |
 <!-- /gen:agents-table -->
 
-The **Model / effort** column comes from each agent's frontmatter. `model-router` overrides `model` per spawn from the project's ladder; **effort can't be passed at spawn time**, which is why two tiers ship an *effort variant* instead.
+The **Model / effort** column comes from each agent's frontmatter. `model-router` overrides `model` per spawn from the project's ladder; **effort can't be passed at spawn time**, which is why the `frontier` ladder spawns `-frontier` variants (same body, different pins) instead.
 
 ### Model ladder
 
-| Profile | quick | standard | deep | verifier | Pick it when |
-| --- | --- | --- | --- | --- | --- |
-| `opus-centric` (default) | `sonnet`/low | `opus`/medium | `opus`/high | `sonnet`/high | Cost-aware default — standard leans on the verifier round; deep escalates on effort, not model |
-| `frontier` | `sonnet`/low | `opus`/high | `fable`/high | `sonnet`/high | Everything above quick at full effort — pay up front instead of per verifier round |
-| `lean` | `sonnet`/low | `sonnet`/high | `opus`/high | `sonnet`/high | Cost-first — a cheaper standard tier at fuller effort; deep still escalates to opus; saves on model, never on the verifier |
+Capability 0–4 routes to the worker tier, 5+ (or an auto-override) to the architect tier; the verifier audits either.
 
-`high` is the ceiling on every profile: no tier pins above it, because what an above-default pin would buy is already supplied structurally by the implement/verify loop.
+```mermaid
+flowchart LR
+    S["capability score"] -->|"0–4"| W["worker tier"]
+    S -->|"5+ or auto-override"| A["architect tier"]
+    W --> P{"profile"}
+    A --> P
+    P -->|balanced| B["worker · sonnet/high<br/>architect · opus/medium"]
+    P -->|frontier| F["worker-frontier · opus/medium<br/>architect-frontier · opus/high"]
+    B --> V["verifier · sonnet/high<br/>audits the diff"]
+    F --> V
+```
+
+| Profile | worker | architect | verifier | Pick it when |
+|---|---|---|---|---|
+| `balanced` (default) | `sonnet`/high | `opus`/medium | `sonnet`/high | Cost-aware default — volume work on Sonnet at full effort, Opus only for architect-tier calls |
+| `frontier` | `opus`/medium | `opus`/high | `sonnet`/high | Capability first — worker-tier work on Opus, architect one effort step higher |
+
+`high` is the ceiling on every profile: no tier pins above it, because what an above-default pin would buy is already supplied structurally by the implement/verify loop. Fable is on neither ladder; it is reachable as a per-tier override.
 
 Set the profile in the target repo's `.claude/model-routing.json` (both keys optional; per-tier **model** overrides layer on top, and there is no `effort` key):
 
 ```json
-{ "profile": "opus-centric", "models": { "deep": "fable" } }
+{ "profile": "balanced", "models": { "architect": "fable" } }
 ```
 
-Precedence: an instruction in the current request > this file > the `opus-centric` default. A malformed config degrades to the default with a warning rather than blocking. Full rationale: [`docs/ROUTING.md`](docs/ROUTING.md) and [`model-profiles.md`](skills/model-router/references/model-profiles.md).
+Precedence: an instruction in the current request > this file > the `balanced` default. A malformed config degrades to the default with a warning rather than blocking. Full rationale: [`docs/ROUTING.md`](docs/ROUTING.md) and [`model-profiles.md`](skills/model-router/references/model-profiles.md).
 
 ---
 

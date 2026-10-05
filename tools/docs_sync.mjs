@@ -210,17 +210,17 @@ for (const name of agentFiles) {
   agentBody[name] = text.slice(end + 5);
 }
 
-// --- routing ladder + effort-variant parity ---
+// --- routing ladder + variant parity ---
 //
 // Effort can only come from an agent file's frontmatter (the Agent tool has no effort
 // parameter), so a routing profile that wants a tier at a different effort needs its own
-// agent file. Three things have to hold, and none of them fail loudly at runtime — a
+// agent file (`worker-frontier`, `architect-frontier`). Four things have to hold, and none of them fail loudly at runtime — a
 // missing agent resolves to `null` and the router spawns nothing useful, and a drifted
 // variant just quietly behaves differently from its base. So they're gated here.
 //
 // The ladder tables are imported, not restated: a second copy would be one more thing to
 // keep in sync by hand, which is the failure this gate exists to prevent.
-const { DEFAULT_PROFILE, EFFORTS, AGENTS } = await import("../skills/model-router/scripts/classify.mjs");
+const { DEFAULT_PROFILE, PROFILES, EFFORTS, AGENTS } = await import("../skills/model-router/scripts/classify.mjs");
 
 // 1. Every (profile, tier) effort the ladder can resolve to has an agent that carries it.
 for (const [profile, tiers] of Object.entries(EFFORTS)) {
@@ -247,24 +247,42 @@ for (const [tier, byEffort] of Object.entries(AGENTS)) {
   }
 }
 
-// 3. Each tier's non-default agents are effort variants of the default-profile one:
-//    byte-identical bodies, frontmatter differing only in `name` and `effort`.
+// 3. Each agent's frontmatter `model` is the model the profile that spawns it resolves
+//    that tier to. The router passes `model` on every spawn, so this is the fallback —
+//    but a fallback that disagrees with the ladder is the README table lying.
+for (const [profile, tiers] of Object.entries(EFFORTS)) {
+  for (const [tier, effort] of Object.entries(tiers)) {
+    const name = AGENTS[tier]?.[effort];
+    if (!name || !agentFiles.includes(name)) continue;
+    if (agentFrontmatter[name].model !== PROFILES[profile][tier]) {
+      fail(
+        `agents/${name}.md pins model "${agentFrontmatter[name].model}" but profile "${profile}" resolves the ${tier} tier to "${PROFILES[profile][tier]}" — ` +
+          `make the frontmatter match the ladder`
+      );
+    }
+  }
+}
+
+// 4. Each tier's non-default agents are variants of the default-profile one:
+//    byte-identical bodies, frontmatter differing only in name/model/effort/description.
 for (const [tier, byEffort] of Object.entries(AGENTS)) {
   const base = byEffort[EFFORTS[DEFAULT_PROFILE][tier]];
   for (const variant of Object.values(byEffort)) {
     if (variant === base) continue;
     if (agentBody[variant] !== agentBody[base]) {
       fail(
-        `agents/${variant}.md body has drifted from agents/${base}.md — effort variants are the same role at a different pin. ` +
+        `agents/${variant}.md body has drifted from agents/${base}.md — a variant is the same role at a different pin. ` +
           `Edit ${base}.md, then copy its body verbatim into ${variant}.md.`
       );
     }
     // Raw frontmatter, not the parsed map: parseFrontmatter drops list values
     // (`skills:` and its indented items), so a parsed comparison would let a
     // difference in the variant's preloaded skills through unnoticed.
-    const strip = (raw) => raw.split("\n").filter((l) => !/^(name|effort):/.test(l)).join("\n");
+    const strip = (raw) => raw.split("\n").filter((l) => !/^(name|model|effort|description):/.test(l)).join("\n");
     if (strip(agentRaw[variant]) !== strip(agentRaw[base])) {
-      fail(`agents/${variant}.md frontmatter differs from agents/${base}.md beyond name/effort — variants may differ only in those two`);
+      fail(
+        `agents/${variant}.md frontmatter differs from agents/${base}.md beyond name/model/effort/description — variants may differ only in those four`
+      );
     }
   }
 }

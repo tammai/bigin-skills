@@ -124,7 +124,7 @@ js: handbook.js
       </div>
       <div class="card">
         <div class="card-title">Cost you control</div>
-        <p>Three execution tiers. Mechanical work doesn't pay for the top model, and you pick the ladder.</p>
+        <p>Two execution tiers. Routine work runs on the cheaper model, and you pick the ladder.</p>
       </div>
       <div class="card">
         <div class="card-title">Gates that hold</div>
@@ -278,7 +278,7 @@ js: handbook.js
       <table class="keyed">
         <thead><tr><th>Decision</th><th>Recommendation</th></tr></thead>
         <tbody>
-          <tr><td>MODEL_ROUTING</td><td>Take the default <code>opus-centric</code>. Move later if verifier failures become routine.</td></tr>
+          <tr><td>MODEL_ROUTING</td><td>Take the default <code>balanced</code>. Move to <code>frontier</code> later if verifier failures become routine.</td></tr>
           <tr><td>KNOWLEDGE_BUNDLE</td><td>Yes for anything long-lived. It is the piece that compounds.</td></tr>
           <tr><td>CI_PROVIDER</td><td>Yes if you have CI. The same checks run at commit and in CI, so they can't diverge.</td></tr>
           <tr><td>GRAPH</td><td>Optional, and safe to defer. Most value on a large existing codebase.</td></tr>
@@ -427,7 +427,7 @@ Fix the double-submit bug on the checkout form</code></pre>
       </div>
       <div class="step">
         <h4>Implement — the routed tier does the work</h4>
-        <p>One possible confirmation. If scoring lands on the deep tier you are asked before it spawns — the most expensive tier and the biggest behavior swing, so it is the one pause worth having. Quick and standard spawn without asking.</p>
+        <p>One possible confirmation. If scoring lands on the architect tier you are asked before it spawns — the most expensive tier and the biggest behavior swing, so it is the one pause worth having. The worker tier spawns without asking.</p>
       </div>
       <div class="step">
         <h4>Verify — a fresh agent, reading the diff only</h4>
@@ -910,7 +910,7 @@ Fix the double-submit bug on the checkout form</code></pre>
         lines in your README's setup section: a contributor who skipped them has no
         commit-time gates and no way to notice.</li>
       <li><strong>Start on the default ladder.</strong> Move to <code>frontier</code>
-        only when verifier failures on standard-tier work become <em>routine</em>.
+        only when verifier failures on worker-tier work become <em>routine</em>.
         One bad round is the loop working, not evidence of an under-powered tier.</li>
       <li><strong>Answer "nothing durable" honestly at cleanup.</strong> A bundle
         full of per-task narrative is worse than a small one, because the index
@@ -979,7 +979,7 @@ Fix the double-submit bug on the checkout form</code></pre>
         <tbody>
           <tr><td>docs/USER_GUIDE.md</td><td>The task-oriented walkthrough, skill by skill</td></tr>
           <tr><td>docs/SPEC-GATE.md</td><td>Both spec formats, and exactly what the guard measures</td></tr>
-          <tr><td>docs/ROUTING.md</td><td>Tier scoring, the three ladders, the verification bar</td></tr>
+          <tr><td>docs/ROUTING.md</td><td>Tier scoring, the two ladders, the verification bar</td></tr>
           <tr><td>docs/GATES.md</td><td>Every guard, the injection gate, unblocking</td></tr>
           <tr><td>docs/KNOWLEDGE.md</td><td>The bundle: what it holds, what keeps it honest</td></tr>
           <tr><td>docs/GRAPHIFY.md</td><td>The optional code graph</td></tr>
@@ -1001,11 +1001,11 @@ Fix the double-submit bug on the checkout form</code></pre>
       <dt>Unit</dt>
       <dd>One row of an epic's queue — a single plan's worth of work, independently verifiable and shippable without any later unit existing.</dd>
       <dt>Tier</dt>
-      <dd>Which subagent executes a task — quick, standard, or deep — chosen by capability scoring.</dd>
+      <dd>Which subagent executes a task — worker or architect — chosen by capability scoring.</dd>
       <dt>Verification bar</dt>
-      <dd>How carefully a change must be checked. Scored on its own axis rather than derived from the tier — it changes what the spawned agent is asked to demonstrate, not what the tier score was. One place it does move the outcome: a <code>quick</code>-scored task with any bar trigger fired is spawned at the standard tier instead.</dd>
+      <dd>How carefully a change must be checked. Scored on its own axis rather than derived from the tier — it changes what the spawned agent is asked to demonstrate, not what the tier score was.</dd>
       <dt>Ladder</dt>
-      <dd>A profile mapping each tier to a model and an effort level. Three of them; <code>opus-centric</code> is the default.</dd>
+      <dd>A profile mapping each tier to a model and an effort level. Two of them; <code>balanced</code> is the default, <code>frontier</code> the capability-first option.</dd>
       <dt>Concept file</dt>
       <dd>One Markdown file in <code>knowledge/</code> describing a single invariant, contract, or domain idea.</dd>
       <dt>Drift guard</dt>
@@ -1017,7 +1017,7 @@ Fix the double-submit bug on the checkout form</code></pre>
     <h3>Getting unstuck</h3>
     <ul class="list check">
       <li>A gate fired and you don't know why → <code>docs/GATES.md</code></li>
-      <li>Work routed to a tier you didn't expect → check which verification-bar trigger fired</li>
+      <li>Work routed to a tier you didn't expect → read the routing line's deciding signal, or just name the tier you want</li>
       <li>An agent wrote a stale library API → distil a pinned bundle for it</li>
       <li>Sessions keep re-deriving the same context → that is what <code>knowledge/</code> is for</li>
     </ul>

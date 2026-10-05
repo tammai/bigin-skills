@@ -5,6 +5,81 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.105.0] - 2026-10-05
+
+Two tiers and a verifier: a model ladder fitted to the 5.5 models.
+
+The model ladder drops from three implementer tiers and three profiles to two tiers plus the verifier and two profiles. It costs less, has fewer moving parts, and every pin is argued against the model it runs on.
+
+| Tier | `balanced` (default) | `frontier` |
+|---|---|---|
+| worker (capability 0–4) | `worker` — sonnet/high | `worker-frontier` — opus/medium |
+| architect (5+, or an auto-override) | `architect` — opus/medium | `architect-frontier` — opus/high |
+| verifier | `verifier` — sonnet/high | `verifier` — sonnet/high |
+
+- **Agents.** Added `worker`, `worker-frontier`, `architect` and `architect-frontier`. Removed `quick-executor`, `standard-worker`, `standard-worker-high`, `deep-architect` and `verifier-medium`. `worker` takes standard-worker's brief and quick-executor's "act, don't narrate" rule for small edits. A `-frontier` agent's body is byte-identical to its base. `docs_sync --check` now also fails when an agent's frontmatter `model` disagrees with the ladder.
+- **Routing.** Verification-bar triggers set the bar only. `task-workflow` no longer promotes a low-scored task to a higher tier when a trigger fires, and `model-router` drops its quick→standard exhaustion retry. Fable is on no ladder; it is reachable as a `models.architect` override.
+- **New auto-override: unknown root cause → architect.** A bug whose cause can't yet be named skips scoring and goes to the architect however small the scope, since a confident wrong fix from the Sonnet worker costs more than an architect run. The worker hands back with `ROUTING_MISMATCH` if it discovers this mid-task.
+- **Docs.** `model-profiles.md` is rewritten around the 5.5 pricing (per 1M tokens in/out: Fable 5.1 $10/$50, Opus 5.5 $4/$20 with default effort medium, Sonnet 5.5 $2/$10, Haiku 4.5 $1/$5 with no effort). The claim that `high` is every model's default effort is gone. ROUTING.md, USER_GUIDE.md, README and the site are updated, with routing mermaid diagrams.
+- **regress.** Added classify routing cases (default, frontier, unknown profile/tier/model, malformed JSON) and a variant-drift gate test.
+
+### Migration — existing repos
+
+The old names are **not** aliased. `classify.mjs` treats them as unknown values: it falls back to `balanced` and warns. Rename them in `.claude/model-routing.json`:
+
+| Old | New |
+|---|---|
+| `"profile": "opus-centric"` | `"profile": "balanced"` |
+| `"profile": "lean"` | `"profile": "balanced"` |
+| `"profile": "frontier"` | unchanged name; the ladder changed (worker opus/medium, architect opus/high). Its old `deep` = `fable` is gone: add `"models": { "architect": "fable" }` to keep it |
+| `models.quick`, `models.standard` | `models.worker` |
+| `models.deep` | `models.architect` |
+| agent `quick-executor`, `standard-worker`, `standard-worker-high` | `worker` / `worker-frontier` |
+| agent `deep-architect` | `architect` / `architect-frontier` |
+| agent `verifier-medium` | removed — `verifier` only |
+
+The patch blocks below rewrite a harness-written profile and the documented `deep` / `standard` override keys. A hand-written `models.quick` is left alone, and so is anything that names an agent directly (a custom script or a prompt naming `bigin-skills:standard-worker`). Rename those by hand.
+
+### Patch blocks
+
+Every block is `optional: true` (each anchor exists only in repos that chose that profile or key) and idempotent. There is deliberately no `"quick":` block: a file with both `quick` and `standard` would end up with a duplicate `"worker"` key.
+
+```patch
+target: .claude/model-routing.json
+optional: true
+anchor: "profile": "opus-centric"
+insert: replace
+---
+"profile": "balanced"
+```
+
+```patch
+target: .claude/model-routing.json
+optional: true
+anchor: "profile": "lean"
+insert: replace
+---
+"profile": "balanced"
+```
+
+```patch
+target: .claude/model-routing.json
+optional: true
+anchor: "deep":
+insert: replace
+---
+"architect":
+```
+
+```patch
+target: .claude/model-routing.json
+optional: true
+anchor: "standard":
+insert: replace
+---
+"worker":
+```
+
 ## [1.104.0] - 2026-10-05
 
 One release for the 2026-10-05 audit: 8 high, 29 medium and 41 low findings across the harness templates, skills, agents, docs and tooling, plus its token-waste and implementation-record sections.

@@ -24,12 +24,11 @@ The five questions Phase 1.5 asks, with their auto-detected defaults and the exa
    For `nuxt-marketing`, the generated workflow also **builds**, because on that profile the build is the locale prerender — say "lint, typecheck, tests, a build that prerenders every locale, and the three content and design-token greps" rather than listing them. It generates **no deploy step**: that belongs to the site's own workflow.
 
    For `flutter`, `{LINT}` is four commands (`dart format --output=none --set-exit-if-changed .`, then `flutter analyze --fatal-infos` in the `{TYPECHECK}` slot, then **both** `dart run custom_lint` and `dart run import_lint`) and the generated workflow adds a regenerate-and-diff step for committed generated code — say "lint, analyze, test, and a generated-code diff" rather than listing all of it in the question.
-3. **Model routing profile** (opus-centric/frontier/lean) — which model ladder `model-router` and `task-workflow` spawn subagents on. Written to `.claude/model-routing.json` at Phase 5-3d:
+3. **Model routing profile** (balanced/frontier) — which model ladder `model-router` and `task-workflow` spawn subagents on. Written to `.claude/model-routing.json` at Phase 5-3d:
    ```
-   Which model ladder should subagents use? (opus-centric/frontier/lean)
-   1. opus-centric (default) — quick=sonnet/low, standard=opus/medium, deep=opus/high, verifier=sonnet/high. Matches an Opus-default session; the deep tier escalates on effort, not on model.
-   2. frontier — quick=sonnet/low, standard=opus/high, deep=fable/high, verifier=sonnet/high. Everything above quick at full effort, deep on the top model.
-   3. lean — quick=sonnet/low, standard=sonnet/high, deep=opus/high, verifier=sonnet/high. Cost-first, trading model capability for effort on the standard tier; deep still escalates to opus, and the verifier is never routed down.
+   Which model ladder should subagents use? (balanced/frontier)
+   1. balanced (default) — worker=sonnet/high, architect=opus/medium, verifier=sonnet/high. Cost-aware: the volume tier on Sonnet at full effort, Opus only for architect-tier work.
+   2. frontier — worker=opus/medium, architect=opus/high, verifier=sonnet/high. Capability first: worker-tier work on Opus, architect one effort step higher. The verifier is the same on both.
    Per-tier overrides and the full schema: `${CLAUDE_PLUGIN_ROOT}/skills/model-router/references/model-profiles.md` (this plugin's own tree).
    ```
    Store `MODEL_ROUTING` (the profile name).

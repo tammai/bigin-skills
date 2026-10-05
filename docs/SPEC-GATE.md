@@ -96,8 +96,8 @@ flowchart TD
     B -->|yes| C{"User said<br/>'full spec'?"}
     C -->|yes| F["Full spec"]
     C -->|no| D["model-router scores<br/>the described scope"]
-    D -->|"deep tier"| E["Offer full format once,<br/>with the rubric's rationale"]
-    D -->|"standard or quick"| G["Default spec"]
+    D -->|"architect tier"| E["Offer full format once,<br/>with the rubric's rationale"]
+    D -->|"worker tier"| G["Default spec"]
     E -->|user picks| F
     E -->|user picks| G
     F --> P["PLAN.md · Status: approved"]
@@ -106,11 +106,11 @@ flowchart TD
 
 **Path one — you ask for it.** "Full spec", "AI-friendly spec", "spec-driven". That's an explicit signal and it's honored.
 
-**Path two — the rubric offers it.** `model-router`'s capability scoring runs against the *described* scope, using the files the request implies via `--paths`, since no `PLAN.md` exists yet. If that scores the `deep` tier, the full format is offered **once**, with the rationale, and you pick.
+**Path two — the rubric offers it.** `model-router`'s capability scoring runs against the *described* scope, using the files the request implies via `--paths`, since no `PLAN.md` exists yet. If that scores the `architect` tier, the full format is offered **once**, with the rationale, and you pick.
 
-The rule that keeps this from inflating: **a `standard` or `quick` score is not a reason to raise formats at all**, and the format is never upgraded because a task *feels* big. That judgment belongs to the rubric, not to a vibe. Step 4 reuses the same score rather than re-running it, unless the approved spec moved the scope out from under it.
+The rule that keeps this from inflating: **a `worker` score is not a reason to raise formats at all**, and the format is never upgraded because a task *feels* big. That judgment belongs to the rubric, not to a vibe. Step 4 reuses the same score rather than re-running it, unless the approved spec moved the scope out from under it.
 
-Worth knowing in the other direction: a full-spec `PLAN.md` on disk sets `fullSpecDetected`, which is an **auto-override to the deep tier** in later scoring. Choosing the full format is therefore also a routing decision — it commits the implementation to the most expensive tier.
+Worth knowing in the other direction: a full-spec `PLAN.md` on disk sets `fullSpecDetected`, which is an **auto-override to the architect tier** in later scoring. Choosing the full format is therefore also a routing decision — it commits the implementation to the most expensive tier.
 
 ---
 

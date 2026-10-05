@@ -54,7 +54,7 @@
     },
     "model-router": {
       "group": "core",
-      "summary": "Scores capability and verification needs separately, then routes to the quick/standard/deep tier on a per-project model + effort ladder."
+      "summary": "Scores capability and verification needs separately, then routes to the worker or architect tier on a per-project model + effort ladder."
     },
     "session-handoff": {
       "group": "handoff",
@@ -86,29 +86,25 @@
     }
   },
   "agents": {
-    "quick-executor": {
-      "routed": "`model-router`",
-      "summary": "Mechanical, single-file, low-risk tasks — the quick tier."
+    "worker": {
+      "routed": "`model-router` — `balanced`",
+      "summary": "Worker tier (capability 0–4): mechanical edits through most feature and bug-fix work."
     },
-    "standard-worker": {
-      "routed": "`model-router`",
-      "summary": "Default tier: most feature and bug-fix work."
+    "worker-frontier": {
+      "routed": "`model-router` — `frontier`",
+      "summary": "Same role and body as `worker`, on opus at medium; spawned instead of it on the `frontier` ladder."
     },
-    "standard-worker-high": {
-      "routed": "`model-router` — `frontier`, `lean`",
-      "summary": "Same role as `standard-worker`, pinned higher; spawned instead of it on those ladders."
+    "architect": {
+      "routed": "`model-router` — `balanced`",
+      "summary": "Architect tier (capability 5+ or an auto-override): architecture, breaking contract changes, row-transforming migrations, unknown-root-cause bugs, full-spec."
     },
-    "deep-architect": {
-      "routed": "`model-router`",
-      "summary": "Architectural decisions, breaking contract changes, row-transforming migrations, full-spec tier."
+    "architect-frontier": {
+      "routed": "`model-router` — `frontier`",
+      "summary": "Same role and body as `architect`, pinned at high; spawned instead of it on the `frontier` ladder."
     },
     "verifier": {
       "routed": "`task-workflow`",
       "summary": "Read-only — audits a diff against `PLAN.md`, not the implementer's summary. Fresh each round."
-    },
-    "verifier-medium": {
-      "routed": "no profile",
-      "summary": "Same role as `verifier`, pinned lower. Spawned by no ladder since 1.100.0 — kept as the mechanism a future profile would use to pin the verifier down."
     },
     "knowledge-auditor": {
       "routed": "`knowledge-distill`",
