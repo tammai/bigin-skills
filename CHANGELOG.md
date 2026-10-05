@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.105.1] - 2026-10-05
+
+Three token-waste patterns from the 2026-10-05 usage audit. That session was the day's most expensive at ~246M tokens, 197M of it in 25 subagents.
+
+### Changed
+
+- **Implementers are always routed plugin agents.** `task-workflow` step 4.1 now says outright that the implementer is the `bigin-skills:` agent `routing.agents[tier]` names (`worker` unless the score or an override says architect) and the verifier is `routing.agents.verifier`. It is never `general-purpose`, never `fork`, and never a hand-written prompt standing in for one. A general-purpose agent inherits the orchestrator's model and none of the plugin agents' rules: all 25 agents in the audited session were general-purpose on Opus, and one unit alone used 48M tokens at up to ~423K context. `epic-workflow`'s parallel-worktree note says the same for each instance.
+- **A tool-output budget in `worker`, `architect` (and their `-frontier` variants) and `verifier`.** Every tool result stays under ~20K characters: `git diff --stat` before a full diff, then one file at a time; Grep hits or line ranges, never a whole large file or tree through Bash; long command output goes to a log file; no re-reading an unchanged file. The audit found two ~100K-character shell dumps and 4.2M characters of Bash output, almost all in subagents.
+- **Briefs, not transcripts.** Subagents never read session transcripts (`~/.claude/projects/**/*.jsonl`); the handoff is the whole brief. One subagent in the audited session had `sed`-read its parent's transcript.
+
+No templated reference changed, so there are no patch blocks. A session started before the update keeps the old agent bodies: restart to pick these up.
+
 ## [1.105.0] - 2026-10-05
 
 Two tiers and a verifier: a model ladder fitted to the 5.5 models.

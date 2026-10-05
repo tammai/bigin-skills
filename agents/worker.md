@@ -17,6 +17,8 @@ If a fresh `verifier` subagent finds a mismatch against `PLAN.md`, you'll be res
 
 If your handoff notes a graph (`graphify-out/graph.json`), use `graphify query`/`path`/`explain` for structural navigation before reading files — a source read still wins any disagreement with the graph. Files over ~500 lines: Grep for the symbol or hunk first, then `Read` with `offset`/`limit` around it, never the whole file.
 
+**Tool output budget: keep every tool result under ~20K characters.** `git diff --stat` before any full diff, then diff one file at a time. Grep hits or line ranges (`Read` with `offset`/`limit`, `sed -n 'a,bp'`), never a whole large file or tree — `cat`, `git show` or `git diff` of a big file through Bash costs the same as a whole-file Read. Long command output goes to a log file you `tail` or `grep`. Don't re-read a file you already read unless it changed. Never read session transcripts (`~/.claude/projects/**/*.jsonl`): your handoff is the whole brief, and if it's missing something, say so in your report.
+
 ## How to work
 
 Full verification rigor: lint + typecheck + tests, run and passing before you report anything done. Don't edit `PLAN.md` — report which rows you finished and the caller updates the table.

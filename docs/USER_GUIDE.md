@@ -293,9 +293,10 @@ model-router scores the task
                                  (capped at 3 rounds)
 ```
 
-Three properties worth knowing:
+Four properties worth knowing:
 
 - **The verifier reads the diff, not the report.** An implementer that says "done, all tests pass" gets audited on the actual code either way. That is also why the reports are short: an implementer ends with at most ~1,500 characters (status, files, finished `PLAN.md` rows, each test command with its pass/fail line), never the diff or whole logs, and the verifier returns only a JSON verdict. Only the orchestrator writes `PLAN.md`; workers report which rows they finished.
+- **Every subagent is a routed plugin agent with a tool-output budget.** Implementers are `bigin-skills:worker` or `architect` by score, never a `general-purpose` agent, which would inherit the orchestrator's model and none of these rules. Each keeps any single tool result under ~20K characters (`git diff --stat` before a full diff, Grep hits or line ranges instead of whole files, long output to a log file), works from a written brief, and never reads session transcripts.
 - **The cap is real.** At 3 failed rounds it stops and asks you whether to adjust the plan, raise the cap, or take over. It does not loop forever.
 - **Who types the fix is not the independence.** For a genuinely trivial issue — one the verifier already names the correct value for, text rather than behaviour, a couple of lines in a file the diff already touches — the orchestrator applies it directly instead of paying a full implementer resume to change two words. Every issue on the list has to clear that bar or the whole list goes back to the implementer, and a fresh verifier still re-checks the result either way. The audit is where independence lives.
 
