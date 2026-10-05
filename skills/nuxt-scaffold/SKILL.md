@@ -1,6 +1,6 @@
 ---
 name: nuxt-scaffold
-description: "Scaffolds a new Nuxt 4 BFF app from scratch — empty repo or no nuxt.config.ts. Backend-wired proxy + typed API client; nine templates from starter to saas. Triggers: 'scaffold nuxt', 'create nuxt app', 'nuxt saas template'."
+description: "Scaffolds a new Nuxt 4 BFF app from scratch (no nuxt.config.ts yet) — backend-wired proxy + typed API client; nine templates, starter to saas. Triggers: 'scaffold nuxt', 'create nuxt app', 'nuxt saas template'."
 argument-hint: [template]
 effort: low
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/scaffold.mjs *)
@@ -101,12 +101,12 @@ Write the answers to a JSON file **outside the target repo** (temp/scratchpad di
 }
 ```
 
-`skipInstall` (default `false`, not part of Step 2's questions) writes every file and merges every `package.json` entry but never runs `npm create`'s install, `pnpm add`, `pnpm simple-git-hooks`, or the verify stage — the preset packages land in `package.json` pinned to the `latest` dist-tag, unresolved. Use it only for fast maintainer iteration on `scaffold.mjs`/templates (see "Manual validation" below); the result is not a runnable app until `pnpm install` is run manually. Never set this from the normal user-facing flow.
+`skipInstall` (default `false`, not part of Step 2's questions) writes every file and merges every `package.json` entry but never runs `npm create`'s install, `pnpm add`, `pnpm simple-git-hooks`, or the verify stage — the preset packages land in `package.json` pinned to the `latest` dist-tag, unresolved. Use it only for fast maintainer iteration on `scaffold.mjs`/templates (see `references/MAINTAINING.md`); the result is not a runnable app until `pnpm install` is run manually. Never set this from the normal user-facing flow.
 
 Then run it from the target directory, streaming output (it can take several minutes — installs + lint + type-check + tests):
 
 ```sh
-node <this-skill-dir>/scripts/scaffold.mjs --config <path-to-config.json>
+node ${CLAUDE_SKILL_DIR}/scripts/scaffold.mjs --config <path-to-config.json>
 ```
 
 Zero prompts occur once the script starts. Every step it performs (init, version refresh, BFF preset, artifacts, hooks, verify, commit) is internal — do not duplicate any of it.
@@ -117,25 +117,7 @@ Zero prompts occur once the script starts. Every step it performs (init, version
 - **Exit 2** → config problem; fix the JSON per the error message and re-run.
 - **Exit 1** → runtime failure; the last `[scaffold] ERROR:` line names the failing stage/command. Common causes: Node < 22, pnpm missing, network failure during `npm create`, or a `create-nuxt@latest` behavior change (the error will say to re-verify `references/bootstrap.md`). A failed run partway through leaves a partial scaffold — after fixing the cause, re-run with `"resume": true`.
 
----
-
-## Manual validation (maintainers)
-
-After changing `scaffold.mjs` or templates, verify in an empty temp dir on **both macOS and Windows**:
-
-```sh
-mkdir scaffold-test && cd scaffold-test
-echo '{"projectName":"scaffold-test","packageManager":"pnpm","theme":{"primary":"orange","neutral":"slate"}}' > ../cfg.json
-node <skill-dir>/scripts/scaffold.mjs --config ../cfg.json
-```
-
-Expect: exit 0, all three verify gates green, initial commit created. Then re-run the same command → must fail fast with "scaffold looks complete", exit 1, no files touched.
-
-For a fast file-tree-only pass while iterating on templates (add `"skipInstall": true` to the config), expect exit 0 in a few seconds — no install, no verify, no hooks activated — then inspect the written files directly; don't treat that run as a stand-in for the full validation above.
-
-At minimum also re-verify `template: "saas"` the same way (`echo '{"projectName":"scaffold-saas-test","packageManager":"pnpm","template":"saas","theme":{"primary":"orange","neutral":"slate"}}' > ../cfg.json`) whenever `templates/saas/` or the clone path in `stage1Init()` changes — it's the one template with bespoke files and a different Stage 1 command. The other 7 cloned slugs share the same generic clone-and-layer path; spot-check one (e.g. `dashboard` or `landing`) opportunistically rather than on every change.
-
-Platform-risky code paths (all flagged in the header comment of `scaffold.mjs`): Windows `.cmd` shim resolution + the `shell: true`-on-win32 EINVAL workaround (`resolveBin`/`run`/`winQuote`), `^` in semver specs under cmd.exe, CRLF checkouts vs `@stylistic` lint rules, and utf8 decoding of subprocess output.
+Maintainer notes (design rationale, manual validation after changing the script or templates) live in `references/MAINTAINING.md`. A scaffold run never needs them, so it never reads them.
 
 ## References
 

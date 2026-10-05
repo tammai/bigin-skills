@@ -116,7 +116,7 @@ No CI template. Phase 5.6 is skipped entirely for this profile even when `CI_PRO
         ]
       },
       {
-        "matcher": "Edit|Write|MultiEdit",
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
         "hooks": [
           {
             "type": "command",
@@ -125,7 +125,7 @@ No CI template. Phase 5.6 is skipped entirely for this profile even when `CI_PRO
         ]
       },
       {
-        "matcher": "Bash|Write|Edit|WebFetch|mcp__.*",
+        "matcher": "Bash|Write|Edit|MultiEdit|WebFetch|mcp__.*",
         "hooks": [
           {
             "type": "command",

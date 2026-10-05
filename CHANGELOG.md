@@ -5,6 +5,2863 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.104.0] - 2026-10-05
+
+One release for the 2026-10-05 audit: 8 high, 29 medium and 41 low findings across the harness templates, skills, agents, docs and tooling, plus its token-waste and implementation-record sections.
+
+### Security and guards
+
+- **`bash-guard` tokenizes the command instead of matching a regex over it.** Six regex bypasses each landed a real commit past a failing pre-commit hook: a quoted or abbreviated `--no-verify`, `-n` after `-m` or in a cluster, a global option before the subcommand, `-c core.hooksPath`, an alias, and a commit hidden behind `sh -c`, `eval`, `$( )` or a wrapper. It now judges each git call that `hook-io.mjs`'s `gitInvocations()` finds. The block list also covers wrappers that may run git (`find -exec`, `xargs`, `stdbuf` and others), interpreter scripts (`python -c`, `node -e`), text piped into a shell, computed arguments on `commit`/`push`, `include.path`, `GIT_CONFIG*`/`GIT_DIR`/`HUSKY` environment, `git commit-tree`, `push --mirror`, `+refspec` and push-forcing config. The old regex still runs as a backstop, so nothing it blocked is allowed now.
+- **The gates protect their own files.** An `Edit` or a shell write to `.claude/guards/**`, `.claude/settings*.json`, `.cursor/hooks.json`, `.cursor/hooks/**`, `.husky/**`, `.git/hooks/**`, `.git/config`, `scripts/git-hooks/**` or the commit-hook scripts now asks, at any size (`isGateFile()`). Cursor's `preToolUse` can't ask, so there it is a deny. Its `beforeShellExecution` gets a real ask.
+- **`spec-gate`:**
+  - A whole-file `Write` is sized by the lines it changes. It used to be sized by the line-count difference, so a same-length rewrite counted as 0.
+  - Path rules judge the real path relative to the file's own worktree. This closes the `..` and `tests/`-parent exemptions and the fail-open for a file in a new subdirectory.
+  - `NotebookEdit` is sized from `new_source`.
+- **Other guards:**
+  - `bugfix-test-guard` reads the commit's own index, and no longer forwards the command's `GIT_CONFIG_*` into its own git call, which had run planted code inside the hook.
+  - `commit-msg-guard` accepts Claude Code's heredoc commit form.
+  - `vendored-contract-guard` is case- and symlink-proof.
+  - `precompact-snapshot` archives a finished session instead of reviving it.
+  - `projectDir()` prefers `CLAUDE_PROJECT_DIR`.
+  - `install-hooks.mjs` writes a shim when a symlink isn't allowed (Windows).
+  - Every guard runs git through `safeGit()` and fails closed on a payload field of the wrong type.
+- **Matchers match the guards' shape filters.** The injection gate's matcher gains `MultiEdit` and the spec gate's gains `NotebookEdit` in every profile's `.claude/settings.json`.
+- **`lint-fix-file.mjs` runs ESLint without a shell.** It calls `node_modules/eslint/bin/eslint.js` through `process.execPath`, so on Windows a path with a space or `&` is never reparsed by `cmd.exe`. This applies to both the nuxt-scaffold and next-scaffold copies.
+
+### Harness templates
+
+- `.claude/rules/knowledge.md` and `.claude/rules/graph.md` gain `paths:`, so they no longer load in every session. `comments.md` and the generic `security.md`/`architecture.md` globs gain `dart`.
+- Implementation records: concepts never cite a `Record`, and `knowledge_validate.mjs` warns when one does. Records skip link checks. A new `.ignore` keeps them out of searches. The `implementation/index.md` line format is capped at about 120 chars.
+- `.cursor/hooks.json` follows each profile's gate set, so specs/contracts/qa Cursor users no longer get gates those profiles leave out.
+- The polyrepo pre-commit block has a home behind a hook manager (`scripts/pre-commit-polyrepo.sh`). The README hook install has a Windows shim line. Scaffold delegation uses `${CLAUDE_PLUGIN_ROOT}` paths. The tauri `CLAUDE.md` points at its rules instead of repeating them. specs gets no `commit-msg` hook, since it has no `commit-msg-guard.mjs`.
+- `tools/context_budget.mjs` (templated) resolves the repo root and normalises CRLF. It measures block-scalar descriptions whole, counts agent descriptions, stops counting user-only skills, and fails closed with no `CLAUDE.md`.
+
+### Routing
+
+- `classify.mjs` computes test coverage only over code it can evaluate. A docs- or config-only scope gives `null`, not 0, and `.vue`, `.dart` and `.rs` are covered. Full-spec detection uses only the `[full-spec]` marker. A deleted file is no longer a planned new file.
+- New docs and config files are not "new files" (owner decision): `plannedNewFiles` keeps only allowlisted code types.
+
+### Workflows and token waste
+
+- **`epic-workflow` stops after 2 units in one session** and asks for `/clear` (owner decision). This is a count, not a judgment call. Resuming is free.
+- Verifier dispatch uses a fixed template that passes a `git diff` command and the file list, never a pasted diff. Each verifier dispatch counts as a round, whatever its label.
+- Implementers report in about 1,500 chars and never paste the diff. They don't edit `PLAN.md`; the orchestrator flips the rows. Workers no longer preload `debug-workflow` and `write-tests`.
+- Large files are grepped first and then read by range. The verifier doesn't re-run the suite: the implementer's reported run is the evidence.
+- A two-surface unit is two units. ROUTING_MISMATCH fires only on a breaking contract change or a row-transforming migration.
+
+### Implementation records
+
+- **Records stay full and verbatim** (owner decision). They are written by one shell copy (`node -e`, no `Write`, no read-back) and are read only when a traceback needs them. No fix shrinks a record.
+
+### Tooling
+
+- The pre-commit hook runs the gates on the staged index in a temp checkout, so a partial stage can't pass on the working tree. `.gitattributes` pins LF, and every parser normalises CRLF.
+- **The budget gate counts agent descriptions.** That put the always-loaded total over the 12,000 cap, and the owner decided not to raise it, so agent and skill descriptions were trimmed to fit: 11,926 now.
+- `regress.mjs` gains gate-tool cases, the guard bypass and allow cases on both payload shapes, and an idempotency assertion for guard patch blocks. That assertion covers `lint-fix-file.mjs` too.
+- Scaffolders' maintainer notes moved to `references/MAINTAINING.md`.
+- Smaller fixes: S11–S27 across ask-bigin, session-handoff, sprint-distill, write-tests, flutter-figma-handoff, contract-sync and the scaffolders.
+
+### Docs
+
+README, the user guide, GATES, SPEC-GATE, KNOWLEDGE, GRAPHIFY, the handbook and the manifests were re-checked against the code: D1–D21, including the bash-guard tables and the gate-file list. D22 was moot once the two rule templates gained `paths:`.
+
+### Manual steps
+
+- **Gate-file blocks ask, and in Cursor they are denied.** Patch mode prompts once per block that targets `.claude/guards/**` or `.claude/settings.json`. Approve the ones listed below. A Cursor user applies those blocks by hand from the "Needs manual apply (Cursor)" list. Apply `.claude/guards/lib/hook-io.mjs` first, because every guard imports it.
+- **`paths:` frontmatter for `.claude/rules/knowledge.md` and `.claude/rules/graph.md`:** prepend the frontmatter from `knowledge-bundle.md` → `## knowledge.md` and `graph.md` → `## .claude/rules/graph.md`, or re-run setup for those two files.
+- **`.ignore` already exists:** append `/knowledge/implementation/`. The block below only creates the file.
+- **specs/contracts/qa (and `SPECKIT = coexist`) repos with Cursor parity:** remove the `preToolUse` entries that `cursor-parity.md`'s table drops for the profile. No block can do this, because removing a line would strip gates from stack profiles too.
+- **Polyrepo repo whose hook manager owns `pre-commit`:** write `scripts/pre-commit-polyrepo.sh` and chain it, as described in `bigin-harness-setup/SKILL.md` Phase 5-2.
+- **Flutter `mobile` repos from before 1.96.2:** add `api_client: { path: api/generated }` to `pubspec.yaml`.
+- **A hand-edited `tools/context_budget.mjs`** misses its whole-file block. In that case, re-run setup with `yes` for that file.
+
+### Declined
+
+- Raising the 12,000-char budget cap (owner decision). Descriptions were trimmed instead.
+- W8 was already fixed in 1.101.1. W9 is not caused by the plugin.
+- A leftover all-Done full-spec `PLAN.md` still skews the next task's routing. This is a cleanup-lifecycle question, not something the detector should handle.
+- `git -c commit.verify=false` and `push.default=mirror` are not real git settings, and `git update-ref` is a local ref rewrite, so the guard leaves all three alone.
+- Known edge: a `$` in a record title passed in double quotes is expanded by the shell.
+
+### Patch blocks
+
+There are 55 blocks. Apply them in order: `lib/hook-io.mjs` first, then the other guards, the templates, the four retro blocks for 1.96.1–1.96.3 (D7), `contract-drift.yml`, the settings matchers and `lint-fix-file.mjs`.
+
+- **Optional blocks.** A block is `optional: true` when its target exists only in some profiles.
+- **D7 retro blocks.** These anchor on the pre-fix text, so a repo that already has the fix misses them silently. The `generate_api.sh` block also misses if its docker lines were hand-edited.
+- **Proof.** Each block was applied in sequence to files built from the 1.103.0 templates, and to 1.96.0/1.96.1 files for D7. The results equal the 1.104.0 templates byte for byte, and every patched script parses. The only exception is the install-time `{SPEC_PATH}` explainer comment in `contract-drift.yml`, which only a fresh install writes.
+- **Re-runs.** On a second run, three `insert: after/before` blocks (`implementation/index.md`, `knowledge_validate.mjs` before `// --- main`, and `README.md`) would apply again. The `.claude/harness-version` stamp is what stops that replay.
+
+```patch
+target: .claude/guards/lib/hook-io.mjs
+anchor: // differ in a handful of field names, the response envelope, and one capability
+// (Cursor's preToolUse response has no `ask`). Every guard reads its fields through
+// this module so none of them has to know which host it's running under.
+import { readFileSync } from 'node:fs'
+
+// Fail closed for blocking gates: an unparsable payload would otherwise exit 1, which
+insert: replace
+---
+// differ in a handful of field names, the response envelope, and one capability
+// (Cursor's preToolUse response has no `ask`). Every guard reads its fields through
+// this module so none of them has to know which host it's running under. It also
+// holds the two parsers more than one guard needs — file paths and shell commands —
+// so a fix to either lands in every guard at once.
+import { existsSync, readFileSync, realpathSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
+import { homedir } from 'node:os'
+
+// Fail closed for blocking gates: an unparsable payload would otherwise exit 1, which
+```
+
+```patch
+target: .claude/guards/lib/hook-io.mjs
+anchor:   return data?.tool_response ?? data?.tool_output ?? ''
+}
+
+export function projectDir(data) {
+  return data?.cwd
+    ?? data?.workspace_roots?.[0]
+    ?? process.env.CLAUDE_PROJECT_DIR
+    ?? process.env.CURSOR_PROJECT_DIR
+    ?? process.cwd()
+}
+
+export function compactTrigger(data) {
+insert: replace
+---
+  return data?.tool_response ?? data?.tool_output ?? ''
+}
+
+// A field the hook needs, as a string: absent is ''. Present with any other type, the
+// payload is malformed, and a blocking gate exits 2 rather than letting it fall through
+// to a crash — an uncaught exception exits 1, which both hosts treat as "allow".
+export function stringField(input, name, guardName) {
+  if (input !== undefined && input !== null && typeof input !== 'object') malformed(guardName, 'tool_input')
+  const value = input?.[name]
+  if (value === undefined || value === null) return ''
+  if (typeof value !== 'string') malformed(guardName, name)
+  return value
+}
+
+function malformed(guardName, field) {
+  console.error(`Error: ${guardName} got a malformed ${field} in its hook payload — blocking rather than passing the call through unchecked.`)
+  process.exit(2)
+}
+
+// git the way a guard runs it: never with the environment or config a command under
+// judgement tried to set. Running `git diff` with the command's own GIT_CONFIG_*
+// prefixes executed core.fsmonitor (arbitrary code) inside the hook.
+export function safeGitEnv() {
+  const env = {}
+  for (const [k, v] of Object.entries(process.env)) if (!k.startsWith('GIT_')) env[k] = v
+  return env
+}
+
+export function safeGit(args, cwd) {
+  return execFileSync('git', ['-c', 'core.fsmonitor=false', ...args], {
+    cwd, env: safeGitEnv(), encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore']
+  })
+}
+
+function gitOut(args, cwd) {
+  return safeGit(args, cwd).trim()
+}
+
+// The project root, for hooks that write or read project state (SESSION.md, git hooks).
+// The fixed roots come first: Claude Code's payload `cwd` follows the session into
+// subdirectories, so ranking it first wrote an autosave to packages/web/.claude/ that
+// the next session's resume check — looking at the root — never found.
+export function projectDir(data) {
+  const fixed = process.env.CLAUDE_PROJECT_DIR || data?.workspace_roots?.[0] || process.env.CURSOR_PROJECT_DIR
+  if (fixed) return fixed
+  const from = data?.cwd || process.cwd()
+  try {
+    return gitOut(['rev-parse', '--show-toplevel'], from) || from
+  } catch {
+    return from // not a repo
+  }
+}
+
+// The directory a shell command starts in. Unlike projectDir() this is meant to move:
+// a Bash call runs where the session currently is, which is what the payload's cwd says.
+export function commandDir(data) {
+  return data?.cwd || process.cwd()
+}
+
+export function compactTrigger(data) {
+```
+
+```patch
+target: .claude/guards/lib/hook-io.mjs
+anchor: // matcher (see cursor-parity.md for why), and Cursor's tool names aren't Claude Code's.
+// A call carrying content/old_string/new_string/edits is a write on any host.
+export function isWriteShaped(call) {
+  if (READ_TOOLS.test(call.name)) return false
+  if (WRITE_TOOLS.test(call.name)) return true
+  const input = call.input ?? {}
+  return typeof input.content === 'string'
+    || typeof input.old_string === 'string'
+    || typeof input.new_string === 'string'
+    || Array.isArray(input.edits)
+insert: replace
+---
+// matcher (see cursor-parity.md for why), and Cursor's tool names aren't Claude Code's.
+// A call carrying content/old_string/new_string/new_source/edits is a write on any host.
+export function isWriteShaped(call) {
+  if (READ_TOOLS.test(call.name)) return false
+  if (WRITE_TOOLS.test(call.name)) return true
+  const input = call.input ?? {}
+  return typeof input.content === 'string'
+    || typeof input.old_string === 'string'
+    || typeof input.new_string === 'string'
+    || typeof input.new_source === 'string'
+    || Array.isArray(input.edits)
+```
+
+```patch
+target: .claude/guards/lib/hook-io.mjs
+anchor: }
+
+// PreToolUse verdict: 'allow' | 'ask' | 'deny'. Under Cursor `ask` degrades to `deny`
+// with the reason extended — stricter than Claude Code, never looser, so nothing
+// proceeds silently on a host that can't prompt from this hook.
+export function emitDecision(data, decision, reason) {
+  if (isCursor(data)) {
+    const note = decision === 'ask'
+      ? ' (Cursor cannot prompt from a preToolUse hook, so this is blocked rather than asked — surface the flagged content to the user and let them confirm before retrying.)'
+      : ''
+    console.log(JSON.stringify({
+      permission: decision === 'allow' ? 'allow' : 'deny',
+      agent_message: reason + note,
+      user_message: reason
+    }))
+    return
+  }
+  console.log(JSON.stringify({
+    hookSpecificOutput: {
+      hookEventName: 'PreToolUse',
+      permissionDecision: decision,
+      permissionDecisionReason: reason
+    }
+  }))
+}
+
+// Context injection for the non-blocking hooks. `event` is the Claude Code hook name;
+// Cursor's response carries no event field, so it's ignored on that host.
+export function emitContext(data, event, text) {
+  if (isCursor(data)) {
+    console.log(JSON.stringify({ additional_context: text }))
+    return
+  }
+  console.log(JSON.stringify({
+    hookSpecificOutput: { hookEventName: event, additionalContext: text }
+  }))
+}
+insert: replace
+---
+}
+
+// PreToolUse verdict: 'allow' | 'ask' | 'deny'. Cursor enforces `ask` only on its shell
+// and MCP events; preToolUse accepts the value and ignores it. There `ask` degrades to
+// `deny` with the reason extended — stricter than Claude Code, never looser, so nothing
+// proceeds silently on a host that can't prompt from this hook.
+export function emitDecision(data, decision, reason) {
+  if (isCursor(data)) {
+    if (decision === 'ask' && /^(beforeShellExecution|beforeMCPExecution)$/.test(data?.hook_event_name ?? '')) {
+      console.log(JSON.stringify({ permission: 'ask', agent_message: reason, user_message: reason }))
+      return
+    }
+    const note = decision === 'ask'
+      ? ' (Cursor cannot prompt from a preToolUse hook, so this is blocked rather than asked — surface the flagged content to the user and let them confirm before retrying.)'
+      : ''
+    console.log(JSON.stringify({
+      permission: decision === 'allow' ? 'allow' : 'deny',
+      agent_message: reason + note,
+      user_message: reason
+    }))
+    return
+  }
+  console.log(JSON.stringify({
+    hookSpecificOutput: {
+      hookEventName: 'PreToolUse',
+      permissionDecision: decision,
+      permissionDecisionReason: reason
+    }
+  }))
+}
+
+// Context injection for the non-blocking hooks. `event` is the Claude Code hook name;
+// Cursor's response carries no event field, so it's ignored on that host.
+export function emitContext(data, event, text) {
+  if (isCursor(data)) {
+    console.log(JSON.stringify({ additional_context: text }))
+    return
+  }
+  console.log(JSON.stringify({
+    hookSpecificOutput: { hookEventName: event, additionalContext: text }
+  }))
+}
+
+// ── file paths ─────────────────────────────────────────────────────────
+
+// macOS and Windows default to case-insensitive filesystems: API/openapi.yaml IS
+// api/openapi.yaml there, so a path compared case-sensitively is a path walked around.
+export const CASE_INSENSITIVE_FS = process.platform === 'darwin' || process.platform === 'win32'
+
+// The real, absolute form of a path that may not exist yet. The nearest existing
+// ancestor goes through realpath — symlinks, `..`, /tmp vs /private/tmp and (on a
+// case-insensitive filesystem) letter case all resolve — and the not-yet-created tail
+// is re-attached as typed.
+export function realPath(path) {
+  let head = resolve(path)
+  const tail = []
+  for (;;) {
+    try {
+      return join(realpathSync.native(head), ...tail)
+    } catch {
+      const up = dirname(head)
+      if (up === head) return resolve(path)
+      tail.unshift(basename(head))
+      head = up
+    }
+  }
+}
+
+// The worktree a path belongs to, or null outside any repo. Never the session's: a
+// hook's cwd is the session root, and resolving against it read another tree's PLAN.md
+// (v1.90.1). Walks up to the nearest directory that exists, because a Write into a
+// brand-new subdirectory has no directory for `git -C` yet — failing there and falling
+// back to cwd is how the 1.90.1 fail-open came back.
+export function worktreeRoot(path) {
+  let dir = dirname(realPath(path))
+  while (!existsSync(dir) && dirname(dir) !== dir) dir = dirname(dir)
+  try {
+    return realPath(gitOut(['rev-parse', '--show-toplevel'], dir))
+  } catch {
+    return null
+  }
+}
+
+// `path` relative to `root` with `/` separators, or null when it is not inside root.
+// Judge a path by this, never by its raw absolute form: a repo cloned under ~/tests/
+// otherwise matches every "tests/" rule, and src/test/../app.ts matches it by typing.
+export function repoRelative(path, root) {
+  const rel = relative(root, realPath(path))
+  if (rel === '' || rel.startsWith('..') || isAbsolute(rel)) return null
+  return rel.split(sep).join('/')
+}
+
+// The gates' own inputs, as repo-relative paths. A one-line change to any of them turns
+// a gate off for every later call — exactly what an injected instruction would ask
+// for — so an edit here is confirmed by a person, through Edit/Write or through Bash.
+const GATE_FILES = /^(\.claude\/guards(\/|$)|\.claude\/settings[^/]*\.json$|\.cursor\/hooks(\.json$|\/)|\.husky(\/|$)|\.git\/hooks(\/|$)|\.git\/config$|scripts\/git-hooks(\/|$)|scripts\/(pre-commit[^/]*|commit-msg)\.sh$)/i
+
+export function isGateFile(rel) {
+  return rel !== null && GATE_FILES.test(rel)
+}
+
+// ── shell commands ─────────────────────────────────────────────────────
+//
+// Guards that judge a Bash call tokenize it the way a shell would rather than matching
+// a regex against it: a regex cannot tell a flag from a quoted message, so the old
+// "scrub the quotes, then match" approach both missed `"--no-verify"` (scrubbed away)
+// and needed `-n` to sit right after `commit`. What comes out is every simple command,
+// nested ones included — `$( )`, backticks, `( )`, `<( )`, `sh -c`, `eval`, text piped
+// or redirected into a shell, and git calls buried in another program's arguments.
+
+// Stands in for text the shell would compute: a $VAR, a command substitution we do not
+// run. A word containing it is unknowable, and a guard must not guess what it becomes.
+export const UNKNOWN = '\u0000'
+
+const OPERATOR_CHARS = ';&|()<>\n'
+
+// One pass over `src` from `start`. Stops at an unmatched `)` when `inSubst` is set.
+// Returns { cmds, end }; each cmd is { words, heredocs, redirects: [{ op, target }] }.
+function lex(src, start, inSubst) {
+  const cmds = []
+  let words = []
+  let heredocs = []
+  let redirects = []
+  let word = null // null = between words; '' = an empty quoted word
+  let redirect = null // operator of a redirection whose target is the next word
+  let pending = [] // heredoc delimiters waiting for the end of this line
+  let parens = 0
+  let i = start
+
+  const endWord = () => {
+    if (word !== null) {
+      if (redirect) redirects.push({ op: redirect, target: word })
+      else words.push(word)
+      redirect = null
+    }
+    word = null
+  }
+  const endCmd = () => {
+    endWord()
+    redirect = null
+    if (words.length || redirects.length || heredocs.length) cmds.push({ words, heredocs, redirects })
+    words = []
+    heredocs = []
+    redirects = []
+  }
+  const add = (s) => {
+    word = (word ?? '') + s
+  }
+  // `$(`, a backtick or `<(`: lex the inner command, keep its commands, and give the
+  // outer word the only value we can know without running anything — a bare
+  // `cat <<EOF` heredoc, which is exactly the form a commit message takes.
+  const substitute = (inner) => {
+    for (const c of inner) cmds.push(c)
+    const only = inner.length === 1 ? inner[0] : null
+    const isCat = only && only.words.length === 1 && only.words[0] === 'cat' && only.heredocs.length === 1
+    add(isCat ? only.heredocs[0].replace(/\n+$/, '') : UNKNOWN)
+  }
+  // $NAME, ${…}, $1, $@ … — i is on the `$`. Returns false when it is a literal `$`.
+  const variable = () => {
+    const next = src[i + 1] ?? ''
+    if (next === '{') {
+      const close = src.indexOf('}', i + 2)
+      i = close === -1 ? src.length : close + 1
+    } else if (/[A-Za-z_]/.test(next)) {
+      i++
+      while (/[A-Za-z0-9_]/.test(src[i] ?? '')) i++
+    } else if (/[0-9@*#?$!-]/.test(next)) {
+      i += 2
+    } else return false
+    add(UNKNOWN)
+    return true
+  }
+  const readHeredocBodies = () => {
+    // Bodies belong to the command that opened them, which this newline has already ended.
+    for (const { delim, strip, into } of pending) {
+      const lines = []
+      while (i < src.length) {
+        const nl = src.indexOf('\n', i)
+        const line = src.slice(i, nl === -1 ? src.length : nl)
+        i = nl === -1 ? src.length : nl + 1
+        if ((strip ? line.replace(/^\t+/, '') : line) === delim) break
+        lines.push(strip ? line.replace(/^\t+/, '') : line)
+      }
+      into.push(lines.join('\n') + '\n')
+    }
+    pending = []
+  }
+  const backtick = () => {
+    const close = src.indexOf('`', i + 1)
+    const end = close === -1 ? src.length : close
+    substitute(lex(src.slice(i + 1, end).replace(/\\`/g, '`'), 0, false).cmds)
+    i = end + 1
+  }
+  const readDoubleQuoted = () => {
+    // i is just past the opening quote
+    let s = ''
+    while (i < src.length && src[i] !== '"') {
+      const c = src[i]
+      if (c === '\\' && '$`"\\\n'.includes(src[i + 1] ?? '')) {
+        if (src[i + 1] !== '\n') s += src[i + 1]
+        i += 2
+      } else if (c === '$' && src[i + 1] === '(') {
+        add(s)
+        s = ''
+        const r = lex(src, i + 2, true)
+        i = r.end
+        substitute(r.cmds)
+      } else if (c === '`') {
+        add(s)
+        s = ''
+        backtick()
+      } else if (c === '$') {
+        add(s)
+        s = ''
+        if (!variable()) {
+          s += c
+          i++
+        }
+      } else {
+        s += c
+        i++
+      }
+    }
+    add(s)
+    i++ // closing quote
+  }
+
+  while (i < src.length) {
+    const c = src[i]
+    if (c === '\\') {
+      if (src[i + 1] === '\n') i += 2 // line continuation
+      else {
+        add(src[i + 1] ?? '')
+        i += 2
+      }
+    } else if (c === '\'') {
+      const close = src.indexOf('\'', i + 1)
+      const end = close === -1 ? src.length : close
+      add(src.slice(i + 1, end))
+      i = end + 1
+    } else if (c === '$' && src[i + 1] === '\'') {
+      // ANSI-C quoting: only the escapes that could hide a flag or a separator
+      let s = ''
+      i += 2
+      while (i < src.length && src[i] !== '\'') {
+        if (src[i] === '\\') {
+          const e = src[i + 1] ?? ''
+          s += e === 'n' ? '\n' : e === 't' ? '\t' : e
+          i += 2
+        } else s += src[i++]
+      }
+      add(s)
+      i++
+    } else if (c === '"' || (c === '$' && src[i + 1] === '"')) {
+      i += c === '$' ? 2 : 1
+      add('')
+      readDoubleQuoted()
+    } else if (c === '$' && src[i + 1] === '(') {
+      const r = lex(src, i + 2, true)
+      i = r.end
+      substitute(r.cmds)
+    } else if (c === '$' && variable()) {
+      // a $VAR: its value is unknowable here
+    } else if (c === '`') {
+      backtick()
+    } else if (c === '#' && word === null) {
+      while (i < src.length && src[i] !== '\n') i++
+    } else if (c === ' ' || c === '\t') {
+      endWord()
+      i++
+    } else if (c === '\n') {
+      endCmd()
+      i++
+      readHeredocBodies()
+    } else if ((c === '<' || c === '>') && src[i + 1] === '(') {
+      // Process substitution: the word is a /dev/fd path, the inner command still runs.
+      const r = lex(src, i + 2, true)
+      i = r.end
+      substitute(r.cmds)
+    } else if (c === '<' && src[i + 1] === '<' && src[i + 2] !== '<') {
+      endWord()
+      i += 2
+      const strip = src[i] === '-'
+      if (strip) i++
+      while (src[i] === ' ' || src[i] === '\t') i++
+      let delim = ''
+      while (i < src.length && !' \t\n;&|<>()'.includes(src[i])) {
+        if (src[i] === '\'' || src[i] === '"') {
+          const q = src[i]
+          const close = src.indexOf(q, i + 1)
+          const end = close === -1 ? src.length : close
+          delim += src.slice(i + 1, end)
+          i = end + 1
+        } else if (src[i] === '\\') {
+          delim += src[i + 1] ?? ''
+          i += 2
+        } else delim += src[i++]
+      }
+      pending.push({ delim, strip, into: heredocs })
+    } else if (c === '<' || c === '>') {
+      // A bare fd number glued to the operator (2>&1) is part of the redirection.
+      if (word !== null && /^\d+$/.test(word)) word = null
+      endWord()
+      const from = i
+      i++
+      while ('<>|'.includes(src[i] ?? 'x')) i++
+      if (src[i] === '&' && /[\d-]/.test(src[i + 1] ?? '')) {
+        i++
+        while (/[\d-]/.test(src[i] ?? '')) i++
+        continue // >&2 duplicates a descriptor — there is no target word
+      }
+      if (src[i] === '&') i++
+      redirect = src.slice(from, i) // `<<<` here-strings land here too, as op '<<<'
+    } else if (c === ')' && inSubst && parens === 0) {
+      endCmd()
+      return { cmds, end: i + 1 }
+    } else if (OPERATOR_CHARS.includes(c)) {
+      if (c === '(') parens++
+      if (c === ')' && parens > 0) parens--
+      if (c === '&' && src[i + 1] === '>') {
+        endWord()
+        const op = src[i + 2] === '>' ? '&>>' : '&>'
+        i += op.length
+        redirect = op
+        continue
+      }
+      endCmd()
+      i++
+    } else {
+      add(c)
+      i++
+    }
+  }
+  endCmd()
+  return { cmds, end: i }
+}
+
+const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/
+const RESERVED = new Set(['!', '{', '}', 'if', 'then', 'else', 'elif', 'fi', 'do', 'done', 'while', 'until', 'time', 'noglob', 'nohup', 'builtin', 'exec', 'command', 'busybox'])
+const SHELLS = new Set(['sh', 'bash', 'zsh', 'dash', 'ksh', 'ash', 'fish', 'source', '.'])
+// Interpreters whose script is code we cannot parse as shell: any git command written
+// inside their arguments is dug out and judged on its own.
+const INTERPRETERS = new Set(['python', 'python2', 'python3', 'node', 'nodejs', 'perl', 'ruby', 'php', 'deno', 'bun', 'osascript', 'pwsh', 'powershell', 'cmd'])
+// Programs that never execute their arguments. Everything else is assumed it might —
+// find -exec, xargs, watch, flock, stdbuf, npx, parallel, script… — and a `git` word
+// anywhere in its arguments is judged as the git call it would start.
+const NON_EXEC = new Set(['echo', 'printf', 'grep', 'egrep', 'fgrep', 'rg', 'ag', 'ack', 'cat', 'less', 'more', 'head',
+  'tail', 'man', 'which', 'whereis', 'type', 'hash', 'ls', 'wc', 'sort', 'uniq', 'cut', 'tr', 'jq', 'yq', 'gh', 'glab',
+  'test', '[', '[[', 'read', 'unset', 'export', 'local', 'declare', 'history', 'tldr', 'info', 'help', 'cd', 'pushd',
+  'popd', 'mkdir', 'touch', 'file', 'stat', 'sleep', 'true', 'false', ':', 'basename', 'dirname', 'realpath',
+  'readlink', 'date', 'diff', 'cmp', 'sed', 'tee', 'cp', 'mv', 'rm', 'ln', 'chmod', 'chown', 'git'])
+
+// Program name as the OS would resolve it: /usr/bin/git, git.exe and GIT.EXE are all git.
+export function progName(word) {
+  const name = (word ?? '').split(/[\\/]/).pop()
+  return (CASE_INSENSITIVE_FS ? name.toLowerCase() : name).replace(/\.exe$/i, '')
+}
+
+// Drop a leading wrapper's own options. `withArg` lists the options that take a value.
+function skipOptions(words, withArg) {
+  let j = 0
+  while (j < words.length && words[j].startsWith('-') && words[j] !== '-') {
+    if (words[j] === '--') return words.slice(j + 1)
+    j += withArg.includes(words[j]) ? 2 : 1
+  }
+  return words.slice(j)
+}
+
+// Every `git …` written inside one word — `os.system('git commit -n')`, a watch or
+// flock command string — parsed as the shell command it would be.
+function gitInside(word, depth) {
+  const found = []
+  for (const m of word.matchAll(/(^|[^\w./-])git(?=\s)/g)) {
+    found.push(...shellCommands(word.slice(m.index + m[1].length), depth + 1))
+  }
+  return found
+}
+
+// Peel assignments and wrappers off one simple command. Returns the command that
+// actually runs plus any commands found inside it (sh -c strings, eval, interpreters).
+function peel(raw, depth) {
+  let words = raw
+  const assigns = {}
+  const inner = []
+  let shellReadsInput = false
+  for (;;) {
+    while (words.length && ASSIGNMENT.test(words[0])) {
+      const eq = words[0].indexOf('=')
+      assigns[words[0].slice(0, eq)] = words[0].slice(eq + 1)
+      words = words.slice(1)
+    }
+    if (!words.length) break
+    const name = progName(words[0])
+    if (name === 'command' && /^-[vV]$/.test(words[1] ?? '')) {
+      words = []
+      break
+    }
+    if (RESERVED.has(name)) words = skipOptions(words.slice(1), [])
+    else if (name === 'env') {
+      const rest = words.slice(1)
+      const split = rest.findIndex(w => w === '-S' || w === '--split-string')
+      if (split !== -1 && rest[split + 1] !== undefined) {
+        rest.splice(split, 2, ...(lex(rest[split + 1], 0, false).cmds[0]?.words ?? []))
+      }
+      words = skipOptions(rest, ['-u', '--unset', '-C', '--chdir'])
+    } else if (name === 'sudo' || name === 'doas') words = skipOptions(words.slice(1), ['-u', '-g', '-C', '-D', '-h', '-p', '-r', '-t', '-U'])
+    else if (name === 'xargs') words = skipOptions(words.slice(1), ['-n', '-L', '-P', '-I', '-s', '-d', '-E', '-a'])
+    else if (name === 'nice') words = skipOptions(words.slice(1), ['-n'])
+    else if (name === 'timeout') words = skipOptions(words.slice(1), ['-s', '-k']).slice(1)
+    else if (name === 'eval') {
+      inner.push(...shellCommands(words.slice(1).join(' '), depth + 1))
+      words = []
+    } else if (SHELLS.has(name)) {
+      const dashC = words.some((w, k) => k > 0 && /^-[a-zA-Z]*c[a-zA-Z]*$/.test(w))
+      if (dashC) {
+        // Every operand may be the command string (`-c -- '…'`, `-x -c '…'`): judge each.
+        for (const w of words.slice(1)) if (!w.startsWith('-')) inner.push(...shellCommands(w, depth + 1))
+        words = []
+      } else shellReadsInput = true // reads a script from stdin, a file or <( )
+      break
+    } else if (INTERPRETERS.has(name)) {
+      for (const w of words.slice(1)) inner.push(...gitInside(w, depth))
+      break
+    } else break
+  }
+  return { words, assigns, inner, shellReadsInput }
+}
+
+// Every simple command in `src` as { argv, assigns, redirects, heredocs }, with leading
+// VAR=value assignments split out and wrappers peeled off, so `env X=1 git commit -n`
+// reads as the git call it is.
+export function shellCommands(src, depth = 0) {
+  const out = []
+  if (depth > 4) return out
+  const peeled = lex(String(src ?? ''), 0, false).cmds.map(c => ({ ...c, ...peel(c.words, depth) }))
+  // Text that reaches a shell as its script — `… | sh`, `sh <<EOF`, `sh <<< '…'`,
+  // `bash <(echo …)`, `source <(…)` — is judged as commands too. Any word, heredoc or
+  // here-string on the same line may be that text, so all of them are parsed.
+  const fedToShell = peeled.some(c => c.shellReadsInput)
+  for (const c of peeled) {
+    const { words, assigns, redirects, heredocs } = c
+    if (words.length || Object.keys(assigns).length || redirects.length) out.push({ argv: words, assigns, redirects, heredocs })
+    out.push(...c.inner)
+    const name = progName(words[0])
+    if (words.length && !NON_EXEC.has(name) && !SHELLS.has(name) && !INTERPRETERS.has(name)) {
+      // A wrapper we did not peel: find -exec, stdbuf, watch, npx, flock, script, parallel…
+      const at = words.findIndex((w, k) => k > 0 && progName(w) === 'git')
+      if (at !== -1) out.push({ argv: words.slice(at), assigns, redirects: [], heredocs: [] })
+      for (const w of words.slice(1, at === -1 ? words.length : at)) out.push(...gitInside(w, depth))
+    }
+    if (fedToShell && depth < 4) {
+      const texts = [...heredocs, ...redirects.filter(r => r.op === '<<<').map(r => r.target)]
+      if (words.length > 1 && !c.shellReadsInput) texts.push(words.slice(1).join(' '))
+      for (const text of texts) out.push(...shellCommands(text, depth + 1))
+    }
+  }
+  return out
+}
+
+// Builtins git never lets an alias shadow, so naming one needs no alias lookup.
+const GIT_BUILTINS = new Set(('add am annotate apply archive bisect blame branch bundle cat-file check-ignore '
+  + 'checkout cherry cherry-pick clean clone commit config describe diff difftool fetch for-each-ref '
+  + 'format-patch fsck gc grep help init log ls-files ls-remote ls-tree merge merge-base mergetool mv '
+  + 'notes pull push range-diff rebase reflog remote repack replace reset restore rev-list rev-parse '
+  + 'revert rm shortlog show show-ref sparse-checkout stash status submodule switch symbolic-ref tag '
+  + 'update-index update-ref var version worktree').split(' '))
+
+// Global options that take a separate value when written without `=`.
+const GIT_GLOBAL_WITH_ARG = new Set(['--git-dir', '--work-tree', '--namespace', '--config-env', '--super-prefix', '--attr-source'])
+
+const expandHome = p => (p === '~' || p.startsWith('~/') ? join(homedir(), p.slice(1)) : p)
+
+const shellQuote = w => `'${w.replace(/'/g, '\'\\\'\'')}'`
+
+function aliasFor(sub, config, dir, locator) {
+  for (const entry of [...config].reverse()) {
+    const eq = entry.indexOf('=')
+    if (eq !== -1 && entry.slice(0, eq).toLowerCase() === `alias.${sub.toLowerCase()}`) return entry.slice(eq + 1)
+  }
+  try {
+    return gitOut([...locator, 'config', '--get', `alias.${sub}`], dir) || null
+  } catch {
+    return null // no such alias, or no repo
+  }
+}
+
+// Every simple command with the directory it runs in — after any earlier `cd`/`pushd`.
+// A target the shell would compute (`cd $X`) leaves the directory unknown: `dir` null.
+export function commandWalk(command, { cwd = process.cwd() } = {}) {
+  const out = []
+  let dir = cwd
+  for (const c of shellCommands(command)) {
+    const name = progName(c.argv[0])
+    if (name === 'cd' || name === 'pushd') {
+      const target = c.argv.slice(1).find(w => !w.startsWith('-'))
+      if (target === undefined) dir = homedir()
+      else if (target.includes(UNKNOWN) || dir === null) dir = null
+      else if (target !== '-') dir = resolve(dir, expandHome(target))
+    }
+    out.push({ ...c, dir })
+  }
+  return out
+}
+
+// Every git invocation `command` would run, as
+// { sub, args, config, env, dir, locator, unknown }:
+//   sub/args  — the subcommand and what follows it, aliases resolved;
+//   config    — every `-c key=value` / `--config-env key=…` given before it;
+//   env       — VAR=value prefixes and earlier `export`s in the same command line;
+//   dir       — the directory git runs in (after any `cd` and its own `-C`s), or null;
+//   locator   — its --git-dir/--work-tree/--namespace options, to re-run git as it would;
+//   unknown   — the program or subcommand is something the shell computes ($GIT, $(…)).
+// Global options before the subcommand are skipped the way git skips them, so
+// `git -C . commit -n` and `git -c x=y --no-pager commit -n` are both a commit with -n.
+export function gitInvocations(command, { cwd = process.cwd() } = {}) {
+  const found = []
+  const exported = {}
+  const visit = (argv, assigns, dir, depth) => {
+    const name = progName(argv[0])
+    if (name === 'export') {
+      for (const w of argv.slice(1)) {
+        const eq = w.indexOf('=')
+        if (eq > 0) exported[w.slice(0, eq)] = w.slice(eq + 1)
+      }
+      return
+    }
+    // A program word the shell computes ($GIT, git${IFS}commit${IFS}-n) on a line that names
+    // a commit or push: what runs cannot be known, so it is judged as unknowable.
+    const computed = name.includes(UNKNOWN) && /commit|push/.test(argv.join(' '))
+    if ((name !== 'git' && !computed) || depth > 4) return
+    const config = []
+    const locator = []
+    let at = dir
+    let j = 1
+    while (j < argv.length && argv[j].startsWith('-')) {
+      const tok = argv[j]
+      const eq = tok.indexOf('=')
+      const opt = eq === -1 ? tok : tok.slice(0, eq)
+      if (tok === '-C' || (tok.startsWith('-C') && !tok.startsWith('-C='))) {
+        const target = tok === '-C' ? argv[j + 1] ?? '.' : tok.slice(2)
+        at = at === null || target.includes(UNKNOWN) ? null : resolve(at, expandHome(target))
+        j += tok === '-C' ? 2 : 1
+      } else if (tok === '-c') {
+        config.push(argv[j + 1] ?? '')
+        j += 2
+      } else if (tok.startsWith('-c')) {
+        config.push(tok.slice(2)) // -ckey=value
+        j++
+      } else if (GIT_GLOBAL_WITH_ARG.has(opt)) {
+        const value = eq === -1 ? argv[j + 1] ?? '' : tok.slice(eq + 1)
+        if (opt === '--config-env') config.push(value)
+        else if (opt !== '--super-prefix' && opt !== '--attr-source') locator.push(`${opt}=${value}`)
+        j += eq === -1 ? 2 : 1
+      } else j++
+    }
+    const env = { ...exported, ...assigns }
+    let sub = computed ? argv.find(w => w === 'commit' || w === 'push') : argv[j]
+    let args = computed ? argv.slice(argv.indexOf(sub) + 1) : argv.slice(j + 1)
+    for (let hops = 0; sub && !sub.includes(UNKNOWN) && !GIT_BUILTINS.has(sub) && at !== null && hops < 5; hops++) {
+      const alias = aliasFor(sub, config, at, locator)
+      if (!alias) break
+      if (alias.startsWith('!')) {
+        // A shell alias: git runs it with the arguments appended.
+        for (const c of commandWalk([alias.slice(1), ...args.map(shellQuote)].join(' '), { cwd: at })) {
+          visit(c.argv, { ...env, ...c.assigns }, c.dir, depth + 1)
+        }
+        sub = null
+        break
+      }
+      const words = lex(alias, 0, false).cmds[0]?.words ?? []
+      sub = words[0]
+      args = [...words.slice(1), ...args]
+    }
+    found.push({ sub: sub ?? null, args, config, env, dir: at, locator, unknown: computed || Boolean(sub?.includes(UNKNOWN)) })
+  }
+  for (const c of commandWalk(command, { cwd })) visit(c.argv, c.assigns, c.dir, 0)
+  return found
+}
+
+// git's parse-options grammar, enough to tell a flag from a value: short clusters
+// (-anm "msg" is -a -n -m "msg"; -mn is -m "n"), attached and separate values,
+// --long=value, unambiguous --long prefixes, and `--` ending the options.
+// Returns { opts: [name, value][], positionals }.
+export function parseOptions(args, { shortWithArg = '', shortOptionalArg = '', longWithArg = [] } = {}) {
+  const opts = []
+  const positionals = []
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i]
+    if (a === '--') {
+      positionals.push(...args.slice(i + 1))
+      break
+    }
+    if (a.startsWith('--')) {
+      const eq = a.indexOf('=')
+      const name = eq === -1 ? a : a.slice(0, eq)
+      const takes = longWithArg.includes(name)
+        || (name.length >= 5 && longWithArg.filter(l => l.startsWith(name)).length === 1)
+      if (eq !== -1) opts.push([name, a.slice(eq + 1)])
+      else opts.push([name, takes ? args[++i] : undefined])
+    } else if (a.startsWith('-') && a.length > 1) {
+      for (let k = 1; k < a.length; k++) {
+        const ch = a[k]
+        const rest = a.slice(k + 1)
+        if (shortWithArg.includes(ch)) {
+          opts.push([`-${ch}`, rest !== '' ? rest : args[++i]])
+          break
+        }
+        if (shortOptionalArg.includes(ch)) {
+          opts.push([`-${ch}`, rest])
+          break
+        }
+        opts.push([`-${ch}`, undefined])
+      }
+    } else positionals.push(a)
+  }
+  return { opts, positionals }
+}
+
+// Long option `name` as typed matches `full` exactly or as git's unambiguous prefix.
+export function isLong(name, full, minLength = 5) {
+  return name === full || (name.length >= minLength && full.startsWith(name))
+}
+
+export const COMMIT_GRAMMAR = {
+  shortWithArg: 'mFCct',
+  shortOptionalArg: 'Su',
+  longWithArg: ['--message', '--file', '--reuse-message', '--reedit-message', '--fixup', '--squash',
+    '--author', '--date', '--template', '--cleanup', '--trailer', '--pathspec-from-file']
+}
+
+// The message a `git commit` invocation would use, or null when it can't be known
+// without running something: no -m/-F (an editor or --no-edit), or a message built
+// by a command substitution other than a bare `cat <<EOF` heredoc, or by a $VAR.
+export function commitMessage(inv) {
+  const parts = []
+  for (const [name, value] of parseOptions(inv.args, COMMIT_GRAMMAR).opts) {
+    if (name === '-m' || isLong(name, '--message')) parts.push(value ?? '')
+    else if (name === '-F' || isLong(name, '--file')) {
+      if (!value || value === '-' || inv.dir === null) return null
+      try {
+        parts.push(readFileSync(resolve(inv.dir, value), 'utf-8').replace(/\n+$/, ''))
+      } catch {
+        return null
+      }
+    }
+  }
+  if (!parts.length) return null
+  const message = parts.join('\n\n')
+  return message.includes(UNKNOWN) ? null : message
+}
+```
+
+```patch
+target: .claude/guards/bash-guard.mjs
+anchor: #!/usr/bin/env node
+// Blocks Bash commands that bypass quality gates.
+// Claude Code PreToolUse / Cursor preToolUse hook — reads tool input from stdin,
+// exits 2 to block on either host. Self-filtering: a call with no command exits 0.
+import { readPayload, toolCall } from './lib/hook-io.mjs'
+
+const data = readPayload('bash-guard.mjs')
+const command = toolCall(data).input.command ?? ''
+
+// Strip quoted strings so flags inside commit messages don't trigger false positives.
+let scrubbed = command.replace(/'[^']*'/g, '\'\'')
+scrubbed = scrubbed.replace(/"[^"]*"/g, '""')
+
+const BLOCKED = [
+  [/--no-verify/, 'Error: --no-verify bypasses pre-commit gates. Fix the underlying issue.'],
+  // -n only in the flag region (a chain of -flags after `commit`), never inside a quoted message
+  [/git\s+commit\s+(?:-\w+\s+)*-n\b/, 'Error: git commit -n bypasses pre-commit gates. Fix the underlying issue.'],
+  // --force but NOT --force-with-lease (which is the sanctioned alternative)
+  [/git\s+push\b.*--force(?!-with-lease)(\s|$)/, 'Error: --force push is blocked. Use --force-with-lease on a feature branch.'],
+  [/git\s+push\b.*\s-f(\s|$)/, 'Error: force push is blocked. Use --force-with-lease on a feature branch.']
+]
+
+for (const [pattern, message] of BLOCKED) {
+  if (pattern.test(scrubbed)) {
+    console.error(message)
+    process.exit(2) // exit 2 = block the tool call, on both hosts
+  }
+}
+insert: replace
+---
+#!/usr/bin/env node
+// Blocks Bash commands that bypass quality gates, and asks before one that writes to
+// the gates' own files.
+// Claude Code PreToolUse / Cursor preToolUse hook — reads tool input from stdin,
+// exits 2 to block on either host. Self-filtering: a call with no git in it exits 0.
+import { resolve } from 'node:path'
+import {
+  readPayload, toolCall, stringField, commandDir, projectDir, emitDecision, gitInvocations, commandWalk,
+  parseOptions, isLong, COMMIT_GRAMMAR, UNKNOWN, progName, realPath, worktreeRoot, repoRelative, isGateFile
+} from './lib/hook-io.mjs'
+
+const data = readPayload('bash-guard.mjs')
+const command = stringField(toolCall(data).input, 'command', 'bash-guard.mjs')
+
+const NO_VERIFY = 'Error: --no-verify bypasses pre-commit gates. Fix the underlying issue.'
+const COMMIT_N = 'Error: git commit -n bypasses pre-commit gates. Fix the underlying issue.'
+const HOOKS_OFF = 'Error: overriding core.hooksPath, the git config the hooks read, or the hook manager bypasses the commit gates. Fix the underlying issue.'
+const FORCE = 'Error: force push is blocked. Use --force-with-lease on a feature branch.'
+const COMMIT_TREE = 'Error: git commit-tree writes a commit without running any commit hook. Use git commit.'
+const COMPUTED = 'Error: this git commit/push takes an argument the shell computes ($VAR, $(…), backticks), so the gate cannot see what it becomes. Write the flags, paths and refspecs literally.'
+
+// Subcommands where --no-verify skips a hook.
+const VERIFYING = new Set(['commit', 'push', 'merge', 'pull', 'am', 'rebase', 'revert', 'cherry-pick'])
+const PUSH_GRAMMAR = { shortWithArg: 'o', longWithArg: ['--repo', '--receive-pack', '--exec', '--push-option'] }
+const OTHER_GRAMMAR = { shortWithArg: 'mF', longWithArg: ['--message', '--file'] }
+// Config that moves the hooks, or loads other config that could: core.hooksPath and any
+// include / includeIf path.
+const HOOKS_PATH_KEY = /^(core\.hookspath|include\.path|includeif\..*\.path)$/i
+// Config that turns a plain push into a forced one: remote.<x>.mirror, or a
+// remote.<x>.push refspec that starts with `+`.
+const FORCE_KEY = /^remote\..*\.(mirror|push)$/i
+function forces(key, value) {
+  if (!FORCE_KEY.test(key)) return false
+  if (/\.mirror$/i.test(key)) return !/^(false|no|off|0)$/i.test(value ?? 'true')
+  return /^\+|:\+/.test(value ?? '')
+}
+const configPair = c => (c.includes('=') ? [c.slice(0, c.indexOf('=')), c.slice(c.indexOf('=') + 1)] : [c, undefined])
+
+// Environment that points git at other config or another git dir, or switches a hook
+// manager off. Any of it on a hook-running command is a way past the hooks.
+function envSkipsHooks(env) {
+  return Object.entries(env).some(([k, v]) => /^GIT_CONFIG/.test(k) || k === 'GIT_DIR' || k === 'GIT_COMMON_DIR'
+    || (k === 'HUSKY' && v !== '1') || k === 'HUSKY_SKIP_HOOKS' || k === 'SKIP_SIMPLE_GIT_HOOKS')
+}
+
+// `git config core.hooksPath X`, `--unset`, `set`/`unset`: a write. A lone key or --get is a read.
+function writesKey(args, keyTest) {
+  const at = args.findIndex(a => keyTest(a))
+  if (at === -1) return false
+  if (args.some(a => /^(get|--get|--get-all|--get-regexp|--list|-l)$/.test(a))) return false
+  return args.slice(at + 1).length > 0 || args.some(a => /^(set|unset|--unset|--unset-all|--add|--replace-all)$/.test(a))
+}
+
+function verdict(inv) {
+  if (inv.unknown) return COMPUTED
+  // Plumbing that writes a commit object with no hook run at all.
+  if (inv.sub === 'commit-tree') return COMMIT_TREE
+  if (inv.config.some(c => c.includes(UNKNOWN) || HOOKS_PATH_KEY.test(c.split('=')[0]))) return HOOKS_OFF
+  if (inv.sub === 'push' && inv.config.some(c => forces(...configPair(c)))) return FORCE
+  if (inv.sub === 'config') {
+    if (writesKey(inv.args, a => HOOKS_PATH_KEY.test(a))) return HOOKS_OFF
+    const fk = inv.args.findIndex(a => FORCE_KEY.test(a))
+    if (fk !== -1 && writesKey(inv.args, a => FORCE_KEY.test(a)) && forces(inv.args[fk], inv.args[fk + 1])) return FORCE
+    // An alias written now is used later in the same line, before any lookup could see it.
+    const at = inv.args.findIndex(a => /^alias\./i.test(a))
+    if (at !== -1) {
+      const body = inv.args.slice(at + 1).filter(a => a !== 'set').join(' ')
+      const shell = body.startsWith('!') ? body.slice(1) : `git ${body}`
+      for (const aliased of gitInvocations(shell, { cwd: inv.dir ?? undefined })) {
+        const v = verdict(aliased)
+        if (v) return v
+      }
+    }
+    return null
+  }
+  if (!VERIFYING.has(inv.sub)) return null
+  if (envSkipsHooks(inv.env)) return HOOKS_OFF
+
+  const grammar = inv.sub === 'commit' ? COMMIT_GRAMMAR : inv.sub === 'push' ? PUSH_GRAMMAR : OTHER_GRAMMAR
+  const { opts, positionals } = parseOptions(inv.args, grammar)
+  // Exact, or the unambiguous prefix git itself accepts (--no-veri).
+  if (opts.some(([name]) => isLong(name, '--no-verify', 6))) return NO_VERIFY
+  if (inv.sub === 'commit' && opts.some(([name]) => name === '-n')) return COMMIT_N
+  if (inv.sub === 'commit' || inv.sub === 'push') {
+    // A computed word in flag or operand position could expand to anything, -n included.
+    if (opts.some(([name]) => name.includes(UNKNOWN)) || positionals.some(p => p.startsWith(UNKNOWN))) return COMPUTED
+  }
+  if (inv.sub === 'push') {
+    const lease = opts.some(([name]) => isLong(name, '--force-with-lease', 9))
+    // --force-with-lease is the sanctioned alternative and never matches these.
+    if (opts.some(([name]) => name === '-f' || isLong(name, '--force', 6) || isLong(name, '--mirror', 5))) return FORCE
+    if (!lease && opts.some(([name]) => isLong(name, '--force-if-includes', 9))) return FORCE
+    if (positionals.some(p => p.startsWith('+') || p.includes(':+'))) return FORCE // +refspec forces that ref
+  }
+  return null
+}
+
+// The pre-tokenizer guard, kept as a backstop so nothing it ever blocked gets through.
+function legacyVerdict() {
+  let scrubbed = command.replace(/'[^']*'/g, '\'\'')
+  scrubbed = scrubbed.replace(/"[^"]*"/g, '""')
+  if (/--no-verify/.test(scrubbed)) return NO_VERIFY
+  if (/git\s+commit\s+(?:-\w+\s+)*-n\b/.test(scrubbed)) return COMMIT_N
+  if (/git\s+push\b.*--force(?!-with-lease)(\s|$)/.test(scrubbed)) return FORCE
+  if (/git\s+push\b.*\s-f(\s|$)/.test(scrubbed)) return FORCE
+  return null
+}
+
+const GATE_PATH_TEXT = /(?:\.claude\/(?:guards|settings)|\.git\/(?:hooks|config)|\.cursor\/hooks|\.husky|scripts\/git-hooks|scripts\/(?:pre-commit|commit-msg))[^'"`\s),;]*/g
+
+// Paths a simple command writes, deletes or re-points: redirection targets, tee, sed -i,
+// and the operands of cp/mv/rm/ln/truncate/chmod… — so `echo > .claude/guards/x.mjs`
+// asks just as an Edit of that file does.
+function writeTargets(c) {
+  const out = c.redirects.filter(r => r.op.includes('>')).map(r => r.target)
+  const name = progName(c.argv[0])
+  const operands = c.argv.slice(1).filter(w => !w.startsWith('-'))
+  if (name === 'tee' || name === 'rm' || name === 'rmdir' || name === 'unlink' || name === 'mv'
+    || name === 'truncate' || name === 'shred' || name === 'chmod' || name === 'chown' || name === 'chgrp') out.push(...operands)
+  if ((name === 'sed' || name === 'perl') && c.argv.some(w => /^(-i|--in-place)/.test(w) || /^-[a-zA-Z]*i/.test(w))) out.push(...operands)
+  if ((name === 'cp' || name === 'ln' || name === 'install' || name === 'rsync') && operands.length) out.push(operands[operands.length - 1])
+  if (name === 'dd') out.push(...c.argv.filter(w => w.startsWith('of=')).map(w => w.slice(3)))
+  // An interpreter's script can write anywhere; a gate path written inside it is a target.
+  if (/^(python[23]?|node|nodejs|perl|ruby|php|deno|bun)$/.test(name)) {
+    for (const w of c.argv.slice(1)) out.push(...(w.match(GATE_PATH_TEXT) ?? []))
+  }
+  return out
+}
+
+function touchesGateFile() {
+  const fallback = realPath(projectDir(data))
+  for (const c of commandWalk(command, { cwd: commandDir(data) })) {
+    for (const target of writeTargets(c)) {
+      if (target.includes(UNKNOWN)) continue
+      const abs = resolve(c.dir ?? commandDir(data), target)
+      const rel = repoRelative(abs, worktreeRoot(abs) ?? fallback)
+      if (isGateFile(rel)) return rel
+    }
+  }
+  return null
+}
+
+let message = null
+let gateFile = null
+try {
+  for (const inv of gitInvocations(command, { cwd: commandDir(data) })) {
+    message = verdict(inv)
+    if (message) break
+  }
+  message ??= legacyVerdict()
+  if (!message) gateFile = touchesGateFile()
+} catch (err) {
+  // A parser bug must not turn into exit 1, which both hosts treat as "allow".
+  message = `Error: bash-guard.mjs could not parse this command (${err.message}) — blocking rather than passing it through unchecked.`
+}
+
+if (message) {
+  console.error(message)
+  process.exit(2) // exit 2 = block the tool call, on both hosts
+}
+
+if (gateFile) {
+  emitDecision(
+    data,
+    'ask',
+    `This command writes ${gateFile}, which is part of this repo's commit and edit gates — a change there can switch one off. Confirm it is something you asked for.`
+  )
+}
+```
+
+```patch
+target: .claude/guards/spec-gate-guard.mjs
+optional: true
+anchor: // Blocks non-trivial Edit/Write/MultiEdit before PLAN.md is approved, and blocks
+// edits governed by a PLAN.md left over from a different branch.
+// Claude Code PreToolUse / Cursor preToolUse hook — reads tool input from stdin,
+// exits 2 to block on either host.
+import { existsSync, readFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { dirname, join, resolve } from 'node:path'
+import { readPayload, toolCall, isWriteShaped } from './lib/hook-io.mjs'
+
+const data = readPayload('spec-gate-guard.mjs')
+const call = toolCall(data)
+const toolInput = call.input
+const filePath = toolInput.file_path ?? ''
+
+if (!filePath) process.exit(0)
+
+// Self-filter on shape rather than trusting the host's matcher. Claude Code registers
+// this on Edit|Write|MultiEdit, but .cursor/hooks.json registers preToolUse with no
+// matcher (see cursor-parity.md), so a Read would otherwise arrive here and get gated.
+if (!isWriteShaped(call)) process.exit(0)
+
+// Trivial paths never require an approved plan: tests (both directory-named and
+insert: replace
+---
+// Blocks non-trivial Edit/Write/MultiEdit before PLAN.md is approved, and blocks
+// edits governed by a PLAN.md left over from a different branch. Asks before any
+// edit to the gates themselves, whatever its size.
+// Claude Code PreToolUse / Cursor preToolUse hook — reads tool input from stdin,
+// exits 2 to block on either host.
+import { existsSync, readFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { basename, join } from 'node:path'
+import {
+  readPayload, toolCall, stringField, isWriteShaped, emitDecision, projectDir, realPath, worktreeRoot, repoRelative,
+  isGateFile
+} from './lib/hook-io.mjs'
+
+const data = readPayload('spec-gate-guard.mjs')
+const call = toolCall(data)
+const toolInput = call.input
+// Any field this gate reads, present with the wrong type, fails closed (exit 2).
+// NotebookEdit names its target `notebook_path`, not `file_path`.
+const filePath = stringField(toolInput, 'file_path', 'spec-gate-guard.mjs')
+  || stringField(toolInput, 'notebook_path', 'spec-gate-guard.mjs')
+for (const field of ['content', 'old_string', 'new_string', 'new_source', 'cell_id', 'edit_mode']) {
+  stringField(toolInput, field, 'spec-gate-guard.mjs')
+}
+
+if (!filePath) process.exit(0)
+
+// Self-filter on shape rather than trusting the host's matcher. Claude Code registers
+// this on Edit|Write|MultiEdit, but .cursor/hooks.json registers preToolUse with no
+// matcher (see cursor-parity.md), so a Read would otherwise arrive here and get gated.
+if (!isWriteShaped(call)) process.exit(0)
+
+// A hook's process.cwd() is the session root, which is not the worktree the edited
+// file lives in. Resolving the plan and the branch against cwd reads another tree's
+// state — it blocked every non-trivial edit in a parallel-worktree run despite an
+// approved plan beside the file, and worse, let a main-worktree plan wave through an
+// edit in a worktree that had none. Both resolve against the target file's tree, found
+// from the nearest directory that exists (a Write may create several). Only a file in
+// no repository at all falls back to the session root.
+const repoRoot = worktreeRoot(filePath)
+const root = repoRoot ?? realPath(projectDir(data))
+
+// Every path rule below judges the real path relative to that root — never the raw
+// string, where `src/test/../app.ts` or a repo cloned under ~/tests/ matched "tests/".
+// A file outside the root is judged by its name alone.
+const rel = repoRelative(filePath, root)
+
+// The gates' own inputs (isGateFile() in hook-io.mjs). A one-line edit to a guard or its
+// registration turns a gate off for every later call — exactly what an injected
+// instruction would ask for — so the size threshold and an approved plan are both
+// beside the point: a person confirms. Cursor cannot prompt here, so there it is denied.
+if (isGateFile(rel)) {
+  emitDecision(
+    data,
+    'ask',
+    `${rel} is part of this repo's commit and edit gates — a change here can switch one off. Confirm this edit is one you asked for (under Cursor, make it yourself).`
+  )
+  process.exit(0)
+}
+
+// Trivial paths never require an approved plan: tests (both directory-named and
+```
+
+```patch
+target: .claude/guards/spec-gate-guard.mjs
+optional: true
+anchor: ]
+
+if (TRIVIAL_PATTERNS.some(p => p.test(filePath))) process.exit(0)
+
+// Build output and local caches aren't reviewable source: a git-ignored path never
+// reaches the diff a plan is written against, so the gate has nothing to govern there.
+// Deliberately index-aware (no --no-index) — a *tracked* file that merely matches a
+// gitignore pattern is still gated, which is why graphify-out/ needs its rule above.
+function isGitIgnored(path) {
+  try {
+    execFileSync('git', ['check-ignore', '-q', '--', path], { stdio: 'ignore' })
+    return true
+  } catch {
+    return false // exit 1 = not ignored; 128 = not a repo / unusable path
+  }
+}
+
+if (isGitIgnored(filePath)) process.exit(0)
+
+// A hook's process.cwd() is the session root, which is not the worktree the edited
+// file lives in. Resolving the plan and the branch against cwd reads another tree's
+// state — it blocked every non-trivial edit in a parallel-worktree run despite an
+// approved plan beside the file, and worse, let a main-worktree plan wave through an
+// edit in a worktree that had none. Both now resolve against the target file's tree.
+function worktreeRootFor(path) {
+  try {
+    return execFileSync('git', ['-C', dirname(resolve(path)), 'rev-parse', '--show-toplevel'], {
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    }).trim()
+  } catch {
+    return process.cwd() // not a repo, or the parent directory does not exist yet
+  }
+}
+
+function currentBranch(root) {
+  try {
+    const b = execFileSync('git', ['-C', root, 'rev-parse', '--abbrev-ref', 'HEAD'], {
+      encoding: 'utf-8',
+insert: replace
+---
+]
+
+if (TRIVIAL_PATTERNS.some(p => p.test(rel ?? basename(filePath)))) process.exit(0)
+
+// Build output and local caches aren't reviewable source: a git-ignored path never
+// reaches the diff a plan is written against, so the gate has nothing to govern there.
+// Deliberately index-aware (no --no-index) — a *tracked* file that merely matches a
+// gitignore pattern is still gated, which is why graphify-out/ needs its rule above.
+// Asked of the file's own repo, not of whatever repo the hook happens to run in.
+function isGitIgnored() {
+  if (!repoRoot) return false
+  try {
+    execFileSync('git', ['-C', repoRoot, 'check-ignore', '-q', '--', realPath(filePath)], { stdio: 'ignore' })
+    return true
+  } catch {
+    return false // exit 1 = not ignored; 128 = unusable path
+  }
+}
+
+if (isGitIgnored()) process.exit(0)
+
+function currentBranch() {
+  try {
+    const b = execFileSync('git', ['-C', root, 'rev-parse', '--abbrev-ref', 'HEAD'], {
+      encoding: 'utf-8',
+```
+
+```patch
+target: .claude/guards/spec-gate-guard.mjs
+optional: true
+anchor: function planVerdict() {
+  const root = worktreeRootFor(filePath)
+  const planPath = join(root, 'PLAN.md')
+insert: replace
+---
+function planVerdict() {
+  const planPath = join(root, 'PLAN.md')
+```
+
+```patch
+target: .claude/guards/spec-gate-guard.mjs
+optional: true
+anchor:   if (!declared) return { ok: true }
+  const actual = currentBranch(root)
+  if (!actual || declared === actual) return { ok: true }
+  return { ok: false, declared, actual }
+}
+
+const verdict = planVerdict()
+if (verdict.ok) process.exit(0)
+
+function lineCount(text) {
+  return text === '' ? 0 : text.split('\n').length
+}
+
+// Proxy for the skill's own "≤20 lines of logic" spec-gate exemption.
+const LINE_THRESHOLD = 20
+
+// Keyed on payload shape, not tool name: Cursor's tool names aren't Claude Code's, and
+// an unrecognized name would fall through to Infinity and block a two-line edit. The
+// shapes themselves are identical across hosts. Unmeasurable input still returns
+// Infinity — a change we can't size is one we don't wave through.
+function changeSize() {
+  if (Array.isArray(toolInput.edits)) {
+    return toolInput.edits.reduce(
+      (sum, e) => sum + Math.max(lineCount(e.old_string ?? ''), lineCount(e.new_string ?? '')),
+      0
+    )
+  }
+  if (typeof toolInput.old_string === 'string' || typeof toolInput.new_string === 'string') {
+    return Math.max(lineCount(toolInput.old_string ?? ''), lineCount(toolInput.new_string ?? ''))
+  }
+  if (typeof toolInput.content === 'string') {
+    const newLines = lineCount(toolInput.content)
+    if (existsSync(filePath)) return Math.abs(newLines - lineCount(readFileSync(filePath, 'utf-8')))
+    return newLines
+  }
+  return Infinity
+}
+
+if (changeSize() > LINE_THRESHOLD) {
+  console.error(
+insert: replace
+---
+  if (!declared) return { ok: true }
+  const actual = currentBranch()
+  if (!actual || declared === actual) return { ok: true }
+  return { ok: false, declared, actual }
+}
+
+const verdict = planVerdict()
+if (verdict.ok) process.exit(0)
+
+function lines(text) {
+  return text === '' ? [] : text.replace(/\r\n/g, '\n').split('\n')
+}
+
+// Proxy for the skill's own "≤20 lines of logic" spec-gate exemption.
+const LINE_THRESHOLD = 20
+
+// Insertions + deletions between two line lists (Myers' O(ND) diff), or Infinity once
+// that passes `max`. Bounded, so a whole-file Write costs O(N·max) and never O(N²).
+function lineDistance(a, b, max) {
+  const off = max + 1
+  const v = new Array(2 * max + 3).fill(0)
+  for (let d = 0; d <= max; d++) {
+    for (let k = -d; k <= d; k += 2) {
+      let x = k === -d || (k !== d && v[off + k - 1] < v[off + k + 1]) ? v[off + k + 1] : v[off + k - 1] + 1
+      let y = x - k
+      while (x < a.length && y < b.length && a[x] === b[y]) {
+        x++
+        y++
+      }
+      v[off + k] = x
+      if (x >= a.length && y >= b.length) return d
+    }
+  }
+  return Infinity
+}
+
+// A whole-file Write over an existing file is sized by what it changes, the way an Edit
+// is: max(lines removed, lines added). Sizing it by the line-count difference let any
+// file be replaced wholesale with an equally long one and counted as 0.
+function rewriteSize(oldText, newText) {
+  const a = lines(oldText)
+  const b = lines(newText)
+  const d = lineDistance(a, b, 2 * LINE_THRESHOLD + 1) // > 2·threshold means max(…) > threshold
+  if (d === Infinity) return Infinity
+  const common = (a.length + b.length - d) / 2
+  return Math.max(a.length - common, b.length - common)
+}
+
+// A NotebookEdit is sized like an Edit of one cell: `insert` adds new_source, `delete`
+// removes the cell, `replace` (the default) swaps the cell's source for new_source. The
+// old source comes from the notebook itself; a cell we can't find counts as empty for an
+// insert or replace, and as unmeasurable for a delete.
+function notebookSize() {
+  const added = lines(toolInput.new_source ?? '').length
+  if (toolInput.edit_mode === 'insert') return added
+  let old = null
+  try {
+    const cell = JSON.parse(readFileSync(filePath, 'utf-8')).cells?.find(c => c.id === toolInput.cell_id)
+    if (cell) old = Array.isArray(cell.source) ? cell.source.join('') : String(cell.source ?? '')
+  } catch {
+    // no such notebook yet, or not JSON — nothing to compare against
+  }
+  if (toolInput.edit_mode === 'delete') return old === null ? Infinity : lines(old).length
+  return old === null ? added : rewriteSize(old, toolInput.new_source)
+}
+
+// Keyed on payload shape, not tool name: Cursor's tool names aren't Claude Code's, and
+// an unrecognized name would fall through to Infinity and block a two-line edit. The
+// shapes themselves are identical across hosts. Unmeasurable input still returns
+// Infinity — a change we can't size is one we don't wave through.
+function changeSize() {
+  if (Array.isArray(toolInput.edits)) {
+    return toolInput.edits.reduce(
+      (sum, e) => sum + Math.max(lines(e.old_string ?? '').length, lines(e.new_string ?? '').length),
+      0
+    )
+  }
+  if (typeof toolInput.old_string === 'string' || typeof toolInput.new_string === 'string') {
+    return Math.max(lines(toolInput.old_string ?? '').length, lines(toolInput.new_string ?? '').length)
+  }
+  if (typeof toolInput.new_source === 'string' || toolInput.edit_mode === 'delete') return notebookSize()
+  if (typeof toolInput.content === 'string') {
+    if (!existsSync(filePath)) return lines(toolInput.content).length
+    try {
+      return rewriteSize(readFileSync(filePath, 'utf-8'), toolInput.content)
+    } catch {
+      return Infinity // exists but unreadable — can't size it
+    }
+  }
+  return Infinity
+}
+
+// A malformed `edits` entry must not crash to exit 1, which both hosts treat as "allow".
+function measured() {
+  try {
+    return changeSize()
+  } catch {
+    return Infinity
+  }
+}
+
+if (measured() > LINE_THRESHOLD) {
+  console.error(
+```
+
+```patch
+target: .claude/guards/vendored-contract-guard.mjs
+optional: true
+anchor: // Claude Code PreToolUse / Cursor preToolUse hook — reads tool input from stdin,
+// exits 2 to block on either host.
+import { existsSync, readFileSync, realpathSync } from 'node:fs'
+import { basename, dirname, join, relative, resolve, sep } from 'node:path'
+import { execFileSync } from 'node:child_process'
+import { readPayload, toolCall, isWriteShaped } from './lib/hook-io.mjs'
+
+const data = readPayload('vendored-contract-guard.mjs')
+const call = toolCall(data)
+const filePath = call.input.file_path ?? ''
+
+if (!filePath) process.exit(0)
+
+// Self-filter on shape rather than trusting the host's matcher: .cursor/hooks.json
+// registers preToolUse with no matcher, so a Read would otherwise arrive here.
+if (!isWriteShaped(call)) process.exit(0)
+
+// A hook's process.cwd() is the session root, not the worktree the edited file lives
+// in. Same rule, and same reason, as spec-gate-guard.mjs — see v1.90.1.
+function worktreeRootFor(path) {
+  try {
+    return execFileSync('git', ['-C', dirname(resolve(path)), 'rev-parse', '--show-toplevel'], {
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    }).trim()
+  } catch {
+    return process.cwd() // not a repo, or the parent directory does not exist yet
+  }
+}
+
+// `git rev-parse --show-toplevel` resolves symlinks; `resolve()` does not. On macOS a
+// repo under /tmp or /var yields /private/... from git and /... from the payload, and
+// the relative() below then escapes the root and this guard allows EVERYTHING. Resolve
+// the directory (the file itself may not exist yet — a Write creates it) so both sides
+// are real paths.
+function realDir(path) {
+  const dir = dirname(resolve(path))
+  try {
+    return realpathSync(dir)
+  } catch {
+    return dir // not created yet; a path that cannot be resolved cannot be inside the repo either
+  }
+}
+
+const root = worktreeRootFor(filePath)
+const rel = relative(root, join(realDir(filePath), basename(filePath))).split(sep).join('/')
+
+// Outside the repo entirely — not ours to judge.
+if (rel.startsWith('../')) process.exit(0)
+
+// The DEFAULT vendored-spec layouts contract_sync.mjs can write: the single-contract
+insert: replace
+---
+// Claude Code PreToolUse / Cursor preToolUse hook — reads tool input from stdin,
+// exits 2 to block on either host.
+import { existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import {
+  readPayload, toolCall, stringField, isWriteShaped, realPath, worktreeRoot, repoRelative, CASE_INSENSITIVE_FS
+} from './lib/hook-io.mjs'
+
+const data = readPayload('vendored-contract-guard.mjs')
+const call = toolCall(data)
+// A file_path of the wrong type fails closed (exit 2) rather than crashing to exit 1.
+const filePath = stringField(call.input, 'file_path', 'vendored-contract-guard.mjs')
+
+if (!filePath) process.exit(0)
+
+// Self-filter on shape rather than trusting the host's matcher: .cursor/hooks.json
+// registers preToolUse with no matcher, so a Read would otherwise arrive here.
+if (!isWriteShaped(call)) process.exit(0)
+
+// A hook's process.cwd() is the session root, not the worktree the edited file lives
+// in. Same rule, and same reason, as spec-gate-guard.mjs — see v1.90.1. worktreeRoot()
+// walks up to the nearest existing directory, so a Write into a not-yet-created
+// api/openapi/ is still judged against its own repo.
+const root = worktreeRoot(filePath)
+
+// Both sides are real paths: git's root is symlink-resolved, and realPath() resolves the
+// edited path the same way — /tmp vs /private/tmp on macOS, `..`, a symlink pointing at
+// the spec, and the on-disk letter case. Without that, relative() escaped the root and
+// this guard allowed EVERYTHING, and `alias.yaml -> api/openapi.yaml` or API/openapi.yaml
+// edited the vendored spec on macOS and Windows.
+const rel = root ? repoRelative(filePath, root) : null
+
+// Outside any repo, or outside this one — not ours to judge.
+if (rel === null) process.exit(0)
+
+// What is left unresolved is a tail that does not exist yet, compared as typed — so on
+// a case-insensitive filesystem every comparison below ignores case too.
+const norm = s => (CASE_INSENSITIVE_FS ? s.toLowerCase() : s)
+const relKey = norm(rel)
+
+// The DEFAULT vendored-spec layouts contract_sync.mjs can write: the single-contract
+```
+
+```patch
+target: .claude/guards/vendored-contract-guard.mjs
+optional: true
+anchor:   return lockContracts().some(c => typeof c?.vendoredTo === 'string'
+    && c.vendoredTo.split(/[\\/]/).join('/') === path)
+}
+insert: replace
+---
+  return lockContracts().some(c => typeof c?.vendoredTo === 'string'
+    && norm(c.vendoredTo.split(/[\\/]/).join('/')) === path)
+}
+```
+
+```patch
+target: .claude/guards/vendored-contract-guard.mjs
+optional: true
+anchor: }
+
+if (rel === LOCK) {
+  refuse(
+    `${LOCK} records which commit of the API contract this repo is pinned to, and is written `
+    + 'only by contract_sync.mjs. To move to another published version, run: '
+    + 'node scripts/contract_sync.mjs bump <tag>'
+  )
+}
+
+if (isVendoredSpec(rel)) {
+  refuse(
+    `${rel} is vendored from ${contractsRepo()} at a pinned commit and is not editable here. `
+    + 'An API change belongs in that repo, in its own session — if a shape this app needs is '
+    + 'missing, say so and stop rather than adding it here. To take a published change, run: '
+    + 'node scripts/contract_sync.mjs bump <tag>'
+  )
+}
+
+if (isSynced(resolve(filePath))) {
+  // docs/stories/ST-042.md -> docs/story-meta/ST-042.yaml, which IS writable and is
+  // very often where the person actually wanted to put something.
+insert: replace
+---
+}
+
+if (relKey === LOCK) {
+  refuse(
+    `${LOCK} records which commit of the API contract this repo is pinned to, and is written `
+    + 'only by contract_sync.mjs. To move to another published version, run: '
+    + 'node scripts/contract_sync.mjs bump <tag>'
+  )
+}
+
+if (isVendoredSpec(relKey)) {
+  refuse(
+    `${rel} is vendored from ${contractsRepo()} at a pinned commit and is not editable here. `
+    + 'An API change belongs in that repo, in its own session — if a shape this app needs is '
+    + 'missing, say so and stop rather than adding it here. To take a published change, run: '
+    + 'node scripts/contract_sync.mjs bump <tag>'
+  )
+}
+
+if (isSynced(realPath(filePath))) {
+  // docs/stories/ST-042.md -> docs/story-meta/ST-042.yaml, which IS writable and is
+  // very often where the person actually wanted to put something.
+```
+
+```patch
+target: .claude/guards/bugfix-test-guard.mjs
+optional: true
+anchor: // Claude Code PreToolUse / Cursor preToolUse hook — reads tool input from stdin,
+// exits 2 to block on either host. Self-filtering: anything but `git commit` exits 0.
+import { execSync } from 'node:child_process'
+import { readPayload, toolCall } from './lib/hook-io.mjs'
+
+const data = readPayload('bugfix-test-guard.mjs')
+const command = toolCall(data).input.command ?? ''
+
+// Detect `git commit` outside quoted strings (same scrub bash-guard.mjs uses).
+const scrubbed = command.replace(/'[^']*'/g, '\'\'').replace(/"[^"]*"/g, '""')
+if (!/\bgit\s+commit\b/.test(scrubbed)) process.exit(0)
+
+// Extract the commit message from -m/--message, including bundled short flags (-am).
+// No parsable message → can't judge → allow.
+const msgMatch = command.match(/(?:--message|-[a-zA-Z]*m)(?:=|\s+)"([^"]*)"/)
+  ?? command.match(/(?:--message|-[a-zA-Z]*m)(?:=|\s+)'([^']*)'/)
+if (!msgMatch) process.exit(0)
+const message = msgMatch[1]
+
+// Explicit override: [no-test] in the message (state the reason next to it).
+if (message.includes('[no-test]')) process.exit(0)
+
+// Fix-shaped: conventional-commit fix prefix (any line), or bugfix/hotfix anywhere.
+if (!/^\s*fix(\([^)]*\))?!?:/im.test(message) && !/\b(bugfix|hotfix)\b/i.test(message)) process.exit(0)
+
+// Files this commit will include: staged, plus tracked-modified when -a/--all is used.
+let files = []
+try {
+  files = execSync('git diff --cached --name-only', { encoding: 'utf-8' }).split('\n')
+  if (/\s(-[a-z]*a[a-z]*|--all)(\s|$)/.test(scrubbed)) {
+    files = files.concat(execSync('git diff --name-only', { encoding: 'utf-8' }).split('\n'))
+  }
+} catch {
+  process.exit(0) // not a git repo / git unavailable — never block on guard failure
+}
+files = files.map(f => f.trim()).filter(Boolean)
+if (files.length === 0) process.exit(0)
+
+const TEST_PATTERNS = [
+insert: replace
+---
+// Claude Code PreToolUse / Cursor preToolUse hook — reads tool input from stdin,
+// exits 2 to block on either host. Self-filtering: anything but `git commit` exits 0.
+import { resolve } from 'node:path'
+import {
+  readPayload, toolCall, stringField, commandDir, projectDir, gitInvocations, commitMessage, parseOptions, isLong,
+  COMMIT_GRAMMAR, safeGit, realPath, repoRelative
+} from './lib/hook-io.mjs'
+
+const data = readPayload('bugfix-test-guard.mjs')
+const command = stringField(toolCall(data).input, 'command', 'bugfix-test-guard.mjs')
+
+// Every `git commit` the command would run, tokenized the way bash-guard.mjs does it — so
+// `git -C <dir> commit`, `-m"msg"` and a heredoc message are all seen. Each carries the
+// directory it runs in (after any `cd` and its own -C), which is whose index it commits.
+let commits
+try {
+  commits = gitInvocations(command, { cwd: commandDir(data) }).filter(inv => inv.sub === 'commit')
+} catch {
+  process.exit(0) // can't parse it → can't judge; bash-guard.mjs fails closed on the same input
+}
+
+const TEST_PATTERNS = [
+```
+
+```patch
+target: .claude/guards/bugfix-test-guard.mjs
+optional: true
+anchor:   /(^|[/\\])__tests__[/\\]/
+]
+if (files.some(f => TEST_PATTERNS.some(p => p.test(f)))) process.exit(0)
+
+// Docs/config-only fixes have no runtime surface to test — same allowlist as
+insert: replace
+---
+  /(^|[/\\])__tests__[/\\]/
+]
+
+// Docs/config-only fixes have no runtime surface to test — same allowlist as
+```
+
+```patch
+target: .claude/guards/bugfix-test-guard.mjs
+optional: true
+anchor: ]
+if (files.every(f => TRIVIAL_PATTERNS.some(p => p.test(f)))) process.exit(0)
+
+console.error(
+  'Error: fix commit with no test file included. Every bug fix ships a regression test (see the debug-workflow skill). Stage a test covering the bug, or add [no-test] to the commit message with the reason.'
+)
+process.exit(2)
+insert: replace
+---
+]
+
+// Where this guard will run git: the project and its own worktrees, nowhere else. The
+// commit under judgement picks its directory, and a directory picks the config git
+// loads — so a `-C` or `--git-dir` aimed outside the project is not followed.
+function trustedRoots() {
+  const root = realPath(projectDir(data))
+  const roots = [root]
+  try {
+    for (const line of safeGit(['worktree', 'list', '--porcelain'], root).split('\n')) {
+      if (line.startsWith('worktree ')) roots.push(realPath(line.slice(9)))
+    }
+  } catch {
+    // not a repo — the project root alone
+  }
+  return roots
+}
+
+function inside(path, roots) {
+  const real = realPath(path)
+  return roots.some(r => real === r || repoRelative(real, r) !== null)
+}
+
+// Files this commit will include: staged, tracked-modified when -a/--all is used, and any
+// pathspec named on the command line. Read from the commit's own tree (after a `cd`, its
+// -C, its --git-dir/--work-tree) — not from the hook's cwd, which in a parallel-worktree
+// run is another tree's (empty) index. Never with the command's own VAR= prefixes or
+// config: safeGit() drops GIT_* and pins core.fsmonitor off, because an env prefix that
+// sets core.fsmonitor runs code in whatever git process reads that repo. null = not judged.
+function filesFor(inv, all, pathspecs) {
+  if (inv.dir === null) return null
+  const roots = trustedRoots()
+  const places = [inv.dir, ...inv.locator.map(l => resolve(inv.dir, l.slice(l.indexOf('=') + 1)))]
+  if (!places.every(p => inside(p, roots))) return null
+  const git = args => safeGit([...inv.locator, ...args, '--no-ext-diff', '--no-textconv'], inv.dir).split('\n')
+  let files = git(['diff', '--cached', '--name-only'])
+  if (all) files = files.concat(git(['diff', '--name-only']))
+  return files.concat(pathspecs).map(f => f.trim()).filter(Boolean)
+}
+
+function needsTest(inv) {
+  // No parsable message (editor, --no-edit, a message built by a command) → can't judge → allow.
+  const message = commitMessage(inv)
+  if (message === null) return false
+
+  // Explicit override: [no-test] in the message (state the reason next to it).
+  if (message.includes('[no-test]')) return false
+
+  // Fix-shaped: conventional-commit fix prefix (any line), or bugfix/hotfix anywhere.
+  if (!/^\s*fix(\([^)]*\))?!?:/im.test(message) && !/\b(bugfix|hotfix)\b/i.test(message)) return false
+
+  // A fix commit in a directory the shell computes (cd $X) has no index we can name.
+  // That is the one fix-shaped case judged unknowable on purpose — it blocks.
+  if (inv.dir === null) return 'unknown'
+
+  const { opts, positionals } = parseOptions(inv.args, COMMIT_GRAMMAR)
+  const all = opts.some(([name]) => name === '-a' || isLong(name, '--all'))
+  let files
+  try {
+    files = filesFor(inv, all, positionals)
+  } catch {
+    return false // not a git repo / git unavailable — never block on guard failure
+  }
+  if (files === null || files.length === 0) return false
+  if (files.some(f => TEST_PATTERNS.some(p => p.test(f)))) return false
+  if (files.every(f => TRIVIAL_PATTERNS.some(p => p.test(f)))) return false
+  return true
+}
+
+const verdicts = commits.map(needsTest)
+if (verdicts.includes('unknown')) {
+  console.error('Error: fix commit in a directory this guard cannot resolve (a cd or -C target the shell computes). Write the directory literally so the regression-test check can read its staged files.')
+  process.exit(2)
+}
+if (verdicts.includes(true)) {
+  console.error(
+    'Error: fix commit with no test file included. Every bug fix ships a regression test (see the debug-workflow skill). Stage a test covering the bug, or add [no-test] to the commit message with the reason.'
+  )
+  process.exit(2)
+}
+```
+
+```patch
+target: .claude/guards/commit-msg-guard.mjs
+optional: true
+anchor: // Both exit 2 to reject; both allow when there's no subject they can read.
+import { readFileSync } from 'node:fs'
+import { readPayload, toolCall } from './lib/hook-io.mjs'
+
+const TYPES = ['feat', 'fix', 'docs', 'style', 'refactor', 'perf', 'test', 'build', 'ci', 'chore', 'revert']
+insert: replace
+---
+// Both exit 2 to reject; both allow when there's no subject they can read.
+import { readFileSync } from 'node:fs'
+import { readPayload, toolCall, stringField, commandDir, gitInvocations, commitMessage } from './lib/hook-io.mjs'
+
+const TYPES = ['feat', 'fix', 'docs', 'style', 'refactor', 'perf', 'test', 'build', 'ci', 'chore', 'revert']
+```
+
+```patch
+target: .claude/guards/commit-msg-guard.mjs
+optional: true
+anchor:   // there would be non-blocking on either host and the commit would run ungated.
+  const command = toolCall(readPayload('commit-msg-guard.mjs')).input.command ?? ''
+
+  // Detect `git commit` outside quoted strings (same scrub bash-guard.mjs uses).
+  const scrubbed = command.replace(/'[^']*'/g, '\'\'').replace(/"[^"]*"/g, '""')
+  if (!/\bgit\s+commit\b/.test(scrubbed)) return null
+
+  // -m/--message, including bundled short flags (-am). Unparsable forms (heredoc,
+  // $'...', an editor-driven commit) return null — but the commit-msg hook still sees those.
+  const msgMatch = command.match(/(?:--message|-[a-zA-Z]*m)(?:=|\s+)"([^"]*)"/)
+    ?? command.match(/(?:--message|-[a-zA-Z]*m)(?:=|\s+)'([^']*)'/)
+  return msgMatch ? msgMatch[1].split('\n')[0].trim() : null
+}
+insert: replace
+---
+  // there would be non-blocking on either host and the commit would run ungated.
+  const data = readPayload('commit-msg-guard.mjs')
+  const command = stringField(toolCall(data).input, 'command', 'commit-msg-guard.mjs')
+
+  // Every `git commit` in the command, tokenized the way bash-guard.mjs does it, so
+  // `git -C <dir> commit`, `-m"msg"`, bundled `-am` and several -m paragraphs all parse.
+  // A `-m "$(cat <<'EOF' … EOF)"` heredoc — Claude Code's own commit form — yields the
+  // heredoc body; any other message built by a command, an editor-driven commit or
+  // --no-edit yields null, and the git commit-msg hook judges those instead.
+  for (const inv of gitInvocations(command, { cwd: commandDir(data) })) {
+    if (inv.sub !== 'commit') continue
+    const message = commitMessage(inv)
+    const subject = message?.split('\n').map(l => l.trim()).find(Boolean)
+    if (subject) return subject
+  }
+  return null
+}
+```
+
+```patch
+target: .claude/guards/injection-scan-guard.mjs
+anchor: // Heuristic markers of instructions smuggled into fetched content. Kept in its
+// own array so the detection list can grow without touching control flow —
+// same separation bash-guard.mjs uses for its BLOCKED array.
+const INJECTION_PATTERNS = [
+insert: replace
+---
+// Heuristic markers of instructions smuggled into fetched content. Kept in its
+// own array so the detection list can grow without touching control flow.
+const INJECTION_PATTERNS = [
+```
+
+```patch
+target: .claude/guards/session-resume-check.mjs
+anchor: import { join } from 'node:path'
+import { execSync, spawnSync } from 'node:child_process'
+import { readPayload, projectDir, emitContext } from './lib/hook-io.mjs'
+insert: replace
+---
+import { join } from 'node:path'
+import { execFileSync, spawnSync } from 'node:child_process'
+import { readPayload, projectDir, emitContext } from './lib/hook-io.mjs'
+```
+
+```patch
+target: .claude/guards/session-resume-check.mjs
+anchor:   try {
+    const graphCommit = execSync('git log -1 --format=%h -- graphify-out/graph.json', {
+      cwd: root,
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    }).trim()
+    if (!graphCommit) {
+      lines.push('Graphify: graphify-out/graph.json exists but is not yet committed.')
+    } else {
+      const changedSince = execSync(`git log --oneline ${graphCommit}..HEAD -- . ':(exclude)graphify-out'`, {
+        cwd: root,
+insert: replace
+---
+  try {
+    const graphCommit = execFileSync('git', ['log', '-1', '--format=%h', '--', 'graphify-out/graph.json'], {
+      cwd: root,
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    }).trim()
+    if (!graphCommit) {
+      lines.push('Graphify: graphify-out/graph.json exists but is not yet committed.')
+    } else {
+      const changedSince = execFileSync('git', ['log', '--oneline', `${graphCommit}..HEAD`, '--', '.', ':(exclude)graphify-out'], {
+        cwd: root,
+```
+
+```patch
+target: .claude/guards/install-hooks.mjs
+anchor: // blocks, always exits 0, and every fallible step degrades that step alone.
+import { existsSync, lstatSync, readlinkSync, symlinkSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
+insert: replace
+---
+// blocks, always exits 0, and every fallible step degrades that step alone.
+import { existsSync, lstatSync, readlinkSync, symlinkSync, readFileSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+```
+
+```patch
+target: .claude/guards/install-hooks.mjs
+anchor: const HOOKS = ['pre-commit', 'commit-msg']
+
+function install(name) {
+  const script = join(cwd, 'scripts', `${name}.sh`)
+insert: replace
+---
+const HOOKS = ['pre-commit', 'commit-msg']
+
+// Windows refuses a symlink without Developer Mode or admin rights (EPERM), so there the
+// hook is a shim that execs the tracked script — it never goes stale the way a copy does.
+// Line 2 is the ownership marker: a hook file carrying it is ours, refreshed on a re-run
+// rather than reported as foreign. Byte-for-byte the shim the manual install writes on Windows.
+const SHIM_MARKER = '# bigin-harness hook shim: runs the tracked script, so it never goes stale'
+const shim = name => `#!/bin/sh\n${SHIM_MARKER}\nexec sh scripts/${name}.sh "$@"\n`
+
+function isShim(path) {
+  try {
+    return readFileSync(path, 'utf-8').split(/\r?\n/)[1] === SHIM_MARKER
+  } catch {
+    return false
+  }
+}
+
+function install(name) {
+  const script = join(cwd, 'scripts', `${name}.sh`)
+```
+
+```patch
+target: .claude/guards/install-hooks.mjs
+anchor:       if (st.isSymbolicLink() && readlinkSync(target) === link) return null // already ours
+      return { name, foreign: true }
+    }
+    symlinkSync(link, target)
+    return { name, installed: true }
+insert: replace
+---
+      if (st.isSymbolicLink() && readlinkSync(target) === link) return null // already ours
+      if (st.isFile() && isShim(target)) {
+        if (readFileSync(target, 'utf-8') === shim(name)) return null // already ours, current
+        writeFileSync(target, shim(name), { mode: 0o755 })
+        return { name, installed: true }
+      }
+      return { name, foreign: true }
+    }
+    try {
+      symlinkSync(link, target)
+    } catch {
+      writeFileSync(target, shim(name), { mode: 0o755 }) // no symlink permission — shim instead
+    }
+    return { name, installed: true }
+```
+
+```patch
+target: .claude/guards/precompact-snapshot.mjs
+anchor: // step is wrapped so one failure degrades that step only, not the whole guard.
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
+import { join } from 'node:path'
+insert: replace
+---
+// step is wrapped so one failure degrades that step only, not the whole guard.
+import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync } from 'node:fs'
+import { join } from 'node:path'
+```
+
+```patch
+target: .claude/guards/precompact-snapshot.mjs
+anchor: }
+
+// Updates an existing SESSION.md in place — refreshes last-updated/status and the
+// Uncommitted Changes section only. Decisions Made / Next Steps / Context Notes are left
+// exactly as a human or session-handoff wrote them; this never overwrites judgment content.
+function updateExisting(content, nowIso, state) {
+  let updated = content
+    .replace(/^last-updated:.*$/m, `last-updated: ${nowIso}`)
+    .replace(/^status:\s*\S+$/m, 'status: in-progress')
+
+  if (!updated.includes(MARKER)) {
+insert: replace
+---
+}
+
+// Updates an in-progress SESSION.md in place — refreshes last-updated and the
+// Uncommitted Changes section only. Status is left alone (it is already in-progress;
+// main() never calls this on any other). Decisions Made / Next Steps / Context Notes are
+// left exactly as a human or session-handoff wrote them; this never overwrites judgment content.
+function updateExisting(content, nowIso, state) {
+  let updated = content.replace(/^last-updated:.*$/m, `last-updated: ${nowIso}`)
+
+  if (!updated.includes(MARKER)) {
+```
+
+```patch
+target: .claude/guards/precompact-snapshot.mjs
+anchor:     const state = gatherState(cwd)
+    if (existsSync(sessionPath)) {
+      const content = readFileSync(sessionPath, 'utf-8')
+      writeFileSync(sessionPath, updateExisting(content, nowIso, state))
+    } else {
+      mkdirSync(sessionDir, { recursive: true })
+insert: replace
+---
+    const state = gatherState(cwd)
+    const content = existsSync(sessionPath) ? readFileSync(sessionPath, 'utf-8') : null
+    const status = content?.match(/^status:\s*(\S+)/m)?.[1]?.toLowerCase()
+    if (content !== null && status === 'in-progress') {
+      writeFileSync(sessionPath, updateExisting(content, nowIso, state))
+    } else {
+      // A finished save (`status: complete`, or anything not in-progress) is never
+      // flipped back to in-progress — that revived it, and the next session start asked
+      // to resume work that was done. Archive it the way session-handoff does and start
+      // a fresh autosave; nothing is lost and nothing is resurrected.
+      if (content !== null) {
+        renameSync(sessionPath, join(sessionDir, `SESSION.archive.${nowIso.replace(/[:.]/g, '-')}.md`))
+      }
+      mkdirSync(sessionDir, { recursive: true })
+```
+
+```patch
+target: .claude/rules/knowledge.md
+anchor: Concept files point to sources of truth (`openapi.yaml`, `.claude/rules/`, source code) — they never duplicate that content. If you're about to paste code or a schema into `knowledge/`, link to it instead.
+insert: replace
+---
+Concept files point to sources of truth (`openapi.yaml`, `.claude/rules/`, source code) — they never duplicate that content. If you're about to paste code or a schema into `knowledge/`, link to it instead. A concept never cites a `Record` under `knowledge/implementation/`: cite the code, schema or rule the record produced.
+```
+
+```patch
+target: knowledge/meta/knowledge-bundle-spec.md
+anchor: - **`implementation/` is the append-only record** of how the system got here — one `Record` file per finished task or epic, carrying the plan, the tasks table and any amendments. Concepts answer *what the system is*; records answer *how this piece came to be, and what was considered*. It carries its own `index.md`, so appending a record never touches the bundle-root index that the index-first protocol reads.
+insert: replace
+---
+- **`implementation/` is the append-only record** of how the system got here — one `Record` file per finished task or epic, carrying the plan, the tasks table and any amendments. Concepts answer *what the system is*; records answer *how this piece came to be, and what was considered*. It carries its own `index.md`, so appending a record never touches the bundle-root index that the index-first protocol reads. The repo-root `.ignore` keeps it out of repo-wide searches, so open a record by path when you need it.
+```
+
+```patch
+target: knowledge/meta/knowledge-bundle-spec.md
+anchor: - Concept files **add context and point to sources of truth** (`openapi.yaml`, `.claude/rules/`, source code) — never duplicate their content. Link, don't copy.
+- Any claim depending on an external source (paper, RFC, vendor doc, incident report) goes in `sources`. The v0.1 `# Citations` section is deprecated; the validator warns on it.
+insert: replace
+---
+- Concept files **add context and point to sources of truth** (`openapi.yaml`, `.claude/rules/`, source code) — never duplicate their content. Link, don't copy.
+- **A concept never cites a `Record`**, neither in a body link nor in `sources`. Cite the code, schema or rule the record produced instead. A record is a whole working plan, often tens of KB, and an agent that follows a concept's sources would open it with no traceback need. Records are opened by path, from `implementation/index.md`, when someone needs to know why a past change took its shape. The validator warns on a concept that cites one.
+- Any claim depending on an external source (paper, RFC, vendor doc, incident report) goes in `sources`. The v0.1 `# Citations` section is deprecated; the validator warns on it.
+```
+
+```patch
+target: knowledge/meta/knowledge-bundle-spec.md
+anchor: `tools/knowledge_validate.mjs` enforces: valid frontmatter + `type` on every non-reserved file, `type` in the allowed list, all bundle-relative links resolve, and well-formed `generated`/`verified`/`status`/`stale_after`/`sources` when present. Missing `description`/`tags`, index-unreachable files, leftover v0.1 keys, and passed `stale_after` dates are warnings.
+insert: replace
+---
+`tools/knowledge_validate.mjs` enforces: valid frontmatter + `type` on every non-reserved file, `type` in the allowed list, all bundle-relative links resolve, and well-formed `generated`/`verified`/`status`/`stale_after`/`sources` when present. Missing `description`/`tags`, index-unreachable files, leftover v0.1 keys, passed `stale_after` dates, and a concept citing a `Record` are warnings.
+
+**`Record` files are not link-checked.** A record copies its plan verbatim, so a placeholder link in the plan, or a path that was later deleted, would otherwise turn into an error. The only fix for that error is editing the record, which is the one thing a record must never get. The validator therefore skips link and `resource` path checks inside a `Record`. It still checks the record's frontmatter shape.
+```
+
+```patch
+target: knowledge/implementation/index.md
+anchor: Not part of routine reads. Consult a record when you need to know *why* a past change took the shape it did — the concept files say what is true now, and this says how it got that way.
+insert: after
+---
+
+One line per record, newest first, at most ~120 characters: `* [Title](path) - source, scale; the decision`, where `path` is the record's bundle-relative path (`/implementation/` plus its filename). The record holds the detail.
+```
+
+```patch
+target: .ignore
+mode: create-if-missing
+---
+# Implementation records: open one by path from knowledge/implementation/index.md.
+# Searches skip them because they are old plans, not current truth.
+/knowledge/implementation/
+```
+
+```patch
+target: tools/knowledge_validate.mjs
+anchor: import { basename, join, relative, resolve } from 'node:path'
+insert: replace
+---
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
+```
+
+```patch
+target: tools/knowledge_validate.mjs
+anchor: function checkResourcePaths(path, meta, root, errors, warnings) {
+  const entries = []
+  if (meta.resource !== undefined) entries.push(['resource', meta.resource])
+  for (const [i, source] of asList(meta.sources).entries()) {
+    if (isPlainObject(source) && source.resource) {
+      entries.push([`sources[${i}].resource`, source.resource])
+    }
+  }
+
+  for (const [label, value] of entries) {
+    const target = resourcePath(value)
+    if (target === null) continue
+    const wantDir = target.endsWith('/')
+    // A `/`-prefixed value is bundle-relative like every other reference in the
+    // bundle; anything else resolves against the repo root the validator runs from.
+    const full = target.startsWith('/') ? join(root, target.slice(1)) : resolve(target)
+insert: replace
+---
+// [label, value] for the frontmatter `resource` and every `sources[].resource`.
+function resourceEntries(meta) {
+  const entries = []
+  if (meta.resource !== undefined) entries.push(['resource', meta.resource])
+  for (const [i, source] of asList(meta.sources).entries()) {
+    if (isPlainObject(source) && source.resource) {
+      entries.push([`sources[${i}].resource`, source.resource])
+    }
+  }
+  return entries
+}
+
+// A `/`-prefixed value is bundle-relative like every other reference in the
+// bundle; anything else resolves against the repo root the validator runs from.
+function resolveResource(target, root) {
+  return target.startsWith('/') ? join(root, target.slice(1)) : resolve(target)
+}
+
+function checkResourcePaths(path, meta, root, errors, warnings) {
+  for (const [label, value] of resourceEntries(meta)) {
+    const target = resourcePath(value)
+    if (target === null) continue
+    const wantDir = target.endsWith('/')
+    const full = resolveResource(target, root)
+```
+
+```patch
+target: tools/knowledge_validate.mjs
+anchor: // --- main --------------------------------------------------------------------
+insert: before
+---
+// A concept that cites a record sends every reader that follows its sources into
+// a whole archived plan. Records are opened by path from implementation/index.md,
+// so a concept cites the code, schema or rule the record produced instead.
+function checkRecordCitations(path, rel, meta, body, root, warnings) {
+  const recordsDir = resolve(root, 'implementation')
+  const isRecordPath = (full) => {
+    const inside = relative(recordsDir, resolve(full))
+    return inside !== '' && !inside.startsWith('..') && !isAbsolute(inside) && basename(full) !== 'index.md'
+  }
+  const hits = []
+  for (const [label, value] of resourceEntries(meta)) {
+    const target = resourcePath(value)
+    if (target !== null && isRecordPath(resolveResource(target, root))) hits.push(`${label} '${value}'`)
+  }
+  const fileDir = dirname(join(root, rel.slice(1)))
+  for (const match of body.matchAll(LINK_RE)) {
+    const target = match[1].trim().split('#')[0]
+    if (!target || RESOURCE_SCHEME_RE.test(target)) continue
+    const full = target.startsWith('/') ? join(root, target.slice(1)) : join(fileDir, target)
+    if (isRecordPath(full)) hits.push(`link '${target}'`)
+  }
+  for (const hit of hits) {
+    warnings.push(`${path}: cites a Record (${hit}) — a concept cites code, schemas or rules, never knowledge/implementation/`)
+  }
+}
+
+```
+
+```patch
+target: tools/knowledge_validate.mjs
+anchor: parsed.set(rel, { meta: meta ?? {}, body })
+
+if (reserved) {
+insert: replace
+---
+parsed.set(rel, { meta: meta ?? {}, body })
+
+// A Record copies its plan verbatim and is never edited, so a link or path in
+// it that no longer resolves is history, not a defect: skip those checks.
+const isRecord = !reserved && meta?.type === 'Record'
+
+if (reserved) {
+```
+
+```patch
+target: tools/knowledge_validate.mjs
+anchor: checkSources(path, meta, body, errors, warnings)
+  checkResourcePaths(path, meta, root, errors, warnings)
+insert: replace
+---
+checkSources(path, meta, body, errors, warnings)
+if (!isRecord) {
+  checkResourcePaths(path, meta, root, errors, warnings)
+  checkRecordCitations(path, rel, meta, body, root, warnings)
+}
+```
+
+```patch
+target: tools/knowledge_validate.mjs
+anchor: for (const link of bundleRelativeLinks(body)) {
+insert: replace
+---
+for (const link of isRecord ? [] : bundleRelativeLinks(body)) {
+```
+
+```patch
+target: .claude/rules/comments.md
+anchor: - "**/*.{ts,tsx,js,jsx,mjs,cjs,vue,svelte,go,py,rb,rs,java,kt,cs,php,swift,scala,ex,exs}"
+insert: replace
+---
+- "**/*.{ts,tsx,js,jsx,mjs,cjs,vue,svelte,go,py,rb,rs,java,kt,cs,php,swift,scala,ex,exs,dart}"
+```
+
+```patch
+target: .claude/rules/security.md
+anchor: - "**/*.{ts,tsx,js,jsx,mjs,cjs,vue,svelte,go,py,rb,rs,java,kt,cs,php,swift,scala,ex,exs}"
+insert: replace
+optional: true
+---
+- "**/*.{ts,tsx,js,jsx,mjs,cjs,vue,svelte,go,py,rb,rs,java,kt,cs,php,swift,scala,ex,exs,dart}"
+```
+
+```patch
+target: .claude/rules/architecture.md
+anchor: - "**/*.{ts,tsx,js,jsx,mjs,cjs,vue,svelte,go,py,rb,rs,java,kt,cs,php,swift,scala,ex,exs}"
+insert: replace
+optional: true
+---
+- "**/*.{ts,tsx,js,jsx,mjs,cjs,vue,svelte,go,py,rb,rs,java,kt,cs,php,swift,scala,ex,exs,dart}"
+```
+
+```patch
+target: CLAUDE.md
+anchor: - **Capabilities are the security boundary, and they are default-deny.** Every permission is written into `src-tauri/capabilities/*.json` scoped to a named window. `shell:allow-execute`, `shell:allow-spawn`, and a `"*"` in any scope are refused by the gate. Never `tauri-plugin-sql` — it hands arbitrary SQL execution to the webview, which is the boundary gone.
+  - **`app.security.csp` is set to a real policy.** Tauri enables CSP protection *only* if the config sets it, so an absent or `null` value is not "no policy needed" — it is the webview's isolation switched off. Both fail the gate.
+  - `identifier` in `tauri.conf.json` is OS and store identity. It derives the app-data directory and the update feed, so changing it later orphans every installed user's local data. Set it from the ADR before the first build — Tauri refuses to bundle while it is still `com.tauri.dev`, which is the one error message here that saves you.
+  - The updater's minisign **private** key never enters the repo (`TAURI_SIGNING_PRIVATE_KEY` in CI secrets). Lose it and no installed copy of the app can ever be updated again — there is no recovery path but a manual reinstall by every user.
+insert: replace
+optional: true
+---
+- **Capabilities are default-deny, `app.security.csp` is a real policy, and `tauri-plugin-sql` is never used.** The gate refuses a dangerous or wildcard capability and an unset CSP. Details: `.claude/rules/architecture.md` → The IPC Boundary.
+- **Never change `identifier` after the first release, and never commit the updater's private key.** Both mistakes are permanent. Details: `.claude/rules/architecture.md` → Desktop Release Constraints.
+```
+
+```patch
+target: .claude/rules/architecture.md
+anchor: - `tauri-plugin-sql` and a broadly-scoped `fs` capability both collapse the boundary in one line — arbitrary SQL and arbitrary file access from the renderer. If a feature seems to need either, it needs a command instead.
+
+## [Tauri] Frozen Contract, Rust-Side Client
+insert: replace
+optional: true
+---
+- `tauri-plugin-sql` and a broadly-scoped `fs` capability both collapse the boundary in one line — arbitrary SQL and arbitrary file access from the renderer. If a feature seems to need either, it needs a command instead.
+- Every permission is written into `src-tauri/capabilities/*.json`, scoped to a named window. The gate refuses `shell:allow-execute`, `shell:allow-spawn`, `fs:default` and a `"*"` scope.
+- `app.security.csp` is set to a real policy. Tauri enables CSP protection *only* if the config sets it, so an absent or `null` value means the webview's isolation is switched off. The gate fails on both.
+
+## [Tauri] Frozen Contract, Rust-Side Client
+```
+
+```patch
+target: .claude/rules/architecture.md
+anchor: - The updater's private signing key is the single point of no return in this stack. It lives in CI secrets with a documented custodian and an offline backup, and losing it strands every installed copy permanently. Decide where it lives before the first release, not after.
+insert: replace
+optional: true
+---
+- The updater's private signing key is the single point of no return in this stack. It never enters the repo: it lives in CI secrets (`TAURI_SIGNING_PRIVATE_KEY`) with a documented custodian and an offline backup, and losing it strands every installed copy permanently. Decide where it lives before the first release, not after.
+- `identifier` in `tauri.conf.json` is OS and store identity. It derives the app-data directory and the update feed, so changing it after a release orphans every installed user's local data. Set it from the ADR before the first build. Tauri refuses to bundle while it is still `com.tauri.dev`.
+```
+
+```patch
+target: README.md
+anchor: (Skip either line whose script this repo doesn't have — where `simple-git-hooks` or `husky` is in use, run its own install step instead.)
+insert: after
+optional: true
+---
+On Windows, don't use `ln -sf`: Git Bash makes a copy that goes stale when the script changes, and a real symlink needs Developer Mode. Write a shim instead, and repeat it with `commit-msg` in place of `pre-commit` for the second hook: `printf '#!/bin/sh\n# bigin-harness hook shim: runs the tracked script, so it never goes stale\nexec sh scripts/pre-commit.sh "$@"\n' > .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit`
+```
+
+```patch
+target: tools/context_budget.mjs
+anchor: #!/usr/bin/env node
+// Context budget gate — keeps the always-loaded harness within token budget, per host.
+//
+// Fails (exit 1) on:
+//   CLAUDE.md or AGENTS.md > 60 lines
+//   Any .claude/rules/*.md without paths: frontmatter AND > 40 lines
+//   Any always-applied .cursor/rules/*.mdc (no globs:, or alwaysApply: true) AND > 40 lines
+//   Any .claude/skills/*/SKILL.md description: > 350 chars
+//   Either host's always-loaded total > 12 000 chars (~3 000 tokens)
+//
+// Claude Code loads CLAUDE.md + unscoped .claude/rules/; Cursor loads AGENTS.md +
+// always-applied .cursor/rules/. Skill descriptions count toward BOTH: Cursor discovers
+// skills from Claude's directories as well as its own, so a repo-local .claude/skills/
+// is live there with no mirroring. The two totals are capped separately because only one
+// of them loads per session — summing them would fail a repo that is comfortably
+// within budget on both hosts.
+//
+// Skill `description:` frontmatter counts because it is injected for every skill on
+// every turn — the same always-loaded surface as CLAUDE.md, just spread across files.
+// The skills scan no-ops in repos that don't author their own skills, and the Cursor
+// rule/brief checks no-op in repos that didn't install the mirror.
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
+
+const BRIEF_LIMIT = 60
+const UNSCOPED_RULE_LIMIT = 40
+const SKILL_DESCRIPTION_LIMIT = 350
+const ALWAYS_LOADED_CHAR_LIMIT = 12_000
+
+function frontmatter(text) {
+  if (!text.startsWith('---\n')) return null
+  const end = text.indexOf('\n---\n', 4)
+  if (end === -1) return null
+  return text.slice(4, end)
+}
+
+// Pulls `description:` out of YAML frontmatter, following indented continuation
+// lines so a wrapped multi-line description is measured whole, not just its first line.
+function readDescription(text) {
+  const fm = frontmatter(text)
+  if (fm === null) return null
+  const lines = fm.split('\n')
+  const start = lines.findIndex(l => /^description:/.test(l))
+  if (start === -1) return null
+  const parts = [lines[start].replace(/^description:\s*/, '')]
+  for (let i = start + 1; i < lines.length && /^\s+\S/.test(lines[i]); i++) {
+    parts.push(lines[i].trim())
+  }
+  return parts.join(' ').trim()
+}
+
+// Claude Code scoping: a `paths:` list in frontmatter.
+function isScopedRule(text) {
+  return (frontmatter(text) ?? '').includes('paths:')
+}
+
+// Cursor scoping: a `globs:` line, unless alwaysApply: true overrides it.
+function isScopedMdc(text) {
+  const fm = frontmatter(text) ?? ''
+  if (/^alwaysApply:\s*true/m.test(fm)) return false
+  return /^globs:/m.test(fm)
+}
+
+function countLines(text) {
+  if (text === '') return 0
+  return text.replace(/\n$/, '').split('\n').length
+}
+
+const errors = []
+const totals = { claude: 0, cursor: 0 }
+
+// Is Cursor parity actually installed? Skill descriptions are always-loaded on both
+// hosts, but attributing them to Cursor in a repo with no mirror would invent a second
+// budget line out of nothing. So the Cursor total is only accumulated and reported when
+// one of its own surfaces exists.
+const cursorInstalled = existsSync('AGENTS.md') || existsSync('.cursor/rules')
+
+// The brief. CLAUDE.md is canonical and what Claude Code loads; AGENTS.md is its
+// generated mirror and what Cursor loads (tools/cursor_mirror.mjs writes it). A repo
+// without Cursor parity has no AGENTS.md and simply skips that half.
+for (const [file, host] of [['CLAUDE.md', 'claude'], ['AGENTS.md', 'cursor']]) {
+  if (!existsSync(file)) {
+    if (host === 'claude') console.log('WARN CLAUDE.md not found — skipping')
+    continue
+  }
+  const content = readFileSync(file, 'utf-8')
+  const lines = countLines(content)
+  totals[host] += content.length
+  if (lines > BRIEF_LIMIT) {
+    errors.push(`${file}: ${lines} lines (limit: ${BRIEF_LIMIT})`)
+  }
+}
+
+const RULE_TREES = [
+  { dir: '.claude/rules', ext: '.md', host: 'claude', scoped: isScopedRule, why: 'no paths: frontmatter' },
+  { dir: '.cursor/rules', ext: '.mdc', host: 'cursor', scoped: isScopedMdc, why: 'no globs:, or alwaysApply: true' }
+]
+
+for (const tree of RULE_TREES) {
+  if (!existsSync(tree.dir)) {
+    if (tree.host === 'claude') console.log('WARN .claude/rules/ not found — skipping rule checks')
+    continue
+  }
+  const files = readdirSync(tree.dir).filter(f => f.endsWith(tree.ext)).sort()
+  for (const name of files) {
+    const ruleFile = join(tree.dir, name)
+    const content = readFileSync(ruleFile, 'utf-8')
+    if (tree.scoped(content)) continue // path-scoped — not always loaded
+    const lines = countLines(content)
+    totals[tree.host] += content.length
+    if (lines > UNSCOPED_RULE_LIMIT) {
+      errors.push(`${ruleFile}: ${lines} lines, ${tree.why} (limit: ${UNSCOPED_RULE_LIMIT})`)
+    }
+  }
+}
+
+// Skills are always-loaded on both hosts — Cursor reads Claude's skill directories too.
+for (const root of ['skills', '.claude/skills']) {
+  if (!existsSync(root)) continue
+  const skillDirs = readdirSync(root, { withFileTypes: true })
+    .filter(d => d.isDirectory() && existsSync(join(root, d.name, 'SKILL.md')))
+    .map(d => d.name)
+    .sort()
+  for (const name of skillDirs) {
+    const skillFile = join(root, name, 'SKILL.md')
+    const description = readDescription(readFileSync(skillFile, 'utf-8'))
+    if (description === null) {
+      errors.push(`${skillFile}: no description: in frontmatter — the skill will never trigger`)
+      continue
+    }
+    totals.claude += description.length
+    if (cursorInstalled) totals.cursor += description.length
+    if (description.length > SKILL_DESCRIPTION_LIMIT) {
+      errors.push(
+        `${skillFile}: description is ${description.length} chars (limit: ${SKILL_DESCRIPTION_LIMIT}) — always loaded, every turn`
+      )
+    }
+  }
+}
+
+const LABELS = {
+  claude: 'Claude Code (CLAUDE.md + unscoped .claude/rules/ + skill descriptions)',
+  cursor: 'Cursor (AGENTS.md + always-applied .cursor/rules/ + skill descriptions)'
+}
+
+const est = chars => Math.floor(chars / 4)
+const limitTokens = est(ALWAYS_LOADED_CHAR_LIMIT)
+
+for (const [host, chars] of Object.entries(totals)) {
+  if (host === 'cursor' && !cursorInstalled) continue
+  if (chars > ALWAYS_LOADED_CHAR_LIMIT) {
+    errors.push(
+      `${LABELS[host]}: ${chars} chars (~${est(chars)} tokens) `
+      + `exceeds limit of ${ALWAYS_LOADED_CHAR_LIMIT} chars (~${limitTokens} tokens)`
+    )
+  }
+}
+
+if (errors.length > 0) {
+  for (const e of errors) console.log(`ERROR ${e}`)
+  console.log(`\n${errors.length} context budget violation(s). Fix before committing.`)
+  process.exit(1)
+}
+
+for (const [host, chars] of Object.entries(totals)) {
+  if (chars === 0 || (host === 'cursor' && !cursorInstalled)) continue
+  console.log(`OK ${LABELS[host]}: ${chars} chars (~${est(chars)} tokens) — within budget`)
+}
+if (totals.claude > 0 && cursorInstalled) {
+  const both = totals.claude + totals.cursor
+  console.log(`   (a client that loads CLAUDE.md and AGENTS.md together would see ${both} chars / ~${est(both)} tokens)`)
+}
+insert: replace
+---
+#!/usr/bin/env node
+// Context budget gate — keeps the always-loaded harness within token budget, per host.
+//
+// Fails (exit 1) on:
+//   CLAUDE.md or AGENTS.md > 60 lines
+//   Any .claude/rules/*.md without paths: frontmatter AND > 40 lines
+//   Any always-applied .cursor/rules/*.mdc (no globs:, or alwaysApply: true) AND > 40 lines
+//   Any .claude/skills/*/SKILL.md or .claude/agents/*.md description: > 350 chars
+//   Either host's always-loaded total > 12 000 chars (~3 000 tokens)
+//   CLAUDE.md missing — paths resolve from the repo root, never the cwd, so a missing
+//   brief means a broken checkout, not a subdirectory run
+//
+// Claude Code loads CLAUDE.md + unscoped .claude/rules/; Cursor loads AGENTS.md +
+// always-applied .cursor/rules/. Skill descriptions count toward BOTH: Cursor discovers
+// skills from Claude's directories as well as its own, so a repo-local .claude/skills/
+// is live there with no mirroring. The two totals are capped separately because only one
+// of them loads per session — summing them would fail a repo that is comfortably
+// within budget on both hosts.
+//
+// Skill `description:` frontmatter counts because it is injected for every skill on
+// every turn — the same always-loaded surface as CLAUDE.md, just spread across files.
+// Agent descriptions (.claude/agents/, agents/) count for the same reason: every one is
+// listed with the Agent tool in every session. A `disable-model-invocation: true` skill
+// is the exception — reachable only as /name, never listed — so it is capped, not counted.
+// The skills scan no-ops in repos that don't author their own skills, and the Cursor
+// rule/brief checks no-op in repos that didn't install the mirror.
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+// Paths resolve from the repo root (this file lives in tools/), not the cwd: run from a
+// subdirectory, a cwd-relative gate finds nothing, measures nothing and exits 0.
+process.chdir(fileURLToPath(new URL('..', import.meta.url)))
+
+// CRLF-normalised: a Windows checkout under core.autocrlf=true would otherwise defeat
+// every '---\n' frontmatter match below and count every scoped rule as unscoped.
+const read = file => readFileSync(file, 'utf-8').replace(/\r\n/g, '\n')
+
+const BRIEF_LIMIT = 60
+const UNSCOPED_RULE_LIMIT = 40
+const SKILL_DESCRIPTION_LIMIT = 350
+const ALWAYS_LOADED_CHAR_LIMIT = 12_000
+
+function frontmatter(text) {
+  if (!text.startsWith('---\n')) return null
+  const end = text.indexOf('\n---\n', 4)
+  if (end === -1) return null
+  return text.slice(4, end)
+}
+
+// Pulls `description:` out of YAML frontmatter, following indented continuation
+// lines so a wrapped multi-line description is measured whole, not just its first line.
+// Blank lines are followed too when more indented text comes after them: a `>` or `|`
+// block scalar with a paragraph break is one value, and stopping at the break would
+// let a 500-char description pass as its first paragraph.
+function readDescription(text) {
+  const fm = frontmatter(text)
+  if (fm === null) return null
+  const lines = fm.split('\n')
+  const start = lines.findIndex(l => /^description:/.test(l))
+  if (start === -1) return null
+  const head = lines[start].replace(/^description:\s*/, '')
+  const block = /^[|>][+-]?[1-9]?[+-]?\s*$/.test(head)
+  const parts = block ? [] : [head]
+  for (let i = start + 1; i < lines.length; i++) {
+    if (/^\s+\S/.test(lines[i])) { parts.push(lines[i].trim()); continue }
+    if (lines[i].trim() !== '') break
+    const next = lines.slice(i + 1).find(l => l.trim() !== '')
+    if (next === undefined || !/^\s/.test(next)) break
+    parts.push('')
+  }
+  return parts.join(block && head[0] === '|' ? '\n' : ' ').replace(/ ?\n? ?$/, '').trim()
+}
+
+function isUserOnly(text) {
+  return /^disable-model-invocation:\s*(true|yes|on)\s*$/im.test(frontmatter(text) ?? '')
+}
+
+// Claude Code scoping: a `paths:` list in frontmatter.
+function isScopedRule(text) {
+  return (frontmatter(text) ?? '').includes('paths:')
+}
+
+// Cursor scoping: a `globs:` line, unless alwaysApply: true overrides it.
+function isScopedMdc(text) {
+  const fm = frontmatter(text) ?? ''
+  if (/^alwaysApply:\s*true/m.test(fm)) return false
+  return /^globs:/m.test(fm)
+}
+
+function countLines(text) {
+  if (text === '') return 0
+  return text.replace(/\n$/, '').split('\n').length
+}
+
+const errors = []
+const totals = { claude: 0, cursor: 0 }
+
+// Is Cursor parity actually installed? Skill descriptions are always-loaded on both
+// hosts, but attributing them to Cursor in a repo with no mirror would invent a second
+// budget line out of nothing. So the Cursor total is only accumulated and reported when
+// one of its own surfaces exists.
+const cursorInstalled = existsSync('AGENTS.md') || existsSync('.cursor/rules')
+
+// The brief. CLAUDE.md is canonical and what Claude Code loads; AGENTS.md is its
+// generated mirror and what Cursor loads (tools/cursor_mirror.mjs writes it). A repo
+// without Cursor parity has no AGENTS.md and simply skips that half.
+for (const [file, host] of [['CLAUDE.md', 'claude'], ['AGENTS.md', 'cursor']]) {
+  if (!existsSync(file)) {
+    if (host === 'claude') errors.push('CLAUDE.md not found at the repo root — nothing to measure, so nothing passes')
+    continue
+  }
+  const content = read(file)
+  const lines = countLines(content)
+  totals[host] += content.length
+  if (lines > BRIEF_LIMIT) {
+    errors.push(`${file}: ${lines} lines (limit: ${BRIEF_LIMIT})`)
+  }
+}
+
+const RULE_TREES = [
+  { dir: '.claude/rules', ext: '.md', host: 'claude', scoped: isScopedRule, why: 'no paths: frontmatter' },
+  { dir: '.cursor/rules', ext: '.mdc', host: 'cursor', scoped: isScopedMdc, why: 'no globs:, or alwaysApply: true' }
+]
+
+for (const tree of RULE_TREES) {
+  if (!existsSync(tree.dir)) {
+    if (tree.host === 'claude') console.log('WARN .claude/rules/ not found — skipping rule checks')
+    continue
+  }
+  const files = readdirSync(tree.dir).filter(f => f.endsWith(tree.ext)).sort()
+  for (const name of files) {
+    const ruleFile = join(tree.dir, name)
+    const content = read(ruleFile)
+    if (tree.scoped(content)) continue // path-scoped — not always loaded
+    const lines = countLines(content)
+    totals[tree.host] += content.length
+    if (lines > UNSCOPED_RULE_LIMIT) {
+      errors.push(`${ruleFile}: ${lines} lines, ${tree.why} (limit: ${UNSCOPED_RULE_LIMIT})`)
+    }
+  }
+}
+
+// Skill and agent descriptions are always-loaded on both hosts — Cursor reads Claude's
+// skill and agent directories too.
+const described = []
+for (const root of ['skills', '.claude/skills']) {
+  if (!existsSync(root)) continue
+  for (const d of readdirSync(root, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+    if (d.isDirectory() && existsSync(join(root, d.name, 'SKILL.md'))) described.push(['skill', join(root, d.name, 'SKILL.md')])
+  }
+}
+for (const root of ['agents', '.claude/agents']) {
+  if (!existsSync(root)) continue
+  for (const f of readdirSync(root).filter(f => f.endsWith('.md')).sort()) described.push(['agent', join(root, f)])
+}
+for (const [kind, file] of described) {
+  const text = read(file)
+  const description = readDescription(text)
+  if (description === null) {
+    errors.push(`${file}: no description: in frontmatter — the ${kind} will never be selected`)
+    continue
+  }
+  if (description.length > SKILL_DESCRIPTION_LIMIT) {
+    errors.push(
+      `${file}: description is ${description.length} chars (limit: ${SKILL_DESCRIPTION_LIMIT}) — always loaded, every turn`
+    )
+  }
+  if (kind === 'skill' && isUserOnly(text)) continue // /name only — never listed, so never loaded
+  totals.claude += description.length
+  if (cursorInstalled) totals.cursor += description.length
+}
+
+const LABELS = {
+  claude: 'Claude Code (CLAUDE.md + unscoped .claude/rules/ + skill and agent descriptions)',
+  cursor: 'Cursor (AGENTS.md + always-applied .cursor/rules/ + skill and agent descriptions)'
+}
+
+const est = chars => Math.floor(chars / 4)
+const limitTokens = est(ALWAYS_LOADED_CHAR_LIMIT)
+
+for (const [host, chars] of Object.entries(totals)) {
+  if (host === 'cursor' && !cursorInstalled) continue
+  if (chars > ALWAYS_LOADED_CHAR_LIMIT) {
+    errors.push(
+      `${LABELS[host]}: ${chars} chars (~${est(chars)} tokens) `
+      + `exceeds limit of ${ALWAYS_LOADED_CHAR_LIMIT} chars (~${limitTokens} tokens)`
+    )
+  }
+}
+
+if (errors.length > 0) {
+  for (const e of errors) console.log(`ERROR ${e}`)
+  console.log(`\n${errors.length} context budget violation(s). Fix before committing.`)
+  process.exit(1)
+}
+
+for (const [host, chars] of Object.entries(totals)) {
+  if (chars === 0 || (host === 'cursor' && !cursorInstalled)) continue
+  console.log(`OK ${LABELS[host]}: ${chars} chars (~${est(chars)} tokens) — within budget`)
+}
+if (totals.claude > 0 && cursorInstalled) {
+  const both = totals.claude + totals.cursor
+  console.log(`   (a client that loads CLAUDE.md and AGENTS.md together would see ${both} chars / ~${est(both)} tokens)`)
+}
+```
+
+```patch
+target: .github/workflows/contract-drift.yml
+anchor: on:
+  pull_request:
+  push:
+    branches: [main]
+insert: replace
+resolve: SPEC_PATH
+optional: true
+---
+# Only when the contract or its output could have moved. This job re-runs codegen to
+# prove the committed client still matches the spec, and on `mobile` that means pulling
+# a ~1 GB generator image — paying that on a PR which touched only UI code buys nothing.
+# Widen these paths if a repo generates from somewhere else; never drop them for
+# convenience, because the check they gate has no local equivalent.
+on:
+  pull_request:
+    paths:
+      - '{SPEC_PATH}'
+      - 'api/generated/**'
+      - 'api-contract.lock'
+      - 'scripts/contract_sync.mjs'
+      - 'tool/generate_api.sh'
+      - '.github/workflows/contract-drift.yml'
+  push:
+    branches: [main]
+    paths:
+      - '{SPEC_PATH}'
+      - 'api/generated/**'
+      - 'api-contract.lock'
+      - 'scripts/contract_sync.mjs'
+      - 'tool/generate_api.sh'
+  # Weekly, so drift introduced by a generator or toolchain change — which touches
+  # none of the paths above — surfaces within days rather than at the next bump.
+  schedule:
+    - cron: '17 4 * * 1'
+  workflow_dispatch:
+```
+
+```patch
+target: .github/workflows/contract-drift.yml
+anchor: - name: Re-vendor and regenerate
+        env:
+insert: replace
+optional: true
+---
+# A repo that has not run `bump` yet holds placeholder pins and vendors nothing.
+# That is a normal starting state, and without this its CI is red from day one on
+# every PR — the "always red, so people merge past it" failure. Same premise rule
+# as the story gates skipping the sync bots:
+# .claude/rules/skill-authoring.md -> a gate goes where its premise holds.
+- name: Has this repo vendored a contract yet?
+  id: vendored
+  run: |
+    set -euo pipefail
+    if node scripts/contract_sync.mjs verify | grep -q 'not vendored yet'; then
+      echo "ready=false" >> "$GITHUB_OUTPUT"
+      echo "No contract vendored yet — the drift check does not apply. Run bump first."
+    else
+      echo "ready=true" >> "$GITHUB_OUTPUT"
+    fi
+
+- name: Re-vendor and regenerate
+  if: steps.vendored.outputs.ready == 'true'
+  env:
+```
+
+```patch
+target: .github/workflows/contract-drift.yml
+anchor: - name: Fail on any difference
+        run: |
+insert: replace
+optional: true
+---
+- name: Fail on any difference
+  if: steps.vendored.outputs.ready == 'true'
+  run: |
+```
+
+```patch
+target: tool/generate_api.sh
+anchor: docker run --rm -v "${PWD}:/local" \
+  "openapitools/openapi-generator-cli:${OPENAPI_GENERATOR_TAG}" generate \
+  -i /local/api/openapi.yaml \
+  -g dart-dio \
+  -o /local/api/generated \
+  --additional-properties=serializationLibrary=json_serializable,pubName=api_client
+
+dart run build_runner build --delete-conflicting-outputs
+insert: replace
+optional: true
+---
+docker run --rm -v "${PWD}:/local" \
+  "openapitools/openapi-generator-cli:${OPENAPI_GENERATOR_TAG}" generate \
+  -i /local/api/openapi.yaml \
+  -g dart-dio \
+  -o /local/api/generated \
+  --additional-properties=serializationLibrary=json_serializable,pubName=api_client
+
+# openapi-generator hard-codes an SDK floor of >=3.5.0 into the package it writes,
+# which is below what json_serializable's own output needs: it emits null-aware
+# elements (a Dart 3.8 language feature) and the formatter then refuses to parse the
+# generator's output, failing the build on twelve models. Raise the floor as part of
+# generation — this file owns api/generated/ wholesale, so this is not a hand edit.
+GENERATED_SDK_FLOOR=">=3.8.0 <4.0.0"
+sed "s|^  sdk: .*|  sdk: '${GENERATED_SDK_FLOOR}'|" api/generated/pubspec.yaml > api/generated/pubspec.yaml.tmp
+mv api/generated/pubspec.yaml.tmp api/generated/pubspec.yaml
+
+# The generated package carries its OWN analysis_options.yaml, and the analyzer uses
+# the file nearest each source — so the app's root `exclude:` never reaches these
+# files. `flutter analyze --fatal-infos` then fails on generator noise (unused imports
+# in the api/ classes) that nobody is allowed to hand-fix. This script owns
+# api/generated/ wholesale, so writing that file is generation, not a hand edit.
+cat > api/generated/analysis_options.yaml <<'ANALYSIS'
+# GENERATED by tool/generate_api.sh — do not edit.
+# This package is machine-written and CI-diffed. Findings here are a generator or
+# contract problem, caught by regenerate-and-diff, never by editing this output.
+analyzer:
+  # The generator's own excludes, kept — dropping them puts its committed *.g.dart
+  # and its generated tests back under the analyzer, which is more noise, not less.
+  exclude:
+    - test/**
+    - lib/src/model/*.g.dart
+  errors:
+    unused_import: ignore
+    deprecated_member_use: ignore
+    deprecated_member_use_from_same_package: ignore
+ANALYSIS
+
+# The generated client is a STANDALONE Dart package — its own pubspec.yaml, its own
+# build.yaml. build_runner at the app root never sees it, and the package ships a
+# dozen files declaring `part '*.g.dart'` for files that would then not exist, so it
+# does not compile. Build it where it lives, first.
+( cd api/generated && dart pub get && dart run build_runner build --delete-conflicting-outputs )
+
+# Then the app's own generated code (@riverpod, freezed, json_serializable).
+dart run build_runner build --delete-conflicting-outputs
+```
+
+```patch
+target: .github/workflows/contract-drift.yml
+anchor: if ! git diff --exit-code; then
+  echo
+  echo "The vendored spec or generated client does not match api-contract.lock."
+  echo "Do not commit the diff above: run 'node scripts/contract_sync.mjs sync'"
+insert: replace
+optional: true
+---
+# `git status --porcelain`, not `git diff --exit-code`: diff only inspects
+# TRACKED files, so a regen that writes a brand-new generated file (a model
+# the committed client lacks) leaves it untracked and the job goes green on
+# real drift.
+if [ -n "$(git status --porcelain)" ]; then
+  git status --short
+  git diff
+  echo
+  echo "The vendored spec or generated client does not match api-contract.lock."
+  echo "Do not commit the changes above: run 'node scripts/contract_sync.mjs sync'"
+```
+
+```patch
+target: .claude/settings.json
+anchor: "matcher": "Edit|Write|MultiEdit",
+"hooks": [
+  {
+    "type": "command",
+    "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/guards/spec-gate-guard.mjs\""
+insert: replace
+optional: true
+---
+"matcher": "Edit|Write|MultiEdit|NotebookEdit",
+"hooks": [
+  {
+    "type": "command",
+    "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/guards/spec-gate-guard.mjs\""
+```
+
+```patch
+target: .claude/settings.json
+anchor: "matcher": "Bash|Write|Edit|WebFetch|mcp__.*",
+insert: replace
+---
+"matcher": "Bash|Write|Edit|MultiEdit|WebFetch|mcp__.*",
+```
+
+```patch
+target: .claude/guards/lint-fix-file.mjs
+anchor: import { readFileSync } from 'node:fs'
+insert: replace
+optional: true
+---
+import { existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
+```
+
+```patch
+target: .claude/guards/lint-fix-file.mjs
+anchor: spawnSync('pnpm', ['exec', 'eslint', '--fix', '--cache', filePath], {
+  stdio: 'inherit',
+  shell: process.platform === 'win32'
+})
+insert: replace
+optional: true
+---
+// Run ESLint's own entry script with this Node binary: no shell and no
+// `pnpm.cmd`, so a path with spaces or `&` can't be reinterpreted by cmd.exe on Windows.
+const eslint = join(process.env.CLAUDE_PROJECT_DIR || process.cwd(), 'node_modules', 'eslint', 'bin', 'eslint.js')
+if (!existsSync(eslint)) process.exit(0)
+spawnSync(process.execPath, [eslint, '--fix', '--cache', filePath], { stdio: 'inherit' })
+```
+
 ## [1.103.0] - 2026-09-29
 
 ### Changed
@@ -486,6 +3343,8 @@ Both fixes came out of running v1.98.1 on a real repo an hour after shipping it.
 
   It now triggers on the paths that could actually have moved the contract or its output (the spec, `api-contract.lock`, the generated tree, `contract_sync.mjs`, `tool/generate_api.sh`, and the workflow itself), plus **weekly**. The schedule is the part worth keeping: a generator or toolchain bump changes what codegen produces without touching any of those paths, so a path-filtered job alone would surface that drift only at the next contract bump, whenever that happened to be.
 
+**Patch blocks for this change shipped in 1.104.0** (the D7 retro blocks), since patch mode never replays an entry older than a repo's stamp.
+
 ## [1.96.2] - 2026-09-09
 
 The third and last codegen adapter, run for real. `tool/generate_api.sh` had never been executed end to end — it was written in 1.93.0 from the profile's description of what it should do — and running it produced three defects in a row, each hiding the next.
@@ -505,6 +3364,8 @@ The third and last codegen adapter, run for real. `tool/generate_api.sh` had nev
 - Proven at the far end of the whole chain: the additive `avatar_url` made in the contracts repo, tagged `v1.1.0`, dispatched, vendored and generated, arrives in Dart as `User.avatarUrl` and round-trips through the contract's wire shape. Two tests assert it.
 - One operational cost worth knowing: the mobile drift job re-runs codegen, which pulls a ~1 GB generator image per run. Acceptable on a scheduled or PR-only job; not something to put on every push.
 
+**Patch blocks for this change shipped in 1.104.0** (the D7 retro blocks), since patch mode never replays an entry older than a repo's stamp.
+
 ## [1.96.1] - 2026-09-08
 
 ### Fixed
@@ -518,6 +3379,8 @@ The third and last codegen adapter, run for real. `tool/generate_api.sh` had nev
 ### Notes
 
 - All four story-sync PRs merged. Every consumer now holds three stories, each stamped `synced: true`, and the invariants hold on live repos: the guard refuses to edit one and names its sidecar; `ST-003` declares `ui: yes` with no sidecar and is correctly not-ready in all four; `ST-001` is ready only in the one repo that has a sidecar for it.
+
+**Patch blocks for this change shipped in 1.104.0** (the D7 retro blocks), since patch mode never replays an entry older than a repo's stamp.
 
 ## [1.96.0] - 2026-09-08
 

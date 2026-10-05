@@ -8,7 +8,16 @@ Before writing, replace `{DATE}` with today's date in ISO 8601 (`YYYY-MM-DD`) in
 
 ## knowledge.md
 
+Written verbatim, frontmatter included. The `paths:` load it when the bundle, a plan or source code is in play, and keep it out of sessions that touch none of them. The source-extension set is the one `comments.md` uses (`files-shared.md`), plus the contract files.
+
 ```markdown
+---
+paths:
+  - "knowledge/**"
+  - "PLAN.md"
+  - "**/openapi*.{yaml,yml,json}"
+  - "**/*.{ts,tsx,js,jsx,mjs,cjs,vue,svelte,go,py,rb,rs,java,kt,cs,php,swift,scala,ex,exs,dart}"
+---
 # Knowledge Bundle Rules
 
 `knowledge/` holds domain knowledge — what the system is and why. Rules (`.claude/rules/`) hold how we work. Don't mix the two.
@@ -26,7 +35,7 @@ Read `knowledge/index.md`. The one-line summaries there are usually sufficient. 
 - Keep it under ~60 lines. Terse beats complete.
 
 ## Link, don't copy
-Concept files point to sources of truth (`openapi.yaml`, `.claude/rules/`, source code) — they never duplicate that content. If you're about to paste code or a schema into `knowledge/`, link to it instead.
+Concept files point to sources of truth (`openapi.yaml`, `.claude/rules/`, source code) — they never duplicate that content. If you're about to paste code or a schema into `knowledge/`, link to it instead. A concept never cites a `Record` under `knowledge/implementation/`: cite the code, schema or rule the record produced.
 
 ## Staleness
 A PR that meaningfully changes behavior updates the related concept file(s) in the same PR. Add one entry to `knowledge/log.md` per sprint. Set `stale_after: <YYYY-MM-DD>` on anything with a known expiry.
@@ -65,7 +74,7 @@ Our profile of [Open Knowledge Format v0.2](https://github.com/GoogleCloudPlatfo
 - **Reserved filenames:** `index.md` (directory listing) and `log.md` (change history). They carry **no frontmatter** — except the bundle-root `index.md`, which declares `okf_version: "0.2"` and nothing else.
 - **Every other** `.md` file under `knowledge/` is a concept file with valid frontmatter — no freeform docs, no exceptions.
 - Folders group by kind: `contracts/`, `domains/`, `constraints/`, `meta/`, etc. Add folders as needed.
-- **`implementation/` is the append-only record** of how the system got here — one `Record` file per finished task or epic, carrying the plan, the tasks table and any amendments. Concepts answer *what the system is*; records answer *how this piece came to be, and what was considered*. It carries its own `index.md`, so appending a record never touches the bundle-root index that the index-first protocol reads.
+- **`implementation/` is the append-only record** of how the system got here — one `Record` file per finished task or epic, carrying the plan, the tasks table and any amendments. Concepts answer *what the system is*; records answer *how this piece came to be, and what was considered*. It carries its own `index.md`, so appending a record never touches the bundle-root index that the index-first protocol reads. The repo-root `.ignore` keeps it out of repo-wide searches, so open a record by path when you need it.
 - Filenames: kebab-case, singular concept per file (`openapi-contract.md`, not `contracts.md`).
 - Bundle-relative links resolve against `knowledge/` (e.g. `/contracts/openapi-contract.md` = `knowledge/contracts/openapi-contract.md`).
 
@@ -92,6 +101,7 @@ Extension keys are allowed but must not collide with the above.
 ## Linking & provenance
 - Relationships between concepts = bundle-relative Markdown links.
 - Concept files **add context and point to sources of truth** (`openapi.yaml`, `.claude/rules/`, source code) — never duplicate their content. Link, don't copy.
+- **A concept never cites a `Record`**, neither in a body link nor in `sources`. Cite the code, schema or rule the record produced instead. A record is a whole working plan, often tens of KB, and an agent that follows a concept's sources would open it with no traceback need. Records are opened by path, from `implementation/index.md`, when someone needs to know why a past change took its shape. The validator warns on a concept that cites one.
 - Any claim depending on an external source (paper, RFC, vendor doc, incident report) goes in `sources`. The v0.1 `# Citations` section is deprecated; the validator warns on it.
 
 ## Staleness policy
@@ -102,7 +112,9 @@ Extension keys are allowed but must not collide with the above.
 - **`Record` files are exempt from all of the above.** A record of what shipped in March does not go stale in April — it was true when written and stays true. Never set `stale_after` on one, never re-verify one, and never rewrite one to match current behavior: a record that has been edited to stay accurate is no longer a record of anything.
 
 ## Validation
-`tools/knowledge_validate.mjs` enforces: valid frontmatter + `type` on every non-reserved file, `type` in the allowed list, all bundle-relative links resolve, and well-formed `generated`/`verified`/`status`/`stale_after`/`sources` when present. Missing `description`/`tags`, index-unreachable files, leftover v0.1 keys, and passed `stale_after` dates are warnings.
+`tools/knowledge_validate.mjs` enforces: valid frontmatter + `type` on every non-reserved file, `type` in the allowed list, all bundle-relative links resolve, and well-formed `generated`/`verified`/`status`/`stale_after`/`sources` when present. Missing `description`/`tags`, index-unreachable files, leftover v0.1 keys, passed `stale_after` dates, and a concept citing a `Record` are warnings.
+
+**`Record` files are not link-checked.** A record copies its plan verbatim, so a placeholder link in the plan, or a path that was later deleted, would otherwise turn into an error. The only fix for that error is editing the record, which is the one thing a record must never get. The validator therefore skips link and `resource` path checks inside a `Record`. It still checks the record's frontmatter shape.
 
 **Where we're stricter than OKF:** the spec tells *consumers* to tolerate unknown `type` values and broken links. We're the producer, so both are hard failures here — a typo'd link in our own bundle is a bug, not forward compatibility.
 ```
@@ -143,7 +155,7 @@ Root map of everything under `knowledge/`. Read this before non-trivial changes.
 
 The nested index for the append-only record log. It exists so that appending a record touches this file and not the bundle-root `index.md` — the root index is the index-first read target, and a log that grew it would put every past task in front of every future one. Reachability seeds from **every** `index.md`, so records linked here are reachable without any root-index entry.
 
-Reserved filename, so no frontmatter. Newest first. Scaffolds **empty of records** — the entry list below starts blank and grows one line per cleanup, in the form `* [Title](/implementation/{DATE}-{slug}.md) - source, scale; the decision worth remembering`. Don't seed it with an example: a link to a record that doesn't exist is a broken link, which the validator treats as an error.
+Reserved filename, so no frontmatter. Newest first. Scaffolds **empty of records**: the entry list starts blank and grows one line per cleanup, in the format the template states. The format lives in the template, not only here, because the agent appending a line reads the repo's own copy. Each line is capped at about 120 characters, because every traceback starts by reading this file. Don't seed it with an example: a link to a record that doesn't exist is a broken link, which the validator treats as an error.
 
 ```markdown
 # Implementation Records
@@ -151,6 +163,8 @@ Reserved filename, so no frontmatter. Newest first. Scaffolds **empty of records
 Append-only. One record per finished task or epic — what was planned, what shipped, and what was considered and rejected. Records are never edited after they are written; a wrong record is corrected by the next record, not by a rewrite.
 
 Not part of routine reads. Consult a record when you need to know *why* a past change took the shape it did — the concept files say what is true now, and this says how it got that way.
+
+One line per record, newest first, at most ~120 characters: `* [Title](path) - source, scale; the decision`, where `path` is the record's bundle-relative path (`/implementation/` plus its filename). The record holds the detail.
 ```
 
 ---
@@ -261,13 +275,27 @@ Non-trivial features need an approved spec first — run `/task-workflow`. The s
 
 ## knowledge/log.md
 
-Reserved file — no frontmatter. Newest entry first, one date heading per sprint.
+Reserved file — no frontmatter. Newest entry first, one date heading per sprint. **Drop the `[OpenAPI Contract](…)` link when Phase 5.5 skipped the contract concept** — it would be a broken link, which the validator fails on.
 
 ```markdown
 # Knowledge Bundle Log
 
 ## {DATE}
 * **Creation**: Established the bundle — [index](/index.md), [OpenAPI Contract](/contracts/openapi-contract.md), [Agent Rules](/constraints/agent-rules.md), [Knowledge Bundle Spec](/meta/knowledge-bundle-spec.md). Validator added at `tools/knowledge_validate.mjs`.
+```
+
+---
+
+## .ignore
+
+Written to the repo root. ripgrep reads `.ignore` with gitignore syntax, and Claude Code's Grep and file search run on ripgrep, so records drop out of every repo-wide search. Old plans would otherwise flood each search with matches nobody asked for. A record can still be opened by path. Git does not read this file, so records stay tracked and committed. The pattern starts with `/`, which anchors it to the repo root, so it hides that one directory and nothing else.
+
+If `.ignore` already exists, append these lines only when the pattern is missing; never rewrite the file.
+
+```gitignore
+# Implementation records: open one by path from knowledge/implementation/index.md.
+# Searches skip them because they are old plans, not current truth.
+/knowledge/implementation/
 ```
 
 ---
@@ -280,7 +308,7 @@ Reserved file — no frontmatter. Newest entry first, one date heading per sprin
 // allowed types, reserved files, trust/lifecycle keys, link resolution.
 // Zero dependencies — runs on any Node >= 18 (macOS, Linux, Windows).
 import { readFileSync, readdirSync, statSync } from 'node:fs'
-import { basename, join, relative, resolve } from 'node:path'
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 
 const BUNDLE_ROOT = 'knowledge'
 const OKF_VERSION = '0.2'
@@ -636,7 +664,8 @@ function checkSources(path, meta, body, errors, warnings) {
   }
 }
 
-function checkResourcePaths(path, meta, root, errors, warnings) {
+// [label, value] for the frontmatter `resource` and every `sources[].resource`.
+function resourceEntries(meta) {
   const entries = []
   if (meta.resource !== undefined) entries.push(['resource', meta.resource])
   for (const [i, source] of asList(meta.sources).entries()) {
@@ -644,14 +673,21 @@ function checkResourcePaths(path, meta, root, errors, warnings) {
       entries.push([`sources[${i}].resource`, source.resource])
     }
   }
+  return entries
+}
 
-  for (const [label, value] of entries) {
+// A `/`-prefixed value is bundle-relative like every other reference in the
+// bundle; anything else resolves against the repo root the validator runs from.
+function resolveResource(target, root) {
+  return target.startsWith('/') ? join(root, target.slice(1)) : resolve(target)
+}
+
+function checkResourcePaths(path, meta, root, errors, warnings) {
+  for (const [label, value] of resourceEntries(meta)) {
     const target = resourcePath(value)
     if (target === null) continue
     const wantDir = target.endsWith('/')
-    // A `/`-prefixed value is bundle-relative like every other reference in the
-    // bundle; anything else resolves against the repo root the validator runs from.
-    const full = target.startsWith('/') ? join(root, target.slice(1)) : resolve(target)
+    const full = resolveResource(target, root)
     let stats
     try {
       stats = statSync(full)
@@ -664,6 +700,32 @@ function checkResourcePaths(path, meta, root, errors, warnings) {
     } else if (!wantDir && stats.isDirectory()) {
       errors.push(`${path}: ${label} '${value}' is a directory, not a file`)
     }
+  }
+}
+
+// A concept that cites a record sends every reader that follows its sources into
+// a whole archived plan. Records are opened by path from implementation/index.md,
+// so a concept cites the code, schema or rule the record produced instead.
+function checkRecordCitations(path, rel, meta, body, root, warnings) {
+  const recordsDir = resolve(root, 'implementation')
+  const isRecordPath = (full) => {
+    const inside = relative(recordsDir, resolve(full))
+    return inside !== '' && !inside.startsWith('..') && !isAbsolute(inside) && basename(full) !== 'index.md'
+  }
+  const hits = []
+  for (const [label, value] of resourceEntries(meta)) {
+    const target = resourcePath(value)
+    if (target !== null && isRecordPath(resolveResource(target, root))) hits.push(`${label} '${value}'`)
+  }
+  const fileDir = dirname(join(root, rel.slice(1)))
+  for (const match of body.matchAll(LINK_RE)) {
+    const target = match[1].trim().split('#')[0]
+    if (!target || RESOURCE_SCHEME_RE.test(target)) continue
+    const full = target.startsWith('/') ? join(root, target.slice(1)) : join(fileDir, target)
+    if (isRecordPath(full)) hits.push(`link '${target}'`)
+  }
+  for (const hit of hits) {
+    warnings.push(`${path}: cites a Record (${hit}) — a concept cites code, schemas or rules, never knowledge/implementation/`)
   }
 }
 
@@ -713,6 +775,10 @@ function main() {
 
     parsed.set(rel, { meta: meta ?? {}, body })
 
+    // A Record copies its plan verbatim and is never edited, so a link or path in
+    // it that no longer resolves is history, not a defect: skip those checks.
+    const isRecord = !reserved && meta?.type === 'Record'
+
     if (reserved) {
       checkReserved(path, rel, meta, errors, warnings)
     } else if (absent) {
@@ -729,13 +795,16 @@ function main() {
       checkTrust(path, meta, errors, warnings)
       checkLifecycle(path, meta, errors, warnings, today)
       checkSources(path, meta, body, errors, warnings)
-      checkResourcePaths(path, meta, root, errors, warnings)
+      if (!isRecord) {
+        checkResourcePaths(path, meta, root, errors, warnings)
+        checkRecordCitations(path, rel, meta, body, root, warnings)
+      }
 
       if (!meta.description) warnings.push(`${path}: missing recommended key 'description'`)
       if (!meta.tags || meta.tags.length === 0) warnings.push(`${path}: missing recommended key 'tags'`)
     }
 
-    for (const link of bundleRelativeLinks(body)) {
+    for (const link of isRecord ? [] : bundleRelativeLinks(body)) {
       if (!files.has(link)) {
         errors.push(`${path}: broken link '${link}' (no file at ${root}${link})`)
       }

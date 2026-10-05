@@ -82,4 +82,4 @@ the tag, and the SHA. Pass no summary of the distillation work itself.
 > Do not report style, wording, topic selection, or level of detail. An accurate bundle that
 > reads awkwardly passes.
 >
-> Return only the JSON object from `skills/knowledge-distill/references/audit-contract.md`.
+> Return only the JSON object from `${CLAUDE_PLUGIN_ROOT}/skills/knowledge-distill/references/audit-contract.md`.

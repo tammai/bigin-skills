@@ -39,8 +39,8 @@ Every `.md` under `knowledge/` is a concept file with valid frontmatter, save th
 
 Opt-in, decided as `KNOWLEDGE_BUNDLE` in **Phase 1.5** of `bigin-harness-setup`. **Phase 5.5** then does seven things — note that only the first three are the bundle, and the last three are what stop it rotting:
 
-1. **`.claude/rules/knowledge.md`** — unscoped, so it's always loaded. It's short on purpose: it carries the what/why-vs-how split and the index-first protocol, and nothing else.
-2. **The starter bundle** — `index.md`, `meta/knowledge-bundle-spec.md` (the canonical spec), `contracts/openapi-contract.md`, `constraints/agent-rules.md`, `log.md`, and `implementation/index.md` (empty of records; task and epic cleanup append to it).
+1. **`.claude/rules/knowledge.md`** — path-scoped to `knowledge/**`, `PLAN.md`, the OpenAPI contract and source files, so it loads whenever a session touches code, a plan or the bundle, and stays out of one that touches none of them. It's short on purpose: it carries the what/why-vs-how split and the index-first protocol, and nothing else.
+2. **The starter bundle** — `index.md`, `meta/knowledge-bundle-spec.md` (the canonical spec), `contracts/openapi-contract.md` (only when the repo has an `openapi.yaml`/`.json` at the root or under `api/`), `constraints/agent-rules.md`, `log.md`, `implementation/index.md` (empty of records; task and epic cleanup append to it), and a repo-root `.ignore` listing `/knowledge/implementation/`, so repo-wide searches skip the records.
 3. **`tools/knowledge_validate.mjs`** — zero-dependency Node, no install step.
 4. **Pre-commit wiring** — the validator is appended to `scripts/pre-commit.sh`, or to your existing `simple-git-hooks`/`husky` config rather than creating a second script.
 5. **CI wiring** — automatic if Phase 5.6 generates CI in the same run. If you already have *foreign* CI, setup won't edit it and instead tells you in the Phase 7 summary to add the validator step yourself.
@@ -77,20 +77,20 @@ Three rules of `knowledge-distill` worth knowing before you invoke it:
 
 Team conventions get **blended visibly**: a relevant `.claude/rules/*` rule is folded in at the point of relevance, prefixed `Team convention:`, and the paths are listed in `conventions_blended`. Never silently merged into a library fact.
 
-**A third population sits on a different axis: records.** `knowledge/implementation/` holds one `type: Record` file per finished task or epic — the plan verbatim, its tasks table, its amendments. Both populations above answer *what the system is* and expire when behavior changes. A record answers *how one piece came to be, and what was rejected*: it was true when written and stays true, so it never expires and is never edited after it is written. Of the four honesty mechanisms in [§5](#5-what-keeps-it-honest) only the first applies to it: a record is structurally validated like any other file, and exempt from the three that exist to catch staleness. It carries its own nested `index.md`, so appending one never touches the bundle-root index the index-first protocol reads — a bundle with two hundred records costs the same per-session context as one with none. Where the line between a record and a concept falls: [§6](#6-where-a-fact-belongs).
+**A third population sits on a different axis: records.** `knowledge/implementation/` holds one `type: Record` file per finished task or epic — the plan verbatim, its tasks table, its amendments. Both populations above answer *what the system is* and expire when behavior changes. A record answers *how one piece came to be, and what was rejected*: it was true when written and stays true, so it never expires and is never edited after it is written. Of the four honesty mechanisms in [§5](#5-what-keeps-it-honest) only the first applies to it: a record is structurally validated like any other file, and exempt from the three that exist to catch staleness. It carries its own nested `index.md`, so appending one never touches the bundle-root index the index-first protocol reads — a bundle with two hundred records costs the same per-session context as one with none. Two more things keep records out of the way until someone needs one. The repo-root `.ignore` drops `knowledge/implementation/` from repo-wide searches (ripgrep, and so Claude Code's Grep and file search, read it; git doesn't, so records stay committed), and you open a record by path from `implementation/index.md`. And a concept never cites a record, neither in a body link nor in `sources`: it cites the code, schema or rule the record produced, and the validator warns when one does. Where the line between a record and a concept falls: [§6](#6-where-a-fact-belongs).
 
 ---
 
 ## 4. Role in each task-workflow step
 
-`knowledge/` is wired more deeply than the graph — it has an always-loaded rule, a cleanup prompt, a commit gate, and a review line.
+`knowledge/` is wired more deeply than the graph — it has a rule that loads with any code or plan, a cleanup prompt, a commit gate, and a review line.
 
 | Step | Status | What the bundle does |
 |---|---|---|
-| 1. Scope | **wired** | `.claude/rules/knowledge.md` is always loaded, so the index-first protocol applies from the first turn: read `knowledge/index.md` before non-trivial changes. |
+| 1. Scope | **wired** | `.claude/rules/knowledge.md` loads as soon as code, `PLAN.md` or the bundle is in context, so the index-first protocol applies before the first edit: read `knowledge/index.md` before non-trivial changes. |
 | 2. Spec gate | manual | The index tells you which contracts and constraints the spec has to respect. A library bundle gives the correct API at your pinned version. |
 | 3. Plan file | manual | Nothing automatic. Worth a look when a task touches a documented contract. |
-| 4. Implement/verify | manual | The implementer inherits the always-loaded rule, so the protocol travels — but no skill pushes specific concept files into the payload. |
+| 4. Implement/verify | manual | The implementer inherits the rule as soon as it opens source, so the protocol travels — but no skill pushes specific concept files into the payload. |
 | 5. Review | **wired** | `AI_REVIEW_CHECKLIST.md` carries the behavior-change line, so review asks whether the concept file was updated. |
 | 6. Cleanup | **wired** | Two writes that don't overlap. If the task established or changed a **decision, invariant, contract, or constraint** — not merely "added a feature" — the specific concept edit is proposed: which file, what line. Then `PLAN.md` itself is archived verbatim as a `Record` under `knowledge/implementation/`. |
 | commit | **wired** | `knowledge_validate.mjs` runs in pre-commit and CI. `knowledge_drift.mjs` is pre-commit only, and `bigin-harness-setup` deliberately doesn't install it — it arrives with a `knowledge-distill` run, since there is nothing to drift against until a library bundle exists. |

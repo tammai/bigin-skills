@@ -72,13 +72,26 @@ Claude Code and Cursor agree on more than they differ: both send one JSON object
 
 `sessionKey()` prefers `conversation_id` on purpose. Cursor sends it on *every* hook event while `session_id` appears only on `sessionStart`, so preferring it keeps the canary and injection-flag filenames stable across events on both hosts — Claude Code has no `conversation_id` and falls through to `session_id`. Get this precedence backwards and `canary-seed.mjs` seeds one filename while `injection-gate-guard.mjs` looks for another, which makes stage 3 inert under Cursor without failing anything visibly.
 
+`projectDir()` ranks the fixed roots (`CLAUDE_PROJECT_DIR`, `workspace_roots[0]`, `CURSOR_PROJECT_DIR`) above the payload's `cwd`, and resolves a bare `cwd` to its git toplevel. Claude Code's `cwd` follows the session into subdirectories, so ranking it first wrote autosaves to `packages/web/.claude/memory/` where the next resume check never looked. A Bash call is the opposite case: it runs where the session is, so the shell guards read `commandDir()`, which is the `cwd`.
+
+The module also holds the two parsers more than one guard needs, so a fix lands everywhere at once:
+
+- **Paths.** `realPath()`, `worktreeRoot()` and `repoRelative()` resolve symlinks, `..` and on-disk letter case, and they work for a file in a directory that does not exist yet. Every path rule judges the repo-relative result, never the raw string.
+- **Shell commands.** `shellCommands()`, `commandWalk()`, `gitInvocations()`, `parseOptions()` and `commitMessage()` tokenize a command the way a shell would. They split on `;` `&&` `||` `|` `&` and newlines, and follow `$( )`, backticks, `<( )`, `sh -c`, `eval` and wrappers like `env` and `sudo`. Text piped, here-doc'd or process-substituted into a shell is parsed as commands too. A `git` word anywhere in the arguments of a program that may execute them (`find -exec`, `stdbuf`, `npx`, `python -c`…) counts as the git call it starts. They skip git's global options and resolve aliases, and they mark a `$VAR` or a substitution as `UNKNOWN` rather than guessing its value. A regex over a quote-scrubbed string missed `"--no-verify"`, `-anm`, `git -C . commit -n` and `+main`, and each of those landed a real commit past a failing hook.
+- **Payload hygiene.** `stringField()` fails a blocking gate closed on a field of the wrong type, where a crash would exit 1 and allow. `safeGit()` is how a guard runs git: no `GIT_*` from the environment, `core.fsmonitor` off. A guard that ran git with the judged command's own `GIT_CONFIG_*` prefixes executed planted code inside the hook. `isGateFile()` is the list of the gates' own files that `spec-gate-guard.mjs` and `bash-guard.mjs` both protect.
+
 ```javascript
 // Hook payload adapter — one guard body, two hosts (Claude Code and Cursor).
 // Both send a single JSON object on stdin and both treat exit 2 as "block"; they
 // differ in a handful of field names, the response envelope, and one capability
 // (Cursor's preToolUse response has no `ask`). Every guard reads its fields through
-// this module so none of them has to know which host it's running under.
-import { readFileSync } from 'node:fs'
+// this module so none of them has to know which host it's running under. It also
+// holds the two parsers more than one guard needs — file paths and shell commands —
+// so a fix to either lands in every guard at once.
+import { existsSync, readFileSync, realpathSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
+import { homedir } from 'node:os'
 
 // Fail closed for blocking gates: an unparsable payload would otherwise exit 1, which
 // both hosts treat as non-blocking — the call would run ungated. Non-blocking hooks
@@ -124,12 +137,60 @@ export function toolOutput(data) {
   return data?.tool_response ?? data?.tool_output ?? ''
 }
 
+// A field the hook needs, as a string: absent is ''. Present with any other type, the
+// payload is malformed, and a blocking gate exits 2 rather than letting it fall through
+// to a crash — an uncaught exception exits 1, which both hosts treat as "allow".
+export function stringField(input, name, guardName) {
+  if (input !== undefined && input !== null && typeof input !== 'object') malformed(guardName, 'tool_input')
+  const value = input?.[name]
+  if (value === undefined || value === null) return ''
+  if (typeof value !== 'string') malformed(guardName, name)
+  return value
+}
+
+function malformed(guardName, field) {
+  console.error(`Error: ${guardName} got a malformed ${field} in its hook payload — blocking rather than passing the call through unchecked.`)
+  process.exit(2)
+}
+
+// git the way a guard runs it: never with the environment or config a command under
+// judgement tried to set. Running `git diff` with the command's own GIT_CONFIG_*
+// prefixes executed core.fsmonitor (arbitrary code) inside the hook.
+export function safeGitEnv() {
+  const env = {}
+  for (const [k, v] of Object.entries(process.env)) if (!k.startsWith('GIT_')) env[k] = v
+  return env
+}
+
+export function safeGit(args, cwd) {
+  return execFileSync('git', ['-c', 'core.fsmonitor=false', ...args], {
+    cwd, env: safeGitEnv(), encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore']
+  })
+}
+
+function gitOut(args, cwd) {
+  return safeGit(args, cwd).trim()
+}
+
+// The project root, for hooks that write or read project state (SESSION.md, git hooks).
+// The fixed roots come first: Claude Code's payload `cwd` follows the session into
+// subdirectories, so ranking it first wrote an autosave to packages/web/.claude/ that
+// the next session's resume check — looking at the root — never found.
 export function projectDir(data) {
-  return data?.cwd
-    ?? data?.workspace_roots?.[0]
-    ?? process.env.CLAUDE_PROJECT_DIR
-    ?? process.env.CURSOR_PROJECT_DIR
-    ?? process.cwd()
+  const fixed = process.env.CLAUDE_PROJECT_DIR || data?.workspace_roots?.[0] || process.env.CURSOR_PROJECT_DIR
+  if (fixed) return fixed
+  const from = data?.cwd || process.cwd()
+  try {
+    return gitOut(['rev-parse', '--show-toplevel'], from) || from
+  } catch {
+    return from // not a repo
+  }
+}
+
+// The directory a shell command starts in. Unlike projectDir() this is meant to move:
+// a Bash call runs where the session currently is, which is what the payload's cwd says.
+export function commandDir(data) {
+  return data?.cwd || process.cwd()
 }
 
 export function compactTrigger(data) {
@@ -142,7 +203,7 @@ const WRITE_TOOLS = /^(Write|Edit|MultiEdit|NotebookEdit|Delete)$/i
 
 // Shape-driven, not name-driven: `.cursor/hooks.json` registers preToolUse with no
 // matcher (see cursor-parity.md for why), and Cursor's tool names aren't Claude Code's.
-// A call carrying content/old_string/new_string/edits is a write on any host.
+// A call carrying content/old_string/new_string/new_source/edits is a write on any host.
 export function isWriteShaped(call) {
   if (READ_TOOLS.test(call.name)) return false
   if (WRITE_TOOLS.test(call.name)) return true
@@ -150,6 +211,7 @@ export function isWriteShaped(call) {
   return typeof input.content === 'string'
     || typeof input.old_string === 'string'
     || typeof input.new_string === 'string'
+    || typeof input.new_source === 'string'
     || Array.isArray(input.edits)
 }
 
@@ -160,11 +222,16 @@ export function isRiskyCall(call) {
     || /^(mcp__|MCP:)/.test(call.name)
 }
 
-// PreToolUse verdict: 'allow' | 'ask' | 'deny'. Under Cursor `ask` degrades to `deny`
-// with the reason extended — stricter than Claude Code, never looser, so nothing
+// PreToolUse verdict: 'allow' | 'ask' | 'deny'. Cursor enforces `ask` only on its shell
+// and MCP events; preToolUse accepts the value and ignores it. There `ask` degrades to
+// `deny` with the reason extended — stricter than Claude Code, never looser, so nothing
 // proceeds silently on a host that can't prompt from this hook.
 export function emitDecision(data, decision, reason) {
   if (isCursor(data)) {
+    if (decision === 'ask' && /^(beforeShellExecution|beforeMCPExecution)$/.test(data?.hook_event_name ?? '')) {
+      console.log(JSON.stringify({ permission: 'ask', agent_message: reason, user_message: reason }))
+      return
+    }
     const note = decision === 'ask'
       ? ' (Cursor cannot prompt from a preToolUse hook, so this is blocked rather than asked — surface the flagged content to the user and let them confirm before retrying.)'
       : ''
@@ -195,6 +262,614 @@ export function emitContext(data, event, text) {
     hookSpecificOutput: { hookEventName: event, additionalContext: text }
   }))
 }
+
+// ── file paths ─────────────────────────────────────────────────────────
+
+// macOS and Windows default to case-insensitive filesystems: API/openapi.yaml IS
+// api/openapi.yaml there, so a path compared case-sensitively is a path walked around.
+export const CASE_INSENSITIVE_FS = process.platform === 'darwin' || process.platform === 'win32'
+
+// The real, absolute form of a path that may not exist yet. The nearest existing
+// ancestor goes through realpath — symlinks, `..`, /tmp vs /private/tmp and (on a
+// case-insensitive filesystem) letter case all resolve — and the not-yet-created tail
+// is re-attached as typed.
+export function realPath(path) {
+  let head = resolve(path)
+  const tail = []
+  for (;;) {
+    try {
+      return join(realpathSync.native(head), ...tail)
+    } catch {
+      const up = dirname(head)
+      if (up === head) return resolve(path)
+      tail.unshift(basename(head))
+      head = up
+    }
+  }
+}
+
+// The worktree a path belongs to, or null outside any repo. Never the session's: a
+// hook's cwd is the session root, and resolving against it read another tree's PLAN.md
+// (v1.90.1). Walks up to the nearest directory that exists, because a Write into a
+// brand-new subdirectory has no directory for `git -C` yet — failing there and falling
+// back to cwd is how the 1.90.1 fail-open came back.
+export function worktreeRoot(path) {
+  let dir = dirname(realPath(path))
+  while (!existsSync(dir) && dirname(dir) !== dir) dir = dirname(dir)
+  try {
+    return realPath(gitOut(['rev-parse', '--show-toplevel'], dir))
+  } catch {
+    return null
+  }
+}
+
+// `path` relative to `root` with `/` separators, or null when it is not inside root.
+// Judge a path by this, never by its raw absolute form: a repo cloned under ~/tests/
+// otherwise matches every "tests/" rule, and src/test/../app.ts matches it by typing.
+export function repoRelative(path, root) {
+  const rel = relative(root, realPath(path))
+  if (rel === '' || rel.startsWith('..') || isAbsolute(rel)) return null
+  return rel.split(sep).join('/')
+}
+
+// The gates' own inputs, as repo-relative paths. A one-line change to any of them turns
+// a gate off for every later call — exactly what an injected instruction would ask
+// for — so an edit here is confirmed by a person, through Edit/Write or through Bash.
+const GATE_FILES = /^(\.claude\/guards(\/|$)|\.claude\/settings[^/]*\.json$|\.cursor\/hooks(\.json$|\/)|\.husky(\/|$)|\.git\/hooks(\/|$)|\.git\/config$|scripts\/git-hooks(\/|$)|scripts\/(pre-commit[^/]*|commit-msg)\.sh$)/i
+
+export function isGateFile(rel) {
+  return rel !== null && GATE_FILES.test(rel)
+}
+
+// ── shell commands ─────────────────────────────────────────────────────
+//
+// Guards that judge a Bash call tokenize it the way a shell would rather than matching
+// a regex against it: a regex cannot tell a flag from a quoted message, so the old
+// "scrub the quotes, then match" approach both missed `"--no-verify"` (scrubbed away)
+// and needed `-n` to sit right after `commit`. What comes out is every simple command,
+// nested ones included — `$( )`, backticks, `( )`, `<( )`, `sh -c`, `eval`, text piped
+// or redirected into a shell, and git calls buried in another program's arguments.
+
+// Stands in for text the shell would compute: a $VAR, a command substitution we do not
+// run. A word containing it is unknowable, and a guard must not guess what it becomes.
+export const UNKNOWN = '\u0000'
+
+const OPERATOR_CHARS = ';&|()<>\n'
+
+// One pass over `src` from `start`. Stops at an unmatched `)` when `inSubst` is set.
+// Returns { cmds, end }; each cmd is { words, heredocs, redirects: [{ op, target }] }.
+function lex(src, start, inSubst) {
+  const cmds = []
+  let words = []
+  let heredocs = []
+  let redirects = []
+  let word = null // null = between words; '' = an empty quoted word
+  let redirect = null // operator of a redirection whose target is the next word
+  let pending = [] // heredoc delimiters waiting for the end of this line
+  let parens = 0
+  let i = start
+
+  const endWord = () => {
+    if (word !== null) {
+      if (redirect) redirects.push({ op: redirect, target: word })
+      else words.push(word)
+      redirect = null
+    }
+    word = null
+  }
+  const endCmd = () => {
+    endWord()
+    redirect = null
+    if (words.length || redirects.length || heredocs.length) cmds.push({ words, heredocs, redirects })
+    words = []
+    heredocs = []
+    redirects = []
+  }
+  const add = (s) => {
+    word = (word ?? '') + s
+  }
+  // `$(`, a backtick or `<(`: lex the inner command, keep its commands, and give the
+  // outer word the only value we can know without running anything — a bare
+  // `cat <<EOF` heredoc, which is exactly the form a commit message takes.
+  const substitute = (inner) => {
+    for (const c of inner) cmds.push(c)
+    const only = inner.length === 1 ? inner[0] : null
+    const isCat = only && only.words.length === 1 && only.words[0] === 'cat' && only.heredocs.length === 1
+    add(isCat ? only.heredocs[0].replace(/\n+$/, '') : UNKNOWN)
+  }
+  // $NAME, ${…}, $1, $@ … — i is on the `$`. Returns false when it is a literal `$`.
+  const variable = () => {
+    const next = src[i + 1] ?? ''
+    if (next === '{') {
+      const close = src.indexOf('}', i + 2)
+      i = close === -1 ? src.length : close + 1
+    } else if (/[A-Za-z_]/.test(next)) {
+      i++
+      while (/[A-Za-z0-9_]/.test(src[i] ?? '')) i++
+    } else if (/[0-9@*#?$!-]/.test(next)) {
+      i += 2
+    } else return false
+    add(UNKNOWN)
+    return true
+  }
+  const readHeredocBodies = () => {
+    // Bodies belong to the command that opened them, which this newline has already ended.
+    for (const { delim, strip, into } of pending) {
+      const lines = []
+      while (i < src.length) {
+        const nl = src.indexOf('\n', i)
+        const line = src.slice(i, nl === -1 ? src.length : nl)
+        i = nl === -1 ? src.length : nl + 1
+        if ((strip ? line.replace(/^\t+/, '') : line) === delim) break
+        lines.push(strip ? line.replace(/^\t+/, '') : line)
+      }
+      into.push(lines.join('\n') + '\n')
+    }
+    pending = []
+  }
+  const backtick = () => {
+    const close = src.indexOf('`', i + 1)
+    const end = close === -1 ? src.length : close
+    substitute(lex(src.slice(i + 1, end).replace(/\\`/g, '`'), 0, false).cmds)
+    i = end + 1
+  }
+  const readDoubleQuoted = () => {
+    // i is just past the opening quote
+    let s = ''
+    while (i < src.length && src[i] !== '"') {
+      const c = src[i]
+      if (c === '\\' && '$`"\\\n'.includes(src[i + 1] ?? '')) {
+        if (src[i + 1] !== '\n') s += src[i + 1]
+        i += 2
+      } else if (c === '$' && src[i + 1] === '(') {
+        add(s)
+        s = ''
+        const r = lex(src, i + 2, true)
+        i = r.end
+        substitute(r.cmds)
+      } else if (c === '`') {
+        add(s)
+        s = ''
+        backtick()
+      } else if (c === '$') {
+        add(s)
+        s = ''
+        if (!variable()) {
+          s += c
+          i++
+        }
+      } else {
+        s += c
+        i++
+      }
+    }
+    add(s)
+    i++ // closing quote
+  }
+
+  while (i < src.length) {
+    const c = src[i]
+    if (c === '\\') {
+      if (src[i + 1] === '\n') i += 2 // line continuation
+      else {
+        add(src[i + 1] ?? '')
+        i += 2
+      }
+    } else if (c === '\'') {
+      const close = src.indexOf('\'', i + 1)
+      const end = close === -1 ? src.length : close
+      add(src.slice(i + 1, end))
+      i = end + 1
+    } else if (c === '$' && src[i + 1] === '\'') {
+      // ANSI-C quoting: only the escapes that could hide a flag or a separator
+      let s = ''
+      i += 2
+      while (i < src.length && src[i] !== '\'') {
+        if (src[i] === '\\') {
+          const e = src[i + 1] ?? ''
+          s += e === 'n' ? '\n' : e === 't' ? '\t' : e
+          i += 2
+        } else s += src[i++]
+      }
+      add(s)
+      i++
+    } else if (c === '"' || (c === '$' && src[i + 1] === '"')) {
+      i += c === '$' ? 2 : 1
+      add('')
+      readDoubleQuoted()
+    } else if (c === '$' && src[i + 1] === '(') {
+      const r = lex(src, i + 2, true)
+      i = r.end
+      substitute(r.cmds)
+    } else if (c === '$' && variable()) {
+      // a $VAR: its value is unknowable here
+    } else if (c === '`') {
+      backtick()
+    } else if (c === '#' && word === null) {
+      while (i < src.length && src[i] !== '\n') i++
+    } else if (c === ' ' || c === '\t') {
+      endWord()
+      i++
+    } else if (c === '\n') {
+      endCmd()
+      i++
+      readHeredocBodies()
+    } else if ((c === '<' || c === '>') && src[i + 1] === '(') {
+      // Process substitution: the word is a /dev/fd path, the inner command still runs.
+      const r = lex(src, i + 2, true)
+      i = r.end
+      substitute(r.cmds)
+    } else if (c === '<' && src[i + 1] === '<' && src[i + 2] !== '<') {
+      endWord()
+      i += 2
+      const strip = src[i] === '-'
+      if (strip) i++
+      while (src[i] === ' ' || src[i] === '\t') i++
+      let delim = ''
+      while (i < src.length && !' \t\n;&|<>()'.includes(src[i])) {
+        if (src[i] === '\'' || src[i] === '"') {
+          const q = src[i]
+          const close = src.indexOf(q, i + 1)
+          const end = close === -1 ? src.length : close
+          delim += src.slice(i + 1, end)
+          i = end + 1
+        } else if (src[i] === '\\') {
+          delim += src[i + 1] ?? ''
+          i += 2
+        } else delim += src[i++]
+      }
+      pending.push({ delim, strip, into: heredocs })
+    } else if (c === '<' || c === '>') {
+      // A bare fd number glued to the operator (2>&1) is part of the redirection.
+      if (word !== null && /^\d+$/.test(word)) word = null
+      endWord()
+      const from = i
+      i++
+      while ('<>|'.includes(src[i] ?? 'x')) i++
+      if (src[i] === '&' && /[\d-]/.test(src[i + 1] ?? '')) {
+        i++
+        while (/[\d-]/.test(src[i] ?? '')) i++
+        continue // >&2 duplicates a descriptor — there is no target word
+      }
+      if (src[i] === '&') i++
+      redirect = src.slice(from, i) // `<<<` here-strings land here too, as op '<<<'
+    } else if (c === ')' && inSubst && parens === 0) {
+      endCmd()
+      return { cmds, end: i + 1 }
+    } else if (OPERATOR_CHARS.includes(c)) {
+      if (c === '(') parens++
+      if (c === ')' && parens > 0) parens--
+      if (c === '&' && src[i + 1] === '>') {
+        endWord()
+        const op = src[i + 2] === '>' ? '&>>' : '&>'
+        i += op.length
+        redirect = op
+        continue
+      }
+      endCmd()
+      i++
+    } else {
+      add(c)
+      i++
+    }
+  }
+  endCmd()
+  return { cmds, end: i }
+}
+
+const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/
+const RESERVED = new Set(['!', '{', '}', 'if', 'then', 'else', 'elif', 'fi', 'do', 'done', 'while', 'until', 'time', 'noglob', 'nohup', 'builtin', 'exec', 'command', 'busybox'])
+const SHELLS = new Set(['sh', 'bash', 'zsh', 'dash', 'ksh', 'ash', 'fish', 'source', '.'])
+// Interpreters whose script is code we cannot parse as shell: any git command written
+// inside their arguments is dug out and judged on its own.
+const INTERPRETERS = new Set(['python', 'python2', 'python3', 'node', 'nodejs', 'perl', 'ruby', 'php', 'deno', 'bun', 'osascript', 'pwsh', 'powershell', 'cmd'])
+// Programs that never execute their arguments. Everything else is assumed it might —
+// find -exec, xargs, watch, flock, stdbuf, npx, parallel, script… — and a `git` word
+// anywhere in its arguments is judged as the git call it would start.
+const NON_EXEC = new Set(['echo', 'printf', 'grep', 'egrep', 'fgrep', 'rg', 'ag', 'ack', 'cat', 'less', 'more', 'head',
+  'tail', 'man', 'which', 'whereis', 'type', 'hash', 'ls', 'wc', 'sort', 'uniq', 'cut', 'tr', 'jq', 'yq', 'gh', 'glab',
+  'test', '[', '[[', 'read', 'unset', 'export', 'local', 'declare', 'history', 'tldr', 'info', 'help', 'cd', 'pushd',
+  'popd', 'mkdir', 'touch', 'file', 'stat', 'sleep', 'true', 'false', ':', 'basename', 'dirname', 'realpath',
+  'readlink', 'date', 'diff', 'cmp', 'sed', 'tee', 'cp', 'mv', 'rm', 'ln', 'chmod', 'chown', 'git'])
+
+// Program name as the OS would resolve it: /usr/bin/git, git.exe and GIT.EXE are all git.
+export function progName(word) {
+  const name = (word ?? '').split(/[\\/]/).pop()
+  return (CASE_INSENSITIVE_FS ? name.toLowerCase() : name).replace(/\.exe$/i, '')
+}
+
+// Drop a leading wrapper's own options. `withArg` lists the options that take a value.
+function skipOptions(words, withArg) {
+  let j = 0
+  while (j < words.length && words[j].startsWith('-') && words[j] !== '-') {
+    if (words[j] === '--') return words.slice(j + 1)
+    j += withArg.includes(words[j]) ? 2 : 1
+  }
+  return words.slice(j)
+}
+
+// Every `git …` written inside one word — `os.system('git commit -n')`, a watch or
+// flock command string — parsed as the shell command it would be.
+function gitInside(word, depth) {
+  const found = []
+  for (const m of word.matchAll(/(^|[^\w./-])git(?=\s)/g)) {
+    found.push(...shellCommands(word.slice(m.index + m[1].length), depth + 1))
+  }
+  return found
+}
+
+// Peel assignments and wrappers off one simple command. Returns the command that
+// actually runs plus any commands found inside it (sh -c strings, eval, interpreters).
+function peel(raw, depth) {
+  let words = raw
+  const assigns = {}
+  const inner = []
+  let shellReadsInput = false
+  for (;;) {
+    while (words.length && ASSIGNMENT.test(words[0])) {
+      const eq = words[0].indexOf('=')
+      assigns[words[0].slice(0, eq)] = words[0].slice(eq + 1)
+      words = words.slice(1)
+    }
+    if (!words.length) break
+    const name = progName(words[0])
+    if (name === 'command' && /^-[vV]$/.test(words[1] ?? '')) {
+      words = []
+      break
+    }
+    if (RESERVED.has(name)) words = skipOptions(words.slice(1), [])
+    else if (name === 'env') {
+      const rest = words.slice(1)
+      const split = rest.findIndex(w => w === '-S' || w === '--split-string')
+      if (split !== -1 && rest[split + 1] !== undefined) {
+        rest.splice(split, 2, ...(lex(rest[split + 1], 0, false).cmds[0]?.words ?? []))
+      }
+      words = skipOptions(rest, ['-u', '--unset', '-C', '--chdir'])
+    } else if (name === 'sudo' || name === 'doas') words = skipOptions(words.slice(1), ['-u', '-g', '-C', '-D', '-h', '-p', '-r', '-t', '-U'])
+    else if (name === 'xargs') words = skipOptions(words.slice(1), ['-n', '-L', '-P', '-I', '-s', '-d', '-E', '-a'])
+    else if (name === 'nice') words = skipOptions(words.slice(1), ['-n'])
+    else if (name === 'timeout') words = skipOptions(words.slice(1), ['-s', '-k']).slice(1)
+    else if (name === 'eval') {
+      inner.push(...shellCommands(words.slice(1).join(' '), depth + 1))
+      words = []
+    } else if (SHELLS.has(name)) {
+      const dashC = words.some((w, k) => k > 0 && /^-[a-zA-Z]*c[a-zA-Z]*$/.test(w))
+      if (dashC) {
+        // Every operand may be the command string (`-c -- '…'`, `-x -c '…'`): judge each.
+        for (const w of words.slice(1)) if (!w.startsWith('-')) inner.push(...shellCommands(w, depth + 1))
+        words = []
+      } else shellReadsInput = true // reads a script from stdin, a file or <( )
+      break
+    } else if (INTERPRETERS.has(name)) {
+      for (const w of words.slice(1)) inner.push(...gitInside(w, depth))
+      break
+    } else break
+  }
+  return { words, assigns, inner, shellReadsInput }
+}
+
+// Every simple command in `src` as { argv, assigns, redirects, heredocs }, with leading
+// VAR=value assignments split out and wrappers peeled off, so `env X=1 git commit -n`
+// reads as the git call it is.
+export function shellCommands(src, depth = 0) {
+  const out = []
+  if (depth > 4) return out
+  const peeled = lex(String(src ?? ''), 0, false).cmds.map(c => ({ ...c, ...peel(c.words, depth) }))
+  // Text that reaches a shell as its script — `… | sh`, `sh <<EOF`, `sh <<< '…'`,
+  // `bash <(echo …)`, `source <(…)` — is judged as commands too. Any word, heredoc or
+  // here-string on the same line may be that text, so all of them are parsed.
+  const fedToShell = peeled.some(c => c.shellReadsInput)
+  for (const c of peeled) {
+    const { words, assigns, redirects, heredocs } = c
+    if (words.length || Object.keys(assigns).length || redirects.length) out.push({ argv: words, assigns, redirects, heredocs })
+    out.push(...c.inner)
+    const name = progName(words[0])
+    if (words.length && !NON_EXEC.has(name) && !SHELLS.has(name) && !INTERPRETERS.has(name)) {
+      // A wrapper we did not peel: find -exec, stdbuf, watch, npx, flock, script, parallel…
+      const at = words.findIndex((w, k) => k > 0 && progName(w) === 'git')
+      if (at !== -1) out.push({ argv: words.slice(at), assigns, redirects: [], heredocs: [] })
+      for (const w of words.slice(1, at === -1 ? words.length : at)) out.push(...gitInside(w, depth))
+    }
+    if (fedToShell && depth < 4) {
+      const texts = [...heredocs, ...redirects.filter(r => r.op === '<<<').map(r => r.target)]
+      if (words.length > 1 && !c.shellReadsInput) texts.push(words.slice(1).join(' '))
+      for (const text of texts) out.push(...shellCommands(text, depth + 1))
+    }
+  }
+  return out
+}
+
+// Builtins git never lets an alias shadow, so naming one needs no alias lookup.
+const GIT_BUILTINS = new Set(('add am annotate apply archive bisect blame branch bundle cat-file check-ignore '
+  + 'checkout cherry cherry-pick clean clone commit config describe diff difftool fetch for-each-ref '
+  + 'format-patch fsck gc grep help init log ls-files ls-remote ls-tree merge merge-base mergetool mv '
+  + 'notes pull push range-diff rebase reflog remote repack replace reset restore rev-list rev-parse '
+  + 'revert rm shortlog show show-ref sparse-checkout stash status submodule switch symbolic-ref tag '
+  + 'update-index update-ref var version worktree').split(' '))
+
+// Global options that take a separate value when written without `=`.
+const GIT_GLOBAL_WITH_ARG = new Set(['--git-dir', '--work-tree', '--namespace', '--config-env', '--super-prefix', '--attr-source'])
+
+const expandHome = p => (p === '~' || p.startsWith('~/') ? join(homedir(), p.slice(1)) : p)
+
+const shellQuote = w => `'${w.replace(/'/g, '\'\\\'\'')}'`
+
+function aliasFor(sub, config, dir, locator) {
+  for (const entry of [...config].reverse()) {
+    const eq = entry.indexOf('=')
+    if (eq !== -1 && entry.slice(0, eq).toLowerCase() === `alias.${sub.toLowerCase()}`) return entry.slice(eq + 1)
+  }
+  try {
+    return gitOut([...locator, 'config', '--get', `alias.${sub}`], dir) || null
+  } catch {
+    return null // no such alias, or no repo
+  }
+}
+
+// Every simple command with the directory it runs in — after any earlier `cd`/`pushd`.
+// A target the shell would compute (`cd $X`) leaves the directory unknown: `dir` null.
+export function commandWalk(command, { cwd = process.cwd() } = {}) {
+  const out = []
+  let dir = cwd
+  for (const c of shellCommands(command)) {
+    const name = progName(c.argv[0])
+    if (name === 'cd' || name === 'pushd') {
+      const target = c.argv.slice(1).find(w => !w.startsWith('-'))
+      if (target === undefined) dir = homedir()
+      else if (target.includes(UNKNOWN) || dir === null) dir = null
+      else if (target !== '-') dir = resolve(dir, expandHome(target))
+    }
+    out.push({ ...c, dir })
+  }
+  return out
+}
+
+// Every git invocation `command` would run, as
+// { sub, args, config, env, dir, locator, unknown }:
+//   sub/args  — the subcommand and what follows it, aliases resolved;
+//   config    — every `-c key=value` / `--config-env key=…` given before it;
+//   env       — VAR=value prefixes and earlier `export`s in the same command line;
+//   dir       — the directory git runs in (after any `cd` and its own `-C`s), or null;
+//   locator   — its --git-dir/--work-tree/--namespace options, to re-run git as it would;
+//   unknown   — the program or subcommand is something the shell computes ($GIT, $(…)).
+// Global options before the subcommand are skipped the way git skips them, so
+// `git -C . commit -n` and `git -c x=y --no-pager commit -n` are both a commit with -n.
+export function gitInvocations(command, { cwd = process.cwd() } = {}) {
+  const found = []
+  const exported = {}
+  const visit = (argv, assigns, dir, depth) => {
+    const name = progName(argv[0])
+    if (name === 'export') {
+      for (const w of argv.slice(1)) {
+        const eq = w.indexOf('=')
+        if (eq > 0) exported[w.slice(0, eq)] = w.slice(eq + 1)
+      }
+      return
+    }
+    // A program word the shell computes ($GIT, git${IFS}commit${IFS}-n) on a line that names
+    // a commit or push: what runs cannot be known, so it is judged as unknowable.
+    const computed = name.includes(UNKNOWN) && /commit|push/.test(argv.join(' '))
+    if ((name !== 'git' && !computed) || depth > 4) return
+    const config = []
+    const locator = []
+    let at = dir
+    let j = 1
+    while (j < argv.length && argv[j].startsWith('-')) {
+      const tok = argv[j]
+      const eq = tok.indexOf('=')
+      const opt = eq === -1 ? tok : tok.slice(0, eq)
+      if (tok === '-C' || (tok.startsWith('-C') && !tok.startsWith('-C='))) {
+        const target = tok === '-C' ? argv[j + 1] ?? '.' : tok.slice(2)
+        at = at === null || target.includes(UNKNOWN) ? null : resolve(at, expandHome(target))
+        j += tok === '-C' ? 2 : 1
+      } else if (tok === '-c') {
+        config.push(argv[j + 1] ?? '')
+        j += 2
+      } else if (tok.startsWith('-c')) {
+        config.push(tok.slice(2)) // -ckey=value
+        j++
+      } else if (GIT_GLOBAL_WITH_ARG.has(opt)) {
+        const value = eq === -1 ? argv[j + 1] ?? '' : tok.slice(eq + 1)
+        if (opt === '--config-env') config.push(value)
+        else if (opt !== '--super-prefix' && opt !== '--attr-source') locator.push(`${opt}=${value}`)
+        j += eq === -1 ? 2 : 1
+      } else j++
+    }
+    const env = { ...exported, ...assigns }
+    let sub = computed ? argv.find(w => w === 'commit' || w === 'push') : argv[j]
+    let args = computed ? argv.slice(argv.indexOf(sub) + 1) : argv.slice(j + 1)
+    for (let hops = 0; sub && !sub.includes(UNKNOWN) && !GIT_BUILTINS.has(sub) && at !== null && hops < 5; hops++) {
+      const alias = aliasFor(sub, config, at, locator)
+      if (!alias) break
+      if (alias.startsWith('!')) {
+        // A shell alias: git runs it with the arguments appended.
+        for (const c of commandWalk([alias.slice(1), ...args.map(shellQuote)].join(' '), { cwd: at })) {
+          visit(c.argv, { ...env, ...c.assigns }, c.dir, depth + 1)
+        }
+        sub = null
+        break
+      }
+      const words = lex(alias, 0, false).cmds[0]?.words ?? []
+      sub = words[0]
+      args = [...words.slice(1), ...args]
+    }
+    found.push({ sub: sub ?? null, args, config, env, dir: at, locator, unknown: computed || Boolean(sub?.includes(UNKNOWN)) })
+  }
+  for (const c of commandWalk(command, { cwd })) visit(c.argv, c.assigns, c.dir, 0)
+  return found
+}
+
+// git's parse-options grammar, enough to tell a flag from a value: short clusters
+// (-anm "msg" is -a -n -m "msg"; -mn is -m "n"), attached and separate values,
+// --long=value, unambiguous --long prefixes, and `--` ending the options.
+// Returns { opts: [name, value][], positionals }.
+export function parseOptions(args, { shortWithArg = '', shortOptionalArg = '', longWithArg = [] } = {}) {
+  const opts = []
+  const positionals = []
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i]
+    if (a === '--') {
+      positionals.push(...args.slice(i + 1))
+      break
+    }
+    if (a.startsWith('--')) {
+      const eq = a.indexOf('=')
+      const name = eq === -1 ? a : a.slice(0, eq)
+      const takes = longWithArg.includes(name)
+        || (name.length >= 5 && longWithArg.filter(l => l.startsWith(name)).length === 1)
+      if (eq !== -1) opts.push([name, a.slice(eq + 1)])
+      else opts.push([name, takes ? args[++i] : undefined])
+    } else if (a.startsWith('-') && a.length > 1) {
+      for (let k = 1; k < a.length; k++) {
+        const ch = a[k]
+        const rest = a.slice(k + 1)
+        if (shortWithArg.includes(ch)) {
+          opts.push([`-${ch}`, rest !== '' ? rest : args[++i]])
+          break
+        }
+        if (shortOptionalArg.includes(ch)) {
+          opts.push([`-${ch}`, rest])
+          break
+        }
+        opts.push([`-${ch}`, undefined])
+      }
+    } else positionals.push(a)
+  }
+  return { opts, positionals }
+}
+
+// Long option `name` as typed matches `full` exactly or as git's unambiguous prefix.
+export function isLong(name, full, minLength = 5) {
+  return name === full || (name.length >= minLength && full.startsWith(name))
+}
+
+export const COMMIT_GRAMMAR = {
+  shortWithArg: 'mFCct',
+  shortOptionalArg: 'Su',
+  longWithArg: ['--message', '--file', '--reuse-message', '--reedit-message', '--fixup', '--squash',
+    '--author', '--date', '--template', '--cleanup', '--trailer', '--pathspec-from-file']
+}
+
+// The message a `git commit` invocation would use, or null when it can't be known
+// without running something: no -m/-F (an editor or --no-edit), or a message built
+// by a command substitution other than a bare `cat <<EOF` heredoc, or by a $VAR.
+export function commitMessage(inv) {
+  const parts = []
+  for (const [name, value] of parseOptions(inv.args, COMMIT_GRAMMAR).opts) {
+    if (name === '-m' || isLong(name, '--message')) parts.push(value ?? '')
+    else if (name === '-F' || isLong(name, '--file')) {
+      if (!value || value === '-' || inv.dir === null) return null
+      try {
+        parts.push(readFileSync(resolve(inv.dir, value), 'utf-8').replace(/\n+$/, ''))
+      } catch {
+        return null
+      }
+    }
+  }
+  if (!parts.length) return null
+  const message = parts.join('\n\n')
+  return message.includes(UNKNOWN) ? null : message
+}
 ```
 
 ---
@@ -203,34 +878,188 @@ export function emitContext(data, event, text) {
 
 Write to `.claude/guards/bash-guard.mjs`.
 
+It judges each git call `gitInvocations()` finds, not the command string. It blocks:
+
+- `--no-verify`, or a prefix git accepts such as `--no-veri`, on any hook-running subcommand;
+- `-n` on `commit`, alone or inside a cluster like `-anm`;
+- `core.hooksPath`, `include.path` or `includeIf.*.path` (config that can load a hooksPath) set through `-c`, `--config-env` or `git config` (any scope, `set`/`unset` included), and a `git config alias.<x>` whose body would itself be blocked;
+- `git commit-tree`, which writes a commit with no hook run at all;
+- on a hook-running subcommand, environment that moves git's config or git dir or switches a hook manager off: `GIT_CONFIG*`, `GIT_DIR`, `GIT_COMMON_DIR`, `HUSKY` other than `1`, `HUSKY_SKIP_HOOKS`, `SKIP_SIMPLE_GIT_HOOKS`, as a prefix or an earlier `export`;
+- on `commit` and `push`, an argument the shell computes (`$x`, `$(…)`, backticks) in a flag or operand position, and a computed program or subcommand (`$GIT commit`, `git${IFS}commit${IFS}-n`). It cannot know what those become, so it asks for literal arguments. A computed `-m` value is still fine;
+- on `push`: `--force` (and `--forc`), `-f` alone or in a cluster like `-uf`, `--mirror`, `--force-if-includes` without a lease, any `+refspec`, and config that forces it (`-c remote.<x>.mirror=true`, a `remote.<x>.push` refspec starting with `+`, or `git config` writing either).
+
+A `-m` value is a value, so a message that mentions these flags passes, and `--force-with-lease` is never matched. **The pre-tokenizer regex check still runs as a backstop**, so nothing it ever blocked passes. That includes its false positives, such as `echo git commit -n` and an unquoted heredoc body that mentions those flags.
+
+A command that **writes one of the gates' own files** (`isGateFile()`) asks, the same way an `Edit` of that file does. That means a `>`/`>>` redirect, `tee`, `sed -i`/`perl -i`, the target of `cp`/`ln`/`install`, and the operands of `mv`/`rm`/`truncate`/`chmod`, and a gate path named inside a `python`/`node`/`perl`/`ruby` script, pointed at `.claude/guards/**`, `.git/hooks/**`, `.git/config` and the rest of the list. Cursor enforces the ask on `beforeShellExecution`. On `preToolUse` it becomes a deny.
+
 ```javascript
 #!/usr/bin/env node
-// Blocks Bash commands that bypass quality gates.
+// Blocks Bash commands that bypass quality gates, and asks before one that writes to
+// the gates' own files.
 // Claude Code PreToolUse / Cursor preToolUse hook — reads tool input from stdin,
-// exits 2 to block on either host. Self-filtering: a call with no command exits 0.
-import { readPayload, toolCall } from './lib/hook-io.mjs'
+// exits 2 to block on either host. Self-filtering: a call with no git in it exits 0.
+import { resolve } from 'node:path'
+import {
+  readPayload, toolCall, stringField, commandDir, projectDir, emitDecision, gitInvocations, commandWalk,
+  parseOptions, isLong, COMMIT_GRAMMAR, UNKNOWN, progName, realPath, worktreeRoot, repoRelative, isGateFile
+} from './lib/hook-io.mjs'
 
 const data = readPayload('bash-guard.mjs')
-const command = toolCall(data).input.command ?? ''
+const command = stringField(toolCall(data).input, 'command', 'bash-guard.mjs')
 
-// Strip quoted strings so flags inside commit messages don't trigger false positives.
-let scrubbed = command.replace(/'[^']*'/g, '\'\'')
-scrubbed = scrubbed.replace(/"[^"]*"/g, '""')
+const NO_VERIFY = 'Error: --no-verify bypasses pre-commit gates. Fix the underlying issue.'
+const COMMIT_N = 'Error: git commit -n bypasses pre-commit gates. Fix the underlying issue.'
+const HOOKS_OFF = 'Error: overriding core.hooksPath, the git config the hooks read, or the hook manager bypasses the commit gates. Fix the underlying issue.'
+const FORCE = 'Error: force push is blocked. Use --force-with-lease on a feature branch.'
+const COMMIT_TREE = 'Error: git commit-tree writes a commit without running any commit hook. Use git commit.'
+const COMPUTED = 'Error: this git commit/push takes an argument the shell computes ($VAR, $(…), backticks), so the gate cannot see what it becomes. Write the flags, paths and refspecs literally.'
 
-const BLOCKED = [
-  [/--no-verify/, 'Error: --no-verify bypasses pre-commit gates. Fix the underlying issue.'],
-  // -n only in the flag region (a chain of -flags after `commit`), never inside a quoted message
-  [/git\s+commit\s+(?:-\w+\s+)*-n\b/, 'Error: git commit -n bypasses pre-commit gates. Fix the underlying issue.'],
-  // --force but NOT --force-with-lease (which is the sanctioned alternative)
-  [/git\s+push\b.*--force(?!-with-lease)(\s|$)/, 'Error: --force push is blocked. Use --force-with-lease on a feature branch.'],
-  [/git\s+push\b.*\s-f(\s|$)/, 'Error: force push is blocked. Use --force-with-lease on a feature branch.']
-]
+// Subcommands where --no-verify skips a hook.
+const VERIFYING = new Set(['commit', 'push', 'merge', 'pull', 'am', 'rebase', 'revert', 'cherry-pick'])
+const PUSH_GRAMMAR = { shortWithArg: 'o', longWithArg: ['--repo', '--receive-pack', '--exec', '--push-option'] }
+const OTHER_GRAMMAR = { shortWithArg: 'mF', longWithArg: ['--message', '--file'] }
+// Config that moves the hooks, or loads other config that could: core.hooksPath and any
+// include / includeIf path.
+const HOOKS_PATH_KEY = /^(core\.hookspath|include\.path|includeif\..*\.path)$/i
+// Config that turns a plain push into a forced one: remote.<x>.mirror, or a
+// remote.<x>.push refspec that starts with `+`.
+const FORCE_KEY = /^remote\..*\.(mirror|push)$/i
+function forces(key, value) {
+  if (!FORCE_KEY.test(key)) return false
+  if (/\.mirror$/i.test(key)) return !/^(false|no|off|0)$/i.test(value ?? 'true')
+  return /^\+|:\+/.test(value ?? '')
+}
+const configPair = c => (c.includes('=') ? [c.slice(0, c.indexOf('=')), c.slice(c.indexOf('=') + 1)] : [c, undefined])
 
-for (const [pattern, message] of BLOCKED) {
-  if (pattern.test(scrubbed)) {
-    console.error(message)
-    process.exit(2) // exit 2 = block the tool call, on both hosts
+// Environment that points git at other config or another git dir, or switches a hook
+// manager off. Any of it on a hook-running command is a way past the hooks.
+function envSkipsHooks(env) {
+  return Object.entries(env).some(([k, v]) => /^GIT_CONFIG/.test(k) || k === 'GIT_DIR' || k === 'GIT_COMMON_DIR'
+    || (k === 'HUSKY' && v !== '1') || k === 'HUSKY_SKIP_HOOKS' || k === 'SKIP_SIMPLE_GIT_HOOKS')
+}
+
+// `git config core.hooksPath X`, `--unset`, `set`/`unset`: a write. A lone key or --get is a read.
+function writesKey(args, keyTest) {
+  const at = args.findIndex(a => keyTest(a))
+  if (at === -1) return false
+  if (args.some(a => /^(get|--get|--get-all|--get-regexp|--list|-l)$/.test(a))) return false
+  return args.slice(at + 1).length > 0 || args.some(a => /^(set|unset|--unset|--unset-all|--add|--replace-all)$/.test(a))
+}
+
+function verdict(inv) {
+  if (inv.unknown) return COMPUTED
+  // Plumbing that writes a commit object with no hook run at all.
+  if (inv.sub === 'commit-tree') return COMMIT_TREE
+  if (inv.config.some(c => c.includes(UNKNOWN) || HOOKS_PATH_KEY.test(c.split('=')[0]))) return HOOKS_OFF
+  if (inv.sub === 'push' && inv.config.some(c => forces(...configPair(c)))) return FORCE
+  if (inv.sub === 'config') {
+    if (writesKey(inv.args, a => HOOKS_PATH_KEY.test(a))) return HOOKS_OFF
+    const fk = inv.args.findIndex(a => FORCE_KEY.test(a))
+    if (fk !== -1 && writesKey(inv.args, a => FORCE_KEY.test(a)) && forces(inv.args[fk], inv.args[fk + 1])) return FORCE
+    // An alias written now is used later in the same line, before any lookup could see it.
+    const at = inv.args.findIndex(a => /^alias\./i.test(a))
+    if (at !== -1) {
+      const body = inv.args.slice(at + 1).filter(a => a !== 'set').join(' ')
+      const shell = body.startsWith('!') ? body.slice(1) : `git ${body}`
+      for (const aliased of gitInvocations(shell, { cwd: inv.dir ?? undefined })) {
+        const v = verdict(aliased)
+        if (v) return v
+      }
+    }
+    return null
   }
+  if (!VERIFYING.has(inv.sub)) return null
+  if (envSkipsHooks(inv.env)) return HOOKS_OFF
+
+  const grammar = inv.sub === 'commit' ? COMMIT_GRAMMAR : inv.sub === 'push' ? PUSH_GRAMMAR : OTHER_GRAMMAR
+  const { opts, positionals } = parseOptions(inv.args, grammar)
+  // Exact, or the unambiguous prefix git itself accepts (--no-veri).
+  if (opts.some(([name]) => isLong(name, '--no-verify', 6))) return NO_VERIFY
+  if (inv.sub === 'commit' && opts.some(([name]) => name === '-n')) return COMMIT_N
+  if (inv.sub === 'commit' || inv.sub === 'push') {
+    // A computed word in flag or operand position could expand to anything, -n included.
+    if (opts.some(([name]) => name.includes(UNKNOWN)) || positionals.some(p => p.startsWith(UNKNOWN))) return COMPUTED
+  }
+  if (inv.sub === 'push') {
+    const lease = opts.some(([name]) => isLong(name, '--force-with-lease', 9))
+    // --force-with-lease is the sanctioned alternative and never matches these.
+    if (opts.some(([name]) => name === '-f' || isLong(name, '--force', 6) || isLong(name, '--mirror', 5))) return FORCE
+    if (!lease && opts.some(([name]) => isLong(name, '--force-if-includes', 9))) return FORCE
+    if (positionals.some(p => p.startsWith('+') || p.includes(':+'))) return FORCE // +refspec forces that ref
+  }
+  return null
+}
+
+// The pre-tokenizer guard, kept as a backstop so nothing it ever blocked gets through.
+function legacyVerdict() {
+  let scrubbed = command.replace(/'[^']*'/g, '\'\'')
+  scrubbed = scrubbed.replace(/"[^"]*"/g, '""')
+  if (/--no-verify/.test(scrubbed)) return NO_VERIFY
+  if (/git\s+commit\s+(?:-\w+\s+)*-n\b/.test(scrubbed)) return COMMIT_N
+  if (/git\s+push\b.*--force(?!-with-lease)(\s|$)/.test(scrubbed)) return FORCE
+  if (/git\s+push\b.*\s-f(\s|$)/.test(scrubbed)) return FORCE
+  return null
+}
+
+const GATE_PATH_TEXT = /(?:\.claude\/(?:guards|settings)|\.git\/(?:hooks|config)|\.cursor\/hooks|\.husky|scripts\/git-hooks|scripts\/(?:pre-commit|commit-msg))[^'"`\s),;]*/g
+
+// Paths a simple command writes, deletes or re-points: redirection targets, tee, sed -i,
+// and the operands of cp/mv/rm/ln/truncate/chmod… — so `echo > .claude/guards/x.mjs`
+// asks just as an Edit of that file does.
+function writeTargets(c) {
+  const out = c.redirects.filter(r => r.op.includes('>')).map(r => r.target)
+  const name = progName(c.argv[0])
+  const operands = c.argv.slice(1).filter(w => !w.startsWith('-'))
+  if (name === 'tee' || name === 'rm' || name === 'rmdir' || name === 'unlink' || name === 'mv'
+    || name === 'truncate' || name === 'shred' || name === 'chmod' || name === 'chown' || name === 'chgrp') out.push(...operands)
+  if ((name === 'sed' || name === 'perl') && c.argv.some(w => /^(-i|--in-place)/.test(w) || /^-[a-zA-Z]*i/.test(w))) out.push(...operands)
+  if ((name === 'cp' || name === 'ln' || name === 'install' || name === 'rsync') && operands.length) out.push(operands[operands.length - 1])
+  if (name === 'dd') out.push(...c.argv.filter(w => w.startsWith('of=')).map(w => w.slice(3)))
+  // An interpreter's script can write anywhere; a gate path written inside it is a target.
+  if (/^(python[23]?|node|nodejs|perl|ruby|php|deno|bun)$/.test(name)) {
+    for (const w of c.argv.slice(1)) out.push(...(w.match(GATE_PATH_TEXT) ?? []))
+  }
+  return out
+}
+
+function touchesGateFile() {
+  const fallback = realPath(projectDir(data))
+  for (const c of commandWalk(command, { cwd: commandDir(data) })) {
+    for (const target of writeTargets(c)) {
+      if (target.includes(UNKNOWN)) continue
+      const abs = resolve(c.dir ?? commandDir(data), target)
+      const rel = repoRelative(abs, worktreeRoot(abs) ?? fallback)
+      if (isGateFile(rel)) return rel
+    }
+  }
+  return null
+}
+
+let message = null
+let gateFile = null
+try {
+  for (const inv of gitInvocations(command, { cwd: commandDir(data) })) {
+    message = verdict(inv)
+    if (message) break
+  }
+  message ??= legacyVerdict()
+  if (!message) gateFile = touchesGateFile()
+} catch (err) {
+  // A parser bug must not turn into exit 1, which both hosts treat as "allow".
+  message = `Error: bash-guard.mjs could not parse this command (${err.message}) — blocking rather than passing it through unchecked.`
+}
+
+if (message) {
+  console.error(message)
+  process.exit(2) // exit 2 = block the tool call, on both hosts
+}
+
+if (gateFile) {
+  emitDecision(
+    data,
+    'ask',
+    `This command writes ${gateFile}, which is part of this repo's commit and edit gates — a change there can switch one off. Confirm it is something you asked for.`
+  )
 }
 ```
 
@@ -240,21 +1069,38 @@ for (const [pattern, message] of BLOCKED) {
 
 Write to `.claude/guards/spec-gate-guard.mjs`.
 
+Four rules beyond the plan check:
+
+- A whole-file `Write` over an existing file is sized by the lines it changes (a bounded Myers diff), the same way an `Edit` is sized. Sizing it by the line-count difference let any file be replaced with an equally long one for free.
+- Path rules judge the real, repo-relative path in the file's own worktree. The worktree is found from the nearest directory that exists, so a file in a brand-new subdirectory is not judged against the session's plan.
+- An edit to the gates themselves asks, whatever its size and whatever the plan says. That covers `.claude/guards/**`, `.claude/settings*.json`, `.cursor/hooks.json`, `.cursor/hooks/**`, `.husky/**`, `.git/hooks/**`, `.git/config`, `scripts/git-hooks/**` and `scripts/pre-commit*.sh` / `scripts/commit-msg.sh` (`isGateFile()`). Cursor ignores `ask` on `preToolUse`, so there it is a deny and a person makes the edit.
+- A `NotebookEdit` is sized from `new_source` against the cell it replaces (`edit_mode` `insert` counts the new lines, `delete` counts the removed cell's), so the tool can be registered on this gate without blocking every notebook edit. A field of the wrong type (`{"file_path": 123}`) fails closed.
+
 ```javascript
 #!/usr/bin/env node
 // Blocks non-trivial Edit/Write/MultiEdit before PLAN.md is approved, and blocks
-// edits governed by a PLAN.md left over from a different branch.
+// edits governed by a PLAN.md left over from a different branch. Asks before any
+// edit to the gates themselves, whatever its size.
 // Claude Code PreToolUse / Cursor preToolUse hook — reads tool input from stdin,
 // exits 2 to block on either host.
 import { existsSync, readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
-import { dirname, join, resolve } from 'node:path'
-import { readPayload, toolCall, isWriteShaped } from './lib/hook-io.mjs'
+import { basename, join } from 'node:path'
+import {
+  readPayload, toolCall, stringField, isWriteShaped, emitDecision, projectDir, realPath, worktreeRoot, repoRelative,
+  isGateFile
+} from './lib/hook-io.mjs'
 
 const data = readPayload('spec-gate-guard.mjs')
 const call = toolCall(data)
 const toolInput = call.input
-const filePath = toolInput.file_path ?? ''
+// Any field this gate reads, present with the wrong type, fails closed (exit 2).
+// NotebookEdit names its target `notebook_path`, not `file_path`.
+const filePath = stringField(toolInput, 'file_path', 'spec-gate-guard.mjs')
+  || stringField(toolInput, 'notebook_path', 'spec-gate-guard.mjs')
+for (const field of ['content', 'old_string', 'new_string', 'new_source', 'cell_id', 'edit_mode']) {
+  stringField(toolInput, field, 'spec-gate-guard.mjs')
+}
 
 if (!filePath) process.exit(0)
 
@@ -262,6 +1108,34 @@ if (!filePath) process.exit(0)
 // this on Edit|Write|MultiEdit, but .cursor/hooks.json registers preToolUse with no
 // matcher (see cursor-parity.md), so a Read would otherwise arrive here and get gated.
 if (!isWriteShaped(call)) process.exit(0)
+
+// A hook's process.cwd() is the session root, which is not the worktree the edited
+// file lives in. Resolving the plan and the branch against cwd reads another tree's
+// state — it blocked every non-trivial edit in a parallel-worktree run despite an
+// approved plan beside the file, and worse, let a main-worktree plan wave through an
+// edit in a worktree that had none. Both resolve against the target file's tree, found
+// from the nearest directory that exists (a Write may create several). Only a file in
+// no repository at all falls back to the session root.
+const repoRoot = worktreeRoot(filePath)
+const root = repoRoot ?? realPath(projectDir(data))
+
+// Every path rule below judges the real path relative to that root — never the raw
+// string, where `src/test/../app.ts` or a repo cloned under ~/tests/ matched "tests/".
+// A file outside the root is judged by its name alone.
+const rel = repoRelative(filePath, root)
+
+// The gates' own inputs (isGateFile() in hook-io.mjs). A one-line edit to a guard or its
+// registration turns a gate off for every later call — exactly what an injected
+// instruction would ask for — so the size threshold and an approved plan are both
+// beside the point: a person confirms. Cursor cannot prompt here, so there it is denied.
+if (isGateFile(rel)) {
+  emitDecision(
+    data,
+    'ask',
+    `${rel} is part of this repo's commit and edit gates — a change here can switch one off. Confirm this edit is one you asked for (under Cursor, make it yourself).`
+  )
+  process.exit(0)
+}
 
 // Trivial paths never require an approved plan: tests (both directory-named and
 // `*_test.dart`-named), docs, env examples, config
@@ -279,40 +1153,26 @@ const TRIVIAL_PATTERNS = [
   /(^|[/\\])(\.eslintrc(\.\w+)?|eslint\.config\.\w+|\.prettierrc(\.\w+)?|prettier\.config\.\w+|tsconfig(\.\w+)?\.json|vite\.config\.\w+|vitest\.config\.\w+|nuxt\.config\.\w+|\.editorconfig|\.gitignore|\.npmrc)$/i
 ]
 
-if (TRIVIAL_PATTERNS.some(p => p.test(filePath))) process.exit(0)
+if (TRIVIAL_PATTERNS.some(p => p.test(rel ?? basename(filePath)))) process.exit(0)
 
 // Build output and local caches aren't reviewable source: a git-ignored path never
 // reaches the diff a plan is written against, so the gate has nothing to govern there.
 // Deliberately index-aware (no --no-index) — a *tracked* file that merely matches a
 // gitignore pattern is still gated, which is why graphify-out/ needs its rule above.
-function isGitIgnored(path) {
+// Asked of the file's own repo, not of whatever repo the hook happens to run in.
+function isGitIgnored() {
+  if (!repoRoot) return false
   try {
-    execFileSync('git', ['check-ignore', '-q', '--', path], { stdio: 'ignore' })
+    execFileSync('git', ['-C', repoRoot, 'check-ignore', '-q', '--', realPath(filePath)], { stdio: 'ignore' })
     return true
   } catch {
-    return false // exit 1 = not ignored; 128 = not a repo / unusable path
+    return false // exit 1 = not ignored; 128 = unusable path
   }
 }
 
-if (isGitIgnored(filePath)) process.exit(0)
+if (isGitIgnored()) process.exit(0)
 
-// A hook's process.cwd() is the session root, which is not the worktree the edited
-// file lives in. Resolving the plan and the branch against cwd reads another tree's
-// state — it blocked every non-trivial edit in a parallel-worktree run despite an
-// approved plan beside the file, and worse, let a main-worktree plan wave through an
-// edit in a worktree that had none. Both now resolve against the target file's tree.
-function worktreeRootFor(path) {
-  try {
-    return execFileSync('git', ['-C', dirname(resolve(path)), 'rev-parse', '--show-toplevel'], {
-      encoding: 'utf-8',
-      stdio: ['ignore', 'pipe', 'ignore']
-    }).trim()
-  } catch {
-    return process.cwd() // not a repo, or the parent directory does not exist yet
-  }
-}
-
-function currentBranch(root) {
+function currentBranch() {
   try {
     const b = execFileSync('git', ['-C', root, 'rev-parse', '--abbrev-ref', 'HEAD'], {
       encoding: 'utf-8',
@@ -326,7 +1186,6 @@ function currentBranch(root) {
 
 // { ok: true } | { ok: false } | { ok: false, declared, actual } for a branch mismatch.
 function planVerdict() {
-  const root = worktreeRootFor(filePath)
   const planPath = join(root, 'PLAN.md')
   if (!existsSync(planPath)) return { ok: false }
   const plan = readFileSync(planPath, 'utf-8')
@@ -337,7 +1196,7 @@ function planVerdict() {
   // simply skip the check. Never block on something git can't answer.
   const declared = plan.match(/^Branch:\s*(\S+)/m)?.[1]
   if (!declared) return { ok: true }
-  const actual = currentBranch(root)
+  const actual = currentBranch()
   if (!actual || declared === actual) return { ok: true }
   return { ok: false, declared, actual }
 }
@@ -345,12 +1204,62 @@ function planVerdict() {
 const verdict = planVerdict()
 if (verdict.ok) process.exit(0)
 
-function lineCount(text) {
-  return text === '' ? 0 : text.split('\n').length
+function lines(text) {
+  return text === '' ? [] : text.replace(/\r\n/g, '\n').split('\n')
 }
 
 // Proxy for the skill's own "≤20 lines of logic" spec-gate exemption.
 const LINE_THRESHOLD = 20
+
+// Insertions + deletions between two line lists (Myers' O(ND) diff), or Infinity once
+// that passes `max`. Bounded, so a whole-file Write costs O(N·max) and never O(N²).
+function lineDistance(a, b, max) {
+  const off = max + 1
+  const v = new Array(2 * max + 3).fill(0)
+  for (let d = 0; d <= max; d++) {
+    for (let k = -d; k <= d; k += 2) {
+      let x = k === -d || (k !== d && v[off + k - 1] < v[off + k + 1]) ? v[off + k + 1] : v[off + k - 1] + 1
+      let y = x - k
+      while (x < a.length && y < b.length && a[x] === b[y]) {
+        x++
+        y++
+      }
+      v[off + k] = x
+      if (x >= a.length && y >= b.length) return d
+    }
+  }
+  return Infinity
+}
+
+// A whole-file Write over an existing file is sized by what it changes, the way an Edit
+// is: max(lines removed, lines added). Sizing it by the line-count difference let any
+// file be replaced wholesale with an equally long one and counted as 0.
+function rewriteSize(oldText, newText) {
+  const a = lines(oldText)
+  const b = lines(newText)
+  const d = lineDistance(a, b, 2 * LINE_THRESHOLD + 1) // > 2·threshold means max(…) > threshold
+  if (d === Infinity) return Infinity
+  const common = (a.length + b.length - d) / 2
+  return Math.max(a.length - common, b.length - common)
+}
+
+// A NotebookEdit is sized like an Edit of one cell: `insert` adds new_source, `delete`
+// removes the cell, `replace` (the default) swaps the cell's source for new_source. The
+// old source comes from the notebook itself; a cell we can't find counts as empty for an
+// insert or replace, and as unmeasurable for a delete.
+function notebookSize() {
+  const added = lines(toolInput.new_source ?? '').length
+  if (toolInput.edit_mode === 'insert') return added
+  let old = null
+  try {
+    const cell = JSON.parse(readFileSync(filePath, 'utf-8')).cells?.find(c => c.id === toolInput.cell_id)
+    if (cell) old = Array.isArray(cell.source) ? cell.source.join('') : String(cell.source ?? '')
+  } catch {
+    // no such notebook yet, or not JSON — nothing to compare against
+  }
+  if (toolInput.edit_mode === 'delete') return old === null ? Infinity : lines(old).length
+  return old === null ? added : rewriteSize(old, toolInput.new_source)
+}
 
 // Keyed on payload shape, not tool name: Cursor's tool names aren't Claude Code's, and
 // an unrecognized name would fall through to Infinity and block a two-line edit. The
@@ -359,22 +1268,35 @@ const LINE_THRESHOLD = 20
 function changeSize() {
   if (Array.isArray(toolInput.edits)) {
     return toolInput.edits.reduce(
-      (sum, e) => sum + Math.max(lineCount(e.old_string ?? ''), lineCount(e.new_string ?? '')),
+      (sum, e) => sum + Math.max(lines(e.old_string ?? '').length, lines(e.new_string ?? '').length),
       0
     )
   }
   if (typeof toolInput.old_string === 'string' || typeof toolInput.new_string === 'string') {
-    return Math.max(lineCount(toolInput.old_string ?? ''), lineCount(toolInput.new_string ?? ''))
+    return Math.max(lines(toolInput.old_string ?? '').length, lines(toolInput.new_string ?? '').length)
   }
+  if (typeof toolInput.new_source === 'string' || toolInput.edit_mode === 'delete') return notebookSize()
   if (typeof toolInput.content === 'string') {
-    const newLines = lineCount(toolInput.content)
-    if (existsSync(filePath)) return Math.abs(newLines - lineCount(readFileSync(filePath, 'utf-8')))
-    return newLines
+    if (!existsSync(filePath)) return lines(toolInput.content).length
+    try {
+      return rewriteSize(readFileSync(filePath, 'utf-8'), toolInput.content)
+    } catch {
+      return Infinity // exists but unreadable — can't size it
+    }
   }
   return Infinity
 }
 
-if (changeSize() > LINE_THRESHOLD) {
+// A malformed `edits` entry must not crash to exit 1, which both hosts treat as "allow".
+function measured() {
+  try {
+    return changeSize()
+  } catch {
+    return Infinity
+  }
+}
+
+if (measured() > LINE_THRESHOLD) {
   console.error(
     verdict.declared
       ? `Error: PLAN.md is for branch '${verdict.declared}' but HEAD is '${verdict.actual}' — a leftover plan from another task. Finish it, update its Branch: line, or delete it (see task-workflow skill) before non-trivial edits here.`
@@ -396,7 +1318,7 @@ Denies edits to three things this repo does not own: the vendored API spec, `api
 
 Two design notes worth keeping:
 
-- **Paths resolve against the edited file's own worktree**, via the same `worktreeRootFor()` shape `spec-gate-guard.mjs` uses. A hook's `process.cwd()` is the session root; resolving `api-contract.lock` against it in a parallel-worktree run reads another tree's state, which is precisely the defect fixed in 1.90.1. Do not "simplify" this back to `process.cwd()`.
+- **Paths resolve against the edited file's own worktree**, via the shared `worktreeRoot()` in `lib/hook-io.mjs` that `spec-gate-guard.mjs` uses too. A hook's `process.cwd()` is the session root; resolving `api-contract.lock` against it in a parallel-worktree run reads another tree's state, which is precisely the defect fixed in 1.90.1. Do not "simplify" this back to `process.cwd()`. The path compared is the **real** one (`repoRelative()`), and on macOS and Windows the comparison ignores case, so `API/openapi.yaml`, `Api-Contract.lock` and a symlink pointing at the spec are all the vendored file.
 - **The message names where the edit belongs**, not just that it is refused. A refusal that leaves someone with nowhere to go gets worked around — so the contract case names the contracts repo (read out of the lock) and the sync case names the story's own sidecar, which *is* the writable place for what they were probably trying to add.
 
 ```javascript
@@ -405,14 +1327,16 @@ Two design notes worth keeping:
 // lock that pins it, and any doc synced in from another repo.
 // Claude Code PreToolUse / Cursor preToolUse hook — reads tool input from stdin,
 // exits 2 to block on either host.
-import { existsSync, readFileSync, realpathSync } from 'node:fs'
-import { basename, dirname, join, relative, resolve, sep } from 'node:path'
-import { execFileSync } from 'node:child_process'
-import { readPayload, toolCall, isWriteShaped } from './lib/hook-io.mjs'
+import { existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import {
+  readPayload, toolCall, stringField, isWriteShaped, realPath, worktreeRoot, repoRelative, CASE_INSENSITIVE_FS
+} from './lib/hook-io.mjs'
 
 const data = readPayload('vendored-contract-guard.mjs')
 const call = toolCall(data)
-const filePath = call.input.file_path ?? ''
+// A file_path of the wrong type fails closed (exit 2) rather than crashing to exit 1.
+const filePath = stringField(call.input, 'file_path', 'vendored-contract-guard.mjs')
 
 if (!filePath) process.exit(0)
 
@@ -421,37 +1345,25 @@ if (!filePath) process.exit(0)
 if (!isWriteShaped(call)) process.exit(0)
 
 // A hook's process.cwd() is the session root, not the worktree the edited file lives
-// in. Same rule, and same reason, as spec-gate-guard.mjs — see v1.90.1.
-function worktreeRootFor(path) {
-  try {
-    return execFileSync('git', ['-C', dirname(resolve(path)), 'rev-parse', '--show-toplevel'], {
-      encoding: 'utf-8',
-      stdio: ['ignore', 'pipe', 'ignore']
-    }).trim()
-  } catch {
-    return process.cwd() // not a repo, or the parent directory does not exist yet
-  }
-}
+// in. Same rule, and same reason, as spec-gate-guard.mjs — see v1.90.1. worktreeRoot()
+// walks up to the nearest existing directory, so a Write into a not-yet-created
+// api/openapi/ is still judged against its own repo.
+const root = worktreeRoot(filePath)
 
-// `git rev-parse --show-toplevel` resolves symlinks; `resolve()` does not. On macOS a
-// repo under /tmp or /var yields /private/... from git and /... from the payload, and
-// the relative() below then escapes the root and this guard allows EVERYTHING. Resolve
-// the directory (the file itself may not exist yet — a Write creates it) so both sides
-// are real paths.
-function realDir(path) {
-  const dir = dirname(resolve(path))
-  try {
-    return realpathSync(dir)
-  } catch {
-    return dir // not created yet; a path that cannot be resolved cannot be inside the repo either
-  }
-}
+// Both sides are real paths: git's root is symlink-resolved, and realPath() resolves the
+// edited path the same way — /tmp vs /private/tmp on macOS, `..`, a symlink pointing at
+// the spec, and the on-disk letter case. Without that, relative() escaped the root and
+// this guard allowed EVERYTHING, and `alias.yaml -> api/openapi.yaml` or API/openapi.yaml
+// edited the vendored spec on macOS and Windows.
+const rel = root ? repoRelative(filePath, root) : null
 
-const root = worktreeRootFor(filePath)
-const rel = relative(root, join(realDir(filePath), basename(filePath))).split(sep).join('/')
+// Outside any repo, or outside this one — not ours to judge.
+if (rel === null) process.exit(0)
 
-// Outside the repo entirely — not ours to judge.
-if (rel.startsWith('../')) process.exit(0)
+// What is left unresolved is a tail that does not exist yet, compared as typed — so on
+// a case-insensitive filesystem every comparison below ignores case too.
+const norm = s => (CASE_INSENSITIVE_FS ? s.toLowerCase() : s)
+const relKey = norm(rel)
 
 // The DEFAULT vendored-spec layouts contract_sync.mjs can write: the single-contract
 // path for each repo type, and the <dir>/<name>.yaml form a multi-contract repo uses.
@@ -482,7 +1394,7 @@ function contractsRepo() {
 function isVendoredSpec(path) {
   if (VENDORED_SPEC.test(path)) return true
   return lockContracts().some(c => typeof c?.vendoredTo === 'string'
-    && c.vendoredTo.split(/[\\/]/).join('/') === path)
+    && norm(c.vendoredTo.split(/[\\/]/).join('/')) === path)
 }
 
 // A synced file is generated wholesale by the sync script and carries a frontmatter
@@ -507,7 +1419,7 @@ function refuse(reason) {
   process.exit(2)
 }
 
-if (rel === LOCK) {
+if (relKey === LOCK) {
   refuse(
     `${LOCK} records which commit of the API contract this repo is pinned to, and is written `
     + 'only by contract_sync.mjs. To move to another published version, run: '
@@ -515,7 +1427,7 @@ if (rel === LOCK) {
   )
 }
 
-if (isVendoredSpec(rel)) {
+if (isVendoredSpec(relKey)) {
   refuse(
     `${rel} is vendored from ${contractsRepo()} at a pinned commit and is not editable here. `
     + 'An API change belongs in that repo, in its own session — if a shape this app needs is '
@@ -524,7 +1436,7 @@ if (isVendoredSpec(rel)) {
   )
 }
 
-if (isSynced(resolve(filePath))) {
+if (isSynced(realPath(filePath))) {
   // docs/stories/ST-042.md -> docs/story-meta/ST-042.yaml, which IS writable and is
   // very often where the person actually wanted to put something.
   const story = rel.match(/^docs\/stories\/(.+)\.md$/)
@@ -549,41 +1461,24 @@ Write to `.claude/guards/bugfix-test-guard.mjs`.
 // Blocks fix-shaped `git commit`s that include no test file — every bug fix ships a regression test.
 // Claude Code PreToolUse / Cursor preToolUse hook — reads tool input from stdin,
 // exits 2 to block on either host. Self-filtering: anything but `git commit` exits 0.
-import { execSync } from 'node:child_process'
-import { readPayload, toolCall } from './lib/hook-io.mjs'
+import { resolve } from 'node:path'
+import {
+  readPayload, toolCall, stringField, commandDir, projectDir, gitInvocations, commitMessage, parseOptions, isLong,
+  COMMIT_GRAMMAR, safeGit, realPath, repoRelative
+} from './lib/hook-io.mjs'
 
 const data = readPayload('bugfix-test-guard.mjs')
-const command = toolCall(data).input.command ?? ''
+const command = stringField(toolCall(data).input, 'command', 'bugfix-test-guard.mjs')
 
-// Detect `git commit` outside quoted strings (same scrub bash-guard.mjs uses).
-const scrubbed = command.replace(/'[^']*'/g, '\'\'').replace(/"[^"]*"/g, '""')
-if (!/\bgit\s+commit\b/.test(scrubbed)) process.exit(0)
-
-// Extract the commit message from -m/--message, including bundled short flags (-am).
-// No parsable message → can't judge → allow.
-const msgMatch = command.match(/(?:--message|-[a-zA-Z]*m)(?:=|\s+)"([^"]*)"/)
-  ?? command.match(/(?:--message|-[a-zA-Z]*m)(?:=|\s+)'([^']*)'/)
-if (!msgMatch) process.exit(0)
-const message = msgMatch[1]
-
-// Explicit override: [no-test] in the message (state the reason next to it).
-if (message.includes('[no-test]')) process.exit(0)
-
-// Fix-shaped: conventional-commit fix prefix (any line), or bugfix/hotfix anywhere.
-if (!/^\s*fix(\([^)]*\))?!?:/im.test(message) && !/\b(bugfix|hotfix)\b/i.test(message)) process.exit(0)
-
-// Files this commit will include: staged, plus tracked-modified when -a/--all is used.
-let files = []
+// Every `git commit` the command would run, tokenized the way bash-guard.mjs does it — so
+// `git -C <dir> commit`, `-m"msg"` and a heredoc message are all seen. Each carries the
+// directory it runs in (after any `cd` and its own -C), which is whose index it commits.
+let commits
 try {
-  files = execSync('git diff --cached --name-only', { encoding: 'utf-8' }).split('\n')
-  if (/\s(-[a-z]*a[a-z]*|--all)(\s|$)/.test(scrubbed)) {
-    files = files.concat(execSync('git diff --name-only', { encoding: 'utf-8' }).split('\n'))
-  }
+  commits = gitInvocations(command, { cwd: commandDir(data) }).filter(inv => inv.sub === 'commit')
 } catch {
-  process.exit(0) // not a git repo / git unavailable — never block on guard failure
+  process.exit(0) // can't parse it → can't judge; bash-guard.mjs fails closed on the same input
 }
-files = files.map(f => f.trim()).filter(Boolean)
-if (files.length === 0) process.exit(0)
 
 const TEST_PATTERNS = [
   /\.test\.[^/\\]+$/i,
@@ -595,7 +1490,6 @@ const TEST_PATTERNS = [
   /(^|[/\\])tests?[/\\]/i,
   /(^|[/\\])__tests__[/\\]/
 ]
-if (files.some(f => TEST_PATTERNS.some(p => p.test(f)))) process.exit(0)
 
 // Docs/config-only fixes have no runtime surface to test — same allowlist as
 // spec-gate-guard.mjs (minus its git-ignore check: staged files are tracked by definition).
@@ -605,12 +1499,85 @@ const TRIVIAL_PATTERNS = [
   /(^|[/\\])graphify-out[/\\]/i,
   /(^|[/\\])(\.eslintrc(\.\w+)?|eslint\.config\.\w+|\.prettierrc(\.\w+)?|prettier\.config\.\w+|tsconfig(\.\w+)?\.json|vite\.config\.\w+|vitest\.config\.\w+|nuxt\.config\.\w+|\.editorconfig|\.gitignore|\.npmrc)$/i
 ]
-if (files.every(f => TRIVIAL_PATTERNS.some(p => p.test(f)))) process.exit(0)
 
-console.error(
-  'Error: fix commit with no test file included. Every bug fix ships a regression test (see the debug-workflow skill). Stage a test covering the bug, or add [no-test] to the commit message with the reason.'
-)
-process.exit(2)
+// Where this guard will run git: the project and its own worktrees, nowhere else. The
+// commit under judgement picks its directory, and a directory picks the config git
+// loads — so a `-C` or `--git-dir` aimed outside the project is not followed.
+function trustedRoots() {
+  const root = realPath(projectDir(data))
+  const roots = [root]
+  try {
+    for (const line of safeGit(['worktree', 'list', '--porcelain'], root).split('\n')) {
+      if (line.startsWith('worktree ')) roots.push(realPath(line.slice(9)))
+    }
+  } catch {
+    // not a repo — the project root alone
+  }
+  return roots
+}
+
+function inside(path, roots) {
+  const real = realPath(path)
+  return roots.some(r => real === r || repoRelative(real, r) !== null)
+}
+
+// Files this commit will include: staged, tracked-modified when -a/--all is used, and any
+// pathspec named on the command line. Read from the commit's own tree (after a `cd`, its
+// -C, its --git-dir/--work-tree) — not from the hook's cwd, which in a parallel-worktree
+// run is another tree's (empty) index. Never with the command's own VAR= prefixes or
+// config: safeGit() drops GIT_* and pins core.fsmonitor off, because an env prefix that
+// sets core.fsmonitor runs code in whatever git process reads that repo. null = not judged.
+function filesFor(inv, all, pathspecs) {
+  if (inv.dir === null) return null
+  const roots = trustedRoots()
+  const places = [inv.dir, ...inv.locator.map(l => resolve(inv.dir, l.slice(l.indexOf('=') + 1)))]
+  if (!places.every(p => inside(p, roots))) return null
+  const git = args => safeGit([...inv.locator, ...args, '--no-ext-diff', '--no-textconv'], inv.dir).split('\n')
+  let files = git(['diff', '--cached', '--name-only'])
+  if (all) files = files.concat(git(['diff', '--name-only']))
+  return files.concat(pathspecs).map(f => f.trim()).filter(Boolean)
+}
+
+function needsTest(inv) {
+  // No parsable message (editor, --no-edit, a message built by a command) → can't judge → allow.
+  const message = commitMessage(inv)
+  if (message === null) return false
+
+  // Explicit override: [no-test] in the message (state the reason next to it).
+  if (message.includes('[no-test]')) return false
+
+  // Fix-shaped: conventional-commit fix prefix (any line), or bugfix/hotfix anywhere.
+  if (!/^\s*fix(\([^)]*\))?!?:/im.test(message) && !/\b(bugfix|hotfix)\b/i.test(message)) return false
+
+  // A fix commit in a directory the shell computes (cd $X) has no index we can name.
+  // That is the one fix-shaped case judged unknowable on purpose — it blocks.
+  if (inv.dir === null) return 'unknown'
+
+  const { opts, positionals } = parseOptions(inv.args, COMMIT_GRAMMAR)
+  const all = opts.some(([name]) => name === '-a' || isLong(name, '--all'))
+  let files
+  try {
+    files = filesFor(inv, all, positionals)
+  } catch {
+    return false // not a git repo / git unavailable — never block on guard failure
+  }
+  if (files === null || files.length === 0) return false
+  if (files.some(f => TEST_PATTERNS.some(p => p.test(f)))) return false
+  if (files.every(f => TRIVIAL_PATTERNS.some(p => p.test(f)))) return false
+  return true
+}
+
+const verdicts = commits.map(needsTest)
+if (verdicts.includes('unknown')) {
+  console.error('Error: fix commit in a directory this guard cannot resolve (a cd or -C target the shell computes). Write the directory literally so the regression-test check can read its staged files.')
+  process.exit(2)
+}
+if (verdicts.includes(true)) {
+  console.error(
+    'Error: fix commit with no test file included. Every bug fix ships a regression test (see the debug-workflow skill). Stage a test covering the bug, or add [no-test] to the commit message with the reason.'
+  )
+  process.exit(2)
+}
 ```
 
 ---
@@ -630,7 +1597,7 @@ Pairs with `bugfix-test-guard.mjs`: this one makes the *shape* of the message re
 //   node commit-msg-guard.mjs              PreToolUse hook (Claude Code or Cursor) — reads stdin
 // Both exit 2 to reject; both allow when there's no subject they can read.
 import { readFileSync } from 'node:fs'
-import { readPayload, toolCall } from './lib/hook-io.mjs'
+import { readPayload, toolCall, stringField, commandDir, gitInvocations, commitMessage } from './lib/hook-io.mjs'
 
 const TYPES = ['feat', 'fix', 'docs', 'style', 'refactor', 'perf', 'test', 'build', 'ci', 'chore', 'revert']
 const CONVENTIONAL = new RegExp(`^(${TYPES.join('|')})(\\([^()]+\\))?!?: .+`)
@@ -652,17 +1619,21 @@ function subjectFromToolInput() {
   // this function: the outer catch's "can't judge → allow" covers an unreadable message
   // file, but a payload this hook was handed and couldn't parse is different — exiting 1
   // there would be non-blocking on either host and the commit would run ungated.
-  const command = toolCall(readPayload('commit-msg-guard.mjs')).input.command ?? ''
+  const data = readPayload('commit-msg-guard.mjs')
+  const command = stringField(toolCall(data).input, 'command', 'commit-msg-guard.mjs')
 
-  // Detect `git commit` outside quoted strings (same scrub bash-guard.mjs uses).
-  const scrubbed = command.replace(/'[^']*'/g, '\'\'').replace(/"[^"]*"/g, '""')
-  if (!/\bgit\s+commit\b/.test(scrubbed)) return null
-
-  // -m/--message, including bundled short flags (-am). Unparsable forms (heredoc,
-  // $'...', an editor-driven commit) return null — but the commit-msg hook still sees those.
-  const msgMatch = command.match(/(?:--message|-[a-zA-Z]*m)(?:=|\s+)"([^"]*)"/)
-    ?? command.match(/(?:--message|-[a-zA-Z]*m)(?:=|\s+)'([^']*)'/)
-  return msgMatch ? msgMatch[1].split('\n')[0].trim() : null
+  // Every `git commit` in the command, tokenized the way bash-guard.mjs does it, so
+  // `git -C <dir> commit`, `-m"msg"`, bundled `-am` and several -m paragraphs all parse.
+  // A `-m "$(cat <<'EOF' … EOF)"` heredoc — Claude Code's own commit form — yields the
+  // heredoc body; any other message built by a command, an editor-driven commit or
+  // --no-edit yields null, and the git commit-msg hook judges those instead.
+  for (const inv of gitInvocations(command, { cwd: commandDir(data) })) {
+    if (inv.sub !== 'commit') continue
+    const message = commitMessage(inv)
+    const subject = message?.split('\n').map(l => l.trim()).find(Boolean)
+    if (subject) return subject
+  }
+  return null
 }
 
 let subject
@@ -693,9 +1664,9 @@ if (subject.length > MAX_SUBJECT) {
 
 ---
 
-## commit-msg: all profiles
+## commit-msg: all profiles except specs
 
-Write to `scripts/commit-msg.sh` — only in the plain-git case (Phase 5-2g step 2 uses the hook manager's own config where one exists). Profile-independent: the rule is the same everywhere, and the work is all in the guard.
+Write to `scripts/commit-msg.sh` — only in the plain-git case (Phase 5-2g step 2 uses the hook manager's own config where one exists), and never on `specs`, which installs no `commit-msg-guard.mjs`: a hook calling a missing script fails every commit. Otherwise profile-independent: the rule is the same everywhere, and the work is all in the guard.
 
 ```bash
 #!/bin/sh
@@ -744,8 +1715,7 @@ function shouldScan() {
 }
 
 // Heuristic markers of instructions smuggled into fetched content. Kept in its
-// own array so the detection list can grow without touching control flow —
-// same separation bash-guard.mjs uses for its BLOCKED array.
+// own array so the detection list can grow without touching control flow.
 const INJECTION_PATTERNS = [
   [/\b(ignore|disregard|forget)\s+(all\s+|any\s+)?(previous|prior|above|earlier)\s+instructions?\b/i, 'instructs the model to ignore prior instructions'],
   [/\b(assistant|AI|model|claude)[,:]?\s+(please\s+)?(ignore|disregard|do not (tell|mention|report))\b/i, 'directly addresses an AI assistant with override instructions'],
@@ -900,7 +1870,7 @@ Write to `.claude/guards/session-resume-check.mjs`.
 // Runs once per session, so this stays cheap and non-noisy.
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { execSync, spawnSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { readPayload, projectDir, emitContext } from './lib/hook-io.mjs'
 
 // SessionStart can't block, so an unparsable payload exits 0 quietly. The payload is
@@ -940,7 +1910,7 @@ if (existsSync(sessionPath)) {
 const graphPath = join(root, 'graphify-out', 'graph.json')
 if (existsSync(graphPath)) {
   try {
-    const graphCommit = execSync('git log -1 --format=%h -- graphify-out/graph.json', {
+    const graphCommit = execFileSync('git', ['log', '-1', '--format=%h', '--', 'graphify-out/graph.json'], {
       cwd: root,
       encoding: 'utf-8',
       stdio: ['ignore', 'pipe', 'ignore']
@@ -948,7 +1918,7 @@ if (existsSync(graphPath)) {
     if (!graphCommit) {
       lines.push('Graphify: graphify-out/graph.json exists but is not yet committed.')
     } else {
-      const changedSince = execSync(`git log --oneline ${graphCommit}..HEAD -- . ':(exclude)graphify-out'`, {
+      const changedSince = execFileSync('git', ['log', '--oneline', `${graphCommit}..HEAD`, '--', '.', ':(exclude)graphify-out'], {
         cwd: root,
         encoding: 'utf-8',
         stdio: ['ignore', 'pipe', 'ignore']
@@ -1075,9 +2045,10 @@ Write to `.claude/guards/install-hooks.mjs`.
 
 Registered on **`Setup`**, which is Claude Code's one-time-preparation event. Not registered on Cursor: its hook set has no `Setup` equivalent, so a Cursor-only teammate still runs the README snippet, and the Phase 7 summary says so rather than implying parity that isn't there.
 
-Three behaviours worth stating, because each is a way this could do harm instead of good:
+Four behaviours worth stating, because each is a way this could do harm instead of good:
 
-- **It never clobbers a foreign hook.** Absent, or already our symlink → install/refresh. Anything else → leave it and report it. Same rule Phase 5-1b follows interactively.
+- **It never clobbers a foreign hook.** Absent, or already ours (our symlink, or a file whose second line is the shim marker) → install/refresh. Anything else → leave it and report it. Same rule Phase 5-1b follows interactively.
+- **It falls back to a shim when a symlink is refused.** Windows without Developer Mode throws EPERM on `symlinkSync`; the hook is then a three-line `exec sh scripts/<hook>.sh` shim carrying the marker, so it keeps running the tracked script instead of going stale like a copy.
 - **It defers to a hook manager rather than fighting it.** `simple-git-hooks` or `husky` in the repo means that tool owns `.git/hooks/`, and re-pointing those paths at our scripts would break the manager's own `pre-commit` on its next run. It prints the one command to run instead — it never installs packages and never runs the manager, because a `Setup` hook that reaches for the network is a hook people disable.
 - **It reports through `additionalContext`, not stdout.** A `Setup` hook's bare stdout is not shown; a silent bootstrap that quietly did nothing is worse than one that never existed.
 
@@ -1087,7 +2058,7 @@ Three behaviours worth stating, because each is a way this could do harm instead
 // fresh clone otherwise commits with no gates at all. Claude Code Setup hook — no Cursor
 // equivalent event, so this is Claude-Code-side only. A bootstrap, not a gate: it never
 // blocks, always exits 0, and every fallible step degrades that step alone.
-import { existsSync, lstatSync, readlinkSync, symlinkSync, readFileSync } from 'node:fs'
+import { existsSync, lstatSync, readlinkSync, symlinkSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { readPayload, projectDir, emitContext } from './lib/hook-io.mjs'
@@ -1122,6 +2093,21 @@ function hookManager() {
 
 const HOOKS = ['pre-commit', 'commit-msg']
 
+// Windows refuses a symlink without Developer Mode or admin rights (EPERM), so there the
+// hook is a shim that execs the tracked script — it never goes stale the way a copy does.
+// Line 2 is the ownership marker: a hook file carrying it is ours, refreshed on a re-run
+// rather than reported as foreign. Byte-for-byte the shim the manual install writes on Windows.
+const SHIM_MARKER = '# bigin-harness hook shim: runs the tracked script, so it never goes stale'
+const shim = name => `#!/bin/sh\n${SHIM_MARKER}\nexec sh scripts/${name}.sh "$@"\n`
+
+function isShim(path) {
+  try {
+    return readFileSync(path, 'utf-8').split(/\r?\n/)[1] === SHIM_MARKER
+  } catch {
+    return false
+  }
+}
+
 function install(name) {
   const script = join(cwd, 'scripts', `${name}.sh`)
   if (!existsSync(script)) return null // this repo doesn't use that gate
@@ -1133,9 +2119,18 @@ function install(name) {
     const st = lstatSync(target, { throwIfNoEntry: false })
     if (st) {
       if (st.isSymbolicLink() && readlinkSync(target) === link) return null // already ours
+      if (st.isFile() && isShim(target)) {
+        if (readFileSync(target, 'utf-8') === shim(name)) return null // already ours, current
+        writeFileSync(target, shim(name), { mode: 0o755 })
+        return { name, installed: true }
+      }
       return { name, foreign: true }
     }
-    symlinkSync(link, target)
+    try {
+      symlinkSync(link, target)
+    } catch {
+      writeFileSync(target, shim(name), { mode: 0o755 }) // no symlink permission — shim instead
+    }
     return { name, installed: true }
   } catch (err) {
     return { name, error: err.message }
@@ -1255,7 +2250,7 @@ Write to `.claude/guards/precompact-snapshot.mjs`.
 // pre-compaction hook CAN block compaction (exit 2), but this one never should; a failed
 // autosave is a missed convenience, not a reason to freeze the session. Every fallible
 // step is wrapped so one failure degrades that step only, not the whole guard.
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync } from 'node:fs'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
@@ -1331,13 +2326,12 @@ Created by precompact-snapshot.mjs — a real session-handoff save will fill thi
 `
 }
 
-// Updates an existing SESSION.md in place — refreshes last-updated/status and the
-// Uncommitted Changes section only. Decisions Made / Next Steps / Context Notes are left
-// exactly as a human or session-handoff wrote them; this never overwrites judgment content.
+// Updates an in-progress SESSION.md in place — refreshes last-updated and the
+// Uncommitted Changes section only. Status is left alone (it is already in-progress;
+// main() never calls this on any other). Decisions Made / Next Steps / Context Notes are
+// left exactly as a human or session-handoff wrote them; this never overwrites judgment content.
 function updateExisting(content, nowIso, state) {
-  let updated = content
-    .replace(/^last-updated:.*$/m, `last-updated: ${nowIso}`)
-    .replace(/^status:\s*\S+$/m, 'status: in-progress')
+  let updated = content.replace(/^last-updated:.*$/m, `last-updated: ${nowIso}`)
 
   if (!updated.includes(MARKER)) {
     const fenceMatches = [...updated.matchAll(/^---\s*$/gm)]
@@ -1364,10 +2358,18 @@ function main() {
 
   try {
     const state = gatherState(cwd)
-    if (existsSync(sessionPath)) {
-      const content = readFileSync(sessionPath, 'utf-8')
+    const content = existsSync(sessionPath) ? readFileSync(sessionPath, 'utf-8') : null
+    const status = content?.match(/^status:\s*(\S+)/m)?.[1]?.toLowerCase()
+    if (content !== null && status === 'in-progress') {
       writeFileSync(sessionPath, updateExisting(content, nowIso, state))
     } else {
+      // A finished save (`status: complete`, or anything not in-progress) is never
+      // flipped back to in-progress — that revived it, and the next session start asked
+      // to resume work that was done. Archive it the way session-handoff does and start
+      // a fresh autosave; nothing is lost and nothing is resurrected.
+      if (content !== null) {
+        renameSync(sessionPath, join(sessionDir, `SESSION.archive.${nowIso.replace(/[:.]/g, '-')}.md`))
+      }
       mkdirSync(sessionDir, { recursive: true })
       const key = sessionKey(payload)
       writeFileSync(sessionPath, freshSessionMd(key === 'unknown' ? randomUUID() : key, nowIso, state))
@@ -1387,6 +2389,8 @@ main()
 ## pre-commit: polyrepo additions
 
 Appended to whatever pre-commit script the stack profile already writes — this is a block, never a replacement. Written on any repo that has `api-contract.lock` or `story-sync.json`, whatever its stack.
+
+**When a hook manager owns the hook** (`simple-git-hooks` or `husky`, so Phase 5-1 wrote no `scripts/pre-commit.sh`), the block goes in its own `scripts/pre-commit-polyrepo.sh` under a `#!/bin/sh` line, chained behind the manager's own `pre-commit` entry: append ` && sh scripts/pre-commit-polyrepo.sh` to the `simple-git-hooks` `"pre-commit"` value and re-run `pnpm simple-git-hooks`, or add `sh scripts/pre-commit-polyrepo.sh` as a new line in `.husky/pre-commit`. It runs standalone because every blocking check ends in its own `exit 1`. Skipping it because a manager exists would leave the vendored spec with no non-agent cover.
 
 **This block is what makes the standard work with no CI at all.** Two of its three enforcement tiers are otherwise unavailable to a repo without Actions, and one of them has no other cover: the `PreToolUse` guard only sees edits made *through an agent*, so a human with an editor bypasses it entirely. Before this, only a CI job caught that. Both checks below are offline and take milliseconds — no token, no network, nothing to configure.
 

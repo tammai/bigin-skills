@@ -142,7 +142,7 @@ Git plus the detected test runner. Eight gates — everything except `spec-gate-
         ]
       },
       {
-        "matcher": "Bash|Write|Edit|WebFetch|mcp__.*",
+        "matcher": "Bash|Write|Edit|MultiEdit|WebFetch|mcp__.*",
         "hooks": [
           {
             "type": "command",

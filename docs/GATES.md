@@ -24,8 +24,8 @@ The spec gate has [its own guide](SPEC-GATE.md) and isn't repeated here. The `kn
 ```mermaid
 flowchart TD
     T["Agent makes a tool call"] --> P{"PreToolUse guards"}
-    P --> B["bash-guard<br/>--no-verify, -n, force push"]
-    P --> S["spec-gate-guard<br/>non-trivial edit, no plan"]
+    P --> B["bash-guard<br/>--no-verify, -n, force push<br/>ask: writes to gate files"]
+    P --> S["spec-gate-guard<br/>non-trivial edit, no plan<br/>ask: edits to gate files"]
     P --> M["commit-msg-guard<br/>subject shape"]
     P --> F["bugfix-test-guard<br/>fix: with no test"]
     P --> I["injection-gate-guard<br/>canary deny · heuristic ask"]
@@ -48,7 +48,7 @@ There is also an **opt-in** hook this harness writes but registers nowhere: `ins
 
 Setup won't create a second commit gate. If your repo already gates commits via `simple-git-hooks`, `husky`, or an existing `.git/hooks/pre-commit`, that mechanism *is* the gate and extra steps are appended to it rather than a rival script being written.
 
-`tauri` and `nuxt-marketing` are the two profiles where "appended to it" means a script of its own, chained behind the existing manager. Both arrive with `simple-git-hooks` → `pnpm lint-staged` already installed, and `lint-staged` runs ESLint over staged files — which for `tauri` leaves `cargo fmt`/`cargo clippy`/`cargo test` and its four grep gates unrun (no API URL literal in `app/`, no secret in web storage, no `server/` directory, no dangerous Tauri capability), and for `nuxt-marketing` leaves all three of its grep gates unrun (no hex or `rgb()` colour literal under `app/components`, no `fallbackLocale` in the i18n config, no raw `<img` outside `app/components/media/`). None of those seven greps is expressible as a lint rule: each is about a string or a path rather than a syntax tree. Still one gate, not two: `lint-staged && sh scripts/pre-commit.sh`.
+`tauri` and `nuxt-marketing` are the two profiles where "appended to it" means a script of its own, chained behind the existing manager. `tauri` always arrives with `simple-git-hooks` → `pnpm lint-staged` already installed, and so does a `nuxt-marketing` site that comes from an external template (one scaffolded by `nuxt-marketing-scaffold` has no hook manager, so its gate is written plainly), and `lint-staged` runs ESLint over staged files — which for `tauri` leaves `cargo fmt`/`cargo clippy`/`cargo test` and its four grep gates unrun (no API URL literal in `app/`, no secret in web storage, no `server/` directory, no dangerous Tauri capability), and for `nuxt-marketing` leaves all three of its grep gates unrun (no hex or `rgb()` colour literal under `app/components`, no `fallbackLocale` in the i18n config, no raw `<img` outside `app/components/media/`). None of those seven greps is expressible as a lint rule: each is about a string or a path rather than a syntax tree. Still one gate, not two: `lint-staged && sh scripts/pre-commit.sh`.
 
 ---
 
@@ -60,14 +60,22 @@ This is the load-bearing one. Every other gate is only as strong as the inabilit
 
 | Pattern | Why |
 |---|---|
-| `--no-verify` anywhere | bypasses every pre-commit gate |
-| `git commit -n` (in the flag region) | same thing, short form |
-| `git push --force` / `-f` | destroys shared history |
+| `--no-verify` anywhere, quoted or abbreviated (`--no-veri`) | bypasses every pre-commit gate |
+| `git commit -n`, alone or bundled (`-anm`) | same thing, short form |
+| `core.hooksPath` or `include.path` set through `-c`, `--config-env` or `git config`, and a `git config alias.*` whose body would be blocked | points git at hooks that don't gate |
+| `GIT_CONFIG*`, `GIT_DIR`, `HUSKY=0`, `HUSKY_SKIP_HOOKS` as a prefix or earlier `export` | moves git's config or turns the hook manager off |
+| `git commit-tree` | writes a commit with no hook run |
+| `git push --force` / `-f` (bundled too), `--mirror`, a `+refspec`, `--force-if-includes` without a lease, and config that forces a push | destroys shared history |
+| a computed argument or program on `commit`/`push` (`$x`, `$(…)`, `git${IFS}commit`) | the guard can't know what it becomes |
+
+The guard tokenizes the command, so these are caught behind `&&`, `$( )`, `sh -c`, `eval`, `env`/`sudo`/`xargs`, `find -exec` and other wrappers, inside a `python -c`/`node -e` script, and in text piped into a shell. The old regex check still runs as a backstop, so nothing it blocked passes.
+
+**Asks** (in Cursor too, through its shell hook): a command that writes one of the gates' own files — a `>`/`>>` redirect, `tee`, `sed -i`/`perl -i`, the target of `cp`/`ln`/`install`, or `mv`/`rm`/`truncate`/`chmod` on `.claude/guards/**`, `.claude/settings*.json`, `.git/hooks/**`, `.git/config`, the commit-hook scripts and the rest of the list in [`SPEC-GATE.md` §7](SPEC-GATE.md#7-getting-blocked). An `Edit` of the same file asks through `spec-gate-guard`, so the shell is not a way around it.
 
 **Allowed, deliberately:**
 
 - `--force-with-lease` — the sanctioned alternative. It refuses when the remote moved under you, which is the actual failure `--force` causes.
-- A commit message that merely *contains* `-n`. The `-n` pattern only matches in the flag region after `commit`, not inside a quoted message.
+- A commit message that merely *contains* `-n`, `--no-verify` or `git push --force`. A `-m` value is a value, including a computed one (`-m "$MSG"`).
 
 If a gate is blocking something it shouldn't, change that gate — see [§8](#8-testing-and-unblocking). Not this one.
 
@@ -183,7 +191,7 @@ The commit-time gates never needed anything: `pre-commit` and `commit-msg` are g
 
 Two things to know:
 
-- **One verdict is stricter in Cursor.** Cursor's `preToolUse` response supports `allow` and `deny` but not `ask`. The injection gate's stage-2 heuristic wants to *ask*, so under Cursor it **denies** instead, with a message telling the agent to surface the flagged content for you to confirm. Stage 3 (the canary) denies on both hosts. The rule is: never looser than Claude Code, occasionally stricter.
+- **Two verdicts are stricter in Cursor's editor hook.** Cursor's `preToolUse` response supports `allow` and `deny` but not `ask`. Wherever a guard wants to *ask*, it **denies** under Cursor instead: the injection gate's stage-2 heuristic (with a message telling the agent to surface the flagged content for you to confirm), and `spec-gate-guard` on an edit to a gate's own files (guards, hook settings, git-hook scripts), which you then make by hand. A shell command is different: Cursor's shell hook can ask, so there you get a real prompt. Stage 3 (the canary) denies on both hosts. The rule is: never looser than Claude Code, occasionally stricter.
 - **The rules are generated, not authored.** `AGENTS.md` and `.cursor/rules/*.mdc` are produced from `CLAUDE.md` and `.claude/rules/` by `tools/cursor_mirror.mjs`. Edit the canonical file and re-run it; the pre-commit gate runs `--check` and fails the commit if the mirror is stale, missing, or orphaned.
 
 ```bash
@@ -228,7 +236,8 @@ Each guard's message names its own escape, and each is a real one:
 | `spec-gate-guard` | approve a plan, keep it ≤20 lines, or check the trivial-path list — see [`SPEC-GATE.md` §7](SPEC-GATE.md#7-getting-blocked) |
 | `spec-gate-guard`, plan says `Status: amending` | the freeze working, not a false positive: re-approve the amended spec — [`SPEC-GATE.md` §7](SPEC-GATE.md#7-getting-blocked) |
 | `spec-gate-guard`, `PLAN.md is for branch 'X'` | a plan left over from another task: finish it, update its `Branch:` line after a deliberate rename or rebase, or delete it |
-| `commit-msg-guard` | rewrite the subject as a Conventional Commit under 100 chars |
+| `spec-gate-guard`, a gate's own file | an agent edit to `.claude/guards/**`, `.claude/settings*.json`, `.cursor/hooks.json`, `.cursor/hooks/**`, `.husky/**`, `.git/hooks/**`, `.git/config`, `scripts/git-hooks/**` or the commit-hook scripts (`scripts/pre-commit*.sh`, `scripts/commit-msg.sh`) asks at any size. In Claude Code, approve it if you expected the change. In Cursor the editor hook can't ask, so it denies: make that edit yourself |
+| `commit-msg-guard` | rewrite the subject as a Conventional Commit of ≤100 chars |
 | `bugfix-test-guard` | stage the regression test, or `[no-test]` with the reason stated |
 | `vendored-contract-guard`, vendored spec or lock | the change belongs in the contracts repo. To take a published one: `node scripts/contract_sync.mjs bump <tag>` |
 | `vendored-contract-guard`, synced file | edit it in the repo that owns it; dev-side context goes in the sidecar the message names |
@@ -237,4 +246,4 @@ Each guard's message names its own escape, and each is a real one:
 | `injection-gate` stage 3 | **stop.** This one isn't a false positive to work around |
 | `context_budget` | cut always-loaded content — a scoped rule instead of an unscoped one |
 
-**There is no bypass, by design.** `--no-verify` is blocked by `bash-guard`, and `bash-guard` runs before the shell does. If a gate is wrong for your repo, change the gate — its allowlist, its threshold, the rule file — as a reviewed edit. That change shows up in a diff; a bypass doesn't.
+**There is no bypass, by design.** `--no-verify` is blocked by `bash-guard`, and `bash-guard` runs before the shell does. If a gate is wrong for your repo, change the gate — its allowlist, its threshold, the rule file — as a reviewed edit. That change shows up in a diff; a bypass doesn't. An agent proposing that edit is asked about first (denied, under Cursor's editor hook), so loosening a gate is always your call.

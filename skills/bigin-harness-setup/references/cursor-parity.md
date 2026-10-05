@@ -94,11 +94,19 @@ Cursor also reads nested `AGENTS.md` files in subdirectories. The harness doesn'
 
 ## .cursor/hooks.json
 
-Write to `.cursor/hooks.json`. Same guards as `.claude/settings.json`, same script paths — the nine every profile installs, plus `vendored-contract-guard.mjs` when `REPO_TYPE` is `api`, `web` or `mobile`.
+Write to `.cursor/hooks.json`. **It registers the same guards as this repo's `.claude/settings.json`, at the same script paths. Derive it from that file; never copy the template below as-is.** The template is the full nine-gate set the eight stack profiles install. Before writing, drop every entry whose script that `settings.json` does not register:
+
+| Drop from `preToolUse` | When |
+|---|---|
+| `bugfix-test-guard.mjs` | `PROFILE` is `specs` or `contracts` |
+| `commit-msg-guard.mjs` | `PROFILE` is `specs` |
+| `spec-gate-guard.mjs` | `PROFILE` is `specs` or `qa`, or `SPECKIT = coexist` |
+
+The profiles' reasons are in `overlay-matrix.md` → `## Polyrepo profiles: which gates apply`, and the Spec Kit one is in `SKILL.md` → 5-2. To check the result: every `.claude/guards/*.mjs` command in `.claude/settings.json` appears here exactly once, apart from the three Claude-only scripts named at the end of this section, and nothing else appears. Keeping a gate here that the Claude side leaves out adds no safety. It blocks Cursor users on exactly the cases the profile exempts. If the profile never wrote that script, `node` exits 1 with `MODULE_NOT_FOUND`, and `failClosed: true` turns that into a block on **every** tool call.
 
 **No matchers, deliberately.** Cursor's matcher semantics differ per event (for `beforeShellExecution` it matches the *command string*, not the tool name), and a matcher that silently fails to match turns a gate off without any signal. Every guard already self-filters — `bash-guard` needs a command, `bugfix-test-guard` needs `git commit`, `spec-gate-guard` needs write-shaped input, `injection-scan-guard` needs a fetch-shaped call — so matcher-less registration costs a few no-op script runs and removes a whole class of silent-failure. Don't "optimize" this by adding matchers.
 
-`failClosed: true` on the five blocking gates: Cursor fails open by default, so a crashed or timed-out gate would pass the call through. The four non-blocking hooks stay fail-open — a failed autosave or resume prompt is a missed convenience, not a reason to freeze the session.
+`failClosed: true` on every blocking gate that stays in `preToolUse` (all five on a stack profile, fewer on `specs`, `contracts` and `qa`): Cursor fails open by default, so a crashed or timed-out gate would pass the call through. The four non-blocking hooks stay fail-open — a failed autosave or resume prompt is a missed convenience, not a reason to freeze the session.
 
 ```json
 {
@@ -125,7 +133,7 @@ Write to `.cursor/hooks.json`. Same guards as `.claude/settings.json`, same scri
 }
 ```
 
-**On a polyrepo consumer repo** (`REPO_TYPE` = `api` / `web` / `mobile`), append one more object to `preToolUse` — a tenth gate, and the only one not installed everywhere:
+**On a polyrepo consumer repo** (`REPO_TYPE` = `api` / `web` / `mobile`), append one more object to `preToolUse`. It is a tenth gate, which no profile installs on a repo outside a polyrepo project:
 
 ```json
 { "type": "command", "command": "node .claude/guards/vendored-contract-guard.mjs", "failClosed": true }
@@ -133,7 +141,7 @@ Write to `.cursor/hooks.json`. Same guards as `.claude/settings.json`, same scri
 
 `failClosed: true` because it blocks: a crashed gate that fails open here would let a hand edit into the vendored contract, which is the whole thing it exists to prevent. It must be registered on **both** hosts or on neither — a gate present in `.claude/settings.json` and absent here is a Cursor teammate quietly editing files a Claude Code teammate cannot.
 
-If `.cursor/hooks.json` already exists, **merge per event** — append missing entries, never drop the user's. Same rule `.claude/settings.json` follows.
+If `.cursor/hooks.json` already exists, **merge per event** — append missing entries, never drop the user's. Same rule `.claude/settings.json` follows. The one entry this step may remove is a harness gate that the table above drops and an earlier run wrote anyway. Name each removal in the Phase 7 summary.
 
 **Three scripts are deliberately absent from this file, and none of them is a gate.** `install-hooks.mjs` runs on Claude Code's `Setup` event, for which Cursor's hook set has no equivalent — so a Cursor-only teammate installs the git hooks with the README snippet instead, and the Phase 7 summary says that rather than implying parity. `instructions-trace.mjs` is registered by no host (opt-in; see `hook-guard.md`). And `lint-fix-file.mjs` is not registered here. Cursor's `afterFileEdit` hook accepts no output and the format-on-save path is the editor's own ESLint integration, so a hook that rewrites the file underneath Cursor's editor buffer is a conflict, not a convenience. Nuxt/next repos keep format-on-save through `.vscode/settings.json`, which Cursor reads (it's a VS Code fork).
 

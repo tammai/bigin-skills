@@ -1,0 +1,10 @@
+# LF everywhere, on every checkout. Git for Windows defaults to core.autocrlf=true,
+# which turns the commit hook's `\` line continuations into syntax errors and breaks
+# every frontmatter parser in tools/ and hooks/ (they key on "---\n"). The parsers also
+# normalise CRLF on read, for clones made before this file existed.
+* text=auto eol=lf
+
+*.ico binary
+*.png binary
+*.jpg binary
+*.woff2 binary

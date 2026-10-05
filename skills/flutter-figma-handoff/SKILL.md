@@ -1,6 +1,6 @@
 ---
 name: flutter-figma-handoff
-description: "Turns a Material 3 Figma handoff into Flutter code — variables into a seeded ColorScheme, components resolved to widgets via a mapping table. Triggers: 'implement this Figma screen in our Flutter app', 'sync the app theme with Figma'."
+description: "Turns a Material 3 Figma handoff into Flutter code — variables into a seeded ColorScheme, components mapped to widgets. Triggers: 'implement this Figma screen in our Flutter app', 'sync the app theme with Figma'."
 argument-hint: [figma file or frame url]
 effort: medium
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/emit_theme.mjs *) Bash(flutter --version)

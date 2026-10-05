@@ -30,6 +30,8 @@ generate:   pnpm openapi:generate          # typed client from the frozen contra
 
 **There is no Rust typecheck row, on purpose.** `cargo clippy` *is* a full type-check — it runs the compiler front end and then adds lints. Adding `cargo check` next to it compiles the same dependency graph a second time for no finding the first pass didn't already have. The `{TYPECHECK}` slot is `pnpm type-check` (vue-tsc) alone, and `{LINT}` carries the three Rust-and-frontend checks.
 
+**Phase 2's verification pass runs the two halves of `lint` and `test` separately and reports them separately.** `cargo` missing from `PATH` is a different fact from a red `pnpm test`. Collapsing them hides which half of the app is unchecked.
+
 **`cargo clippy` on a cold `target/` takes minutes**, because a Tauri dependency tree is large. On a warm one it is seconds. This is the one gate a team will want to move to CI-only after a `cargo clean`; the honest trade is that a clippy finding caught at commit time is a finding that never reaches a reviewer, and `target/` stays warm in normal use. Say so rather than letting someone discover it on their first commit.
 
 ---
@@ -62,10 +64,8 @@ See `.claude/rules/` — path-scoped conventions (frontend and Rust), testing, s
 - **No `http(s)://` literal in `app/`.** The API base URL is Rust's, read from `tauri.conf.json` or the build environment. A doc link is fine — mark it `// url-literal-ok`.
 - **`tauri.conf.json` is configuration, not secrecy.** Every value in it is recoverable from the shipped binary. Base URLs and feature flags: fine. Anything whose disclosure matters: server-side, or in the OS keychain.
 - **No `server/` directory.** Nuxt runs as a static SPA (`ssr: false`); there is no Node process at runtime, so a Nitro route works in `pnpm tauri dev` and silently vanishes from `pnpm tauri build`. The gate fails on the directory existing.
-- **Capabilities are the security boundary, and they are default-deny.** Every permission is written into `src-tauri/capabilities/*.json` scoped to a named window. `shell:allow-execute`, `shell:allow-spawn`, and a `"*"` in any scope are refused by the gate. Never `tauri-plugin-sql` — it hands arbitrary SQL execution to the webview, which is the boundary gone.
-- **`app.security.csp` is set to a real policy.** Tauri enables CSP protection *only* if the config sets it, so an absent or `null` value is not "no policy needed" — it is the webview's isolation switched off. Both fail the gate.
-- `identifier` in `tauri.conf.json` is OS and store identity. It derives the app-data directory and the update feed, so changing it later orphans every installed user's local data. Set it from the ADR before the first build — Tauri refuses to bundle while it is still `com.tauri.dev`, which is the one error message here that saves you.
-- The updater's minisign **private** key never enters the repo (`TAURI_SIGNING_PRIVATE_KEY` in CI secrets). Lose it and no installed copy of the app can ever be updated again — there is no recovery path but a manual reinstall by every user.
+- **Capabilities are default-deny, `app.security.csp` is a real policy, and `tauri-plugin-sql` is never used.** The gate refuses a dangerous or wildcard capability and an unset CSP. Details: `.claude/rules/architecture.md` → The IPC Boundary.
+- **Never change `identifier` after the first release, and never commit the updater's private key.** Both mistakes are permanent. Details: `.claude/rules/architecture.md` → Desktop Release Constraints.
 - `Cargo.lock` and `pnpm-lock.yaml` are committed. `src-tauri/target/`, `.output/`, `dist/` are not.
 - No `--no-verify`. No `unsafe`. No `#[allow(...)]`, `eslint-disable`, `@ts-ignore` or `as any` without a comment saying why the rule is wrong here.
 - Commit messages are Conventional Commits — `type(scope): subject` (enforced by `commit-msg-guard.mjs`).
@@ -244,6 +244,8 @@ Prepend `paths: ["app/**", "src-tauri/**", "openapi.yaml"]` as YAML frontmatter 
 - Everything privileged is on the Rust side *because* the webview cannot hold it: the bundle ships to the user's disk, so a token, a key or an origin secret in `app/` is disclosed by definition. This is stronger than the browser case, where at least the server keeps its own secrets.
 - The commands are the audit surface. A capability granted in `src-tauri/capabilities/*.json` is a permission granted to whatever the webview is executing, which includes any remote content it was ever made to load. Default-deny, window-scoped, and reviewed as a diff.
 - `tauri-plugin-sql` and a broadly-scoped `fs` capability both collapse the boundary in one line — arbitrary SQL and arbitrary file access from the renderer. If a feature seems to need either, it needs a command instead.
+- Every permission is written into `src-tauri/capabilities/*.json`, scoped to a named window. The gate refuses `shell:allow-execute`, `shell:allow-spawn`, `fs:default` and a `"*"` scope.
+- `app.security.csp` is set to a real policy. Tauri enables CSP protection *only* if the config sets it, so an absent or `null` value means the webview's isolation is switched off. The gate fails on both.
 
 ## [Tauri] Frozen Contract, Rust-Side Client
 - The API is an existing service. Its contract is transcribed ground truth, locked upstream; the typed client is generated from it and committed, and CI regenerates and diffs.
@@ -253,7 +255,8 @@ Prepend `paths: ["app/**", "src-tauri/**", "openapi.yaml"]` as YAML frontmatter 
 
 ## [Tauri] Desktop Release Constraints
 - **A desktop release cannot be rolled back.** Users have the binary. The lever is the updater, and it only exists if it was built, signed and shipped from the first release — retrofitting an updater into an installed base is a manual-reinstall campaign.
-- The updater's private signing key is the single point of no return in this stack. It lives in CI secrets with a documented custodian and an offline backup, and losing it strands every installed copy permanently. Decide where it lives before the first release, not after.
+- The updater's private signing key is the single point of no return in this stack. It never enters the repo: it lives in CI secrets (`TAURI_SIGNING_PRIVATE_KEY`) with a documented custodian and an offline backup, and losing it strands every installed copy permanently. Decide where it lives before the first release, not after.
+- `identifier` in `tauri.conf.json` is OS and store identity. It derives the app-data directory and the update feed, so changing it after a release orphans every installed user's local data. Set it from the ADR before the first build. Tauri refuses to bundle while it is still `com.tauri.dev`.
 - Code signing is a per-platform, lead-time decision: an Apple Developer ID plus notarization or Gatekeeper refuses to open the app, and a Windows certificate (OV needs reputation to accumulate, EV does not) or SmartScreen warns every downloader. Both are due before the first external build.
 - Users on old OS versions cannot receive the app at all, so the minimum OS version is a fact about real users rather than a preference, and it constrains any forced-upgrade plan. Give it a number in an ADR.
 - Anything already on a user's machine — the local store, the keychain entry, the data directory, registered deep links, granted permissions — is migration surface. The migration path runs before the first window is shown and never on the UI thread.
@@ -385,7 +388,7 @@ Substitute the channel with the output of `rustc --version` on the machine doing
         ]
       },
       {
-        "matcher": "Edit|Write|MultiEdit",
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
         "hooks": [
           {
             "type": "command",
@@ -394,7 +397,7 @@ Substitute the channel with the output of `rustc --version` on the machine doing
         ]
       },
       {
-        "matcher": "Bash|Write|Edit|WebFetch|mcp__.*",
+        "matcher": "Bash|Write|Edit|MultiEdit|WebFetch|mcp__.*",
         "hooks": [
           {
             "type": "command",

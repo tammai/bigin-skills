@@ -41,8 +41,22 @@ Name which of the three in the Phase 7 summary. It is still **one** gate, not tw
 
 ## 5-3: the two settings.json shapes
 
-- **nuxt / next / tauri, `SCAFFOLDED = true`** — the scaffold already wrote `.claude/settings.json` with `permissions.allow` and a `PostToolUse` `lint-fix-file.mjs` hook. Merge in, per event: `PreToolUse` `bash-guard.mjs` + `spec-gate-guard.mjs` + `injection-gate-guard.mjs` (matcher `Bash|Write|Edit|WebFetch|mcp__.*`), `PreToolUse` `bugfix-test-guard.mjs` + `commit-msg-guard.mjs` (matcher `Bash`), a `SessionStart` block with `canary-seed.mjs` and `session-resume-check.mjs`, a `PreCompact` **and** `SessionEnd` block both pointing at `precompact-snapshot.mjs`, a `Setup` block pointing at `install-hooks.mjs`, missing `permissions.allow` entries, and a second `PostToolUse` entry for `injection-scan-guard.mjs` **alongside** the existing `lint-fix-file.mjs` one. Never replace or duplicate that existing entry. Show additions before writing.
+- **nuxt / next / tauri, `SCAFFOLDED = true`** — the scaffold already wrote `.claude/settings.json` with `permissions.allow` and a `PostToolUse` `lint-fix-file.mjs` hook. Merge in, per event: `PreToolUse` `bash-guard.mjs` + `spec-gate-guard.mjs` + `injection-gate-guard.mjs` (matcher `Bash|Write|Edit|MultiEdit|WebFetch|mcp__.*`), `PreToolUse` `bugfix-test-guard.mjs` + `commit-msg-guard.mjs` (matcher `Bash`), a `SessionStart` block with `canary-seed.mjs` and `session-resume-check.mjs`, a `PreCompact` **and** `SessionEnd` block both pointing at `precompact-snapshot.mjs`, a `Setup` block pointing at `install-hooks.mjs`, missing `permissions.allow` entries, and a second `PostToolUse` entry for `injection-scan-guard.mjs` **alongside** the existing `lint-fix-file.mjs` one. Never replace or duplicate that existing entry. Show additions before writing.
 - **everything else** (including `nuxt-marketing`, and onboarding an existing nuxt/next/tauri repo) — read the whole template from `references/profile-{PROFILE}.md` → `## settings.json Template`. Merge the `hooks` block and missing `permissions.allow` entries per event if the file exists; write fresh if not. For an existing nuxt/next/tauri repo and for every `nuxt-marketing` repo, also write `.claude/guards/lint-fix-file.mjs` first if it's missing. `nuxt-marketing` is always in this branch: this skill has no scaffolder for a marketing site, so `SCAFFOLDED` is never true for it — the template that produced the repo is the Factory's, not one of Phase 0.5's.
+
+**Polyrepo consumer repos** (`REPO_TYPE` is `api`, `web` or `mobile`) add one more `PreToolUse` entry to either shape, beside `spec-gate-guard.mjs`:
+
+```json
+{
+  "matcher": "Edit|Write|MultiEdit",
+  "hooks": [
+    {
+      "type": "command",
+      "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/guards/vendored-contract-guard.mjs\""
+    }
+  ]
+}
+```
 
 Two allowlist notes: the `tauri` template adds the `cargo` surface but deliberately omits `cargo install`, `cargo update`, `rustup` and `pnpm up` — each either rewrites a lockfile the codegen and CI gates depend on, or installs an arbitrary binary. The `generic` template pre-approves git only; an unknown toolchain gets no blanket allowlist, and the user approves its commands as they come up.
 

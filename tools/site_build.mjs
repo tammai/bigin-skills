@@ -41,7 +41,7 @@ function fail(message) {
 
 function readJson(rel) {
   try {
-    return JSON.parse(fs.readFileSync(path.join(ROOT, rel), 'utf8'));
+    return JSON.parse(readText(path.join(ROOT, rel)));
   } catch (e) {
     fail(`cannot read ${rel}: ${e.message}`);
   }
@@ -67,7 +67,7 @@ function collectData() {
     fail(`skills present on disk but absent from tools/docs-manifest.json: ${missing.join(', ')}`);
   }
 
-  const changelog = fs.readFileSync(path.join(ROOT, 'CHANGELOG.md'), 'utf8');
+  const changelog = readText(path.join(ROOT, 'CHANGELOG.md'));
   const latest = changelog.match(/^## \[(\d+\.\d+\.\d+)\] - (\d{4}-\d{2}-\d{2})/m);
   if (!latest) fail('CHANGELOG.md has no parseable "## [x.y.z] - date" heading');
   if (latest[1] !== plugin.version) {
@@ -94,6 +94,21 @@ function numberWord(n) {
   return WORDS[n] ?? String(n);
 }
 
+// Text reads are CRLF-normalised: a Windows checkout under core.autocrlf=true would
+// otherwise fail every "---\n" frontmatter match and render CRLF into site/dist/.
+function readText(file) {
+  return fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
+}
+
+// The --check comparison ignores line endings on text files for the same reason:
+// committed LF, checked out CRLF, still the same file.
+const BINARY = /\.(ico|png|jpe?g|gif|webp|woff2?|ttf|pdf)$/i;
+function sameFile(rel, a, b) {
+  if (BINARY.test(rel)) return a.equals(b);
+  const lf = (buf) => buf.toString('utf8').replace(/\r\n/g, '\n');
+  return lf(a) === lf(b);
+}
+
 function capitalize(s) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
@@ -118,7 +133,7 @@ function loadPartials() {
   const dir = path.join(SRC, '_partials');
   const out = {};
   for (const f of fs.readdirSync(dir)) {
-    if (f.endsWith('.html')) out[path.basename(f, '.html')] = fs.readFileSync(path.join(dir, f), 'utf8').trim();
+    if (f.endsWith('.html')) out[path.basename(f, '.html')] = readText(path.join(dir, f)).trim();
   }
   return out;
 }
@@ -144,14 +159,14 @@ function render(template, vars, partials, where) {
 // ── build ───────────────────────────────────────────────────────────────
 
 function buildPages(data, partials) {
-  const layout = fs.readFileSync(path.join(SRC, '_layouts', 'base.html'), 'utf8');
+  const layout = readText(path.join(SRC, '_layouts', 'base.html'));
   const files = new Map();
   const pages = [];
 
   for (const name of fs.readdirSync(path.join(SRC, 'pages')).sort()) {
     if (!name.endsWith('.html')) continue;
     const file = path.join(SRC, 'pages', name);
-    const { data: fm, body } = parseFrontmatter(fs.readFileSync(file, 'utf8'), `pages/${name}`);
+    const { data: fm, body } = parseFrontmatter(readText(file), `pages/${name}`);
     for (const required of ['title', 'description', 'url', 'css', 'js']) {
       if (!fm[required]) fail(`pages/${name}: frontmatter is missing "${required}"`);
     }
@@ -227,7 +242,7 @@ if (CHECK) {
   for (const [rel, buf] of built) {
     const have = existing.get(rel);
     if (!have) stale.push(`${rel} — missing from site/dist/`);
-    else if (!have.equals(buf)) stale.push(`${rel} — out of date`);
+    else if (!sameFile(rel, have, buf)) stale.push(`${rel} — out of date`);
   }
   for (const rel of existing.keys()) {
     if (!built.has(rel)) stale.push(`${rel} — orphan, no longer produced by the build`);

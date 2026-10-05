@@ -241,7 +241,7 @@ Prepend `paths: ["src/app/**", "src/features/**", "src/shared/**", "src/componen
 
 ## settings.json Template
 
-Governance superset: `permissions` + `PostToolUse` lint-fix (the `next-scaffold` baseline) **plus** the `PreToolUse` `bash-guard.mjs`, `bugfix-test-guard.mjs`, `commit-msg-guard.mjs`, `spec-gate-guard.mjs`, and `injection-gate-guard.mjs` hooks, and a second `PostToolUse` entry for `injection-scan-guard.mjs` (governance). Used when onboarding an existing Next.js repo (Phase 5-3) — also write `.claude/guards/lint-fix-file.mjs` if it's missing (script body: `skills/next-scaffold/scripts/templates/files/.claude/guards/lint-fix-file.mjs`, single source of truth). Keep the `permissions` / lint-fix `PostToolUse` keys in sync with `skills/next-scaffold/scripts/templates/merge/claude-settings.json`.
+Governance superset: `permissions` + `PostToolUse` lint-fix (the `next-scaffold` baseline) **plus** the `PreToolUse` `bash-guard.mjs`, `bugfix-test-guard.mjs`, `commit-msg-guard.mjs`, `spec-gate-guard.mjs`, and `injection-gate-guard.mjs` hooks, and a second `PostToolUse` entry for `injection-scan-guard.mjs` (governance). Used when onboarding an existing Next.js repo (Phase 5-3) — also write `.claude/guards/lint-fix-file.mjs` if it's missing (script body: `${CLAUDE_PLUGIN_ROOT}/skills/next-scaffold/scripts/templates/files/.claude/guards/lint-fix-file.mjs`, single source of truth). Keep the `permissions` / lint-fix `PostToolUse` keys in sync with `skills/next-scaffold/scripts/templates/merge/claude-settings.json`.
 
 ```json
 {
@@ -298,7 +298,7 @@ Governance superset: `permissions` + `PostToolUse` lint-fix (the `next-scaffold`
         ]
       },
       {
-        "matcher": "Edit|Write|MultiEdit",
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
         "hooks": [
           {
             "type": "command",
@@ -307,7 +307,7 @@ Governance superset: `permissions` + `PostToolUse` lint-fix (the `next-scaffold`
         ]
       },
       {
-        "matcher": "Bash|Write|Edit|WebFetch|mcp__.*",
+        "matcher": "Bash|Write|Edit|MultiEdit|WebFetch|mcp__.*",
         "hooks": [
           {
             "type": "command",

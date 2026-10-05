@@ -15,7 +15,7 @@ Scoring one axis and spending the result on the other is the mistake this split 
 
 | Trigger | Why |
 |---|---|
-| `fullSpecDetected` | A `task-workflow` full-spec-tier `PLAN.md` already exists. The user explicitly signalled this needs deep, structured treatment (FR-IDs, API contract, data model) — honor the signal instead of re-deriving it. |
+| `fullSpecDetected` | A `task-workflow` full-spec-tier `PLAN.md` already exists — detected only by the `[full-spec]` marker in its Spec heading, never by FR/NFR IDs or a `Covers` line, which every PRD-derived unit carries. The user explicitly signalled this needs deep, structured treatment (FR-IDs, API contract, data model) — honor the signal instead of re-deriving it. |
 | A **breaking** contract change, or a **data migration that transforms existing rows** | Genuinely a design problem, not just a risky file. There's no clean revert once it ships, and the shape has to be right the first time. |
 
 Note the second one is about the *change*, not the path. `highRiskMatches` being non-empty is a prompt to ask the question — "is this breaking, or is it additive?" — not the answer. An added optional OpenAPI field or a bumped action version touches a high-risk path and is still a Quick-tier edit; it raises the verification bar (Axis 2), not the tier.
@@ -42,11 +42,11 @@ Independent of tier. A Quick-tier task on a contract file still gets the full ba
 | Trigger (mechanical unless noted)              | Verification bar to state in the payload                                                                                 |
 | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | `highRiskMatches` non-empty                     | A verifier round is **mandatory** even where `task-workflow` would skip it; show full gate output; state the revert path in `PLAN.md` notes |
-| `testCoverageRatio` < 0.3, or null with code changes | Tests come first, per `write-tests`' TDD ordering — an untested change doesn't get validated by eye                   |
-| `plannedNewFiles` non-empty                          | Tests come first, same ordering. Distinct from the row above: a file that doesn't exist yet is uncovered by construction, so it's excluded from `testCoverageRatio` rather than dragging it to 0 |
+| `testCoverageRatio` < 0.3, or null with code changes | Tests come first, per `write-tests`' TDD ordering — an untested change doesn't get validated by eye. The ratio is an allowlist (`.js .jsx .ts .tsx .mjs .cjs .vue .go .py .dart .rs`); other types never count, so `null` means none of those were touched — "with code changes" (e.g. logic in `.sql`) is your judgement |
+| `plannedNewFiles` non-empty                          | Tests come first, same ordering. Distinct from the row above: a code file (coverage allowlist) that doesn't exist yet is uncovered by construction; new docs and config never land here, so it's excluded from `testCoverageRatio` rather than dragging it to 0 |
 | `filesChanged` ≥ 5                              | Run gates across the whole tree, not just the touched files                                                               |
 | Flaky/timing symptom (reasoned)                 | ≥5 consecutive passes, per `debug-workflow`'s own `race-conditions.md`                                                    |
-| None of the above                               | Normal gates: lint + typecheck + tests, with actual output shown                                                          |
+| None of the above                               | Normal gates: lint + typecheck + tests on the touched scope, each run's pass/fail summary line shown (never whole logs)  |
 
 Triggers stack. Two matches means both bars apply.
 
@@ -56,7 +56,7 @@ Triggers stack. Two matches means both bars apply.
 
 ### 1. Typo fix in README
 
-Planned scope: `README.md`. `highRiskMatches: []`, `testCoverageRatio: null` (no code touched).
+Planned scope: `README.md`. `highRiskMatches: []`, `testCoverageRatio: null` (no code touched — the ratio counts only `.js .jsx .ts .tsx .mjs .cjs .vue .go .py .dart .rs` files, the types the script can look a test up for).
 
 Capability: pattern n/a → 0 · one obvious structure → 0 · clear → 0 · 1 file → 0 = **0 → Quick**.
 Verification: nothing triggers → normal gates.

@@ -136,8 +136,11 @@ function main() {
   const installed = parseVersion(raw)
   if (!installed) {
     // Worth one line rather than silence: patch mode cannot pick a starting point
-    // from this either, and it will stop and ask.
-    say(`${TAG} .claude/harness-version reads "${raw}", which is not a version. `
+    // from this either, and it will stop and ask. The stamp is repo-controlled text
+    // headed for every session's context under the plugin's tag, so it is never
+    // pasted whole: 40 printable characters at most, JSON-quoted.
+    const shown = JSON.stringify(raw.replace(/[^\x20-\x7e]/g, '').slice(0, 40))
+    say(`${TAG} .claude/harness-version reads ${shown}${raw.length > 40 ? ' (truncated)' : ''}, which is not a version. `
       + 'Patch mode cannot tell what to apply from that — set it to the version this '
       + 'harness was last set up with, or re-run bigin-harness-setup.')
     return
@@ -147,7 +150,9 @@ function main() {
 
   const changelogPath = join(root, 'CHANGELOG.md')
   if (!existsSync(changelogPath)) return
-  const { count, targets } = unappliedBlocks(readFileSync(changelogPath, 'utf8'), installed, current)
+  // CRLF on a Windows autocrlf checkout of the plugin would hide every block.
+  const changelog = readFileSync(changelogPath, 'utf8').replace(/\r\n/g, '\n')
+  const { count, targets } = unappliedBlocks(changelog, installed, current)
 
   // The common case by a wide margin: releases that changed only plugin-side
   // content, which this repo already has. The stamp is stale; the repo is not.

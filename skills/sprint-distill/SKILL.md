@@ -8,7 +8,7 @@ allowed-tools: Bash(git log *) Bash(git diff *) Bash(node tools/knowledge_valida
 
 # sprint-distill
 
-Turns a sprint's worth of merged work into `knowledge/` updates and `bigin-skills` convention updates — proposal-first, nothing writes until you approve it. Classifies every candidate learning as WHAT/WHY (→ `knowledge/`), HOW-we-work (→ `bigin-skills`), or neither (dropped, but reported). Never both.
+Turns a sprint's worth of merged work into `knowledge/` updates and convention updates (this repo's rules, or upstream proposals for bigin-skills) — proposal-first, nothing writes until you approve it. Classifies every candidate learning as WHAT/WHY (→ `knowledge/`), HOW-we-work (→ conventions), or neither (dropped, but reported). Never both.
 
 Not this skill: a single PR, a single change, or a one-off code review — use `/code-review` or `/review`. This one only operates on a sprint-scale date range.
 
@@ -23,20 +23,16 @@ Not this skill: a single PR, a single change, or a one-off code review — use `
 **Determine `SPRINT_START`:**
 
 1. Check whether `knowledge/` exists in this repo.
-   - **Missing entirely** → this repo hasn't opted into the Knowledge Bundle. Ask:
-     ```
-     No knowledge/ bundle found in this repo. Options:
-     1. skills-only — distill this sprint's HOW-we-work learnings into bigin-skills
-        only; skip knowledge/ classification. I'll ask you for a start date.
-     2. bootstrap — set up the Knowledge Bundle first (via bigin-harness-setup),
-        then re-run sprint-distill
-     ```
+   - **Missing entirely** → this repo hasn't opted into the Knowledge Bundle. Ask with one `AskUserQuestion` call ("No knowledge/ bundle found in this repo — how should this run go?"), two options:
+     - **skills-only** — distill this sprint's HOW-we-work learnings only; skip knowledge/ classification. A start date is asked next.
+     - **bootstrap** — set up the Knowledge Bundle first (via bigin-harness-setup), then re-run sprint-distill.
+
      Store `KB_MODE = skills-only` or stop for option 2. If `skills-only`, ask for `SPRINT_START` directly (a date or git ref) since there's no `log.md` cursor.
    - **Exists** → set `KB_MODE = full`. Read `knowledge/log.md`.
      - Last dated `## {DATE}` entry found → `SPRINT_START` = that date.
      - `log.md` exists but has no dated entries yet (fresh bundle) → ask the user for a start date.
 
-2. **Surface version drift.** If this skill is running from a `bigin-skills` git submodule, best-effort print its pinned commit/version (e.g. short SHA or `.claude-plugin/plugin.json` version) so any lag behind the upstream template is visible up front. Don't fail the run if this can't be resolved.
+2. **Surface version drift.** Best-effort print the installed bigin-skills plugin version (`.claude-plugin/plugin.json` under `${CLAUDE_PLUGIN_ROOT}`) and, if present, this repo's `.claude/harness-version` stamp, so any lag behind the upstream templates is visible up front. Don't fail the run if this can't be resolved.
 
 ---
 
@@ -52,11 +48,7 @@ Not this skill: a single PR, a single change, or a one-off code review — use `
 
 Have the subagent return: the commit titles/bodies, the `knowledge/` diff stat, the stale-rules list, and (if a graph exists) the staleness flag + symbol-miss list — not raw `git log`/`git diff` output. This is a plain subagent delegation (Agent tool), not the skill-level `context: fork` frontmatter — only steps 1-5 need isolating, and `context: fork` would run the entire skill (including step 6's interactive question) as a subagent, where `AskUserQuestion` isn't available.
 
-6. **After the subagent returns**, ask the user directly (main conversation):
-   ```
-   Any out-of-repo material for this sprint? (meeting notes, transcripts, client
-   docs — paste directly, or say none)
-   ```
+6. **After the subagent returns**, ask the user directly in the main conversation, as a plain question rather than `AskUserQuestion` (the answer is pasted text, not a choice): *"Any out-of-repo material for this sprint? (meeting notes, transcripts, client docs — paste directly, or say none)"*
    Treat pasted material as additional candidate learnings, classified identically to git-derived ones in Phase 2 — no separate pipeline.
 
 ---
@@ -68,7 +60,9 @@ If `KB_MODE = full`, read `knowledge/meta/knowledge-bundle-spec.md` before class
 For every candidate learning gathered in Phase 1, apply the sorting rule strictly:
 
 - **WHAT/WHY the system is** (a domain concept, a contract, a system boundary, a constraint that will outlive this sprint) → `knowledge/` concept file (new or update to an existing one).
-- **HOW we work** (a convention, a gate, a process change) → a `bigin-skills` update (`.claude/rules/*`, a `SKILL.md`, a reference file).
+- **HOW we work** (a convention, a gate, a process change) → a convention update, on one of two sides:
+  - **repo-side** — this repo's `.claude/rules/*` or `CLAUDE.md`, written here in Phase 4.
+  - **plugin-side** — a bigin-skills `SKILL.md` or reference file. Never written from here: the installed plugin is a versioned cache (`~/.claude/plugins/cache/…`) that the next plugin update replaces, so an edit there is silently lost. Phase 4 hands it over as an upstream proposal for the bigin-skills repo instead.
 - **Neither** (noise, a one-off, something already covered) → drop, but report it in the proposal so nothing silently vanishes.
 - **Never both.** If a candidate seems to span both, pick the side it primarily belongs to and link to the other rather than writing it twice.
 - **Never a record.** `knowledge/implementation/` is written only by `task-workflow` and `epic-workflow` at cleanup, one `Record` per finished task or epic. No candidate learning is ever routed there, and this skill never opens one to mine it: a record's narrative is not a candidate for distillation, it is what distillation already ran against.
@@ -94,7 +88,7 @@ The sweeps, over concept files only:
 **Hard constraints while drafting** (non-negotiable, apply regardless of what a candidate learning suggests):
 - Concept files ≤ ~60 lines. Terse beats complete. The ceiling is a concept rule and does not reach records, which are verbatim by design and not written here anyway.
 - Link, don't copy — point at `openapi.yaml`, `.claude/rules/`, source code; never duplicate their content into `knowledge/`.
-- Never touch source code, `openapi.yaml`, or migrations. `sprint-distill` only writes to `knowledge/` and `bigin-skills`-side files.
+- Never touch source code, `openapi.yaml`, or migrations. `sprint-distill` only writes to `knowledge/` and this repo's `.claude/rules/` / `CLAUDE.md`; plugin-side changes are proposals, never writes.
 - Follow `knowledge/meta/knowledge-bundle-spec.md` for frontmatter and structure.
 
 ---
@@ -108,8 +102,12 @@ Output a single structured proposal and **wait for explicit approval before writ
 - [new/update] knowledge/<path>.md — <one-line reason>
   ...
 
-## Skills changes
+## Repo convention changes (.claude/rules/, CLAUDE.md)
 - [new/update] <path> — <one-line reason> [replaces: <what it compresses>]
+  ...
+
+## Upstream bigin-skills proposals (handed over, never written here)
+- <path in the bigin-skills repo> — <one-line reason>
   ...
 
 ## Draft log entry (knowledge/log.md, written last on approval, newest-first)
@@ -131,8 +129,9 @@ Output a single structured proposal and **wait for explicit approval before writ
 ## Net-neutral check
 CLAUDE.md: <current lines> / 60. Rules delta this sprint: +<added> -<removed> = <net> lines.
 
-Approve all / approve some (list which) / request edits?
 ```
+
+Then ask with one `AskUserQuestion` call, three options: **approve all**, **approve some** (the user names which), **request edits**.
 
 If the user asks for edits, revise and re-propose before applying — don't reinterpret silently.
 
@@ -143,7 +142,7 @@ If the user asks for edits, revise and re-propose before applying — don't rein
 Only after explicit approval, and only the items approved:
 
 1. Write approved `knowledge/` changes.
-2. Write approved `bigin-skills` changes.
+2. Write approved repo convention changes (`.claude/rules/`, `CLAUDE.md`). For each approved upstream proposal, print a ready-to-apply edit for the bigin-skills repo (path relative to that repo, plus the exact text to add, replace or remove) — never write it into the installed plugin.
 3. **Validator, best-effort:** if `KB_MODE = full` and `tools/knowledge_validate.mjs` exists at the repo root, run it (`node tools/knowledge_validate.mjs`). Repos scaffolded before v1.19.0 have the legacy `tools/knowledge_validate.py` instead — run that via `uv run tools/knowledge_validate.py`. If neither exists or the run errors, don't block — note in the Phase 5 summary that validation didn't run and should be checked manually.
 4. Write the `knowledge/log.md` entry **last**, only after the above succeed — as a new date
    heading directly under the file's title, since the log runs newest-first.
@@ -158,7 +157,8 @@ sprint-distill complete for <SPRINT_START>..HEAD
 
 Written:
   knowledge/: <list, or none>
-  bigin-skills: <list, or none>
+  repo conventions: <list, or none>
+Proposed upstream (bigin-skills repo, not written): <list, or none>
 
 Dropped: <count> (see proposal for reasons)
 Stale-concept flags: <count, or none>

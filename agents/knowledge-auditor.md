@@ -1,6 +1,6 @@
 ---
 name: knowledge-auditor
-description: Independently audits a distilled library knowledge bundle against the library's own cloned source at the pinned commit — never against the distiller's account of what it wrote. Read-only. Spawned fresh (no resume, no memory of prior rounds) by knowledge-distill's verify phase via the Agent tool.
+description: Read-only audit of a distilled knowledge bundle against the library's source at the pinned commit, never the distiller's account. Spawned fresh by knowledge-distill.
 tools: Read, Grep, Glob, Bash
 model: sonnet
 effort: high

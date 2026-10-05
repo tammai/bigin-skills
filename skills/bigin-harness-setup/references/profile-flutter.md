@@ -22,6 +22,8 @@ generate:   dart run build_runner build --delete-conflicting-outputs
 generate-api: ./tool/generate_api.sh   # vendored contract -> api/generated/** (mobile repo type only)
 ```
 
+**Write the `dev` row as shown, even on a repo with no flavors yet** (anything straight out of `flutter create`). It states the convention the first slice must satisfy, and `flutter run` with no flavor is exactly the habit the "no URL literal in `lib/`" rule exists to prevent. Phase 2 never executes it.
+
 **`--output=none` is not optional in a gate.** Plain `dart format --set-exit-if-changed .` *rewrites every unformatted file in the tree* and then exits 1. In a pre-commit hook that reformats files the developer never staged, leaves the staged snapshot unformatted, and lands a commit that differs from the one the gate checked. `--output=none` makes it a pure check — same exit code, no writes. Use the bare form only when you actually want the files rewritten.
 
 **Why the three harness slots map that way.** Dart has no separate typecheck binary — the analyzer *is* the type checker, so `flutter analyze --fatal-infos` takes the `{TYPECHECK}` slot and the formatter plus the two analyzer-plugin CLIs take `{LINT}`. `--fatal-infos` is deliberate: analyzer *infos* are where the unused-import and dead-null-check findings land, and without it they never fail anything.
@@ -325,7 +327,7 @@ None. Dart's formatter and analyzer come from the official Dart/Flutter extensio
         ]
       },
       {
-        "matcher": "Edit|Write|MultiEdit",
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
         "hooks": [
           {
             "type": "command",
@@ -334,7 +336,7 @@ None. Dart's formatter and analyzer come from the official Dart/Flutter extensio
         ]
       },
       {
-        "matcher": "Bash|Write|Edit|WebFetch|mcp__.*",
+        "matcher": "Bash|Write|Edit|MultiEdit|WebFetch|mcp__.*",
         "hooks": [
           {
             "type": "command",

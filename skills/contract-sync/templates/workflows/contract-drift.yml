@@ -90,10 +90,16 @@ jobs:
         if: steps.vendored.outputs.ready == 'true'
         run: |
           set -euo pipefail
-          if ! git diff --exit-code; then
+          # `git status --porcelain`, not `git diff --exit-code`: diff only inspects
+          # TRACKED files, so a regen that writes a brand-new generated file (a model
+          # the committed client lacks) leaves it untracked and the job goes green on
+          # real drift.
+          if [ -n "$(git status --porcelain)" ]; then
+            git status --short
+            git diff
             echo
             echo "The vendored spec or generated client does not match api-contract.lock."
-            echo "Do not commit the diff above: run 'node scripts/contract_sync.mjs sync'"
+            echo "Do not commit the changes above: run 'node scripts/contract_sync.mjs sync'"
             echo "locally and commit THAT, or find who hand-edited a generated file."
             exit 1
           fi

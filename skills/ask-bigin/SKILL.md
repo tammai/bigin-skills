@@ -25,6 +25,9 @@ inputs already have a home:
    turn. That *is* the list. Derive any listing from what you can see loaded, never from a table
    written here: a hardcoded inventory drifts the moment a skill is added, and the generated tables
    in the plugin's `README.md` are the human-facing copy that stays current mechanically.
+   One gap: a `disable-model-invocation: true` skill is never in that listing (this one included).
+   The only other one today is `/napkin` — a topic explained as a picture — so route a request to
+   see something as a diagram there by name.
 
 ## Procedure
 
@@ -62,7 +65,7 @@ inputs already have a home:
 
 4. **No arguments given?** List what's available — grouped as build work, knowledge, scaffolding,
    and setup — one line each, from the loaded descriptions. Then ask what they're trying to do.
-   Don't dump all sixteen with equal weight: lead with the ladder, since that's what most sessions
+   Don't dump them all with equal weight: lead with the ladder, since that's what most sessions
    need.
 
 5. **Two candidates genuinely tied?** One `AskUserQuestion` with those two as the options and the

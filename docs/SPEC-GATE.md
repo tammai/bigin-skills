@@ -25,7 +25,7 @@ The gate forces one decision to happen first: **what are we building, and what a
 It's enforced in two places, which is why it holds:
 
 - **`task-workflow`** — the discipline. Write the spec, wait for approval, then write `PLAN.md`.
-- **`spec-gate-guard.mjs`** — a pre-tool-use hook that blocks non-trivial `Edit`/`Write`/`MultiEdit` when no approved plan exists. It doesn't trust the agent to have followed the skill. Registered on `PreToolUse` in Claude Code and `preToolUse` in Cursor — one script, both hosts, same verdict ([GATES.md §7](GATES.md#7-the-same-gates-in-cursor)).
+- **`spec-gate-guard.mjs`** — a pre-tool-use hook that blocks non-trivial `Edit`/`Write`/`MultiEdit`/`NotebookEdit` when no approved plan exists. It doesn't trust the agent to have followed the skill. Registered on `PreToolUse` in Claude Code and `preToolUse` in Cursor — one script, both hosts, same verdict ([GATES.md §7](GATES.md#7-the-same-gates-in-cursor)).
 
 ---
 
@@ -153,10 +153,11 @@ After the coverage check, tasks are mirrored into Claude Code's task list for vi
 
 ## 6. What the guard actually checks
 
-`spec-gate-guard.mjs` runs on every `Edit`, `Write`, and `MultiEdit`, in this order. Knowing the order explains most surprises.
+`spec-gate-guard.mjs` runs on every `Edit`, `Write`, `MultiEdit` and `NotebookEdit`, in this order. Path rules judge the real path relative to the edited file's own worktree, so `src/test/../app.ts` is not a test and a file in a parallel worktree is judged against that worktree's `PLAN.md`. Knowing the order explains most surprises.
 
 1. **No `file_path`** → allow.
 1b. **Not write-shaped** → allow. A payload carrying no `content`/`old_string`/`edits` is a read, and `.cursor/hooks.json` registers `preToolUse` with no matcher, so every Read would otherwise arrive here and get gated. The filter is shape-driven rather than tool-name-driven because Cursor's tool names aren't Claude Code's.
+1c. **One of the gates' own files** → ask, whatever the size and whatever the plan says (deny under Cursor, which can't ask). The list is in [§7](#7-getting-blocked); `bash-guard.mjs` asks the same way for a shell command that writes one of them.
 2. **Trivial path** → allow, regardless of plan status. Anything under `tests/`, any `_test.dart` by filename (an `integration_test/` flow test is never ≤20 lines and no directory rule catches it), any `.md`, `.env.example`, `graphify-out/`, and the common config files (`eslint`, `prettier`, `tsconfig`, `vite`, `vitest`, `nuxt`, `.editorconfig`, `.gitignore`, `.npmrc`).
 3. **Git-ignored path** → allow. Build output isn't reviewable source. This check is deliberately **index-aware**: a *tracked* file that merely matches a `.gitignore` pattern is still gated, which is exactly why `graphify-out/` needs its own rule in step 2 — it's committed by design.
 4. **Approved plan for this branch** → allow.
@@ -168,15 +169,16 @@ The size measure is worth knowing precisely, because it's a **proxy** for the sk
 |---|---|
 | `Edit` | `max(old_string, new_string)` line count |
 | `MultiEdit` | the **sum** of each edit's max — several small edits add up |
-| `Write` (existing file) | the absolute difference in line count |
+| `Write` (existing file) | the lines it changes, by a bounded diff — replacing a file with an equally long one still counts |
 | `Write` (new file) | the full content length |
+| `NotebookEdit` | the cell's `new_source` against the cell it replaces (`insert` counts the new lines, `delete` the removed cell's) |
 | anything else | `Infinity` — always gated |
 
-So creating a 50-line file needs a plan, and reformatting 200 lines into the same line count doesn't. That's a deliberate trade for a check that has to be instant and can't read intent.
+So creating a 50-line file needs a plan, and so does rewriting 50 lines of an existing one. That's a deliberate trade for a check that has to be instant and can't read intent.
 
 The guard **fails closed**: an unparsable hook payload prints a diagnostic and exits 2. A bare parse error would exit 1, which Claude Code treats as non-blocking — the gate would silently stop gating.
 
-And you can't route around it: `bash-guard.mjs` blocks `--no-verify`, `git commit -n`, and both force-push spellings (`--force` and `-f`) on any branch — `--force-with-lease` is the sanctioned way through.
+And you can't route around it: `bash-guard.mjs` blocks `--no-verify`, `git commit -n`, hook-disabling config and every force-push spelling on any branch ([GATES.md §2](GATES.md#2-bash-guard--you-cant-disable-your-own-gates)) — `--force-with-lease` is the sanctioned way through.
 
 ---
 
@@ -194,6 +196,8 @@ Two messages, two different causes — plus one case where the block is delibera
 
 **Blocked while `Status: amending`** — not a failure, the freeze working. The requirement moved mid-task, so `task-workflow`'s course-correction path parked the plan until the amended spec is re-approved. Read the amended sections and the row changes, approve them, and the `Status:` line goes back to `approved`. Don't flip it back yourself to keep working — that's approving your own amendment, which is the one thing the gate is there to prevent.
 
-Neither of the first two is an invitation to bypass. If the gate blocks something it shouldn't, the fix is the path allowlist or the threshold in `.claude/rules/`, changed deliberately — not `--no-verify`, which is blocked anyway.
+Neither of the first two is an invitation to bypass. If the gate blocks something it shouldn't, the fix is the path allowlist (`TRIVIAL_PATTERNS`) or the threshold (`LINE_THRESHOLD`) in `.claude/guards/spec-gate-guard.mjs`, changed deliberately — not `--no-verify`, which is blocked anyway.
+
+**An approval prompt on a gate's own file** — also deliberate. Since v1.104.0 the guard asks before any agent edit to `.claude/guards/**`, `.claude/settings*.json`, `.cursor/hooks.json`, `.cursor/hooks/**`, `.husky/**`, `.git/hooks/**`, `.git/config`, `scripts/git-hooks/**` or the commit-hook scripts (`scripts/pre-commit*.sh`, `scripts/commit-msg.sh`), at any size and whatever the plan says, so an agent can't loosen the gate that binds it. Approve it in Claude Code when you expected the change (a `patch` run applying a guard fix asks once per block). Cursor's editor hook can't ask, so it denies; make the edit yourself.
 
 > One workflow note: running several tasks at once needs a worktree per instance, because `PLAN.md` and the gate are per-directory. See [`references/parallelization.md`](../skills/task-workflow/references/parallelization.md).

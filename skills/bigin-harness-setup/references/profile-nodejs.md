@@ -254,7 +254,7 @@ Prepend `paths: ["src/**"]` as YAML frontmatter when writing `architecture.md` (
         ]
       },
       {
-        "matcher": "Edit|Write|MultiEdit",
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
         "hooks": [
           {
             "type": "command",
@@ -263,7 +263,7 @@ Prepend `paths: ["src/**"]` as YAML frontmatter when writing `architecture.md` (
         ]
       },
       {
-        "matcher": "Bash|Write|Edit|WebFetch|mcp__.*",
+        "matcher": "Bash|Write|Edit|MultiEdit|WebFetch|mcp__.*",
         "hooks": [
           {
             "type": "command",

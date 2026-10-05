@@ -1,6 +1,6 @@
 ---
 name: next-scaffold
-description: "Scaffolds a new Next.js App Router BFF app from scratch — empty repo or no next.config.ts. BFF preset (Zustand, TanStack Query, shadcn/ui, Zod, Vitest), plus dashboard and saas variants. Triggers: 'scaffold next', 'create next app', 'next saas template'."
+description: "Scaffolds a new Next.js App Router BFF app from scratch (no next.config.ts yet) — Zustand, TanStack Query, shadcn/ui, Zod; dashboard and saas variants. Triggers: 'scaffold next', 'create next app', 'next saas template'."
 argument-hint: [variant]
 effort: low
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/scaffold.mjs *)
@@ -81,12 +81,12 @@ Write the answers to a JSON file **outside the target repo** (temp/scratchpad di
 }
 ```
 
-`skipInstall` (default `false`, not part of Step 2's questions) writes every file and merges every `package.json` entry but never runs `create-next-app`'s install, `pnpm add`, `pnpm simple-git-hooks`, `shadcn init`/`add`, or the verify stage — the preset packages land in `package.json` pinned to the `latest` dist-tag, unresolved, and shadcn/ui is not initialized at all. Use it only for fast maintainer iteration on `scaffold.mjs`/templates (see "Manual validation" below); the result is not a runnable app until `pnpm install` + `npx shadcn@latest init` are run manually. Never set this from the normal user-facing flow.
+`skipInstall` (default `false`, not part of Step 2's questions) writes every file and merges every `package.json` entry but never runs `create-next-app`'s install, `pnpm add`, `pnpm simple-git-hooks`, `shadcn init`/`add`, or the verify stage — the preset packages land in `package.json` pinned to the `latest` dist-tag, unresolved, and shadcn/ui is not initialized at all. Use it only for fast maintainer iteration on `scaffold.mjs`/templates (see `references/MAINTAINING.md`); the result is not a runnable app until `pnpm install` + `npx shadcn@latest init` are run manually. Never set this from the normal user-facing flow.
 
 Then run it from the target directory, streaming output (it can take several minutes — installs + lint + type-check + tests):
 
 ```sh
-node <this-skill-dir>/scripts/scaffold.mjs --config <path-to-config.json>
+node ${CLAUDE_SKILL_DIR}/scripts/scaffold.mjs --config <path-to-config.json>
 ```
 
 Zero prompts occur once the script starts. Every step it performs (init, version refresh, BFF preset, shadcn/ui, artifacts, hooks, verify, commit) is internal — do not duplicate any of it.
@@ -97,25 +97,7 @@ Zero prompts occur once the script starts. Every step it performs (init, version
 - **Exit 2** → config problem; fix the JSON per the error message and re-run.
 - **Exit 1** → runtime failure; the last `[scaffold] ERROR:` line names the failing stage/command. Common causes: Node < 20, pnpm missing, network failure during `create-next-app`, or a `create-next-app@latest`/`shadcn@latest` behavior change (the error will say to re-verify `references/bootstrap.md`). A failed run partway through leaves a partial scaffold — after fixing the cause, re-run with `"resume": true`.
 
----
-
-## Manual validation (maintainers)
-
-After changing `scaffold.mjs` or templates, verify in an empty temp dir on **both macOS and Windows**:
-
-```sh
-mkdir scaffold-test && cd scaffold-test
-echo '{"projectName":"scaffold-test","packageManager":"pnpm"}' > ../cfg.json
-node <skill-dir>/scripts/scaffold.mjs --config ../cfg.json
-```
-
-Expect: exit 0, all three verify gates green, initial commit created. Then re-run the same command → must fail fast with "scaffold looks complete", exit 1, no files touched.
-
-For a fast file-tree-only pass while iterating on templates (add `"skipInstall": true` to the config), expect exit 0 in a few seconds — no install, no shadcn init, no verify, no hooks activated — then inspect the written files directly; don't treat that run as a stand-in for the full validation above.
-
-At minimum also re-verify `template: "saas"` and `template: "dashboard"` the same way whenever `templates/saas/` or the `TEMPLATE_BLOCKS` map changes — `saas` is the one template with bespoke files, `dashboard` is the one that depends on the shadcn block registry still shipping `dashboard-01`.
-
-Platform-risky code paths (all flagged in the header comment of `scaffold.mjs`): Windows `.cmd` shim resolution + the `shell: true`-on-win32 EINVAL workaround (`resolveBin`/`run`/`winQuote`), CRLF checkouts vs ESLint's stylistic rules, and utf8 decoding of subprocess output.
+Maintainer notes (design rationale, manual validation after changing the script or templates) live in `references/MAINTAINING.md`. A scaffold run never needs them, so it never reads them.
 
 ## References
 

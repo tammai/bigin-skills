@@ -6,7 +6,15 @@ Templates for the optional Graphify structural-graph convention. Scaffolded by `
 
 ## .claude/rules/graph.md
 
+Written verbatim, frontmatter included. The `paths:` load it when the graph, its usage doc or source code is in play, which is when a session would query the graph. The source-extension set is the one `comments.md` uses (`files-shared.md`).
+
 ```markdown
+---
+paths:
+  - "graphify-out/**"
+  - "docs/graph-usage.md"
+  - "**/*.{ts,tsx,js,jsx,mjs,cjs,vue,svelte,go,py,rb,rs,java,kt,cs,php,swift,scala,ex,exs,dart}"
+---
 # Graph Rules
 
 Structural facts — call flow, dependency, schema shape — live only in `graphify-out/graph.json`, never in `knowledge/` or another rule file; that's what stops the two from drifting apart.

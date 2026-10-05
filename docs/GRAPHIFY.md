@@ -43,7 +43,7 @@ It's opt-in, decided as `GRAPH` in **Phase 1.5** of `bigin-harness-setup`. Say n
 
 Say yes and **Phase 5.7** does four things:
 
-1. Writes **`.claude/rules/graph.md`** — path-scoped, short. The load-bearing line: structural facts live only in the graph, never restated in `knowledge/` or a rule file.
+1. Writes **`.claude/rules/graph.md`** — short, and path-scoped to `graphify-out/**`, `docs/graph-usage.md` and source files, so it loads when a session would query the graph. The load-bearing line: structural facts live only in the graph, never restated in `knowledge/` or a rule file.
 2. Writes **`docs/graph-usage.md`** — your repo's operational reference, with the graphify version pinned at setup time.
 3. **Prompts you to install.** This is the only place in the harness that does. The package is **`graphifyy`** — double `y`, and the typo is a typosquat lookalike, so don't guess it. Setup reads the tool's current README rather than hardcoding a command, because it releases often.
 4. **Proposes** (never runs) the initial index: `graphify update .`.
@@ -162,7 +162,7 @@ A stale graph lies about location, so freshness matters — but the harness deli
 2. **Proposed rebuilds at completion points**: `task-workflow` Cleanup, `epic-workflow` Cleanup, `debug-workflow` Prevention, `sprint-distill` start.
 3. **Manual**: `graphify update .` any time. Incremental after the first run; a no-op takes well under a second.
 
-**Don't run `graphify hook install`.** It writes post-commit *and* post-checkout hooks into `core.hooksPath` — which in a harness repo is the tracked `scripts/git-hooks/`, so they'd get committed and shipped to teammates who may not have the tool. The three mechanisms above already cover freshness at the moments it matters.
+**Don't run `graphify hook install`.** It writes post-commit *and* post-checkout hooks into `.git/hooks`, which is untracked and per clone, and where `simple-git-hooks` or `husky` owns the hooks it competes with them. Graph freshness would then depend on who ran it in which clone, and a hook manager's next install can drop the hooks without a word. The three mechanisms above already cover freshness at the moments it matters.
 
 If the graph is missing entirely, every adopting skill falls back to grep and read **silently** — no error, no nagging. Deleting `graphify-out/` is a safe way to opt out mid-project.
 

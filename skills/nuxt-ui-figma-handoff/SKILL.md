@@ -1,6 +1,6 @@
 ---
 name: nuxt-ui-figma-handoff
-description: "Turns a Nuxt UI Figma handoff into code — theme tokens into main.css, component overrides into app.config.ts. Requires a Figma file/frame URL. Triggers: 'implement this Figma design in our Nuxt UI app', 'sync our theme with the Figma handoff'."
+description: "Turns a Nuxt UI Figma handoff (file/frame URL) into code — theme tokens into main.css, component overrides into app.config.ts. Triggers: 'implement this Figma design in our Nuxt UI app', 'sync our theme with the Figma handoff'."
 argument-hint: [figma file or frame url]
 effort: medium
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/generate_color_scale.mjs *)
@@ -84,7 +84,7 @@ If the designer only gave one swatch for a new brand color (not a full 50–950 
 the most common gap in a handoff), don't invent numbers by eye. Run:
 
 ```sh
-node <this-skill-dir>/scripts/generate_color_scale.mjs <hex> --name <color-name> [--anchor 500]
+node ${CLAUDE_SKILL_DIR}/scripts/generate_color_scale.mjs <hex> --name <color-name> [--anchor 500]
 ```
 
 and say clearly in the summary that the ramp is algorithmically generated and worth a

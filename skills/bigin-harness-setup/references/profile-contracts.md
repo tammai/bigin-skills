@@ -109,7 +109,7 @@ Git plus the spec linter. Eight gates — everything except `bugfix-test-guard`.
         ]
       },
       {
-        "matcher": "Edit|Write|MultiEdit",
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
         "hooks": [
           {
             "type": "command",
@@ -118,7 +118,7 @@ Git plus the spec linter. Eight gates — everything except `bugfix-test-guard`.
         ]
       },
       {
-        "matcher": "Bash|Write|Edit|WebFetch|mcp__.*",
+        "matcher": "Bash|Write|Edit|MultiEdit|WebFetch|mcp__.*",
         "hooks": [
           {
             "type": "command",

@@ -2,7 +2,7 @@
 
 `.claude/memory/EPIC.md` — written by step 5 once the decomposition is approved, updated one row at a time, archived out of `.claude/memory/` at step 10.
 
-Why there and not the repo root: units land on different branches, and a root-level file rides along on every one of them and conflicts on every merge. `.claude/memory/` is already the cross-session state directory (`session-handoff` writes `SESSION.md` there, `precompact-snapshot.mjs` writes into it before a compaction), it's committed like the rest of `.claude/`, and it survives `/clear`. It carries **no `Branch:` line** — unlike `PLAN.md`, an epic legitimately spans branches, and `spec-gate-guard.mjs` never reads this file.
+Why there and not the repo root: `.claude/memory/` is the orchestrator's state, not a unit's work product. Only the checkout running `epic-workflow` edits the queue, and those edits never go into a unit's commit: commit them on their own from that checkout, and never stage `EPIC.md` from a unit's branch or worktree. Then two unit branches can't both flip rows and conflict on merge. `.claude/memory/` is already the cross-session state directory (`session-handoff` writes `SESSION.md` there, `precompact-snapshot.mjs` writes into it before a compaction), it's committed like the rest of `.claude/`, and it survives `/clear`. It carries **no `Branch:` line** — unlike `PLAN.md`, an epic legitimately spans branches, and `spec-gate-guard.mjs` never reads this file.
 
 ## Format
 

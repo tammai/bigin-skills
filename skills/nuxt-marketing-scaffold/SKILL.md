@@ -1,6 +1,9 @@
 ---
 name: nuxt-marketing-scaffold
-description: Scaffolds a new multi-locale Nuxt 4 marketing site from scratch — empty repo or no nuxt.config.ts. @nuxt/content collections, @nuxtjs/i18n, Tailwind, prerendered to Cloudflare Workers; no auth and no BFF. Triggers: 'scaffold a marketing site', 'new multi-locale nuxt site', 'create a content site'.
+description: "Scaffolds a new multi-locale Nuxt 4 marketing site from scratch (no nuxt.config.ts yet) — @nuxt/content, @nuxtjs/i18n, Cloudflare Workers; no auth, no BFF. Triggers: 'scaffold a marketing site', 'new multi-locale nuxt site'."
+argument-hint: [project name]
+effort: low
+allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/scaffold.mjs *)
 ---
 
 # nuxt-marketing-scaffold
@@ -15,16 +18,8 @@ and the repo has no `nuxt.config.ts` — the same shape as `nuxt` → `nuxt-scaf
 A marketing site that already exists skips this entirely and is onboarded by its
 markers.
 
-## Why this is not a `nuxt-scaffold` template
-
-`nuxt-scaffold` installs `nuxt-auth-utils` into every project it creates. That is
-exactly the auth marker condition 4 of the `nuxt-marketing` detection rung tests
-for, so a marketing site scaffolded through it resolves to `nuxt` on the next run
-and gets BFF-proxy and Pinia-Colada conventions written into a site that has
-neither — the failure the profile exists to prevent, and one that looks like
-success at install time.
-
-**Do not merge the two scaffolders.** The separation is the safeguard.
+Never substitute `nuxt-scaffold`: it installs an auth dependency, so the site would
+detect as `nuxt` on the next harness run and get BFF conventions it does not have.
 
 ## Step 1 — gather
 
@@ -103,31 +98,4 @@ plainly broken: nobody finds out until a client asks why nobody replied. No
 secret value is ever written into a template — `nuxt.config.ts` declares the
 keys empty and the environment supplies them.
 
-## The four things the layout guarantees
-
-1. `@nuxt/content` **and** `@nuxtjs/i18n` land in `dependencies`, never
-   `devDependencies` — conditions 2 and 3 of the detection rung.
-2. No auth dependency of any kind — condition 4.
-3. `server/api/` holds the two form routes and nothing else. The rung
-   deliberately does not test for that directory, precisely so a site keeps
-   detecting once it grows a contact form.
-4. No `fallbackLocale` anywhere: a missing locale renders nothing rather than
-   shipping untranslated copy. The profile's pre-commit gate greps for it.
-
-## Verifying a change to this skill
-
-Detection alone is not enough, and assuming it was is how four build-breaking
-defects shipped green in v1.88.0: the suite scaffolded a site, checked that it
-*detected* as `nuxt-marketing`, and never checked that it compiled.
-
-- `node tools/regress.mjs` — the structural cases. Fast, always on, run by the
-  commit hook. They catch an unsubstituted token, a flag that never reaches the
-  generated file, an import of a package no manifest declares, a helper nothing
-  defines, and a command the profile's CI templates invoke that this manifest
-  declares no script for.
-- `node tools/regress.mjs --build` — really installs a three-locale scaffold,
-  runs every `pnpm` step the generated GitHub workflow runs, and asserts one
-  prerendered entry point per locale. Slow and network-bound, so it is opt-in;
-  run it for any change to a template, the manifest or the substitution map.
-- `bigin-harness-setup`'s Phase 0 against the result must still print
-  `PROFILE = nuxt-marketing`.
+Maintainer notes (design rationale, manual validation after changing the script or templates) live in `references/MAINTAINING.md`. A scaffold run never needs them, so it never reads them.

@@ -115,14 +115,14 @@ Set from the mechanical signals, independent of tier. **Triggers stack.**
 |---|---|
 | high-risk path matched | verifier round **mandatory** even where `task-workflow` would skip it; full gate output; revert path in `PLAN.md` |
 | coverage < 0.3, or null with code changes | tests first, TDD ordering |
-| planned new files | tests first — a new module has no coverage by construction, not neglect |
+| planned new code files | tests first — a new module has no coverage by construction, not neglect. New docs and config files never count |
 | 5+ files | gates across the whole tree, not just touched files |
 | flaky/timing symptom | ≥5 consecutive passes |
-| none of the above | normal gates: lint + typecheck + tests, output shown |
+| none of the above | normal gates: lint + typecheck + tests on the touched scope, each run's pass/fail summary line shown (never whole logs) |
 
 The bar travels in the spawn payload's **`definition-of-done`**, so an unmet bar is a concrete gap at return-evaluation rather than a footnote someone can wave through.
 
-One interaction worth knowing: `task-workflow` will spawn `standard` instead of `quick` whenever *any* bar trigger fired, even on a capability score of 0–1. A task adding a new file therefore rarely runs at the quick tier — writing a fresh test suite is the part that doesn't belong at `low` effort.
+One interaction worth knowing: `task-workflow` will spawn `standard` instead of `quick` whenever *any* bar trigger fired, even on a capability score of 0–1. A task adding a new code file therefore rarely runs at the quick tier — writing a fresh test suite is the part that doesn't belong at `low` effort.
 
 ---
 
@@ -181,6 +181,8 @@ An on-demand instruction names a **model**, not an effort: *"run this on fable a
 **`scope: none` means unknown, not zero.** On a clean tree with no `--paths`, the mechanical signals come back `null`. Scoring a `null` as 0 points is what once made every fresh task look trivial. The fix is re-running with `--paths` or estimating from the stated scope — never treating absence as a low score.
 
 **A scope that's entirely new files reports `testCoverageRatio: null`, not `0`.** Files that don't exist yet are excluded from the ratio and reported separately as `plannedNewFiles`. A file with no code in it can't be "untested," and folding it in produced a 0 that read as risk when it only meant "new." The new-file case still raises the bar — via its own trigger, not a fake coverage number.
+
+**Both numbers only see code the script can find a test for.** The ratio and `plannedNewFiles` use one allowlist: `.js .jsx .ts .tsx .mjs .cjs .vue .go .py .dart .rs`. Docs, config, `.env*`, `.sql`, `.html`, YAML, styles and assets are in neither, so a plan that adds `docs/new.md` or `config/new.json` reports no planned new files and stays eligible for the quick tier. A scope touching none of those code types reports `null` ("no code touched"); logic hiding in a `.sql` file is yours to flag.
 
 **Exhaustion never escalates to Deep.** If the return-evaluation loop hits its cap (2 follow-up cycles, 3 dispatches total), quick-tier exhaustion buys exactly one `standard-worker` attempt with the full loop history folded in. Standard and deep exhaustion surface to you. Deep is reachable through the capability score or its auto-overrides — never by failing your way up.
 

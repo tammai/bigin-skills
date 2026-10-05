@@ -49,7 +49,7 @@ Constraints: no new dependencies; must not change existing endpoint signatures.
 Definition of done:
 - DELETE /api/contacts/:id returns 204 on success, 404 for an unknown id
 - handlers/contacts_test.go covers both cases
-- go test ./... output shown, not just claimed passing
+- `go test ./handlers/...` (the touched package) passes, with its summary line shown, not just claimed
 ```
 
 ## Return evaluation contract
@@ -64,4 +64,4 @@ If a spawned agent determines mid-task that its tier is wrong — the task needs
 ROUTING_MISMATCH: <one-sentence reason>; suggested tier: <quick|standard|deep>
 ```
 
-On receiving this, re-run Step 2/Step 3 of `SKILL.md` with the new information, re-resolve the model for the new tier (Step 3b), and respawn. Don't attempt to change the model or effort of the already-running subagent — both are fixed once it's spawned (model via the call-site override, effort via frontmatter), not mutable in place.
+On receiving this, re-run Step 2/Step 3 of `SKILL.md` with the new information, re-resolve the model for the new tier (Step 3c), and respawn. Don't attempt to change the model or effort of the already-running subagent — both are fixed once it's spawned (model via the call-site override, effort via frontmatter), not mutable in place.

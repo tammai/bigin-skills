@@ -51,6 +51,8 @@ Everything else in the plugin (scaffolders, distillers, routers) exists to suppo
 npx skills add tammai/bigin-skills
 ```
 
+Skills only. It brings no `agents/` (so no verifier and no routing tiers for `task-workflow` and `model-router` to spawn), no plugin hooks (so no drift notice), and the `${CLAUDE_PLUGIN_ROOT}/skills/...` paths that skills use to reach each other don't resolve. Use the marketplace install for real work.
+
 ### Cursor
 
 ```
@@ -65,13 +67,13 @@ ln -s "$(pwd)" ~/.cursor/plugins/local/bigin-skills
 
 Both hosts load the same directories — the repo carries a manifest for each (`.claude-plugin/plugin.json`, `.cursor-plugin/plugin.json`) and the Cursor one points at the existing `skills/` and `agents/`, so there's a single copy of every skill.
 
-One capability doesn't transfer: Cursor's agents don't accept the per-tier `model`/`effort` pins that `model-router` spawns with, so the subagent ladder ([§7](#7-tuning-cost-and-depth)) is Claude-Code-only. The skills, the workflow, and every gate work on both.
+One capability doesn't transfer: Cursor's agents don't accept the per-tier `model`/`effort` pins that `model-router` spawns with, so the subagent ladder ([§7](#7-tuning-cost-and-depth)) is Claude-Code-only. So are the plugin's drift notice and the harness's hook auto-install, because a Cursor plugin carries no hooks and Cursor has no `Setup` event ([§3 → After setup](#after-setup)). The skills, the workflow, and every gate work on both. One gate behaves differently: when the agent edits a gate's own files (`.claude/guards/`, `.claude/settings*.json`, `.cursor/hooks.json`, `.git/hooks/`, the commit-hook scripts), Claude Code asks you first, while Cursor's editor hook denies the edit because it has no way to ask. A shell command touching those files gets a real ask in Cursor too.
 
 ### Verify it's live
 
 Start a session and type `/` — you should see `bigin-skills:task-workflow`, `bigin-skills:bigin-harness-setup`, and the rest in the skill list. (Cursor lists them without the `bigin-skills:` prefix.)
 
-> **Don't install `bigin-harness-setup` standalone.** It calls sibling skills by repo-relative path (`node skills/nuxt-scaffold/scripts/scaffold.mjs`), so copying just that one directory breaks its empty-repo scaffold branches. The other skills copy cleanly on their own.
+> **Install the whole plugin.** `bigin-harness-setup` runs its sibling scaffolders through the plugin's install directory (`node "${CLAUDE_PLUGIN_ROOT}/skills/nuxt-scaffold/scripts/scaffold.mjs"`), not your repo, so copying one skill directory breaks its empty-repo branches. Other skills depend on the plugin too: `task-workflow` and `model-router` spawn the plugin's agents, and several skills read each other's references through `${CLAUDE_PLUGIN_ROOT}`.
 
 ---
 
@@ -101,7 +103,7 @@ The skill detects your stack, asks a small batch of questions **before writing a
 | `next.config.*` | `next` |
 | `pubspec.yaml` with a `flutter:` key or SDK dependency **and** app evidence (`lib/main*.dart` plus `android/app/` or `ios/Runner/`) | `flutter` |
 | none of the above, but the repo has code | `generic` — no question asked, setup keeps going. A plain Dart package lands here, and so do a Flutter **package** and a Flutter **plugin** (`plugin:` under `flutter:`): flavors, a dio client and a local database are app concerns, and a widget library should not inherit rules for code it will never contain. The run says which one it detected. |
-| empty repo | asks which stack, then scaffolds the app first — `nuxt-marketing` is option 7, and Phase 0.5 delegates it to `nuxt-marketing-scaffold` |
+| empty repo | asks which stack, then scaffolds the app first. The question has four options; `nuxt-marketing` is reached through option 4 (Another stack), then picked in the follow-up question, and Phase 0.5 delegates it to `nuxt-marketing-scaffold` |
 
 **The questions you'll be asked** (bundled, all optional to change — `AskUserQuestion` takes at most four questions at a time and four options each, so a run with Spec Kit in it arrives as two back-to-back prompts). **On a repo that already has a harness, one question comes first and alone:** overwrite / create-missing / patch / re-verify. `patch` and `verify` finish the run on their own, so nothing below is asked in either case.
 
@@ -140,8 +142,9 @@ off you also get:
 ```
 ├── knowledge/                  ← index.md, the bundle spec, starter concepts, implementation/
 ├── tools/knowledge_validate.mjs ← structure gate, wired into pre-commit and CI
-├── .claude/rules/knowledge.md  ← always loaded: the index-first read protocol
-├── .claude/rules/graph.md      ← how to query the graph, when one exists
+├── .ignore                     ← keeps knowledge/implementation/ records out of searches
+├── .claude/rules/knowledge.md  ← the index-first read protocol; path-scoped to knowledge/, PLAN.md, contracts and source files
+├── .claude/rules/graph.md      ← how to query the graph; path-scoped to graphify-out/ and source files
 └── docs/graph-usage.md         ← query recipes for this repo
 ```
 
@@ -152,7 +155,7 @@ opted into Cursor:
 ├── AGENTS.md                   ← generated from CLAUDE.md; what Cursor loads
 ├── .cursor/
 │   ├── rules/*.mdc             ← generated from .claude/rules/; paths: → globs:
-│   └── hooks.json              ← registers the same guards (nine, or ten on a polyrepo consumer repo)
+│   └── hooks.json              ← registers the same guards (nine; fewer on specs/contracts/qa, ten on api/web/mobile)
 └── tools/cursor_mirror.mjs     ← regenerates the mirror; --check gates the commit
 ```
 
@@ -187,7 +190,7 @@ teammate.
 
 Re-running setup later is safe. It's idempotent: `settings.json` is merged, `README.md` is append-only, and nothing is clobbered without asking you first.
 
-**You'll be told when a re-run is worth it.** The plugin ships its own `SessionStart` hook — not part of the harness, so it works in repos set up long before it existed — which compares `.claude/harness-version` against the installed plugin and prints one line when there are patch blocks you haven't applied. It counts *blocks*, not versions: roughly three releases in four change only plugin-side content (skills, references, agents), which your repo already has the moment you update the plugin, so those stay quiet. It never asks and never applies anything.
+**You'll be told when a re-run is worth it (Claude Code only).** The plugin ships its own `SessionStart` hook — not part of the harness, so it works in repos set up long before it existed — which compares `.claude/harness-version` against the installed plugin and prints one line when there are patch blocks you haven't applied. It counts *blocks*, not versions: roughly three releases in four change only plugin-side content (skills, references, agents), which your repo already has the moment you update the plugin, so those stay quiet. It never asks and never applies anything. A Cursor plugin can't carry hooks, so a Cursor-only team learns about a release from the changelog, or the next time it runs `patch`.
 
 **Two re-run modes worth knowing.** `patch` reads this plugin's `CHANGELOG.md` and applies only the changes between the version your repo was scaffolded with (`.claude/harness-version`) and the current one — that's how an already-set-up repo receives a fixed guard or a tightened permission without a full overwrite. `verify` re-checks an existing `CLAUDE.md` against the repo and **corrects or removes claims that no longer hold**: it runs each lint/typecheck/test command before trusting the row that names it, so a command that stopped existing is rewritten rather than left as a confident lie. A verify pass may shrink `CLAUDE.md` or leave it the same size — one that grows it is a bug. `patch` is the opposite by design: it applies deltas, so it can add a file or a line, and it never touches a target it can't match exactly, reporting those for you to apply by hand instead.
 
@@ -292,7 +295,7 @@ model-router scores the task
 
 Three properties worth knowing:
 
-- **The verifier reads the diff, not the report.** An implementer that says "done, all tests pass" gets audited on the actual code either way.
+- **The verifier reads the diff, not the report.** An implementer that says "done, all tests pass" gets audited on the actual code either way. That is also why the reports are short: an implementer ends with at most ~1,500 characters (status, files, finished `PLAN.md` rows, each test command with its pass/fail line), never the diff or whole logs, and the verifier returns only a JSON verdict. Only the orchestrator writes `PLAN.md`; workers report which rows they finished.
 - **The cap is real.** At 3 failed rounds it stops and asks you whether to adjust the plan, raise the cap, or take over. It does not loop forever.
 - **Who types the fix is not the independence.** For a genuinely trivial issue — one the verifier already names the correct value for, text rather than behaviour, a couple of lines in a file the diff already touches — the orchestrator applies it directly instead of paying a full implementer resume to change two words. Every issue on the list has to clear that bar or the whole list goes back to the implementer, and a fresh verifier still re-checks the result either way. The audit is where independence lives.
 
@@ -339,7 +342,7 @@ flowchart TD
     F --> G(["YOU APPROVE<br/>decomposition + design doc"])
     G --> H[".claude/memory/EPIC.md<br/>docs/design/slug.md"]
     H --> I["Unit 1 → task-workflow<br/><i>its own spec gate, its own PLAN.md</i>"]
-    I --> J{"Row flipped to Done —<br/>did it change what<br/>the next unit inherits?"}
+    I --> J{"Row flipped to Done —<br/>2 units closed this session,<br/>context already heavy, or<br/>a change the next unit inherits?"}
     J -->|no| I
     J -->|yes| K["Stops: /clear and re-invoke"]
 
@@ -350,7 +353,7 @@ flowchart TD
 Four things to hold onto:
 
 - **Approving an epic approves the decomposition and its design doc, nothing else.** Every unit still faces the spec gate on its own merits. `EPIC.md` deliberately doesn't satisfy the guard — one epic-level approval standing in for five unwritten specs is exactly the drift the gate exists to stop.
-- **One unit at a time, and it usually keeps going.** Most of a unit's weight never reaches your session — the implementer and the verifier are subagents — so it continues to the next unit rather than stopping by default. It stops and asks you to `/clear` when context is genuinely tight, or when the finished unit changed something the next one inherits and you should see that before its spec is drafted. The queue file is the complete handoff package either way, so a `/clear` at any point costs nothing.
+- **One unit at a time, and it usually keeps going.** Most of a unit's weight never reaches your session — the implementer and the verifier are subagents — so it continues to the next unit rather than stopping after each one. It stops and asks you to `/clear` after **2 units in one session**. That is a count, not a judgment call: a model judging "tight" for itself let sessions run far past the point where a fresh start was cheaper. It stops sooner when one unit already made the context heavy, or when the finished unit changed something the next one inherits and you should see that before its spec is drafted. The queue file is the complete handoff package either way, so a `/clear` at any point costs nothing.
 - **It writes a design doc, when the epic earns one.** The decomposition says what the units are; the design doc says how the initiative is built and what was rejected — context, goals and non-goals, the design opening with a `mermaid` diagram, alternatives considered, cross-cutting concerns, risks. One to three pages at `docs/design/{slug}.md`, approved at that same single gate. It is skipped when the shape is obvious or every unit follows a pattern the repo already has — but the skip is said out loud, in one sentence, because a silent one is indistinguishable from forgetting. Template and the bar for writing one: [`skills/epic-workflow/references/design-doc.md`](../skills/epic-workflow/references/design-doc.md).
 - **It refuses in both directions.** Below the bar it hands straight back to `task-workflow`; above ~8 units it says the scope is a roadmap, proposes the first epic-sized slice, and names what it deferred.
 
@@ -450,9 +453,11 @@ Full guide — every guard, the three-stage injection gate, fail-closed behavior
 
 ### `spec-gate-guard.mjs` — "no approved PLAN.md"
 
-**Blocks:** non-trivial `Edit`/`Write`/`MultiEdit` when `PLAN.md` is missing, not `Status: approved`, or its `Branch:` line disagrees with the branch you're on.
+**Blocks:** non-trivial `Edit`/`Write`/`MultiEdit`/`NotebookEdit` when `PLAN.md` is missing, not `Status: approved`, or its `Branch:` line disagrees with the branch you're on.
 
 **Exempt:** `tests/**`, `*.md`, `.env.example`, common config files, `graphify-out/**`, anything **git-ignored** (build output, caches — a path that never reaches the diff has nothing to spec), and any edit ≤20 lines. Note that "git-ignored" is index-aware: a *tracked* file that merely matches a `.gitignore` pattern is still gated.
+
+**Asks, whatever the size or plan:** an edit to one of the gates' own files (`.claude/guards/**`, `.claude/settings*.json`, `.cursor/hooks*`, `.husky/**`, `.git/hooks/**`, `.git/config`, the commit-hook scripts). Approve it if you asked for the change. Cursor's editor hook can't ask, so there it denies and you make the edit yourself.
 
 **Fix:** run `/task-workflow` and approve the spec. If it's a leftover plan from a finished task, delete `PLAN.md` — that's exactly what the `Branch:` check exists to catch.
 
@@ -478,9 +483,9 @@ Unlike `bash-guard.mjs`, this one binds you too: the same script is installed as
 
 ### `bash-guard.mjs` — "you can't disable your own gates"
 
-**Blocks:** `--no-verify`, `git commit -n`, and `git push --force` / `-f` **on any branch** — the guard has no branch check, so a force-push to your own feature branch is blocked too. **Allows:** `--force-with-lease` anywhere, normal commits, and messages that merely contain `-n`. (The block message says "use `--force-with-lease` on a feature branch", which is advice about where force-pushing is reasonable, not a description of what the guard inspects.)
+**Blocks:** `--no-verify`, `git commit -n`, hook-disabling config and environment (`core.hooksPath`, `include.path`, `HUSKY=0`, `GIT_CONFIG*`), `git commit-tree`, and `git push --force` / `-f` / `--mirror` / `+refspec` **on any branch** — the guard has no branch check, so a force-push to your own feature branch is blocked too. It tokenizes the command, so wrappers (`sh -c`, `eval`, `xargs`, `find -exec`) don't hide a call, and on `commit`/`push` it blocks an argument the shell computes (`$x`, `$(…)`), since it can't know what that becomes. It also **asks** before a command that writes a gate file. The full list is in [`GATES.md` §2](GATES.md#2-bash-guard--you-cant-disable-your-own-gates). **Allows:** `--force-with-lease` anywhere, normal commits, and messages that merely contain `-n`. (The block message says "use `--force-with-lease` on a feature branch", which is advice about where force-pushing is reasonable, not a description of what the guard inspects.)
 
-This one blocks the *agent*, not you. If you need to bypass a hook yourself, do it in your own terminal.
+This one binds the *agent*, not you. But if a gate is wrong for your repo, change it as a reviewed edit rather than bypassing it: there is no bypass by design ([`GATES.md` §8](GATES.md#getting-past-a-block)).
 
 ### The prompt-injection gates
 
@@ -498,7 +503,7 @@ Every blocking gate fails **closed**: if it can't read the payload the host hand
 
 ### `context_budget.mjs` — the always-loaded budget
 
-Caps `CLAUDE.md` at 60 lines and unscoped rule files at 40. Runs in pre-commit. With Cursor parity installed it caps `AGENTS.md` and always-applied `.cursor/rules/*.mdc` the same way, and prints one budget line per host — each capped separately, since only one of them loads in a given session.
+Caps `CLAUDE.md` at 60 lines, unscoped rule files at 40, and each skill and agent `description:` at 350 characters; the always-loaded total (those files plus every repo-local skill and agent description, since each is listed in every session) is capped at 12,000 characters. A skill marked `disable-model-invocation: true` is capped but not counted, because it is never listed. Runs in pre-commit, from the repo root wherever you call it, and fails if `CLAUDE.md` is missing. With Cursor parity installed it caps `AGENTS.md` and always-applied `.cursor/rules/*.mdc` the same way, and prints one budget line per host — each capped separately, since only one of them loads in a given session.
 
 **Fix:** don't grow `CLAUDE.md`. Move the content into a path-scoped rule file under `.claude/rules/` with `paths:` frontmatter, so it loads only when matching files are in context. That's the three-tier loading model working as designed:
 
@@ -555,7 +560,7 @@ You'll only notice this in the routing line ("Routed to standard-worker-high on 
 
 `model-router` scores **capability** (can the model do this at all → picks the tier) and **verification** (how carefully must this be checked → sets the gate discipline) *separately*. A change can be mechanically simple and still need heavy verification — touching a contract, a migration, or CI. In that case the quick tier gets skipped in favor of `standard-worker`, even though the capability score was low.
 
-Verification bar triggers: high-risk path, test coverage under 0.3, a planned new file, 5+ files, flaky symptoms.
+Verification bar triggers: high-risk path, test coverage under 0.3, a planned new code file, 5+ files, flaky symptoms. Coverage and "new file" only look at code types the script can find a test for (`.js .jsx .ts .tsx .mjs .cjs .vue .go .py .dart .rs`). A new doc or config file is not a "new file" for routing, so a plan that adds a new doc page or JSON config no longer gets pushed off the quick tier for it.
 
 ### The one confirmation you'll see
 
@@ -571,7 +576,7 @@ Two skills exist to **distill** into `knowledge/`, and this section covers both.
 
 They aren't the only writers. `discovery-workflow` records the architecture decisions a PRD forces ([§4](#when-nobody-can-say-what-the-thing-is-yet)), and `task-workflow` and `epic-workflow` each propose a concept at cleanup when a task or an epic settled something durable. The difference is what the writing *is*: for those, it's one step inside a larger job; for these two, it's the whole job.
 
-Cleanup also writes a second, different thing. Beside any concept it proposes, `task-workflow` and `epic-workflow` archive the finished `PLAN.md` or `EPIC.md` **verbatim** into `knowledge/implementation/` as a `type: Record` — the plan, its tasks table, its amendments — or to `.claude/memory/PLAN.archive.<ISO>-<slug>.md` in a repo with no bundle. Concepts say what the system is and expire when behavior changes; records say how one piece came to be and never expire. Records sit behind their own nested index, so they never load for routine work — you go looking when you need to know why a past change took the shape it did. The boundary: [`KNOWLEDGE.md` §6](KNOWLEDGE.md#6-where-a-fact-belongs).
+Cleanup also writes a second, different thing. Beside any concept it proposes, `task-workflow` and `epic-workflow` archive the finished `PLAN.md` or `EPIC.md` **verbatim** into `knowledge/implementation/` as a `type: Record` — the plan, its tasks table, its amendments — or to `.claude/memory/PLAN.archive.<ISO>-<slug>.md` in a repo with no bundle. Concepts say what the system is and expire when behavior changes; records say how one piece came to be and never expire. Records sit behind their own nested index and a repo-root `.ignore` that drops them from searches, and no concept may cite one, so they never load for routine work — you go looking when you need to know why a past change took the shape it did. The boundary: [`KNOWLEDGE.md` §6](KNOWLEDGE.md#6-where-a-fact-belongs).
 
 ### `knowledge-distill` — external library APIs
 

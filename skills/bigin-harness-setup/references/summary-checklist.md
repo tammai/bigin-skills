@@ -21,6 +21,7 @@ If not present, append the following block (replace `{LINT}`, `{TYPECHECK}`, `{T
    ln -sf ../../scripts/commit-msg.sh .git/hooks/commit-msg && chmod +x scripts/commit-msg.sh
    ```
    (Skip either line whose script this repo doesn't have — where `simple-git-hooks` or `husky` is in use, run its own install step instead.)
+   On Windows, don't use `ln -sf`: Git Bash makes a copy that goes stale when the script changes, and a real symlink needs Developer Mode. Write a shim instead, and repeat it with `commit-msg` in place of `pre-commit` for the second hook: `printf '#!/bin/sh\n# bigin-harness hook shim: runs the tracked script, so it never goes stale\nexec sh scripts/pre-commit.sh "$@"\n' > .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit`
 4. Verify gates pass: `{LINT} && {TYPECHECK} && {TEST}`
 5. Read `CLAUDE.md`, then `AI_TASK_GUIDE.md` for what `/task-workflow` will ask of you.
 6. Do one scoped task end-to-end through all gates to confirm the setup works.
@@ -83,9 +84,9 @@ Created:
   .claude/rules/product.md        (all profiles; paths: docs/product/**, not profile-substituted)
   .claude/guards/lib/hook-io.mjs  (two-host payload adapter — every guard imports it)
   .claude/guards/bash-guard.mjs
-  .claude/guards/spec-gate-guard.mjs
-  .claude/guards/bugfix-test-guard.mjs
-  .claude/guards/commit-msg-guard.mjs
+  .claude/guards/spec-gate-guard.mjs   [not specs/qa]
+  .claude/guards/bugfix-test-guard.mjs  [not specs/contracts]
+  .claude/guards/commit-msg-guard.mjs   [not specs]
   .claude/guards/injection-scan-guard.mjs
   .claude/guards/injection-gate-guard.mjs
   .claude/guards/session-resume-check.mjs
@@ -100,8 +101,8 @@ Created:
   .claude/model-routing.json [subagent model + effort ladder: {MODEL_ROUTING}]
   CLAUDE.md [created]
   scripts/pre-commit.sh [skipped if a hook manager already exists]
-  scripts/commit-msg.sh [skipped if a hook manager already exists]
-  [Knowledge Bundle: .claude/rules/knowledge.md, knowledge/*, tools/knowledge_validate.mjs] (if opted in)
+  scripts/commit-msg.sh [skipped if a hook manager already exists; never on specs]
+  [Knowledge Bundle: .claude/rules/knowledge.md, knowledge/*, tools/knowledge_validate.mjs, .ignore (searches skip knowledge/implementation/)] (if opted in)
   [Cursor mirror: AGENTS.md, .cursor/rules/*.mdc, .cursor/hooks.json, tools/cursor_mirror.mjs] (if AGENT_HOSTS includes cursor)
   [analysis_options.yaml — analyzer: exclude for generated code merged in / already present] (flutter only)
   [rust-toolchain.toml — written from the local `rustc --version` / not written, Rust not on PATH (the generated CI reads it)] (tauri only)
@@ -116,7 +117,7 @@ Created:
 Enabled:
   git repo [initialized/already present]
   pre-commit gate [scripts/pre-commit.sh hook | existing simple-git-hooks/husky | tauri and nuxt-marketing: scripts/pre-commit.sh chained behind pnpm lint-staged, since the manager runs ESLint and none of that profile's grep gates]
-  commit-msg gate [scripts/commit-msg.sh hook | simple-git-hooks | husky]
+  commit-msg gate [scripts/commit-msg.sh hook | simple-git-hooks | husky | none on specs]
   context budget gate (tools/context_budget.mjs — wired into pre-commit)
   session resume prompt (SessionStart hook — deterministic, replaces CLAUDE.md prose)
   canary exfiltration gate (SessionStart seeds a per-session token; injection-gate-guard.mjs denies any tool call whose input contains it)
@@ -154,7 +155,7 @@ Next steps:
 - [ ] **tauri + empty repo** — `nuxt-scaffold` executed, then `pnpm tauri init --ci` with pinned flags (Phase 0.5); `src-tauri/tauri.conf.json` now present, `identifier` set off `com.tauri.dev`, `ssr: false` merged into `nuxt.config.ts`, the scaffold's `server/` deleted
 - [ ] **if PROFILE=tauri** — `scripts/pre-commit.sh` written **even though `simple-git-hooks` already existed**, and chained behind `pnpm lint-staged` (the manager gates the frontend only); `rust-toolchain.toml` present or its absence reported; `rust-analyzer.linkedProjects` merged into `.vscode/settings.json`; the three `tauri.conf.json` values checked and reported, none rewritten
 - [ ] **tauri only** — the pre-commit gate carries the Rust half **and** the four grep gates (no URL literal in `app/`, no secret in web storage, no `server/` directory, no dangerous capability incl. an unset-or-null `app.security.csp`); every `cargo fmt` in a gate carries `--check`, or it rewrites the tree mid-commit instead of checking it
-- [ ] **if PROFILE=nuxt-marketing** — Phase 0.5 skipped for a repo that already has `nuxt.config.ts`, or delegated to `nuxt-marketing-scaffold` for an empty one (option 7 of the empty-repo question); `scripts/pre-commit.sh` written **even though `simple-git-hooks` already existed**, chained behind `pnpm lint-staged`, and carrying all three greps; `.claude/guards/lint-fix-file.mjs` written (nothing here wrote it first)
+- [ ] **if PROFILE=nuxt-marketing** — Phase 0.5 skipped for a repo that already has `nuxt.config.ts`, or delegated to `nuxt-marketing-scaffold` for an empty one (option 4, then the follow-up question); `scripts/pre-commit.sh` written **even though `simple-git-hooks` already existed**, chained behind `pnpm lint-staged`, and carrying all three greps; `.claude/guards/lint-fix-file.mjs` written (nothing here wrote it first)
 - [ ] **nuxt-marketing only** — the pre-commit gate and generated CI both run the three greps (no hex/`rgb()` under `app/components`, no `fallbackLocale` in the i18n config, no raw `<img` outside `app/components/media/`), and **every grep tests its search root first** — `grep` exits 2 on a missing path even when it matched, and an exit 2 inside `if` is false, so one absent argument turns the step green over a repo full of violations
 - [ ] **nuxt-marketing + CI** — the workflow **builds**, and asserts one prerendered entry point per `i18n/locales/*.json` (at most one locale may resolve at the root); **no deploy step is generated**
 - [ ] **flutter + empty repo** — `flutter create` executed with pinned args (Phase 0.5); `pubspec.yaml` now present, nothing committed, `analysis_options.yaml` left as `flutter create` wrote it
@@ -175,12 +176,12 @@ Next steps:
 - [ ] `AI_TASK_GUIDE.md` — human-facing pointer to /task-workflow (not a second copy of the workflow)
 - [ ] `AI_REVIEW_CHECKLIST.md` — profile commands filled in
 - [ ] `scripts/pre-commit.sh` — lint + typecheck + test + context budget check, executable
-- [ ] `scripts/commit-msg.sh` — Conventional Commits check, executable (or the equivalent entry added to simple-git-hooks/husky)
+- [ ] `scripts/commit-msg.sh` — Conventional Commits check, executable (or the equivalent entry added to simple-git-hooks/husky) — not on specs, which has no commit-msg-guard.mjs
 - [ ] `.claude/guards/lib/hook-io.mjs` — two-host payload adapter, written on **every** install (`AGENT_HOSTS = claude` included); every guard and bootstrap imports it, so a missing copy breaks all of them
 - [ ] `.claude/guards/bash-guard.mjs` — blocks `--no-verify` and force-push to main
-- [ ] `.claude/guards/spec-gate-guard.mjs` — blocks non-trivial edits until `PLAN.md` is approved, and on a `Branch:` mismatch
-- [ ] `.claude/guards/bugfix-test-guard.mjs` — blocks fix-shaped commits with no staged test file
-- [ ] `.claude/guards/commit-msg-guard.mjs` — blocks commits whose subject is not a Conventional Commit
+- [ ] `.claude/guards/spec-gate-guard.mjs` — blocks non-trivial edits until `PLAN.md` is approved, and on a `Branch:` mismatch — not written on specs/qa
+- [ ] `.claude/guards/bugfix-test-guard.mjs` — blocks fix-shaped commits with no staged test file — not written on specs/contracts
+- [ ] `.claude/guards/commit-msg-guard.mjs` — blocks commits whose subject is not a Conventional Commit — not written on specs
 - [ ] `.claude/guards/injection-scan-guard.mjs` — flags likely prompt-injection markers in WebFetch/mcp__/curl-wget Bash output
 - [ ] `.claude/guards/injection-gate-guard.mjs` — asks for confirmation before the next risky tool call after a fresh flag
 - [ ] `.claude/guards/session-resume-check.mjs` — SessionStart hook, injects a resume prompt when SESSION.md has status: in-progress
@@ -201,12 +202,12 @@ Next steps:
 - [ ] **flutter only** — `analysis_options.yaml` has an `analyzer: exclude:` covering `*.g.dart` / `*.freezed.dart` / `api/generated/**`, merged into the existing file rather than overwriting it; `flutter analyze --fatal-infos` fails on generated code without it
 - [ ] **flutter + CI github/both** — `.fvmrc` exists (written from the local Flutter version if it didn't), or the summary says it was skipped because Flutter isn't on PATH
 - [ ] git repo initialized (if it wasn't one) and `.git/hooks/pre-commit` installed (or foreign hook left untouched with confirmation)
-- [ ] `.git/hooks/commit-msg` installed via symlink, simple-git-hooks, or husky — and which one is named in the summary
+- [ ] `.git/hooks/commit-msg` installed via symlink, simple-git-hooks, or husky — and which one is named in the summary (not on specs)
 - [ ] `README.md` — AI Onboarding + runtime hygiene + Context Budget table appended (if README existed)
-- [ ] **if opted in** — Knowledge Bundle: `.claude/rules/knowledge.md`, `knowledge/{meta,contracts,constraints}/*.md`, `knowledge/index.md`, `knowledge/log.md`, `tools/knowledge_validate.mjs`, wired into the pre-commit gate, `AI_REVIEW_CHECKLIST.md` gets one added line
+- [ ] **if opted in** — Knowledge Bundle: `.claude/rules/knowledge.md`, `knowledge/{meta,contracts,constraints}/*.md`, `knowledge/index.md`, `knowledge/implementation/index.md`, `knowledge/log.md`, `tools/knowledge_validate.mjs`, `.ignore` listing `/knowledge/implementation/`, wired into the pre-commit gate, `AI_REVIEW_CHECKLIST.md` gets one added line
 - [ ] **if CI_PROVIDER = github/both** — `.github/workflows/ci.yml` runs lint + typecheck + test (+ knowledge validator and cursor-mirror check if opted in)
 - [ ] **if CI_PROVIDER = gitlab/both** — `.gitlab-ci.yml` runs lint + typecheck + test (+ knowledge validator and cursor-mirror check if opted in)
-- [ ] **if AGENT_HOSTS includes cursor** — `AGENTS.md` + `.cursor/rules/*.mdc` **generated** by `node tools/cursor_mirror.mjs` (never hand-written), one `.mdc` per `.claude/rules/*.md` with `paths:` translated to comma-separated `globs:` and brace sets expanded; `.cursor/hooks.json` registers every guard `.claude/settings.json` does, with no matchers and `failClosed: true` on the blocking ones (five, or six with `vendored-contract-guard.mjs` on a polyrepo consumer repo); `tools/cursor_mirror.mjs --check` wired into the pre-commit gate; `node tools/cursor_mirror.mjs --check` exits 0 on the freshly-scaffolded repo
+- [ ] **if AGENT_HOSTS includes cursor** — `AGENTS.md` + `.cursor/rules/*.mdc` **generated** by `node tools/cursor_mirror.mjs` (never hand-written), one `.mdc` per `.claude/rules/*.md` with `paths:` translated to comma-separated `globs:` and brace sets expanded; `.cursor/hooks.json` registers exactly the guards `.claude/settings.json` does, no more (specs, contracts, qa and `SPECKIT = coexist` drop gates per `cursor-parity.md`'s table), with no matchers and `failClosed: true` on every blocking one kept (five on a stack profile, plus `vendored-contract-guard.mjs` on a polyrepo consumer repo); `tools/cursor_mirror.mjs --check` wired into the pre-commit gate; `node tools/cursor_mirror.mjs --check` exits 0 on the freshly-scaffolded repo
 - [ ] **if AGENT_HOSTS = claude** — no `AGENTS.md`, no `.cursor/`, no `tools/cursor_mirror.mjs`; `tools/context_budget.mjs` prints only the Claude Code line
 
 ---

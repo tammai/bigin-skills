@@ -17,7 +17,7 @@
 // fields plus an `error` string, so SKILL.md can fall back to pure reasoning.
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, basename, join, extname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -134,7 +134,40 @@ function withAgents(routing) {
 
 const HIGH_RISK_RE = /openapi\.ya?ml$|openapi\.json$|(^|\/)migrations?\/|schema\.(sql|prisma)$|\.env(\.|$)|docker-compose|Dockerfile|\.github\/workflows\/|\.claude\/(guards|rules)\//i;
 
-const TEST_FILE_RE = /\.(test|spec)\.[jt]sx?$|_test\.go$|(^|\/)test_[^/]+\.py$|[^/]+_test\.py$/;
+const TEST_FILE_RE = /\.(test|spec)\.[jt]sx?$|_test\.go$|(^|\/)test_[^/]+\.py$|[^/]+_test\.py$|_test\.dart$/;
+
+// The coverage denominator is an ALLOWLIST: a file counts only if it is a code type
+// hasSiblingTest() can actually evaluate. Anything else (docs, config, .env, SQL, HTML,
+// YAML, styles, assets) stays in touchedFiles/filesChanged/highRiskMatches but is kept
+// out of the ratio. A type with no test convention we can look up would always score
+// "uncovered", so counting it produced a guaranteed 0 for a README or a config tweak,
+// which tripped the tests-first bar and promoted a copy fix out of the quick tier.
+// Keep this set and hasSiblingTest() in step.
+const JS_EXT = ['.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs'];
+const COVERABLE_EXT = new Set([...JS_EXT, '.vue', '.go', '.py', '.dart', '.rs']);
+const isCoverableCode = (f) => COVERABLE_EXT.has(extname(f).toLowerCase());
+
+// Repo-level test roots searched for a matching test file (Nuxt/Vitest, Dart).
+const TEST_ROOTS = ['test', 'tests', '__tests__'];
+
+// Bounded recursive lookup of a file name under `root`, so a mirrored test tree
+// (test/components/Foo.spec.ts, test/src/foo_test.dart) is found without walking
+// node_modules or the whole repo.
+function findUnder(root, names, depth = 6) {
+  if (depth < 0 || !existsSync(root)) return false;
+  let entries;
+  try {
+    entries = readdirSync(root, { withFileTypes: true });
+  } catch {
+    return false;
+  }
+  for (const e of entries) {
+    if (e.isFile() && names.includes(e.name)) return true;
+  }
+  return entries.some(
+    (e) => e.isDirectory() && e.name !== 'node_modules' && !e.name.startsWith('.') && findUnder(join(root, e.name), names, depth - 1)
+  );
+}
 
 // No .trim() here — git status --porcelain's fixed-width status prefix on the
 // first line includes a leading space that a whole-string trim would eat,
@@ -151,7 +184,10 @@ function parseArgs(argv) {
       i++;
     } else if (argv[i] === '--paths' && argv[i + 1]) {
       // Repeatable, and each value may itself be a comma-separated list.
-      out.paths.push(...argv[i + 1].split(',').map((s) => s.trim()).filter(Boolean));
+      // Backslashes become slashes: on Windows the model may pass `migrations\001.sql`,
+      // and HIGH_RISK_RE / TEST_FILE_RE only know `/`, so a CI file or a migration
+      // would silently skip the mandatory verifier bar.
+      out.paths.push(...argv[i + 1].split(',').map((s) => s.trim().replace(/\\/g, '/')).filter(Boolean));
       i++;
     }
   }
@@ -168,31 +204,40 @@ function resolveBase(explicitBase) {
   }
 }
 
-// Returns { scope, files }. `scope` names where the file list came from, so the
-// caller can tell "nothing changed yet" apart from "a change touching 0 files".
+// Returns { scope, files, deleted }. `scope` names where the file list came from, so
+// the caller can tell "nothing changed yet" apart from "a change touching 0 files".
+// `deleted` holds the paths the change removes. They stay in `files` (deleting a
+// migration is still a high-risk touch), but a deleted file is missing from disk for
+// the opposite reason a planned one is, so it must never read as a planned new file.
 function getTouchedFiles(base, plannedPaths) {
-  if (plannedPaths.length > 0) return { scope: 'planned', files: plannedPaths };
+  if (plannedPaths.length > 0) return { scope: 'planned', files: plannedPaths, deleted: new Set() };
 
   // Uncommitted changes next — mid-task, this is what "this task" means.
   const statusOut = git(['status', '--porcelain']);
   if (statusOut.trim()) {
-    return {
-      scope: 'uncommitted',
-      files: statusOut
-        .split('\n')
-        .filter(Boolean)
-        .map((line) => line.slice(3))
-        .map((p) => (p.includes(' -> ') ? p.split(' -> ')[1] : p)),
-    };
+    const files = [];
+    const deleted = new Set();
+    for (const line of statusOut.split('\n').filter(Boolean)) {
+      let p = line.slice(3);
+      if (p.includes(' -> ')) p = p.split(' -> ')[1];
+      files.push(p);
+      if (line.slice(0, 2).includes('D')) deleted.add(p);
+    }
+    return { scope: 'uncommitted', files, deleted };
   }
 
-  // Nothing uncommitted — fall back to the diff against base.
-  const diffOut = git(['diff', '--name-only', `${base}...HEAD`]);
-  const files = diffOut
-    .split('\n')
-    .map((s) => s.trim())
-    .filter(Boolean);
-  return { scope: files.length > 0 ? 'branch' : 'none', files };
+  // Nothing uncommitted — fall back to the diff against base. --name-status rather
+  // than --name-only, so a deletion on the branch is known as one.
+  const diffOut = git(['diff', '--name-status', `${base}...HEAD`]);
+  const files = [];
+  const deleted = new Set();
+  for (const line of diffOut.split('\n').map((s) => s.trim()).filter(Boolean)) {
+    const cols = line.split('\t');
+    const p = cols[cols.length - 1];
+    files.push(p);
+    if (cols[0].startsWith('D')) deleted.add(p);
+  }
+  return { scope: files.length > 0 ? 'branch' : 'none', files, deleted };
 }
 
 function hasSiblingTest(file) {
@@ -203,7 +248,7 @@ function hasSiblingTest(file) {
   if (ext === '.py') {
     return existsSync(join(dir, `test_${base}.py`)) || existsSync(join(dir, `${base}_test.py`));
   }
-  if (['.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs'].includes(ext)) {
+  if (JS_EXT.includes(ext)) {
     const candidates = [
       join(dir, `${base}.test${ext}`),
       join(dir, `${base}.spec${ext}`),
@@ -213,20 +258,40 @@ function hasSiblingTest(file) {
     ];
     return candidates.some(existsSync);
   }
+  if (ext === '.vue') {
+    // Nuxt/Vitest: X.spec.ts / X.test.ts (or .js) beside the component, in a nearby
+    // __tests__, or anywhere under a repo-level test/, tests/ or __tests__.
+    const names = ['spec', 'test'].flatMap((k) => ['ts', 'js'].map((e) => `${base}.${k}.${e}`));
+    if (names.some((n) => existsSync(join(dir, n)) || existsSync(join(dir, '__tests__', n)))) return true;
+    return TEST_ROOTS.some((r) => findUnder(r, names));
+  }
+  if (ext === '.dart') return findUnder('test', [`${base}_test.dart`]);
+  if (ext === '.rs') {
+    // Rust unit tests live in the file itself; integration tests in tests/<name>.rs.
+    try {
+      if (/#\[cfg\(test\)\]/.test(readFileSync(file, 'utf8'))) return true;
+    } catch {
+      /* unreadable: fall through to the integration-test check */
+    }
+    return existsSync(join('tests', `${base}.rs`));
+  }
   return false;
 }
 
+// Keys only on the explicit marker task-workflow's full-spec template writes into its
+// Spec heading. FR-n / NFR-n citations and a "Covers" line are not evidence: every unit
+// epic-workflow derives from a PRD cites its requirements, and matching them sent each
+// of those units to deep-architect.
 function detectFullSpec() {
   if (!existsSync('PLAN.md')) return false;
-  const content = readFileSync('PLAN.md', 'utf8');
-  return /\[full-spec\]/.test(content) || /\bCovers\b/.test(content) || /FR-\d+/.test(content);
+  return /\[full-spec\]/.test(readFileSync('PLAN.md', 'utf8'));
 }
 
 function classify(argv) {
   const { base: explicitBase, paths: plannedPaths } = parseArgs(argv);
   const base = resolveBase(explicitBase);
 
-  const { scope, files: touchedFilesRaw } = getTouchedFiles(base, plannedPaths);
+  const { scope, files: touchedFilesRaw, deleted } = getTouchedFiles(base, plannedPaths);
   const touchedFiles = touchedFilesRaw.filter((f) => !LOCKFILES.has(basename(f)));
 
   // No diff and no planned scope: every file-derived signal is unknown, not zero.
@@ -248,15 +313,19 @@ function classify(argv) {
 
   const highRiskMatches = touchedFiles.filter((f) => HIGH_RISK_RE.test(f));
 
-  const nonTestFiles = touchedFiles.filter((f) => !TEST_FILE_RE.test(f));
+  const nonTestFiles = touchedFiles.filter((f) => !TEST_FILE_RE.test(f) && !deleted.has(f));
 
   // A planned file that doesn't exist yet cannot be assessed for coverage. Counting it as
   // uncovered conflates "existing code with no tests" (a real risk signal) with "no code
   // written yet" (not one), and the resulting 0 silently escalated the tier for a reason
   // the number didn't actually state. Report it as its own signal and keep it out of the
-  // denominator; the tests-first bar still fires, now off `plannedNewFiles`.
-  const plannedNewFiles = nonTestFiles.filter((f) => !existsSync(f));
-  const assessableFiles = nonTestFiles.filter((f) => existsSync(f));
+  // denominator; the tests-first bar still fires, now off `plannedNewFiles`. Only new
+  // code counts: a new doc or config file has nothing a test would cover, so it must not
+  // trip tests-first or promote a quick task.
+  const plannedNewFiles = nonTestFiles.filter((f) => !existsSync(f) && isCoverableCode(f));
+  // Only code a test could cover goes in the denominator. A scope with none (docs,
+  // config, assets) reports null, meaning "no code touched", not 0.
+  const assessableFiles = nonTestFiles.filter((f) => existsSync(f) && isCoverableCode(f));
   const testCoverageRatio =
     assessableFiles.length === 0
       ? null

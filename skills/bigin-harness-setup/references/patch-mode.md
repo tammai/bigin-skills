@@ -23,6 +23,7 @@ Usually reached because the plugin's `SessionStart` notice (`hooks/harness-drift
        - Not found (likely hand-edited) → skip, note "anchor not found — apply manually, see CHANGELOG.md vX.Y.Z".
      - **`optional: true` on the block** → an anchor miss is *expected*, not a problem: the line exists only in some profiles (a guard this repo never installed, a hook another stack registers). Skip it **silently** — leave it out of both lists. Use it only where the block's own release says the target may legitimately be absent; a block without it still reports a miss, which is how a hand-edited file gets noticed.
      - Never fuzzy-match on *meaning* — the anchor's words must match exactly (whitespace aside). An exact-match miss is a skip, not a best-effort insert.
+   - **Blocks targeting the gates' own files** (`.claude/guards/**`, `.claude/settings*.json`, `.cursor/hooks.json`, `.cursor/hooks/**`, `.husky/**`, `scripts/pre-commit*.sh`, `scripts/commit-msg.sh`): since v1.104.0 `spec-gate-guard.mjs` asks before any edit to these files, at any size. **Claude Code:** expect one permission prompt per block. Approve the prompts for blocks this release ships; a prompt you did not expect is the gate doing its job. **Cursor:** its `preToolUse` hook cannot prompt, so the edit is denied. Do not retry it and do not look for a way around the gate. List each such block under "Needs manual apply (Cursor)" in the summary, with its target, anchor and content printed in full, so the user can paste it themselves. Apply `.claude/guards/lib/hook-io.mjs` blocks first: every guard imports it.
    - **A block carrying `resolve: SPEC_PATH`** is an anchor-based block whose content holds `{SPEC_PATH}`, which no static block can know: where a repo vendors its contract is a property of *that* repo. Before matching, run this in the target repo and substitute the result (one line per contract, at the placeholder line's own indentation):
      ```sh
      node ${CLAUDE_PLUGIN_ROOT}/skills/contract-sync/scripts/contract_sync.mjs where
@@ -44,6 +45,9 @@ Usually reached because the plugin's `SessionStart` notice (`hooks/harness-drift
 
    Skipped (needs manual review):
      knowledge/constraints/agent-rules.md — anchor not found (v1.22.10) — likely hand-edited; see CHANGELOG.md
+
+   Needs manual apply (Cursor):
+     .claude/guards/bash-guard.mjs — gate file, denied under Cursor (v1.104.0); block printed below
 
    .claude/harness-version updated to {TO_VERSION}.
    ```

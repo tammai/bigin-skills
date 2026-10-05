@@ -10,6 +10,8 @@ A **plugin** (`bigin-skills`) for **Claude Code and Cursor** — a collection of
 .claude-plugin/           ← plugin.json (version lives here) + marketplace.json
 .cursor-plugin/           ← Cursor's manifests; declare paths into skills/ + agents/, no second copy
 .claude/rules/            ← this repo's own path-scoped authoring rules
+.claude/skills/           ← this repo's own user-only skills (harness-audit, skill-bench), never shipped
+.claude/memory/           ← epic/plan/session state and archives
 skills/<name>/SKILL.md    ← one skill per directory
 skills/<name>/references/ ← supporting templates, relative to that skill
 skills/<name>/evals/      ← should-trigger cases; docs_sync.mjs --check fails closed without one
@@ -28,6 +30,8 @@ tools/regress.mjs         ← regression suite: manifests, inventory, detection,
                              scripts, guards, this release's patch blocks; --build adds a real
                              install+build of a scaffolded site
 scripts/git-hooks/        ← pre-commit running the budget gate + docs_sync.mjs --check + site_build.mjs --check + regress.mjs
+                             against the staged tree
+.gitattributes            ← LF everywhere; the gates also normalise CRLF on read
 ```
 
 Every skill's `description:` frontmatter is already loaded on every turn, so there's no inventory table here — the generated skills/agents tables live in [README.md](README.md), and each `SKILL.md` covers how that skill works. Authoring conventions: `.claude/rules/skill-authoring.md` (loads when editing `skills/` or `agents/`).
@@ -35,7 +39,7 @@ Every skill's `description:` frontmatter is already loaded on every turn, so the
 ## Gotchas
 
 - A `skills/*/SKILL.md` `description:` is always-loaded context for every session in every repo that installs this plugin. The budget gate caps it at 350 chars.
-- **Most** `references/*.md` under `bigin-harness-setup` template content written **verbatim** into target repos — `hook-guard.md` (the guards + commit scripts), `knowledge-bundle.md`, `profile-*.md`, `ci.md`, `cursor-parity.md`, `graph.md`, `budget-gate.md`, `files-shared.md`. Six are the skill's own procedure and are never copied: `patch-mode.md`, `verify-mode.md`, `profile-detection.md`, `decision-bundle.md`, `rule-files.md`, `scaffold-delegation.md`. `summary-checklist.md` is mixed — its `## Phase 6 README Templates` section is appended verbatim to the target repo's `README.md`; the rest is procedure. Changing a templated one wants a CHANGELOG `patch` block, or already-scaffolded repos only get the change on a full re-run.
+- **Most** `references/*.md` under `bigin-harness-setup` template content written **verbatim** into target repos — `hook-guard.md` (the guards + commit scripts), `knowledge-bundle.md`, `knowledge-migration.md` (by patch block only), `profile-*.md` except `profile-detection.md`, `ci.md`, `cursor-parity.md`, `graph.md`, `budget-gate.md`, `files-shared.md`. The rest are the skill's own procedure and are never copied. `summary-checklist.md` is mixed — its `## Phase 6 README Templates` section is appended verbatim to the target repo's `README.md`; the rest is procedure. Changing a templated one wants a CHANGELOG `patch` block, or already-scaffolded repos only get the change on a full re-run.
 - Generated `AI_TASK_GUIDE.md` is deliberately just a pointer to `task-workflow`. Don't grow it back into a second copy of the workflow — that's how the two drifted before.
 - The guard scripts in `references/hook-guard.md` are load-bearing, and one body serves both Claude Code and Cursor via `lib/hook-io.mjs` — never fork a guard per host. `.claude/rules/skill-authoring.md` lists the exact cases each one must still block and allow, on both payload shapes.
 

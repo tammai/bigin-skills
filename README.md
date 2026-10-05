@@ -22,7 +22,7 @@ The agent writes a spec before it writes code. A second, memoryless agent audits
 /plugin install bigin-skills@bigin
 ```
 
-Or `npx skills add tammai/bigin-skills`.
+`npx skills add tammai/bigin-skills` installs the skills alone: no subagents (so no verifier and no routing tiers), no plugin hooks, and the `${CLAUDE_PLUGIN_ROOT}` paths skills use to reach each other don't resolve. Use it only to try a single standalone skill.
 
 **Cursor**
 
@@ -32,9 +32,9 @@ Or `npx skills add tammai/bigin-skills`.
 
 Then pick `bigin-skills` (or Customize → Plugins). For local development, symlink the checkout instead: `ln -s "$(pwd)" ~/.cursor/plugins/local/bigin-skills`.
 
-Both hosts install the same tree — `.cursor-plugin/plugin.json` declares paths into the existing `skills/` and `agents/` directories, so there's one copy of everything. What differs: Cursor doesn't take the subagent ladder's per-tier `model`/`effort` pins, so `model-router`'s fan-out is Claude-Code-only. Everything else, including every gate, works on both ([details](skills/bigin-harness-setup/references/cursor-parity.md)).
+Both hosts install the same tree — `.cursor-plugin/plugin.json` declares paths into the existing `skills/` and `agents/` directories, so there's one copy of everything. What differs: Cursor doesn't take the subagent ladder's per-tier `model`/`effort` pins, so `model-router`'s fan-out is Claude-Code-only. So are the plugin's SessionStart drift notice and the harness's `Setup` hook bootstrap, since Cursor has neither event. Every gate and skill works on both, with one difference: an agent edit to the gates' own files (guards, hook settings, git hooks) asks for approval in Claude Code but is denied outright by Cursor's editor hook, because that hook can't ask ([details](skills/bigin-harness-setup/references/cursor-parity.md)).
 
-Install the whole plugin, not one skill: `bigin-harness-setup` calls sibling skills by repo-relative path, so its empty-repo scaffold branches only work in place.
+Install the whole plugin, not one skill: `bigin-harness-setup` reaches the sibling scaffold skills through `${CLAUDE_PLUGIN_ROOT}` (the plugin's install directory, not your repo), so its empty-repo scaffold branches need those siblings installed alongside it.
 
 ---
 
@@ -44,7 +44,7 @@ Install the whole plugin, not one skill: `bigin-harness-setup` calls sibling ski
 
 **2. Every day after — "implement X" / "fix bug in Y."** [`task-workflow`](skills/task-workflow/SKILL.md) is the main driver: scope → spec gate → approved `PLAN.md` → implement/verify loop (capped at 3 rounds, independent verifier) → review → cleanup. It's the discipline `spec-gate-guard.mjs` and `bugfix-test-guard.mjs` actually enforce. Cleanup archives the finished `PLAN.md` verbatim rather than deleting it, so *why* a change took its shape outlives the task. You'll run setup once and this dozens of times.
 
-When a request is too big for one plan, [`epic-workflow`](skills/epic-workflow/SKILL.md) sits one level up: it decomposes the initiative into ordered, independently shippable units, drafts the epic's one-page design doc where the initiative earns one, gets both approved, and then hands the units back to `task-workflow` one at a time, continuing in the same session unless the last unit changed something the next one inherits. With an approved PRD on disk it decomposes straight from the requirement index and asks nothing. It adds no gate of its own — each unit still passes the spec gate on its own merits.
+When a request is too big for one plan, [`epic-workflow`](skills/epic-workflow/SKILL.md) sits one level up: it decomposes the initiative into ordered, independently shippable units, drafts the epic's one-page design doc where the initiative earns one, gets both approved, and then hands the units back to `task-workflow` one at a time. It stops and asks for `/clear` after 2 units in one session (sooner if the context is already heavy, or the last unit changed something the next one inherits); re-invoking resumes from the queue. With an approved PRD on disk it decomposes straight from the requirement index and asks nothing. It adds no gate of its own — each unit still passes the spec gate on its own merits.
 
 And when nobody can yet say what the thing *is*, [`discovery-workflow`](skills/discovery-workflow/SKILL.md) sits above both. Both skills below it take their subject as given — an initiative, a task — and this one produces it: an approved brief and a PRD with numbered, testable requirements under `docs/product/`, plus the architecture decisions the product forced, written into `knowledge/`. It is also the one skill that diverges before it narrows — it offers up to four *framings* of the idea, each with what it refuses to do, before anything gets written down. It triages the same way they do, so a one-line change goes straight to `task-workflow` with nothing written to disk.
 
@@ -73,7 +73,7 @@ Setup detects the profile, or asks. It decides which templates get written. `tau
 | Profile | Stack | Scaffold |
 | --- | --- | --- |
 | `nuxt` | Nuxt 4 BFF on Cloudflare Pages — Pinia + Colada, Nuxt UI, nuxt-auth-utils, Zod, Vitest. No DB; the backend owns data | `nuxt-scaffold` |
-| `nuxt-marketing` | Multi-locale Nuxt 4 marketing site — `@nuxt/content` collections, `@nuxtjs/i18n`, Tailwind, prerendered onto Cloudflare Workers static assets. No auth, no BFF, no database; its `conventions-content.md` is the only rule file in any profile written for a non-developer editor | _(none — detection only)_ |
+| `nuxt-marketing` | Multi-locale Nuxt 4 marketing site — `@nuxt/content` collections, `@nuxtjs/i18n`, Tailwind, prerendered onto Cloudflare Workers static assets. No auth, no BFF, no database; its `conventions-content.md` is the only rule file in any profile written for a non-developer editor | `nuxt-marketing-scaffold` |
 | `next` | Next.js App Router BFF on Vercel — shadcn/ui, Zustand, TanStack Query, iron-session, Zod, Vitest. No DB | `next-scaffold` |
 | `go` | Go modular-monolith REST API — Gin, contract-first `oapi-codegen`, GORM + Postgres, JWT access/refresh + RBAC, boundaries enforced by a test | `go-scaffold` |
 | `nodejs` | Node.js modular-monolith REST API — Fastify, code-first OpenAPI (TypeBox), Drizzle + Postgres, JWT + argon2id, outbox/inbox + job queue | `nodejs-scaffold` |
@@ -172,9 +172,13 @@ node tools/docs_sync.mjs          # regenerate in place
 node tools/docs_sync.mjs --check  # diff-only; exits 1 on stale regions
 ```
 
-A new skill or agent needs a matching manifest entry — the generator fails closed both ways and blocks the commit by name.
+A new skill or agent needs a matching manifest entry — the generator fails closed both ways and blocks the commit by name. The same check parses every skill and agent frontmatter with a strict YAML subset, so a plain scalar containing `: ` (which a real YAML loader rejects) fails the commit instead of shipping a skill that never loads.
 
-**Plugin manifests** — four files, two hosts. `.claude-plugin/plugin.json`'s `version` is the source of truth; `.cursor-plugin/plugin.json` and both `marketplace.json`s must match, and `docs_sync.mjs --check` fails the commit if they drift. The same check enforces Cursor's stricter component rules (a skill's `name` must equal its folder name; skills and agents both need a `description`), since Claude Code accepts files Cursor would reject.
+**Budget gate** — `node tools/context_budget.mjs` caps this repo's always-loaded surface at 12,000 chars: `CLAUDE.md`, unscoped rules, and every skill **and agent** `description:` (each also capped at 350). Skills with `disable-model-invocation: true` are capped but not counted, since they are never listed.
+
+**Line endings** — `.gitattributes` forces LF on every checkout (Git for Windows defaults to CRLF, which broke the commit hook and the frontmatter parsers). The gates also normalise CRLF on read, for clones made before it existed.
+
+**Plugin manifests** — four files, two hosts. `.claude-plugin/plugin.json`'s `version` is the source of truth; `.cursor-plugin/plugin.json` and both `marketplace.json`s must match, and `docs_sync.mjs --check` fails the commit if they drift. It also requires each `marketplace.json` description to equal its host's `plugin.json` description, and the Cursor text to differ from the Claude Code one only in the host name, so edit all four together. The same check enforces Cursor's stricter component rules (a skill's `name` must equal its folder name; skills and agents both need a `description`), since Claude Code accepts files Cursor would reject.
 
 **Site** — `site/src/` holds the sources (pages, layout, partials, assets); `site/dist/` is generated and committed, and is what Cloudflare Pages serves. Counts, the version and the copyright year come from `.claude-plugin/plugin.json`, `tools/docs-manifest.json` and `CHANGELOG.md` at build time, so the site can't drift from the plugin the way it did before v1.86.0. Edit `site/src/`, never `site/dist/`.
 
@@ -183,7 +187,7 @@ node tools/site_build.mjs          # rebuild site/dist/
 node tools/site_build.mjs --check  # diff-only; exits 1 when dist/ is stale
 ```
 
-**Pre-commit gate** — activate once per clone; runs the budget gate + docs-sync check + site check:
+**Pre-commit gate** — activate once per clone; runs the budget gate + docs-sync check + site check + `regress.mjs --skip-gates`, against the staged tree (unstaged edits are not checked):
 
 ```bash
 git config core.hooksPath scripts/git-hooks

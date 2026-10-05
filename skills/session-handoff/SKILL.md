@@ -27,7 +27,7 @@ Saves and loads session state between Claude Code sessions, useful when approach
 
 **Complete session:**
 
-- User says: "complete session", "/complete-session", "session done"
+- User says: "complete session", "session done"
 - Or after all tasks are completed and working tree is clean
 
 ---
@@ -52,7 +52,7 @@ When user triggers save:
 
 2. **Write `.claude/memory/SESSION.md`:**
 
-   ```markdown
+   ````markdown
    ---
    session-id: <uuid>
    created: <ISO-timestamp>
@@ -98,7 +98,7 @@ When user triggers save:
 
    ## Context Notes
    <Any additional context for resumption>
-   ```
+   ````
 
 3. **Return summary:**
    ```
@@ -118,17 +118,10 @@ When user triggers save:
    - Read `.claude/memory/SESSION.md`
    - If missing or status: complete, skip load
 
-2. **Prompt user:**
-
-   ```
-   Found previous session from <date>:
-   <summary from SESSION.md>
-
-   Options:
-   1. Resume session — Restore tasks and context
-   2. Start fresh — Archive session and begin new
-   3. View full details — Show complete SESSION.md
-   ```
+2. **Ask with one `AskUserQuestion` call** — question: "Found a previous session from <date>: <one-line summary from SESSION.md>. What now?" — three options:
+   - **Resume session** — restore tasks and context
+   - **Start fresh** — archive the session and begin new
+   - **View full details** — show the complete SESSION.md, then ask again
 
 3. **If user resumes:**
    - Display "What We Were Working On" section
@@ -166,7 +159,7 @@ When user triggers complete:
 
 **If not complete:**
 
-- Warn user: "Session has uncommitted changes or in-progress tasks. Complete those first, or use /save-session to pause."
+- Warn user: "Session has uncommitted changes or in-progress tasks. Complete those first, or say 'save session' to pause."
 
 ---
 
@@ -198,14 +191,16 @@ When session-handoff is triggered partway through another multi-step skill (`big
 
 ---
 
-## Commands Reference
+## Trigger Phrases
 
-| Command             | Trigger                                                    | Action                            |
-| ------------------- | ---------------------------------------------------------- | --------------------------------- |
-| `/save-session`     | User says "save session", "/save-session", "nearing limit" | Write current state to SESSION.md |
-| `/load-session`     | User says "load session", "resume session"                 | Read and display SESSION.md       |
-| `/complete-session` | User says "complete session", "session done"               | Archive SESSION.md, mark complete |
-| Auto-load           | Session start if SESSION.md exists                         | Prompt user: resume or fresh?     |
+These are phrases, not slash commands — the plugin ships no `commands/`, so `/load-session` typed as a command is unknown. Typing `/session-handoff` invokes this skill directly.
+
+| Action   | Phrases                                                         | Does                              |
+| -------- | --------------------------------------------------------------- | --------------------------------- |
+| Save     | "save session", "/save-session", "nearing limit", "handoff"     | Write current state to SESSION.md |
+| Load     | "load session", "resume session", "continue where we left off" | Read and display SESSION.md       |
+| Complete | "complete session", "session done"                              | Archive SESSION.md, mark complete |
+| Auto-load | Session start if SESSION.md exists with `status: in-progress`  | Ask: resume or fresh?             |
 
 ---
 

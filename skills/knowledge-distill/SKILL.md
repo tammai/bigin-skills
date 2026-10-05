@@ -3,7 +3,7 @@ name: knowledge-distill
 description: "Distills a library's docs and source at a pinned version into knowledge/libraries/<lib>/ concept files, clean-context verified. Triggers: 'distill knowledge for nuxt@4.0.3', 'create a knowledge bundle for phaser', /knowledge-distill."
 argument-hint: [library@version]
 effort: medium
-allowed-tools: Bash(git clone *) Bash(git -C * log *) Bash(git -C * diff *) Bash(git -C * ls-remote *) Bash(node ${CLAUDE_SKILL_DIR}/scripts/count_budget.mjs *) Bash(node tools/knowledge_validate.mjs) Bash(node tools/knowledge_drift.mjs)
+allowed-tools: Bash(git clone *) Bash(git -C * log *) Bash(git -C * diff *) Bash(git -C * rev-parse *) Bash(git ls-remote *) Bash(node ${CLAUDE_SKILL_DIR}/scripts/count_budget.mjs *) Bash(node tools/knowledge_validate.mjs) Bash(node tools/knowledge_drift.mjs)
 ---
 
 # Knowledge Distill
@@ -48,9 +48,17 @@ repo is a bigger change than "distill a bundle," and it isn't yours to assume:
   anyway, and that skill also wires the commit gates and CI.
 - **Bundle only** — bootstrap here, then continue into Phase 0.
 
-On "bundle only": do exactly what `bigin-harness-setup` **Phase 5.5 steps 1–3** do, reading its
-templates from `${CLAUDE_PLUGIN_ROOT}/skills/bigin-harness-setup/references/knowledge-bundle.md` and
-replacing `{DATE}` with today's date in ISO 8601. That phase holds the canonical file list —
+On "bundle only": do exactly what `bigin-harness-setup` **Phase 5.5 steps 1–3** do
+(`${CLAUDE_PLUGIN_ROOT}/skills/bigin-harness-setup/SKILL.md`), reading its templates from
+`${CLAUDE_PLUGIN_ROOT}/skills/bigin-harness-setup/references/knowledge-bundle.md`. Apply that
+phase's **whole** substitution paragraph, not just `{DATE}`. That means `{CONVENTIONS_RULE}` set
+to whichever conventions rule exists under `.claude/rules/`, plus the conditional drops each
+template states. With no conventions rule, `agent-rules.md` loses its conventions source entry
+and its migration section. With no `openapi.yaml`/`openapi.json`, there is no contract concept,
+no `## Contracts` index section, no "Before touching handlers/routes" section and no contract
+link in `log.md`. Drop any other `sources` entry whose file this repo lacks. Skipping a drop
+leaves a literal placeholder or a link to a file that was never written, and the validator
+fails on both. That phase holds the canonical file list —
 **do not restate it here**, or the two drift the first time one is edited. Skip any file that
 already exists.
 
@@ -65,7 +73,7 @@ turns out to have a pre-commit script.
 1. **Resolve the pin.** Required: the library's git URL and an exact tag or commit.
    - No version given, or the user said "latest" / "current" / "newest" → **ask**. Never
      resolve it yourself. A bundle whose version came from whatever `HEAD` happened to be is
-     worse than no bundle: it looks pinned and isn't. `git -C <clone> ls-remote --tags <repo>`
+     worse than no bundle: it looks pinned and isn't. `git ls-remote --tags <repo>`
      is fine for *showing* the user the available tags to pick from.
    - Accept `lib@version` shorthand (`nuxt@4.0.3`) and both `v`-prefixed and bare tags.
 2. **Clone shallow, outside the project tree.** Clone into the session scratchpad, never into

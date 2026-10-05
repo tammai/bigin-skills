@@ -1,6 +1,36 @@
 #!/bin/sh
-cd "$(git rev-parse --show-toplevel)" \
-  && node tools/context_budget.mjs \
+# Pre-commit: every gate runs against the STAGED tree, never the working tree.
+#
+# Checking the working tree lets a partial stage through: bump the version in all four
+# manifest fields, `git add` one of them, commit — the gates see the complete change on
+# disk and pass, and the commit lands the drift they exist to block. So the index being
+# committed (GIT_INDEX_FILE, which git points at a temporary index for `commit -a` and
+# `commit <paths>`) is exported into a scratch directory and the gates run there.
+# The working tree and the stash are never touched, so a failing gate, a Ctrl-C or a
+# crash leaves nothing to restore. Keep this POSIX sh: it runs under Git for Windows.
+set -u
+
+top=$(git rev-parse --show-toplevel) || exit 1
+gitdir=$(git -C "$top" rev-parse --absolute-git-dir) || exit 1
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/bigin-precommit.XXXXXX") || exit 1
+trap 'rm -rf "$tmp"' EXIT
+trap 'exit 1' HUP INT TERM
+
+git -C "$top" checkout-index --all --prefix="$tmp/" || exit 1
+
+# regress.mjs reads earlier releases with `git show <tag>:...` from the repo root. A
+# gitfile pointing at the real repository lets those checks run in the copy instead
+# of skipping, without exporting GIT_DIR into every git process the suite spawns.
+printf 'gitdir: %s\n' "$gitdir" > "$tmp/.git"
+unset GIT_INDEX_FILE
+
+cd "$tmp" || exit 1
+node tools/context_budget.mjs \
   && node tools/docs_sync.mjs --check \
   && node tools/site_build.mjs --check \
   && node tools/regress.mjs --skip-gates
+status=$?
+if [ "$status" -ne 0 ]; then
+  echo "pre-commit: gates failed on the staged tree (unstaged edits were not checked). Stage the fix and commit again." >&2
+fi
+exit "$status"

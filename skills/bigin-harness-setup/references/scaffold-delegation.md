@@ -26,23 +26,23 @@ A marketing site that arrives already scaffolded still reaches the profile by it
 **Config-JSON profiles** (`nuxt`, `next`) — write the JSON (schema in that skill's `SKILL.md` → Step 3) to a temp file **outside** the repo, with `"packageManager": "pnpm"`, then:
 
 ```sh
-node skills/nuxt-scaffold/scripts/scaffold.mjs --config <path>
-node skills/next-scaffold/scripts/scaffold.mjs --config <path>
+node "${CLAUDE_PLUGIN_ROOT}/skills/nuxt-scaffold/scripts/scaffold.mjs" --config <path>
+node "${CLAUDE_PLUGIN_ROOT}/skills/next-scaffold/scripts/scaffold.mjs" --config <path>
 ```
 
 **Flag profiles:**
 
 ```sh
-node skills/go-scaffold/scripts/scaffold.mjs --module <module-path> --dir . [--project <name>]
-node skills/nodejs-scaffold/scripts/scaffold.mjs --project <name> --dir .
-node skills/nuxt-marketing-scaffold/scripts/scaffold.mjs --project <name> --dir . \
+node "${CLAUDE_PLUGIN_ROOT}/skills/go-scaffold/scripts/scaffold.mjs" --module <module-path> --dir . [--project <name>]
+node "${CLAUDE_PLUGIN_ROOT}/skills/nodejs-scaffold/scripts/scaffold.mjs" --project <name> --dir .
+node "${CLAUDE_PLUGIN_ROOT}/skills/nuxt-marketing-scaffold/scripts/scaffold.mjs" --project <name> --dir . \
   --locales <en,vi> --primary <color> --neutral <color>
 ```
 
 **`tauri` is two steps: the frontend skill, then the stack's own CLI.** `create-tauri-app` has no Nuxt template, so the frontend comes from `nuxt-scaffold` exactly as the `nuxt` profile's does, and `tauri init` adds the Rust half around it:
 
 ```sh
-node skills/nuxt-scaffold/scripts/scaffold.mjs --config <path>
+node "${CLAUDE_PLUGIN_ROOT}/skills/nuxt-scaffold/scripts/scaffold.mjs" --config <path>
 pnpm add -D @tauri-apps/cli@^2 && pnpm add @tauri-apps/api@^2
 pnpm tauri init --ci \
   --app-name <name> --window-title "<Window Title>" \

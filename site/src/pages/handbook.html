@@ -158,7 +158,7 @@ js: handbook.js
       Before non-trivial work, the agent writes a short spec and waits for your
       approval. Approved, it becomes <code>PLAN.md</code> — the artifact
       everything downstream refers to. Bug fixes, copy changes, config tweaks and
-      changes under ~20 lines skip it entirely.
+      changes of 20 lines or fewer skip it entirely.
     </p>
     <p>
       The two fields that carry the weight are <strong>Security
@@ -194,7 +194,7 @@ js: handbook.js
 
     <h3>Where a fact lives</h3>
     <p>
-      Six surfaces, one question each. Putting a fact in the wrong one is the
+      Eight surfaces, one question each. Putting a fact in the wrong one is the
       most common way this convention degrades, because the wrong home has no
       mechanism to expire it.
     </p>
@@ -205,16 +205,18 @@ js: handbook.js
           <tr><td>knowledge/</td><td>What is the system, and why?</td><td>Outlives sprints; expires on behavior change</td></tr>
           <tr><td>knowledge/implementation/</td><td>How did this piece come to be, and what was rejected?</td><td>Append-only; never expires, never edited</td></tr>
           <tr><td>docs/product/prd.md</td><td>What did we promise, and how is it checked?</td><td>Outlives every epic derived from it; amended, never renumbered</td></tr>
+          <tr><td>docs/design/{slug}.md</td><td>How is this initiative built, and what lost?</td><td>Outlives the epic; updated when reality diverges, never archived</td></tr>
           <tr><td>.claude/rules/</td><td>How do we work here?</td><td>Outlives projects; changes by decision</td></tr>
           <tr><td>graphify-out/</td><td>Where is the code, what connects?</td><td>Regenerated; expires every commit</td></tr>
           <tr><td>PLAN.md</td><td>What are we doing right now?</td><td>Archived verbatim at task end</td></tr>
+          <tr><td>.claude/memory/EPIC.md</td><td>Which units, in what order, and which are done?</td><td>Archived verbatim at epic end</td></tr>
         </tbody>
       </table>
     </div>
 
     <h3>The always-loaded budget</h3>
     <p>
-      Everything in <code>CLAUDE.md</code> and every unscoped rule file is read on
+      Everything in <code>CLAUDE.md</code>, every unscoped rule file and every skill and agent description is read on
       <em>every turn of every session</em>. So rules are scoped by path where
       possible, and the total is checked by a script at commit time. This is why
       the generated <code>CLAUDE.md</code> is short by design and why deep detail
@@ -232,7 +234,7 @@ js: handbook.js
   <section class="chapter" id="setup">
     <div class="part-label">Part 2 · Getting started</div>
     <h2>Setting up a <em>repo</em></h2>
-    <p class="h-sub">One conversation, a handful of decisions, then one command each contributor runs once.</p>
+    <p class="h-sub">One conversation, a handful of decisions, and the git hooks install themselves on each contributor's first Claude Code run.</p>
 
     <h3>Install the plugin</h3>
     <div class="tabs">
@@ -253,13 +255,14 @@ js: handbook.js
           <div class="code-head"><span class="code-lang">terminal</span></div>
           <pre><code>npx skills add tammai/bigin-skills</code></pre>
         </div>
+        <p>Skills only: no subagents (so no verifier and no routing tiers), no plugin hooks, and the <code>${CLAUDE_PLUGIN_ROOT}</code> paths skills use to reach each other don't resolve. Use the marketplace install for real work.</p>
       </div>
       <div class="tab-panel">
         <div class="code-block">
           <div class="code-head"><span class="code-lang">cursor</span></div>
           <pre><code>/add-plugin</code></pre>
         </div>
-        <p>Then pick <code>bigin-skills</code>, or browse Customize &rarr; Plugins. The same <code>skills/</code> and <code>agents/</code> directories serve both hosts &mdash; the repo just carries a manifest for each. Cursor doesn't take the subagent ladder's per-tier model/effort pins, so <code>model-router</code>'s fan-out stays Claude Code only; the skills, the workflow, and every gate work on both.</p>
+        <p>Then pick <code>bigin-skills</code>, or browse Customize &rarr; Plugins. The same <code>skills/</code> and <code>agents/</code> directories serve both hosts &mdash; the repo just carries a manifest for each. Cursor doesn't take the subagent ladder's per-tier model/effort pins, so <code>model-router</code>'s fan-out stays Claude Code only, as do the plugin's drift notice and the hook auto-install. The skills, the workflow, and every gate work on both, except that an agent edit to a gate's own files asks in Claude Code and is denied in Cursor's editor hook, which can't ask.</p>
       </div>
     </div>
 
@@ -283,7 +286,8 @@ js: handbook.js
       </table>
     </div>
 
-    <h3>Activate the gates — once per clone, per contributor</h3>
+    <h3>Activate the gates — Cursor-only contributors</h3>
+    <p>Setup registers a <code>Setup</code> hook (<code>.claude/guards/install-hooks.mjs</code>) that symlinks the commit hooks on the first Claude Code run in any clone, so Claude Code users do nothing. Cursor has no <code>Setup</code> event, so a contributor who works only in Cursor runs the two lines by hand, once per clone:</p>
     <div class="code-block">
       <div class="code-head"><span class="code-lang">terminal</span></div>
       <pre><code>ln -sf ../../scripts/pre-commit.sh .git/hooks/pre-commit &amp;&amp; chmod +x scripts/pre-commit.sh
@@ -292,9 +296,9 @@ ln -sf ../../scripts/commit-msg.sh .git/hooks/commit-msg &amp;&amp; chmod +x scr
 
     <div class="callout warn">
       <span class="callout-label">Watch out</span>
-      Git hooks are not cloned. Skip this and every commit-time gate is
-      silently inactive for that person — with no error and no visible
-      difference. It is the single most common setup miss. Skip either line whose
+      Git hooks are not cloned. A Cursor-only contributor who skips this has every
+      commit-time gate silently inactive, with no error and no visible
+      difference. Skip either line whose
       script your repo doesn't have: where <code>simple-git-hooks</code> or
       <code>husky</code> already manages a hook, its own install step covers it and
       setup leaves it alone. The exact pair for your repo is in the setup summary.
@@ -490,7 +494,7 @@ Fix the double-submit bug on the checkout form</code></pre>
     </p>
     <figure>
       <svg class="diagram" viewBox="0 0 780 790" xmlns="http://www.w3.org/2000/svg"
-           role="img" aria-label="An initiative meets two triage questions. First, does it clear the bar of three-plus units, more than one PR, or two-plus surfaces? If no, it goes down to task-workflow. If yes, second question: is the product shape settled? If no, it goes up to discovery-workflow. If yes, epic-workflow clarifies or reads an approved PRD, decomposes into ordered units, you approve the decomposition, and the queue is written to .claude/memory/EPIC.md. Each unit runs through task-workflow and returns to the queue, continuing to the next unit unless it changed what a later unit inherits, until every row is done and the queue is distilled and archived. Separately, above roughly eight units the scope is called a roadmap and the first epic-sized slice is proposed.">
+           role="img" aria-label="An initiative meets two triage questions. First, does it clear the bar of three-plus units, more than one PR, or two-plus surfaces? If no, it goes down to task-workflow. If yes, second question: is the product shape settled? If no, it goes up to discovery-workflow. If yes, epic-workflow clarifies or reads an approved PRD, decomposes into ordered units, you approve the decomposition, and the queue is written to .claude/memory/EPIC.md. Each unit runs through task-workflow and returns to the queue, continuing to the next unit until two units have closed in this session or it changed what a later unit inherits, then asking for /clear and resuming from the queue, until every row is done and the queue is distilled and archived. Separately, above roughly eight units the scope is called a roadmap and the first epic-sized slice is proposed.">
         <defs>
           <marker id="hbEpicArrow" viewBox="0 0 10 10" refX="7" refY="5"
                   markerWidth="5" markerHeight="5" orient="auto-start-reverse">
@@ -576,7 +580,7 @@ Fix the double-submit bug on the checkout form</code></pre>
         <text x="390" y="678" text-anchor="middle" font-size="10.5" fill="var(--dg-muted)">the six-step loop above runs inside</text>
 
         <text x="142" y="618" text-anchor="end" font-size="10.5" font-weight="600" fill="var(--dg-muted)">row done → next unit</text>
-        <text x="142" y="633" text-anchor="end" font-size="10.5" font-weight="600" fill="var(--dg-muted)">/clear only when it stops</text>
+        <text x="142" y="633" text-anchor="end" font-size="10.5" font-weight="600" fill="var(--dg-muted)">/clear after 2, or when it stops</text>
 
         <text x="402" y="716" font-size="10.5" font-weight="600" fill="var(--dg-muted)">every row done</text>
 
@@ -605,8 +609,10 @@ Fix the double-submit bug on the checkout form</code></pre>
       unit's weight never reaches your session — <code>task-workflow</code>'s
       implementer and verifier are both subagents — so what accumulates per unit is a
       scope sentence, a spec, a plan, some verdicts and a review. Small, not nothing.
-      So the skill continues to the next unit by default and stops on a condition
-      instead of a schedule: when context is genuinely tight, when the finished unit
+      So the skill continues to the next unit, and stops after <strong>2 units in one
+      session</strong>: a count, not a judgment of how full the context feels, because a
+      model judging "tight" for itself let sessions run far too long. It stops sooner
+      when one unit already made the context heavy, when the finished unit
       changed something a later unit inherits and you should see it before the next
       spec is drafted against it, or when the next spec gate needs a decision the last
       unit just changed. The queue file is the complete handoff package either way, so
@@ -852,10 +858,11 @@ Fix the double-submit bug on the checkout form</code></pre>
       <table class="keyed">
         <thead><tr><th>Message</th><th>What to do</th></tr></thead>
         <tbody>
-          <tr><td>PLAN.md missing or not approved</td><td>Approve a spec, or keep the change under 20 lines. Tests, docs and config are exempt.</td></tr>
+          <tr><td>PLAN.md missing or not approved</td><td>Approve a spec, or keep the change to 20 lines or fewer. Tests, docs and config are exempt.</td></tr>
           <tr><td>PLAN.md is for branch 'X'</td><td>A leftover plan. Finish it, update its <code>Branch:</code> line, or delete it.</td></tr>
-          <tr><td>Not a Conventional Commit</td><td>Rewrite the subject: <code>feat:</code>, <code>fix(api):</code>, under 100 characters.</td></tr>
+          <tr><td>Not a Conventional Commit</td><td>Rewrite the subject: <code>feat:</code>, <code>fix(api):</code>, 100 characters at most.</td></tr>
           <tr><td>fix commit with no test</td><td>Stage the regression test, or add <code>[no-test]</code> with the reason.</td></tr>
+          <tr><td>part of this repo's commit and edit gates</td><td>An agent edit to a guard, hook settings or a git-hook script asks at any size. Approve it if you asked for it; in Cursor it is denied, so make the edit yourself.</td></tr>
           <tr><td>--no-verify is blocked</td><td>Fix what is failing. This one has no override, deliberately.</td></tr>
           <tr><td>Canary token detected</td><td><strong>Stop.</strong> Not a false positive — see below.</td></tr>
         </tbody>
@@ -873,7 +880,8 @@ Fix the double-submit bug on the checkout form</code></pre>
     <p>
       If a gate is wrong for your repo, change the gate — its allowlist, its
       threshold, the rule file — as a reviewed edit. That change shows up in a
-      diff. A bypass doesn't.
+      diff. A bypass doesn't. An agent proposing that edit is asked about first,
+      so loosening a gate is always your call.
     </p>
 
     <h3>The injection gate</h3>
@@ -897,9 +905,10 @@ Fix the double-submit bug on the checkout form</code></pre>
       <li><strong>Read the spec properly, once.</strong> Approving specs unread
         reproduces the exact problem the gate exists to prevent, with extra steps
         in between.</li>
-      <li><strong>Make everyone run the hooks-path command.</strong> Put it in your
-        README's setup section. A contributor who skipped it has no gates and no
-        way to notice.</li>
+      <li><strong>Cursor-only teammates run the two symlink lines.</strong> Claude Code
+        installs the commit hooks on its first run in a clone; Cursor can't. Put the
+        lines in your README's setup section: a contributor who skipped them has no
+        commit-time gates and no way to notice.</li>
       <li><strong>Start on the default ladder.</strong> Move to <code>frontier</code>
         only when verifier failures on standard-tier work become <em>routine</em>.
         One bad round is the loop working, not evidence of an under-powered tier.</li>

@@ -32,8 +32,11 @@ Write tests for the unit named in the request. Before writing any test code:
 3. **List edge cases before coding.** Print a short bullet list of the cases
    you intend to cover (nil/empty input, boundary values, error paths,
    concurrency if relevant) and wait for confirmation if the list is longer
-   than 5 items. If edge cases were given in the request, use those as the
-   minimum required set — add more only if obviously missing.
+   than 5 items. When running as a spawned implementer (a subagent such as
+   `standard-worker`, with no user to answer), never wait: proceed with the
+   list and include it in your return so the caller can review it. If edge
+   cases were given in the request, use those as the minimum required set —
+   add more only if obviously missing.
 
 4. **No unnecessary mocking.** If the unit under test has no I/O (no DB, no
    network, no filesystem), do not mock anything — call it directly. Only

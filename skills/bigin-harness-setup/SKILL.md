@@ -64,7 +64,7 @@ Store result as `PROFILE`. Load `references/profile-{PROFILE}.md` for all templa
 
 ## Phase 0.5: Project Scaffold (empty repo only)
 
-Runs when the repo lacks the marker file for `PROFILE` — `nuxt.config.ts` (nuxt, nuxt-marketing), `next.config.*` (next), `go.mod` (go), `package.json` (nodejs), `pubspec.yaml` (flutter), `src-tauri/tauri.conf.json` (tauri). Skip the phase entirely otherwise; that's onboarding an existing repo — which is the usual case for `nuxt-marketing`, whose repos arrive from the Marketing Site Factory's template with a `nuxt.config.ts` already in place. An **empty** `nuxt-marketing` repo is scaffolded like any other: it is option 7 of row 8's question, and this phase delegates it to `nuxt-marketing-scaffold`. Also skip the phase entirely for `PROFILE = generic` — there's no scaffold skill for an unknown stack, and generic is only ever reached from a repo that already has code. **Skip it for `specs`, `contracts` and `qa` too**, for a different reason: those profiles have no marker file, so the first sentence's test would otherwise say "lacks it" and run. There is nothing to scaffold — a specs repo is seeded by its BA and a contracts repo by its first spec file, neither of which this plugin creates.
+Runs when the repo lacks the marker file for `PROFILE` — `nuxt.config.ts` (nuxt, nuxt-marketing), `next.config.*` (next), `go.mod` (go), `package.json` (nodejs), `pubspec.yaml` (flutter), `src-tauri/tauri.conf.json` (tauri). Skip the phase entirely otherwise; that's onboarding an existing repo — which is the usual case for `nuxt-marketing`, whose repos arrive from the Marketing Site Factory's template with a `nuxt.config.ts` already in place. An **empty** `nuxt-marketing` repo is scaffolded like any other: it is reached through option 4 (Another stack) of row 8's question, then picked in the follow-up question, and this phase delegates it to `nuxt-marketing-scaffold`. Also skip the phase entirely for `PROFILE = generic` — there's no scaffold skill for an unknown stack, and generic is only ever reached from a repo that already has code. **Skip it for `specs`, `contracts` and `qa` too**, for a different reason: those profiles have no marker file, so the first sentence's test would otherwise say "lacks it" and run. There is nothing to scaffold — a specs repo is seeded by its BA and a contracts repo by its first spec file, neither of which this plugin creates.
 
 Scaffolding is delegated to a deterministic script — that profile's own scaffold skill for five of the seven scaffolded profiles, and the stack's own CLI for the other two: `flutter create` for `flutter`, and `nuxt-scaffold` followed by `pnpm tauri init` for `tauri`, since neither a `flutter-scaffold` nor a `tauri-scaffold` skill exists (`references/scaffold-delegation.md` says what each would have to add and why that isn't a template yet). Either way it is a pinned command line, **not** done conversationally. All questions happen up front, in one batch; zero prompts once scaffolding starts. Per-profile invocation, decisions to gather, and the full procedure: `references/scaffold-delegation.md`.
 
@@ -150,9 +150,7 @@ The distinction is the same one verify mode turns on (`references/verify-mode.md
 
 Same discipline for `{STACK}` and any header line naming a runtime, package manager or framework: read it from the manifests, claim only what a manifest actually says, and name in the Phase 7 summary every command run, every one rewritten to `TODO:`, and every one not checked.
 
-For `tauri`, the template is substitution-free, but its `lint` and `test` rows are each **two commands** — a pnpm one and a `cargo` one. Run both halves separately in the verification pass above and report them separately: `cargo` missing from `PATH` is a different fact from a red `pnpm test`, and collapsing them hides which half of the app is unchecked. There is deliberately no Rust typecheck row — `cargo clippy` type-checks as it lints, so a `cargo check` beside it recompiles the same graph for no new finding (`references/profile-tauri.md` → `## Commands`).
-
-For `flutter`, the template is substitution-free but its Commands table carries the dev command with a flavor entrypoint (`-t lib/main_dev.dart --dart-define-from-file=config/dev.json`). On a repo that has no flavors yet — anything straight out of `flutter create` — write it as the template has it anyway: it states the convention the first slice must satisfy, and `flutter run` with no flavor is exactly the habit the "no URL literal in `lib/`" rule exists to prevent.
+Two profiles add a rule to this pass, each in its own `## Commands` section: `tauri`'s `lint` and `test` rows are two commands each, run and reported separately (`references/profile-tauri.md`), and `flutter`'s flavor `dev` row is written as-is on a repo with no flavors yet (`references/profile-flutter.md`).
 
 Write to `CLAUDE.md` in the project root.
 Skip if `INSTALL_MODE=new` and `CLAUDE.md` already exists.
@@ -199,7 +197,15 @@ Only when 5-1 created `scripts/pre-commit.sh`. The hook lives in `.git/hooks/`, 
    - If it fails (not a repo), run `git init` and tell the user a repo was initialized.
    - If it already is a repo, do nothing.
 
-2. **Install the hook** (idempotent — never clobber a foreign hook silently). Absent, or already a symlink to `../../scripts/pre-commit.sh` → `ln -sf ../../scripts/pre-commit.sh .git/hooks/pre-commit`. Anything else → do **not** overwrite: show the existing hook, ask whether to replace it (`AskUserQuestion`), and record the answer in the summary.
+2. **Install the hook** (idempotent — never clobber a foreign hook silently). Absent, or already ours → `ln -sf ../../scripts/pre-commit.sh .git/hooks/pre-commit`. "Ours" means a symlink to `../../scripts/pre-commit.sh`, or the shim below. Anything else → do **not** overwrite: show the existing hook, ask whether to replace it (`AskUserQuestion`), and record the answer in the summary.
+
+   **Windows: write the shim instead of the symlink.** Use it when `uname -s` starts with `MINGW`, `MSYS` or `CYGWIN`, or when `ln -sf` fails. Without Developer Mode, Windows refuses the symlink (EPERM). Git Bash's `ln -sf` makes a copy instead, and the copy goes stale the moment `scripts/pre-commit.sh` changes. Write `.git/hooks/pre-commit` as these three lines, then `chmod +x` it:
+   ```sh
+   #!/bin/sh
+   # bigin-harness hook shim: runs the tracked script, so it never goes stale
+   exec sh scripts/pre-commit.sh "$@"
+   ```
+   The marker comment on line 2 is what makes it count as ours on a re-run. Git runs hooks from the repo root, so the relative path resolves.
 
 3. Confirm to the user that the hook is installed (or was left untouched).
 
@@ -215,91 +221,49 @@ If `scripts/pre-commit.sh` was created in 5-1, the budget check step is already 
 
 ### 5-1d. Guard host adapter
 
-Read `references/hook-guard.md` → `## lib/hook-io.mjs`. Write to `.claude/guards/lib/hook-io.mjs`. Applies to all profiles, and to `AGENT_HOSTS = claude` as well — **every guard below imports it**, so skipping it leaves nine broken scripts. Not executable on its own: no shebang, no `chmod`.
+Read `references/hook-guard.md` → `## lib/hook-io.mjs`. Write to `.claude/guards/lib/hook-io.mjs`. Applies to all profiles, and to `AGENT_HOSTS = claude` as well — **every guard below imports it**, so skipping it breaks every one of them. Not executable on its own: no shebang, no `chmod`.
 
 It normalizes the payload-field and response-envelope differences between Claude Code and Cursor so one guard body serves both hosts. There is no Cursor-specific copy of any guard anywhere; if you find yourself writing one, the difference belongs in this module instead.
 
-### 5-2. Bash guard (blocks gate bypass)
+### 5-2. Guard scripts
 
-Read from `references/hook-guard.md` → `## bash-guard.mjs`. Write to `.claude/guards/bash-guard.mjs`.
+Write each script below from `references/hook-guard.md` → `## <script name>` to `.claude/guards/<script name>`. **Every profile gets all of them, except the gates `references/overlay-matrix.md` → `## Polyrepo profiles: which gates apply` marks no:** `specs` skips `spec-gate-guard`, `bugfix-test-guard` and `commit-msg-guard`; `contracts` skips `bugfix-test-guard`; `qa` skips `spec-gate-guard`. A skipped gate is written nowhere and registered on neither host, so 5-3 and Phase 5.8 follow this same list.
 
-> `flutter` deliberately gets no `PostToolUse` formatter hook — `dart format` has no configuration to get wrong, and it runs in the pre-commit gate and CI (`references/profile-flutter.md` → `## settings.json Template` states this at the call site).
->
-> nuxt/next/tauri auto-format also needs a guard script — `.claude/guards/lint-fix-file.mjs`, ESLint `--fix` scoped to the single touched file (a blanket `pnpm lint --fix` would rewrite every pre-existing lint violation in the repo on the first edit). If `SCAFFOLDED = true`, `nuxt-scaffold`/`next-scaffold` already wrote it. Otherwise (onboarding an existing nuxt, next or tauri repo, or any `nuxt-marketing` repo — nothing here ever scaffolds one), copy it now from `skills/nuxt-scaffold/scripts/templates/files/.claude/guards/lint-fix-file.mjs` (nuxt, nuxt-marketing, and tauri — all three frontends are Nuxt) or `skills/next-scaffold/scripts/templates/files/.claude/guards/lint-fix-file.mjs` (next) — same script body in both, single source of truth per profile, don't duplicate it here.
+| Step | Script(s) | What it does |
+|---|---|---|
+| 5-2 | `bash-guard.mjs` | Blocks gate bypass: `--no-verify`, `-n`, force push. |
+| 5-2b | `spec-gate-guard.mjs` | Blocks non-trivial edits until `PLAN.md` is approved. **If `SPECKIT = coexist`**, write it but register it on neither host. It reads root `PLAN.md` only, so it would block every Spec Kit implementation edit. Note the omission in the Phase 7 summary. |
+| 5-2c | `injection-scan-guard.mjs`, `injection-gate-guard.mjs` | Prompt-injection gate. Stage 1 flags fetched content; stage 2 asks before the next risky call. 5-2e adds stage 3. |
+| 5-2d | `session-resume-check.mjs` | `SessionStart` resume prompt for an in-progress `SESSION.md`. If `graphify-out/graph.json` exists, it also reports the graph's freshness once per session. It runs on `SessionStart` because a `Stop` hook can only block or stay silent. |
+| 5-2e | `canary-seed.mjs` | Seeds a per-session canary token on `SessionStart`; `injection-gate-guard.mjs` denies any tool call whose input contains it. |
+| 5-2f | `bugfix-test-guard.mjs` | Blocks a `fix:` commit with no staged regression test (`debug-workflow`'s rule, enforced at commit time). |
+| 5-2g | `commit-msg-guard.mjs` | Blocks a non-Conventional-Commit subject, which `bugfix-test-guard`'s `fix:` detection depends on. It has two entry points into one script; step 2 below installs the second. |
+| 5-2h | `precompact-snapshot.mjs` | Autosaves in-flight state to `.claude/memory/SESSION.md` on `PreCompact` and `SessionEnd`. Every `settings.json` template points at it, so skipping it leaves that hook dangling. |
+| 5-2i | `install-hooks.mjs` | All profiles. A clone bootstrap on `Setup`, not a gate. `.git/hooks/` isn't tracked, so it installs a fresh clone's `pre-commit` / `commit-msg` hooks, defers to `simple-git-hooks`/`husky` with the one command to run, and never touches a foreign hook. Claude Code only: Cursor has no `Setup` event, and the summary says so. |
+| 5-2i | `instructions-trace.mjs` | All profiles, **registered by none**. `InstructionsLoaded` fires on every rule load, so wiring it by default costs a Node process per load. Its section has the registration snippet and the `CLAUDE_HARNESS_TRACE=1` switch: point the user at it in the summary, and add `.claude/instructions-trace.log` to `.gitignore`. |
 
-### 5-2b. Spec gate guard (blocks non-trivial edits before plan approval)
+**Two formatter notes.** `flutter` deliberately gets no `PostToolUse` formatter hook (`references/profile-flutter.md` → `## settings.json Template` says why). nuxt, nuxt-marketing, next and tauri need `.claude/guards/lint-fix-file.mjs`, which runs ESLint `--fix` on the one touched file. If `SCAFFOLDED = true`, the scaffold already wrote it. Otherwise copy it from `${CLAUDE_PLUGIN_ROOT}/skills/nuxt-scaffold/scripts/templates/files/.claude/guards/lint-fix-file.mjs` (nuxt, nuxt-marketing, tauri) or `${CLAUDE_PLUGIN_ROOT}/skills/next-scaffold/scripts/templates/files/.claude/guards/lint-fix-file.mjs` (next). Never duplicate it here.
 
-Read from `references/hook-guard.md` → `## spec-gate-guard.mjs`. Write to `.claude/guards/spec-gate-guard.mjs`. Applies to all profiles.
+**5-2g step 2: install the git `commit-msg` hook**, so commits made outside Claude are checked too. **Skip it on `specs`**, which writes no `commit-msg-guard.mjs`: a hook calling a missing script fails every commit. It needs a git repo: if 5-1b didn't run, check `git rev-parse --is-inside-work-tree 2>/dev/null` first and `git init` if that fails. Then match whatever already gates commits in this repo:
+- **`simple-git-hooks`** (key in `package.json`) → add `"commit-msg": "node .claude/guards/commit-msg-guard.mjs $1"` to that object, then re-run `pnpm simple-git-hooks` (or `npx simple-git-hooks`) so it's written into `.git/hooks/`. This is the `SCAFFOLDED = true` nuxt/next case.
+- **`husky`** (`.husky/` dir) → write `.husky/commit-msg` containing `node .claude/guards/commit-msg-guard.mjs "$1"`, then `chmod +x .husky/commit-msg`.
+- **Plain git** (go / nodejs / flutter / generic, or any repo with no hook manager — including `tauri` if `nuxt-scaffold` did not run) → read `references/hook-guard.md` → `## commit-msg: all profiles except specs`, write `scripts/commit-msg.sh`, `chmod +x scripts/commit-msg.sh`, then install it the way 5-1b installs pre-commit, including the Windows shim (with `commit-msg.sh` in place of `pre-commit.sh`): `ln -sf ../../scripts/commit-msg.sh .git/hooks/commit-msg` if that path is absent or already ours; if it exists and is **not** ours, show it and ask before replacing (`AskUserQuestion`), exactly as 5-1b does. Never clobber a foreign hook silently.
 
-If `SPECKIT = coexist`, still write the script but **don't register its hook** in 5-3's `settings.json` — it reads root `PLAN.md` only and would block every Spec Kit implementation edit. Note the omission in the Phase 7 summary.
-
-### 5-2c. Prompt-injection gate (stage 1: flags; stage 2 lives in injection-gate-guard.mjs, extended by 5-2e's canary)
-
-Read from `references/hook-guard.md` → `## injection-scan-guard.mjs` and `## injection-gate-guard.mjs`. Write to `.claude/guards/injection-scan-guard.mjs` and `.claude/guards/injection-gate-guard.mjs` respectively. Applies to all profiles.
-
-### 5-2d. Session resume check (deterministic resume prompt)
-
-Read from `references/hook-guard.md` → `## session-resume-check.mjs`. Write to `.claude/guards/session-resume-check.mjs`. Applies to all profiles — replaces the previous CLAUDE.md-prose-only "check for SESSION.md on session start" instruction with a `SessionStart` hook. If `graphify-out/graph.json` exists, this same hook also surfaces its presence and freshness (a cheap `git log` comparison against everything outside `graphify-out/`) — this is the mechanism for the graphify freshness-warn behavior; it runs here, once per session, rather than as a `Stop` hook, since `Stop` hooks can only force continuation (`decision: "block"`) or stay silent — there's no documented non-blocking, user-visible `Stop` output.
-
-### 5-2e. Canary exfiltration seed (stage 3 of the injection gate)
-
-Read from `references/hook-guard.md` → `## canary-seed.mjs`. Write to `.claude/guards/canary-seed.mjs`. Applies to all profiles — seeds a per-session canary token via a `SessionStart` hook; `injection-gate-guard.mjs`'s stage-3 check denies any tool call whose input contains it.
-
-### 5-2f. Bugfix test guard (blocks fix commits with no regression test)
-
-Read from `references/hook-guard.md` → `## bugfix-test-guard.mjs`. Write to `.claude/guards/bugfix-test-guard.mjs`. Applies to all profiles — enforces `debug-workflow`'s "every bug fix ships a regression test" requirement at commit time rather than relying on prose.
-
-### 5-2g. Commit message guard (blocks non-Conventional-Commit messages)
-
-Enforces the Conventional Commits subject line that `bugfix-test-guard.mjs`'s `fix:` detection depends on. Applies to all profiles. Two entry points into **one** script — the `PreToolUse` hook catches commits Claude makes, the git `commit-msg` hook catches everyone's.
-
-1. **Write the guard.** Read from `references/hook-guard.md` → `## commit-msg-guard.mjs`. Write to `.claude/guards/commit-msg-guard.mjs`. Phase 5-3 registers its `PreToolUse` entry.
-
-2. **Install the git `commit-msg` hook.** Requires a git repo — if 5-1b didn't run (no `scripts/pre-commit.sh` was created), check `git rev-parse --is-inside-work-tree 2>/dev/null` first and `git init` if it fails. Then, matching whatever already gates commits in this repo:
-   - **`simple-git-hooks`** (key in `package.json`) → add `"commit-msg": "node .claude/guards/commit-msg-guard.mjs $1"` to that object, then re-run `pnpm simple-git-hooks` (or `npx simple-git-hooks`) so it's written into `.git/hooks/`. This is the `SCAFFOLDED = true` nuxt/next case.
-   - **`husky`** (`.husky/` dir) → write `.husky/commit-msg` containing `node .claude/guards/commit-msg-guard.mjs "$1"`, then `chmod +x .husky/commit-msg`.
-   - **Plain git** (go / nodejs / flutter / generic, or any repo with no hook manager — including `tauri` if `nuxt-scaffold` did not run) → read `references/hook-guard.md` → `## commit-msg: all profiles`, write `scripts/commit-msg.sh`, `chmod +x scripts/commit-msg.sh`, then install it the same way 5-1b installs pre-commit — `ln -sf ../../scripts/commit-msg.sh .git/hooks/commit-msg` if that path is absent or already our symlink; if it exists and is **not** ours, show it and ask before replacing (`AskUserQuestion`), exactly as 5-1b does. Never clobber a foreign hook silently.
-
-   Say which of the three paths was taken in the Phase 7 summary. As with pre-commit, `.git/hooks/` isn't version-controlled — Phase 6's README onboarding covers the fresh-clone step.
-
-### 5-2h. Precompact snapshot (autosaves session state before compaction)
-
-Read from `references/hook-guard.md` → `## precompact-snapshot.mjs`. Write to `.claude/guards/precompact-snapshot.mjs`. Applies to all profiles — the `PreCompact` hook in every profile's `settings.json` template points at this script, so it must be written or that hook dangles. Autosaves in-flight state to `.claude/memory/SESSION.md` (in `session-handoff`'s template shape) before a manual or automatic compaction, so `session-resume-check.mjs` can recover it.
-
-### 5-2i. Clone bootstrap + the opt-in instructions trace
-
-**`install-hooks.mjs`** — from `references/hook-guard.md` → `## install-hooks.mjs`, write to `.claude/guards/install-hooks.mjs`. All profiles. A bootstrap, not a gate: registered on `Setup`, it installs the `pre-commit` / `commit-msg` symlinks on a fresh clone, defers to `simple-git-hooks`/`husky` with the one command to run rather than fighting the manager, and never touches a foreign hook. It exists because `.git/hooks/` isn't tracked, so without it a teammate's first commit is gated by nothing and nothing says so. Cursor has no `Setup` equivalent — Claude Code side only, and the summary says so rather than implying parity.
-
-**`instructions-trace.mjs`** — same file, `## instructions-trace.mjs`, write to `.claude/guards/instructions-trace.mjs`. All profiles, **registered by none**: `InstructionsLoaded` fires on every rule load, so wiring it by default spends a Node process per load in every installed repo to serve someone debugging. That section carries the registration snippet and the `CLAUDE_HARNESS_TRACE=1` switch — point the user at it in the summary instead of turning it on, and add `.claude/instructions-trace.log` to `.gitignore`.
+Say which of the three paths was taken in the Phase 7 summary. As with pre-commit, `.git/hooks/` isn't version-controlled, so Phase 6's README onboarding covers the fresh-clone step.
 
 ### 5-3. .claude/settings.json
 
 Two shapes. **nuxt / next / tauri with `SCAFFOLDED = true`** already have a `.claude/settings.json` from the scaffold — merge the governance hooks into it per event, never replacing the existing `lint-fix-file.mjs` `PostToolUse` entry. **Everything else** — `nuxt-marketing` always among it, since nothing here scaffolds one — reads the whole template from `references/profile-{PROFILE}.md` → `## settings.json Template` and merges per event if the file exists, or writes fresh.
 
-Both shapes register seven events: `PreToolUse`, `PostToolUse`, `SessionStart`, `PreCompact`, `SessionEnd`, `Setup` (and `PostToolUse` lint-fix on nuxt/nuxt-marketing/next/tauri). The exact per-event merge list and the two allowlist exceptions: `references/overlay-matrix.md` → `## 5-3`.
+Both shapes register six events: `PreToolUse`, `PostToolUse`, `SessionStart`, `PreCompact`, `SessionEnd`, `Setup`. nuxt, nuxt-marketing, next and tauri also put the lint-fix hook on `PostToolUse`. The exact per-event merge list and the two allowlist exceptions: `references/overlay-matrix.md` → `## 5-3`.
 
-
-**The polyrepo pre-commit block, on any repo with `api-contract.lock` or `story-sync.json`:** append `references/hook-guard.md` → `## pre-commit: polyrepo additions` to whatever pre-commit script the stack profile already wrote. It is what makes the standard work with no CI: the vendored-spec integrity check has **no other cover**, since the `PreToolUse` guard only sees edits made through an agent. Tiers and the trade-off: `references/ci.md` → `## Running the standard without CI`.
+**The polyrepo pre-commit block, on any repo with `api-contract.lock` or `story-sync.json`:** append `references/hook-guard.md` → `## pre-commit: polyrepo additions` to whatever pre-commit script the stack profile already wrote. **If 5-1 wrote no `scripts/pre-commit.sh` because a hook manager owns the hook,** write the block to `scripts/pre-commit-polyrepo.sh` under a `#!/bin/sh` line and `chmod +x` it. The block ends each failing check with its own `exit 1`, so it runs standalone. Then chain it behind the manager: append ` && sh scripts/pre-commit-polyrepo.sh` to the `simple-git-hooks` `"pre-commit"` value and re-run `pnpm simple-git-hooks`, or append `sh scripts/pre-commit-polyrepo.sh` as a new line in `.husky/pre-commit`. Never skip the block because a manager exists. It is what makes the standard work with no CI: the vendored-spec integrity check has **no other cover**, since the `PreToolUse` guard only sees edits made through an agent. Tiers and the trade-off: `references/ci.md` → `## Running the standard without CI`.
 
 **Story lint, when `PROFILE` is `specs`:** copy `${CLAUDE_PLUGIN_ROOT}/skills/bigin-harness-setup/scripts/story_lint.mjs` to `scripts/story_lint.mjs` and wire it into the pre-commit script. Hand the BMAD template addition from `references/profile-specs.md` → `## BMAD story template addition` to the BA — it cannot be installed, since no BMAD template ships here.
 
 **Story sync, when `REPO_TYPE` is `api`, `web`, `mobile` or `qa`:** copy `${CLAUDE_PLUGIN_ROOT}/skills/bigin-harness-setup/scripts/story_sync.mjs` to `scripts/story_sync.mjs`, write `story-sync.json` at the repo root (`{"repo": "<owner>/<project>-specs", "ref": "main"}`), and write `.github/workflows/story-sync.yml` from `references/ci.md` → `## story-sync workflow: github (consumer repos)`, and copy `story_gate.mjs` beside it with the story-gates workflow from that file's `## story gates:` section for the repo's CI provider. **In `contract-bump.yml` and `contract-drift.yml`, replace the commented toolchain block with the row for this repo's type** — leaving it commented ships a workflow that fails at codegen, which is what the pilot's two consumer repos both did. `qa` receives stories but consumes no contract, which is why its list differs from the guard's below.
 
-**One conditional entry.** When Phase 0a set `REPO_TYPE` to `api`, `web` or `mobile`, add `vendored-contract-guard.mjs` to the `PreToolUse` block on the `Edit|Write|MultiEdit` matcher, beside `spec-gate-guard.mjs`:
-
-```json
-{
-  "matcher": "Edit|Write|MultiEdit",
-  "hooks": [
-    {
-      "type": "command",
-      "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/guards/vendored-contract-guard.mjs\""
-    }
-  ]
-}
-```
-
-It is the only gate that is not installed on every profile, because it is the only one whose subject — a vendored contract and synced docs — does not exist outside a polyrepo consumer repo. `.cursor/hooks.json` gets the matching entry with `failClosed: true` (`references/cursor-parity.md`); registering it on one host only is the failure this repo has shipped before.
+**One conditional entry.** When Phase 0a set `REPO_TYPE` to `api`, `web` or `mobile`, register `.claude/guards/vendored-contract-guard.mjs` on `PreToolUse` with the `Edit|Write|MultiEdit` matcher, beside `spec-gate-guard.mjs`. The JSON entry is in `references/overlay-matrix.md` → `## 5-3`. No stack profile installs it otherwise, because its subject (a vendored contract and synced docs) does not exist outside a polyrepo consumer repo. `.cursor/hooks.json` gets the matching entry with `failClosed: true` (`references/cursor-parity.md`); registering it on one host only is the failure this repo has shipped before.
 
 ### 5-3b. Editor + per-stack config files
 
@@ -341,6 +305,7 @@ Decided in Phase 1.5 (`KNOWLEDGE_BUNDLE`). If true, read all templates from `ref
    - `## knowledge/constraints/agent-rules.md` → `knowledge/constraints/agent-rules.md`
    - `## knowledge/implementation/index.md` → `knowledge/implementation/index.md` (empty of records — `task-workflow` and `epic-workflow` append to it at cleanup)
    - `## knowledge/log.md` → `knowledge/log.md`
+   - `## .ignore` → `.ignore` at the repo root, so searches skip `knowledge/implementation/`. If the file exists, append the line only when it is missing, even under `INSTALL_MODE=new`.
 3. **Validator** — `## tools/knowledge_validate.mjs` → `tools/knowledge_validate.mjs`. Zero-dependency Node script — no chmod, no package install.
 4. **Wire into the enforcement gate.** If `scripts/pre-commit.sh` exists (created in Phase 5-1), append a step running `node tools/knowledge_validate.mjs`. If the repo instead uses `simple-git-hooks`/`husky` (Phase 5-1 skipped creating our script), add the same command to that existing hook config rather than creating a second script.
 5. **Wire into AI_REVIEW_CHECKLIST.md.** Append one line to the `## Scope` section (written in Phase 4): `- [ ] Behavior-changing PR → related knowledge/ concept updated?`
@@ -433,22 +398,6 @@ Read `references/summary-checklist.md` → `## Output Checklist` and verify ever
 
 ## References
 
-Phase order, then the cross-cutting ones:
+Every file under `references/` is cited at the phase that reads it, in phase order: `profile-detection.md` (0a, 0), `scaffold-delegation.md` (0.5), `speckit-migration.md` (0.7), `patch-mode.md` / `verify-mode.md` (1a / 1b), `decision-bundle.md` (1.5), `profile-{PROFILE}.md` (2 onward: every template one profile writes), `rule-files.md` + `files-shared.md` (3, 4), `overlay-matrix.md` (5's branching steps and the polyrepo gate set), `budget-gate.md` (5-1c), `knowledge-bundle.md` / `knowledge-migration.md` (5.5), `ci.md` (5.6), `graph.md` (5.7), `cursor-parity.md` (5.8), `summary-checklist.md` (6, 7, Output Checklist).
 
-- `profile-detection.md` — Phase 0 ladder (incl. why `tauri` and `nuxt-marketing` both outrank `nuxt`), the two-stage Flutter app test, the empty-repo question
-- `scaffold-delegation.md` — Phase 0.5: per-profile scaffold command, decisions to gather, what each leaves behind
-- `speckit-migration.md` — Phase 0.7: Spec Kit detection, the migrate/coexist/leave decision, the ordered procedure
-- `patch-mode.md` / `verify-mode.md` — Phase 1a / 1b: changelog patch-block application; re-checking every `CLAUDE.md` claim
-- `profile-nuxt.md`, `profile-nuxt-marketing.md`, `profile-next.md`, `profile-go.md`, `profile-nodejs.md`, `profile-flutter.md`, `profile-tauri.md`, `profile-generic.md` — one per profile, loaded as `references/profile-{PROFILE}.md`. Each carries that profile's every template: commands, `CLAUDE.md`, conventions, testing, architecture addendum, `settings.json`, and any per-stack config file
-- `files-shared.md` — security, architecture, AI task guide, review checklist, and the `paths:` block per profile
-- `rule-files.md` — Phase 3: which `.claude/rules/` files each profile gets
-- `overlay-matrix.md` — Phase 5's five branching steps: the matrix plus the argued reason for each exception
-- `hook-guard.md` — `lib/hook-io.mjs` (the two-host adapter every guard imports), the nine gates every profile installs plus `vendored-contract-guard.mjs` on polyrepo consumer repos, the two Claude-only bootstraps (`install-hooks.mjs`, `instructions-trace.mjs`), and the pre-commit + commit-msg scripts per profile
-- `budget-gate.md` — `context_budget.mjs`
-- `knowledge-bundle.md` / `knowledge-migration.md` — Phase 5.5 templates; migrating an existing `knowledge/`
-- `graph.md` — Phase 5.7 graphify convention
-- `ci.md` — Phase 5.6 workflows per profile and provider
-- `cursor-parity.md` — Phase 5.8: the generated mirror, the event map, and testing it
-- `decision-bundle.md` — Phase 1.5 question wording
-- `idempotency.md` — the full overwrite/skip contract
-- `summary-checklist.md` — Phase 6 README templates, the Phase 7 summary, the Output Checklist
+`hook-guard.md` is read across Phase 5. It holds `lib/hook-io.mjs` (the two-host adapter every guard imports), the nine gates (fewer on `specs`, `contracts` and `qa`), `vendored-contract-guard.mjs` for polyrepo consumer repos, the two Claude-only bootstraps, and the pre-commit and commit-msg scripts per profile. `idempotency.md` is the full overwrite/skip contract.

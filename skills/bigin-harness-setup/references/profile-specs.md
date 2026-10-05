@@ -125,7 +125,7 @@ Two workflows. `node scripts/story_lint.mjs` over the repo (plus the orphan-side
         ]
       },
       {
-        "matcher": "Bash|Write|Edit|WebFetch|mcp__.*",
+        "matcher": "Bash|Write|Edit|MultiEdit|WebFetch|mcp__.*",
         "hooks": [
           {
             "type": "command",

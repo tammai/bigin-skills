@@ -41,7 +41,7 @@ Spec Kit detected ({N} features under specs/, {M} skills/commands installed). Ho
 
 Valid when a team isn't ready to move. Three changes to the normal install:
 
-1. **Omit `spec-gate-guard.mjs` from `.claude/settings.json`** (Phase 5-2b still writes the script; just don't register the hook). It resolves the governing plan as root `PLAN.md` only, so with Spec Kit driving it blocks every `/speckit-implement` edit over 20 lines while Spec Kit's own `specs/<branch>/plan.md` goes unread. Note the omission in the Phase 7 summary so it's a decision on record, not a silent gap.
+1. **Omit `spec-gate-guard.mjs` from `.claude/settings.json` and from `.cursor/hooks.json`** (Phase 5-2b still writes the script; just don't register the hook on either host). It resolves the governing plan as root `PLAN.md` only, so with Spec Kit driving it blocks every `/speckit-implement` edit over 20 lines while Spec Kit's own `specs/<branch>/plan.md` goes unread. Note the omission in the Phase 7 summary so it's a decision on record, not a silent gap.
 2. **Older layout → `INSTALL_MODE=new`** so Phase 2 preserves the Spec Kit block in `CLAUDE.md`; then tell the user which harness sections to merge in by hand.
 3. **Warn on budget.** `tools/context_budget.mjs` counts `.claude/skills/*/SKILL.md` descriptions as always-loaded. Spec Kit's ten cost ~1 150 chars of the 12 000 limit — real, and spent on a workflow that's being kept in parallel with its replacement.
 

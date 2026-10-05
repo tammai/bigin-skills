@@ -112,7 +112,7 @@ paths:                      # qa
 ```yaml
 ---
 paths:
-  - "**/*.{ts,tsx,js,jsx,mjs,cjs,vue,svelte,go,py,rb,rs,java,kt,cs,php,swift,scala,ex,exs}"
+  - "**/*.{ts,tsx,js,jsx,mjs,cjs,vue,svelte,go,py,rb,rs,java,kt,cs,php,swift,scala,ex,exs,dart}"
   - "openapi.yaml"
 ---
 ```
@@ -236,7 +236,7 @@ Written verbatim — frontmatter included, no paths substitution.
 ```markdown
 ---
 paths:
-  - "**/*.{ts,tsx,js,jsx,mjs,cjs,vue,svelte,go,py,rb,rs,java,kt,cs,php,swift,scala,ex,exs}"
+  - "**/*.{ts,tsx,js,jsx,mjs,cjs,vue,svelte,go,py,rb,rs,java,kt,cs,php,swift,scala,ex,exs,dart}"
 ---
 # Comment Rules
 

@@ -386,10 +386,12 @@ if (values['app-id'] && ghLive) {
   for (const type of built) {
     const name = `${OWNER}/${repoName(type)}`
     run('gh', ['variable', 'set', 'CONTRACT_APP_ID', '--repo', name, '--body', values['app-id']], ROOT)
-    // The key goes from disk to GitHub. It is never read into this process, never
-    // logged, and never written anywhere else.
+    // The key is read here only to be piped to `gh secret set` on stdin. It is never
+    // logged, never passed as an argument, and never written anywhere else. `input:`
+    // is the only way spawnSync feeds a child's stdin: a Buffer placed in the stdio
+    // array is not delivered, so gh got no key (or sat on an inherited terminal).
     const r = spawnSync('gh', ['secret', 'set', 'CONTRACT_APP_PRIVATE_KEY', '--repo', name], {
-      cwd: ROOT, stdio: [readFileSync(values['app-key']), 'ignore', 'pipe'], encoding: 'utf8'
+      cwd: ROOT, input: readFileSync(values['app-key']), stdio: ['pipe', 'ignore', 'pipe'], encoding: 'utf8'
     })
     if (r.status !== 0) note(`${name}: could not set the private key — ${(r.stderr || '').trim().split('\n')[0]}`)
   }

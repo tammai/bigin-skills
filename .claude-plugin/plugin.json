@@ -1,8 +1,8 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "bigin-skills",
-  "version": "1.103.0",
-  "description": "BigIn’s AI engineering harness for Claude Code — spec-gated task, epic and discovery workflows with an independent verifier; commit-time guards and context-budget gates for nuxt, nuxt-marketing, next, go, nodejs, flutter, tauri and polyrepo repos; stack scaffolders; knowledge distillation.",
+  "version": "1.104.0",
+  "description": "BigIn’s AI engineering harness for Claude Code — spec-gated task, epic and discovery workflows with an independent verifier; commit-time guards and context-budget gates for nuxt, nuxt-marketing, next, go, nodejs, flutter, tauri and polyrepo repos, plus a generic profile for any other repo; stack scaffolders; knowledge distillation.",
   "author": {
     "name": "Tam Mai",
     "email": "tam.mai@bigin.vn"
@@ -106,6 +106,15 @@
     "agents-md",
     "mdc",
     "multi-host",
-    "agent-hosts"
+    "agent-hosts",
+    "nuxt-marketing",
+    "nuxt-marketing-scaffold",
+    "generic",
+    "polyrepo",
+    "project-scaffold",
+    "contract-sync",
+    "flutter-figma-handoff",
+    "napkin",
+    "ask-bigin"
   ]
 }

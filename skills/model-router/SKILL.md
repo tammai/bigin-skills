@@ -43,7 +43,7 @@ node ${CLAUDE_SKILL_DIR}/scripts/classify.mjs --paths "path/one.ts,path/two.ts"
 
 Relay the JSON. Fields: `scope`, `filesChanged`, `touchedFiles`, `highRiskMatches`, `testCoverageRatio`, `plannedNewFiles`, `fullSpecDetected`, `routing`.
 
-`testCoverageRatio` is measured over non-test files **that exist on disk**. Files in the planned scope that don't exist yet are reported separately as `plannedNewFiles` and excluded from the ratio — a file with no code in it can't be "untested", and folding it in produced a 0 that read as a risk signal when it only meant "new". A scope that is *entirely* new files therefore reports `testCoverageRatio: null`, not `0`.
+`testCoverageRatio` is measured over existing, non-test files whose type the script can look a test up for: `.js .jsx .ts .tsx .mjs .cjs .vue .go .py .dart .rs` (an allowlist). Everything else — docs, config, `.env*`, `.sql`, `.html`, YAML, styles, assets — is left out of the ratio, so a scope with none of those code types reports `null` ("no code touched"), not `0`. New *code* files in the planned scope (same allowlist) are reported separately as `plannedNewFiles` and excluded from the ratio; a new doc or config file is in neither — a file with no code in it can't be "untested", and folding it in produced a 0 that read as a risk signal when it only meant "new". A scope that is *entirely* new files therefore also reports `null`. Deleted files (in `uncommitted`/`branch` scope) stay in `touchedFiles` and `highRiskMatches` but are neither planned new files nor counted for coverage. Backslash paths are normalised to `/`.
 
 With no `--paths` the script falls back to uncommitted changes, then the branch diff — correct mid-task, wrong at the start. `scope` tells you which it used:
 
@@ -63,7 +63,7 @@ These predict capability. Note what's *not* here: reversibility and blast radius
 
 **Auto-overrides — skip scoring, go straight to Deep:**
 
-- `fullSpecDetected` is true (a `task-workflow` full-spec-tier `PLAN.md` already exists — an explicit user signal)
+- `fullSpecDetected` is true (`PLAN.md` carries the `[full-spec]` marker of `task-workflow`'s full-spec tier — an explicit user signal; FR/NFR citations alone don't count)
 - The change is a **breaking** contract change, or a **data migration that transforms existing rows**
 
 A non-empty `highRiskMatches` is *not* an override. It's a prompt to ask whether the second bullet applies — additive contract changes and version bumps touch the same paths and are ordinary edits. What high-risk paths do change is the verification bar (Step 3b).
@@ -92,7 +92,7 @@ From the mechanical signals — this changes what the payload demands, never whi
 | `plannedNewFiles` non-empty                          | Tests first, same ordering — a new module has no coverage by construction, not by neglect                          |
 | `filesChanged` ≥ 5                                   | Gates across the whole tree, not just touched files                                                               |
 | Flaky/timing symptom                                 | ≥5 consecutive passes (see `debug-workflow`'s `race-conditions.md`)                                               |
-| None of the above                                    | Normal gates: lint + typecheck + tests, output shown                                                              |
+| None of the above                                    | Normal gates: lint + typecheck + tests on the touched scope, each run's pass/fail summary line shown           |
 
 Triggers stack.
 

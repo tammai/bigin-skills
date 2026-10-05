@@ -17,6 +17,13 @@ import { join } from "node:path";
 const CHECK = process.argv.includes("--check");
 const SUMMARY_LIMIT = 160;
 
+// Every text read goes through here. A Windows checkout under core.autocrlf=true has
+// CRLF line endings (.gitattributes pins LF, but a clone made before it, or a tool
+// that rewrites endings, can still hand us one), and every parser below keys on "\n".
+function read(path) {
+  return readFileSync(path, "utf-8").replace(/\r\n/g, "\n");
+}
+
 function fail(message) {
   console.log(`ERROR ${message}`);
   process.exit(1);
@@ -26,7 +33,7 @@ function readManifest() {
   const path = "tools/docs-manifest.json";
   if (!existsSync(path)) fail(`${path} not found`);
   try {
-    return JSON.parse(readFileSync(path, "utf-8"));
+    return JSON.parse(read(path));
   } catch (e) {
     fail(`${path} is not valid JSON: ${e.message}`);
   }
@@ -46,11 +53,69 @@ function listAgentFiles() {
     .map((f) => f.replace(/\.md$/, ""));
 }
 
+// Strict check of the YAML subset frontmatter uses: top-level `key: value` pairs whose
+// values are a quoted string, a block scalar (| or >), a flow list ([a, b]), an indented
+// list/map, or a plain scalar. It is not a YAML parser. It rejects what a strict loader
+// (Cursor's component loader, PyYAML) refuses and the lenient line regex in
+// parseFrontmatter() silently accepts — above all a plain scalar containing ": ", which
+// once made a skill's whole frontmatter unloadable while every gate stayed green.
+function validateYaml(block, filePath) {
+  const lines = block.split("\n");
+  const bad = (n, why) => fail(`${filePath}: frontmatter line ${n + 2} is not valid YAML — ${why}`);
+  const seen = new Set();
+  let i = 0;
+  while (i < lines.length) {
+    if (/^\s*(#.*)?$/.test(lines[i])) { i++; continue; }
+    const m = lines[i].match(/^([A-Za-z_][\w-]*):(?:[ \t]+(.*))?$/);
+    if (!m) bad(i, `expected a top-level "key: value", got ${JSON.stringify(lines[i].slice(0, 60))}`);
+    if (seen.has(m[1])) bad(i, `duplicate key "${m[1]}"`);
+    seen.add(m[1]);
+    const start = i;
+    const value = (m[2] ?? "").trim();
+    const cont = [];
+    for (i++; i < lines.length && (/^\s+\S/.test(lines[i]) || /^\s*$/.test(lines[i])); i++) cont.push(lines[i]);
+    const body = cont.map((l) => l.trim()).filter(Boolean);
+    if (value === "") continue; // an indented list or map follows (or an empty value)
+    if (/^[|>]/.test(value)) {
+      if (!/^[|>][+-]?[1-9]?[+-]?\s*(#.*)?$/.test(value)) bad(start, `bad block-scalar header "${value}"`);
+      continue;
+    }
+    const joined = [value, ...body].join(" ");
+    if (value[0] === '"' || value[0] === "'") {
+      const q = value[0];
+      let k = 1;
+      for (; k < joined.length; k++) {
+        if (q === '"' && joined[k] === "\\") { k++; continue; }
+        if (joined[k] === q) {
+          if (q === "'" && joined[k + 1] === "'") { k++; continue; }
+          break;
+        }
+      }
+      if (k >= joined.length) bad(start, `unterminated ${q === '"' ? "double" : "single"}-quoted string`);
+      if (!/^\s*(#.*)?$/.test(joined.slice(k + 1))) bad(start, `text after the closing quote: ${JSON.stringify(joined.slice(k + 1, k + 40))}`);
+      continue;
+    }
+    if (value[0] === "[" || value[0] === "{") {
+      const close = value[0] === "[" ? "]" : "}";
+      if (!joined.replace(/\s+#.*$/, "").endsWith(close)) bad(start, `unterminated flow ${close === "]" ? "list" : "map"}`);
+      continue;
+    }
+    if (/^[&*!%@`,#]/.test(value) || /^[-?:](\s|$)/.test(value)) {
+      bad(start, `a plain value cannot start with "${value[0]}" — quote it`);
+    }
+    for (const part of [value, ...body]) {
+      if (/:(\s|$)/.test(part)) bad(start, `plain value contains ": " (a nested mapping to YAML) — wrap the value in double quotes`);
+      if (/\s#/.test(part)) bad(start, `plain value contains " #", which YAML reads as a comment and truncates — quote it`);
+    }
+  }
+}
+
 function parseFrontmatter(text, filePath) {
   if (!text.startsWith("---\n")) fail(`${filePath}: missing frontmatter`);
   const end = text.indexOf("\n---\n", 4);
   if (end === -1) fail(`${filePath}: unterminated frontmatter`);
   const block = text.slice(4, end);
+  validateYaml(block, filePath);
   const fm = {};
   for (const line of block.split("\n")) {
     const m = line.match(/^([a-zA-Z_]+):\s*(.*)$/);
@@ -87,7 +152,7 @@ for (const dir of skillDirs) {
   if (!existsSync(evals)) fail(`${evals} not found — every skill needs should-trigger/should-not-trigger cases`);
   let cases;
   try {
-    cases = JSON.parse(readFileSync(evals, "utf-8"));
+    cases = JSON.parse(read(evals));
   } catch (e) {
     fail(`${evals} is not valid JSON: ${e.message}`);
   }
@@ -102,7 +167,7 @@ for (const dir of skillDirs) {
   // still there. Every other skill keeps the both-ways requirement.
   // Read the raw frontmatter block, not parseFrontmatter(): its key pattern is
   // /^([a-zA-Z_]+):/ and would never match a hyphenated key like this one.
-  const skillText = readFileSync(`skills/${dir}/SKILL.md`, "utf-8");
+  const skillText = read(`skills/${dir}/SKILL.md`);
   const fmEnd = skillText.indexOf("\n---\n", 4);
   const fmBlock = fmEnd === -1 ? "" : skillText.slice(4, fmEnd);
   const userOnly = /^disable-model-invocation:\s*(true|yes|on|1)\s*$/mi.test(fmBlock);
@@ -138,7 +203,7 @@ const agentFrontmatter = {};
 const agentRaw = {};
 const agentBody = {};
 for (const name of agentFiles) {
-  const text = readFileSync(join("agents", `${name}.md`), "utf-8");
+  const text = read(join("agents", `${name}.md`));
   agentFrontmatter[name] = parseFrontmatter(text, `agents/${name}.md`);
   const end = text.indexOf("\n---\n", 4);
   agentRaw[name] = text.slice(4, end);
@@ -219,7 +284,7 @@ for (const [tier, byEffort] of Object.entries(AGENTS)) {
 function readJson(path) {
   if (!existsSync(path)) fail(`${path} not found`);
   try {
-    return JSON.parse(readFileSync(path, "utf-8"));
+    return JSON.parse(read(path));
   } catch (e) {
     fail(`${path} is not valid JSON: ${e.message}`);
   }
@@ -252,6 +317,32 @@ if (cursorPlugin.name !== claudePlugin.name) {
 if (cursorMarket.plugins?.[0]?.name !== claudePlugin.name) {
   fail(`.cursor-plugin/marketplace.json plugins[0].name must be "${claudePlugin.name}"`);
 }
+const claudeEntry = claudeMarket.plugins?.[0];
+if (claudeEntry?.name !== claudePlugin.name) {
+  fail(`.claude-plugin/marketplace.json plugins[0].name must be "${claudePlugin.name}" — it is half of the install id`);
+}
+// `source` must resolve to the directory that holds this plugin's own manifest, or the
+// marketplace installs nothing (or something else).
+for (const [where, entry, manifestDir] of [
+  [".claude-plugin/marketplace.json", claudeEntry, ".claude-plugin"],
+  [".cursor-plugin/marketplace.json", cursorMarket.plugins?.[0], ".cursor-plugin"],
+]) {
+  const src = entry?.source;
+  if (typeof src !== "string" || !existsSync(join(src, manifestDir, "plugin.json"))) {
+    fail(`${where} plugins[0].source "${src}" does not resolve to a directory containing ${manifestDir}/plugin.json`);
+  }
+}
+// The description is shared: each marketplace entry repeats its host's plugin.json
+// verbatim, and the two hosts' texts differ only in the host name.
+if (claudeEntry?.description !== claudePlugin.description) {
+  fail(`.claude-plugin/marketplace.json plugins[0].description differs from .claude-plugin/plugin.json`);
+}
+if (cursorMarket.plugins?.[0]?.description !== cursorPlugin.description) {
+  fail(`.cursor-plugin/marketplace.json plugins[0].description differs from .cursor-plugin/plugin.json`);
+}
+if (cursorPlugin.description?.replaceAll("Cursor", "Claude Code") !== claudePlugin.description) {
+  fail(`.cursor-plugin/plugin.json description differs from .claude-plugin/plugin.json beyond the host name ("Cursor" vs "Claude Code")`);
+}
 if (cursorMarket.name !== claudeMarket.name) {
   fail(`.cursor-plugin/marketplace.json name "${cursorMarket.name}" differs from .claude-plugin/marketplace.json "${claudeMarket.name}"`);
 }
@@ -267,7 +358,7 @@ for (const [field, dir] of [["skills", cursorPlugin.skills], ["agents", cursorPl
 // agent to carry a description. Claude Code is laxer, so without this gate the plugin
 // installs fine here and is rejected — or worse, partially loaded — there.
 for (const name of skillDirs) {
-  const fm = parseFrontmatter(readFileSync(join("skills", name, "SKILL.md"), "utf-8"), `skills/${name}/SKILL.md`);
+  const fm = parseFrontmatter(read(join("skills", name, "SKILL.md")), `skills/${name}/SKILL.md`);
   if (fm.name !== name) {
     fail(`skills/${name}/SKILL.md: name is "${fm.name}" but Cursor requires it to match the folder name "${name}"`);
   }
@@ -346,7 +437,7 @@ const summaries = [];
 
 for (const [filePath, regions] of Object.entries(byFile)) {
   if (!existsSync(filePath)) fail(`${filePath} not found`);
-  const original = readFileSync(filePath, "utf-8");
+  const original = read(filePath);
   let content = original;
   for (const region of regions) {
     content = replaceRegion(content, region.name, region.render(), filePath);

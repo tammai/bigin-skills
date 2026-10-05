@@ -4,7 +4,7 @@ Stack: multi-locale Nuxt 4 marketing site — `@nuxt/content` collections, `@nux
 
 Detection: a **new rung above `nuxt`**, matched only when all four conditions hold — `nuxt.config.ts`/`.js` present, `@nuxt/content` in `dependencies`, `@nuxtjs/i18n` in `dependencies` with a `content/` directory or `content.config.ts` present, and no auth marker (`nuxt-auth-utils` and `@sidebase/nuxt-auth` both absent from `dependencies`). First match wins in the Phase 0 ladder, so this rung has to sit above `nuxt` for the same reason `tauri` does: a marketing site carries the `nuxt.config.ts` marker too, and `nuxt` matching first would write BFF-proxy and Pinia-Colada conventions for a repo that has no BFF half and no client state worth a store. Conditions 3 and 4 are the narrowing test — a Nuxt fullstack app that happens to ship a docs section satisfies conditions 1 and 2 and must stay on `nuxt`. **`server/api/**` is deliberately not tested**: this profile's own form and newsletter routes live there, so testing for its absence would be correct at install and wrong from the first contact form onward. Full ladder: `references/profile-detection.md`.
 
-**Empty repo → `nuxt-marketing-scaffold` creates the app first.** The empty-repo question in `references/profile-detection.md` offers this profile as option 7, and Phase 0.5 delegates to that skill exactly as the `nuxt` profile delegates to `nuxt-scaffold`. It is a separate scaffolder on purpose: `nuxt-scaffold` installs `nuxt-auth-utils` into everything it makes, which is condition 4's auth marker, so a site built that way would detect as `nuxt` — see `references/scaffold-delegation.md`. A site that arrives already scaffolded skips Phase 0.5 like any other repo whose marker file exists.
+**Empty repo → `nuxt-marketing-scaffold` creates the app first.** The empty-repo question in `references/profile-detection.md` offers this profile through option 4 (Another stack) and its follow-up question, and Phase 0.5 delegates to that skill exactly as the `nuxt` profile delegates to `nuxt-scaffold`. It is a separate scaffolder on purpose: `nuxt-scaffold` installs `nuxt-auth-utils` into everything it makes, which is condition 4's auth marker, so a site built that way would detect as `nuxt` — see `references/scaffold-delegation.md`. A site that arrives already scaffolded skips Phase 0.5 like any other repo whose marker file exists.
 
 The reason this profile exists, in one sentence: **the seven other profiles all assume a developer is the only editor.** Here a client's content editor — usually an agent acting for one — may change content files and locale bundles, and nothing else. That boundary is `conventions-content.md`, and it is the thing no other profile can express.
 
@@ -238,7 +238,7 @@ The gate is written **even when a hook manager already exists** and chained behi
 
 Governance superset: `permissions` plus the five `PreToolUse` guards, the two `PostToolUse` entries (lint-fix and the injection scan), `SessionStart`, `PreCompact`, `SessionEnd` and `Setup`. `wrangler deploy` is deliberately absent from the allowlist — deploying is the Factory's workflow, and a pre-approved deploy command is a live client site one tool call away. `pnpm add`/`remove` are allowed; `pnpm up` is not, since it rewrites the lockfile the build gate depends on.
 
-Also write `.claude/guards/lint-fix-file.mjs` if it is missing — script body from `skills/nuxt-scaffold/scripts/templates/files/.claude/guards/lint-fix-file.mjs`, the single source of truth for it.
+Also write `.claude/guards/lint-fix-file.mjs` if it is missing — script body from `${CLAUDE_PLUGIN_ROOT}/skills/nuxt-scaffold/scripts/templates/files/.claude/guards/lint-fix-file.mjs`, the single source of truth for it.
 
 ```json
 {
@@ -295,7 +295,7 @@ Also write `.claude/guards/lint-fix-file.mjs` if it is missing — script body f
         ]
       },
       {
-        "matcher": "Edit|Write|MultiEdit",
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
         "hooks": [
           {
             "type": "command",
@@ -304,7 +304,7 @@ Also write `.claude/guards/lint-fix-file.mjs` if it is missing — script body f
         ]
       },
       {
-        "matcher": "Bash|Write|Edit|WebFetch|mcp__.*",
+        "matcher": "Bash|Write|Edit|MultiEdit|WebFetch|mcp__.*",
         "hooks": [
           {
             "type": "command",
