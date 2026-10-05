@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.105.2] - 2026-10-05
+
+### Changed
+
+- **Long subagent output goes to a file.** `worker`, `architect` and their `-frontier` variants write anything over ~1,500 characters that isn't the diff or a test log (research, investigation notes, a design comparison, a long open-question list), and anything the next agent will read, to a file. They use the file the brief names, or one under the system temp directory, and reply with only its path, the status and anything blocking. `model-router`'s spawn template gains an optional **Output file** field, and `task-workflow` names one in the brief when a unit's return will be long. Ordinary implementation is unchanged: the diff is in git and the report stays capped at ~1,500 characters. The verifier and `knowledge-auditor` keep returning their JSON verdict inline, since a one-object verdict gains nothing from a file.
+
+The point is handoff, not storage: in the 2026-10-05 audit, five 15–19 KB reports written to files reached the agents fixing them without ever entering the orchestrator's context. A file only saves tokens when the reader reads it in slices or not at all, and when the reply is capped too, so both rules ship together.
+
+No templated reference changed, so there are no patch blocks.
+
 ## [1.105.1] - 2026-10-05
 
 Three token-waste patterns from the 2026-10-05 usage audit. That session was the day's most expensive at ~246M tokens, 197M of it in 25 subagents.

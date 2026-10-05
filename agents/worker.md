@@ -40,3 +40,5 @@ Don't force an architectural decision through at this tier just to finish; a rou
 ## Output
 
 End with a report of at most ~1,500 characters: status (done / blocked / partial), worktree path, branch, commit SHA (or "uncommitted"), the files you changed, the `PLAN.md` rows you finished, each test command you ran with its pass/fail summary line, and any open question. Never paste the diff or whole test logs — the caller reads the diff from `git`.
+
+**Long output goes to a file, not the reply.** Anything over ~1,500 characters that isn't the diff or a test log (research, investigation notes, a design comparison, a long open-question list), or anything the next agent will read, goes to the file your brief names, or one under the system temp directory if it names none. The report then carries only that path, the status and anything blocking. The report cap still applies, and never paste the file back into it.

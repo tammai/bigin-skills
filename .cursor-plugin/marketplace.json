@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "bigin plugins for Cursor",
-    "version": "1.105.1"
+    "version": "1.105.2"
   },
   "plugins": [
     {
       "name": "bigin-skills",
       "source": "./",
       "description": "BigIn’s AI engineering harness for Cursor — spec-gated task, epic and discovery workflows with an independent verifier; commit-time guards and context-budget gates for nuxt, nuxt-marketing, next, go, nodejs, flutter, tauri and polyrepo repos, plus a generic profile for any other repo; stack scaffolders; knowledge distillation.",
-      "version": "1.105.1",
+      "version": "1.105.2",
       "author": {
         "name": "Tam Mai",
         "email": "tam.mai@bigin.vn"
