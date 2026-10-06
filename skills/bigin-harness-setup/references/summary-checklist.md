@@ -78,7 +78,7 @@ Created:
   .claude/rules/conventions-server.md    [nuxt/next only] (paths: server/** — nuxt | src/app/api/**,src/lib/** — next)
   .claude/rules/conventions-content.md   [nuxt-marketing only] (paths: content/**, i18n/** — the content-editor boundary: those two trees are editable, routing/locale set/block types/collection schemas/deploy config are not)
   .claude/rules/conventions-rust.md      [tauri only] (paths: src-tauri/**)
-  .claude/rules/testing.md        [nuxt/nuxt-marketing/next/flutter/tauri only] (paths: tests/**, vitest.config.ts — nuxt and nuxt-marketing | src/**/*.test.ts(x), vitest.config.ts — next | test/**, integration_test/** — flutter | tests/**, src-tauri/tests/**, vitest.config.ts — tauri)
+  .claude/rules/testing.md        [nuxt/nuxt-marketing/next/go/flutter/tauri only] (paths: tests/**, vitest.config.ts — nuxt and nuxt-marketing | src/**/*.test.ts(x), vitest.config.ts — next | **/*_test.go, **/testdata/**, internal/testutil/** — go | test/**, integration_test/** — flutter | tests/**, src-tauri/tests/**, vitest.config.ts — tauri)
   .claude/rules/conventions.md    [go/nodejs/flutter only] (paths: scoped to source dir; flutter adds pubspec.yaml + analysis_options.yaml)
   .claude/rules/comments.md       (all profiles; paths: source-extension glob, not profile-substituted)
   .claude/rules/product.md        (all profiles; paths: docs/product/**, not profile-substituted)
@@ -168,6 +168,7 @@ Next steps:
 - [ ] **nuxt-marketing only** — `.claude/rules/conventions-content.md` — paths: `content/**`, `i18n/**` (≤40 lines); the five closed-to-a-content-change items, the schema-and-content-change-together rule, content-as-untrusted-input, and hidden-not-substituted all present
 - [ ] **tauri only** — `.claude/rules/conventions-rust.md` — paths: `src-tauri/**` (≤40 lines); the IPC-boundary, error-mapping, main-thread and keychain rules present
 - [ ] **go/nodejs/flutter** — `.claude/rules/conventions.md` — paths: scoped to source dir (flutter: `lib/**`, `api/**`, `pubspec.yaml`, `analysis_options.yaml`)
+- [ ] **go only** — `.claude/rules/testing.md` — paths: `**/*_test.go`, `**/testdata/**`, `internal/testutil/**` (≤40 lines); the database-free `go test ./...` rule and the `//go:build integration` tier both present, and `conventions.md`'s `## Testing` is the one-line pointer
 - [ ] **flutter only** — `.claude/rules/testing.md` — paths: `test/**`, `integration_test/**`; goldens' pinned-platform rule and the migration-test requirement both present
 - [ ] `.claude/rules/security.md` — shared security rules, paths: scoped per profile
 - [ ] `.claude/rules/architecture.md` — shared base + profile addendum, paths: scoped per profile

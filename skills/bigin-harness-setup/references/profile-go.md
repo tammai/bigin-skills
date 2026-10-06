@@ -11,7 +11,7 @@ Empty repo → scaffolded by the **`go-scaffold`** skill (writes files, runs cod
 ```
 lint:       make lint         # staticcheck, excluding generated internal/openapi/
 typecheck:  go build ./...
-test:       go test ./... -count=1   # includes internal/arch, the boundary test
+test:       go test ./... -count=1   # includes internal/arch, the boundary test; no database
 dev:        make dev          # air hot reload; make run for plain `go run ./cmd/server`
 build:      go build -o bin/server ./cmd/server
 generate:   make generate     # oapi-codegen: openapi.yaml -> internal/openapi/openapi.gen.go
@@ -31,7 +31,8 @@ Go: ≥1.24
 | Purpose   | Command                    |
 |-----------|----------------------------|
 | dev       | `make run` (`make dev` = hot reload) |
-| test      | `go test ./... -count=1`   |
+| test      | `go test ./... -count=1` (no database) |
+| test-integration | `make test-integration` (Postgres; staging deploy only) |
 | vet       | `go vet ./...`             |
 | lint      | `make lint`                |
 | build     | `make build`               |
@@ -165,14 +166,48 @@ internal/
 Create the four layers plus `module.go`, embed its `Handlers` in `internal/api/server.go`, construct it in `cmd/server/main.go`. When one module needs another's data, add a method to that module's `module.go` returning a plain struct — never import its `domain` or `infrastructure` — and prefer a batch method (`ByIDs`) over a per-row one, or decorating a list becomes an N+1 the boundary hides.
 
 ## Testing
-- Co-located `_test.go` files (idiomatic Go), not a mirrored `tests/` tree.
-- `domain` and `application` tests use the in-memory fakes in `application/fakes_test.go` — no database, no Docker. If a new use case can't be tested that way, the dependency direction is wrong.
-- Router-level tests build the real `api.NewRouter` — a test that rebuilds its own router proves nothing about the wiring that ships.
+See `.claude/rules/testing.md` — loads with the test files.
+```
+
+---
+
+## testing.md Template
+
+Paths frontmatter scopes this file to test code — only loaded when a test, a fixture or the shared test helpers are in context. No `files-shared.md` E2E addendum: this profile has no browser tier, and its running-system tier is `integration` below.
+
+```markdown
+---
+paths:
+  - "**/*_test.go"
+  - "**/testdata/**"
+  - "internal/testutil/**"
+---
+# Testing Conventions
+
+## Location
+Co-located `_test.go` files (idiomatic Go), not a mirrored `tests/` tree. `_test.go` is the filename contract — `go test` and `bugfix-test-guard.mjs` both ignore anything else. Shared helpers live in `internal/testutil`; fixtures in the package's `testdata/`.
+
+## What is tested where
+| Tier | What | How | Runs |
+|---|---|---|---|
+| unit | `domain`, `application` use cases | in-memory fakes from `application/fakes_test.go` — no database, no Docker | `go test ./...` |
+| mapping | `infrastructure` `*Record` ↔ domain | round trip, no database | `go test ./...` |
+| router | wiring, auth, CORS, rate limits, error mapping | the real `api.NewRouter` + `httptest` | `go test ./...` |
+| boundary | module imports | `internal/arch` | `go test ./...` |
+| integration | repositories and flows against a real Postgres | `//go:build integration` | `make test-integration`, at staging deploy |
+
+## Rules
+- **`go test ./...` stays database-free.** It is the pre-commit and merge-gate command. A test that needs Postgres carries `//go:build integration` as its first line; untagged, it either fails every CI run or gets `t.Skip`ped into silence.
+- If a new use case can't be tested with fakes, the dependency direction is wrong — fix the port, don't reach for the integration tier.
+- A test that rebuilds its own router proves nothing about the wiring that ships.
 - Cover the negative cases directly: expired token, foreign signing secret, `alg=none`, unlisted CORS origin, replayed refresh token, and an unclassified error not leaking its text.
-- Nil-guard tests (e.g. `/readyz` with no DB connected) are worth keeping — they catch the class of bug that only shows up when a dependency is legitimately absent.
-- `internal/arch` tests the checker as well as the repo. If you add a boundary rule, add both fixtures: the illegal import it catches and the legal shape it must not.
-- **Tests that need a real Postgres pay for it once, not per test.** Start the server and apply the migrations once per package (`TestMain`, or a `sync.Once` in a shared `internal/testutil`), then give each test a fresh database from that migrated state: `CREATE DATABASE t_<n> TEMPLATE <migrated>`, or a copy-on-write clone of a stopped, migrated data directory when each test needs its own server. Never `initdb` + all migrations per test: at 56 migrations that was ~2s of setup around assertions taking milliseconds, and it made `go test ./...` 7–10 minutes instead of 4½.
-- Measure it. Time one DB-backed package with `go test -v -count=1` and compare the slowest tests to what they assert; setup that dominates is a harness bug, fixed before anyone starts skipping the suite to save time.
+- Keep nil-guard tests (e.g. `/readyz` with no DB connected): they catch the bug that only shows up when a dependency is legitimately absent.
+- `internal/arch` tests the checker as well as the repo. A new boundary rule adds both fixtures: the illegal import it catches and the legal shape it must not.
+
+## Integration tier
+- **A real Postgres is paid for once, not per test.** Start the server and apply the migrations once per package (`TestMain`, or a `sync.Once` in `internal/testutil`), then give each test a fresh database from that state: `CREATE DATABASE t_<n> TEMPLATE <migrated>`, or a copy-on-write clone of a stopped, migrated data directory when a test needs its own server. Never `initdb` + all migrations per test: at 56 migrations that was ~2s of setup around millisecond assertions, and `go test` took 7–10 minutes instead of 4½.
+- Measure it. Time one package with `go test -tags integration -v -count=1` and compare the slowest tests to what they assert; setup that dominates is a harness bug, fixed before anyone skips the suite.
+- It runs at staging deploy, never in pre-commit or the merge-gate CI.
 ```
 
 ---

@@ -1,4 +1,4 @@
-.PHONY: generate run dev build test vet lint fmt tidy migrate-create migrate-up migrate-down migrate-version dev-setup docker-build docker-up docker-down
+.PHONY: generate run dev build test test-integration vet lint fmt tidy migrate-create migrate-up migrate-down migrate-version dev-setup docker-build docker-up docker-down
 
 APP_NAME := {{PROJECT_NAME}}
 OAPI_CODEGEN_VERSION := {{OAPI_CODEGEN_VERSION}}
@@ -32,6 +32,11 @@ build:
 # crosses a module boundary.
 test:
 	go test ./... -count=1
+
+# Tests tagged //go:build integration need a real Postgres (the DB_* env vars).
+# Staging deploy runs this; pre-commit and the merge gate run `make test`.
+test-integration:
+	go test -tags integration ./... -count=1
 
 vet:
 	go vet ./...

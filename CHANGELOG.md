@@ -5,6 +5,58 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.106.1] - 2026-10-06
+
+The `go` profile gets its own `testing.md`, and its merge gate stays database-free.
+
+### Fixed
+
+- **`go` had no testing rule.** Its test conventions sat in `conventions.md`, loading on every `.go` edit and missing the tier split the other profiles have. `profile-go.md` now carries `## testing.md Template`, scoped to `**/*_test.go`, `**/testdata/**` and `internal/testutil/**`, with a tier table (unit, mapping, router, boundary, integration). `conventions.md`'s `## Testing` becomes a one-line pointer. `rule-files.md` and `summary-checklist.md` list `go` among the profiles with a `testing.md`. It gets no E2E addendum: an API has no browser tier.
+- **Postgres-backed tests ran in the merge gate.** The old section told a DB-backed test how to set up Postgres, but not to keep it out of `go test ./...`, which is the pre-commit and merge-gate command. A test that needs Postgres now carries `//go:build integration` and runs through `make test-integration` at staging deploy, the same cadence as every other profile's integration tier. `go-scaffold`'s `Makefile` and `README.md` gain the `test-integration` target.
+
+**Existing `go` repos:** the block below rewrites `conventions.md`'s `## Testing` section in place with the new content. It does not create `testing.md`: `mode: create-if-missing` would also write it into `nodejs`, `generic` and `contracts` repos, which have no `testing.md`. To get the split, move the section into `.claude/rules/testing.md` by hand, using the frontmatter from `profile-go.md` → `## testing.md Template`, or re-run the harness. Add a `test-integration` target to the `Makefile` if the repo has none. The block is `optional: true` because only a `go` repo's `conventions.md` contains the anchor.
+
+```patch
+target: .claude/rules/conventions.md
+optional: true
+anchor: ## Testing
+- Co-located `_test.go` files (idiomatic Go), not a mirrored `tests/` tree.
+- `domain` and `application` tests use the in-memory fakes in `application/fakes_test.go` — no database, no Docker. If a new use case can't be tested that way, the dependency direction is wrong.
+- Router-level tests build the real `api.NewRouter` — a test that rebuilds its own router proves nothing about the wiring that ships.
+- Cover the negative cases directly: expired token, foreign signing secret, `alg=none`, unlisted CORS origin, replayed refresh token, and an unclassified error not leaking its text.
+- Nil-guard tests (e.g. `/readyz` with no DB connected) are worth keeping — they catch the class of bug that only shows up when a dependency is legitimately absent.
+- `internal/arch` tests the checker as well as the repo. If you add a boundary rule, add both fixtures: the illegal import it catches and the legal shape it must not.
+- **Tests that need a real Postgres pay for it once, not per test.** Start the server and apply the migrations once per package (`TestMain`, or a `sync.Once` in a shared `internal/testutil`), then give each test a fresh database from that migrated state: `CREATE DATABASE t_<n> TEMPLATE <migrated>`, or a copy-on-write clone of a stopped, migrated data directory when each test needs its own server. Never `initdb` + all migrations per test: at 56 migrations that was ~2s of setup around assertions taking milliseconds, and it made `go test ./...` 7–10 minutes instead of 4½.
+- Measure it. Time one DB-backed package with `go test -v -count=1` and compare the slowest tests to what they assert; setup that dominates is a harness bug, fixed before anyone starts skipping the suite to save time.
+insert: replace
+---
+## Testing
+### Location
+Co-located `_test.go` files (idiomatic Go), not a mirrored `tests/` tree. `_test.go` is the filename contract — `go test` and `bugfix-test-guard.mjs` both ignore anything else. Shared helpers live in `internal/testutil`; fixtures in the package's `testdata/`.
+
+### What is tested where
+| Tier | What | How | Runs |
+|---|---|---|---|
+| unit | `domain`, `application` use cases | in-memory fakes from `application/fakes_test.go` — no database, no Docker | `go test ./...` |
+| mapping | `infrastructure` `*Record` ↔ domain | round trip, no database | `go test ./...` |
+| router | wiring, auth, CORS, rate limits, error mapping | the real `api.NewRouter` + `httptest` | `go test ./...` |
+| boundary | module imports | `internal/arch` | `go test ./...` |
+| integration | repositories and flows against a real Postgres | `//go:build integration` | `make test-integration`, at staging deploy |
+
+### Rules
+- **`go test ./...` stays database-free.** It is the pre-commit and merge-gate command. A test that needs Postgres carries `//go:build integration` as its first line; untagged, it either fails every CI run or gets `t.Skip`ped into silence.
+- If a new use case can't be tested with fakes, the dependency direction is wrong — fix the port, don't reach for the integration tier.
+- A test that rebuilds its own router proves nothing about the wiring that ships.
+- Cover the negative cases directly: expired token, foreign signing secret, `alg=none`, unlisted CORS origin, replayed refresh token, and an unclassified error not leaking its text.
+- Keep nil-guard tests (e.g. `/readyz` with no DB connected): they catch the bug that only shows up when a dependency is legitimately absent.
+- `internal/arch` tests the checker as well as the repo. A new boundary rule adds both fixtures: the illegal import it catches and the legal shape it must not.
+
+### Integration tier
+- **A real Postgres is paid for once, not per test.** Start the server and apply the migrations once per package (`TestMain`, or a `sync.Once` in `internal/testutil`), then give each test a fresh database from that state: `CREATE DATABASE t_<n> TEMPLATE <migrated>`, or a copy-on-write clone of a stopped, migrated data directory when a test needs its own server. Never `initdb` + all migrations per test: at 56 migrations that was ~2s of setup around millisecond assertions, and `go test` took 7–10 minutes instead of 4½.
+- Measure it. Time one package with `go test -tags integration -v -count=1` and compare the slowest tests to what they assert; setup that dominates is a harness bug, fixed before anyone skips the suite.
+- It runs at staging deploy, never in pre-commit or the merge-gate CI.
+```
+
 ## [1.106.0] - 2026-10-06
 
 E2E suites in scaffolded repos stay small and cheap. The rules already kept each E2E run light (seeding, one login per worker, one spec while building) but nothing kept the suite small, and three templates told the agent to write one E2E test per acceptance criterion.

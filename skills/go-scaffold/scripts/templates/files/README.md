@@ -23,6 +23,7 @@ contract, `GET /healthz` is liveness, `GET /readyz` checks the database.
 | hot reload          | `make dev` (needs `air`)                      |
 | build               | `make build`                                  |
 | test                | `make test`                                   |
+| test-integration    | `make test-integration` (needs Postgres)      |
 | vet                 | `make vet`                                    |
 | lint                | `make lint` (needs `staticcheck`)             |
 | regenerate contract | `make generate`                               |
