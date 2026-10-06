@@ -163,6 +163,8 @@ Skip if `INSTALL_MODE=new` and `CLAUDE.md` already exists.
 
 Create `.claude/rules/` if it doesn't exist, then write that profile's rule files per **`references/rule-files.md`** — a per-profile matrix (which conventions files, whether a `testing.md` exists, whether an architecture addendum is appended) plus the shared files: `security.md`, `comments.md` and `product.md` on every profile, `architecture.md` on every profile except `specs` and `qa`.
 
+`testing.md` on `nuxt`, `next`, `tauri`, `flutter` and `qa` also gets `references/files-shared.md` → `## testing.md E2E addendum` appended.
+
 Two things that catch people, both stated there in full: `security.md` and `architecture.md` need the profile's `paths:` frontmatter **prepended** from `references/files-shared.md` → `## paths substitutions`, while `comments.md` and `product.md` are taken verbatim because their frontmatter is deliberately stack-agnostic. Every file: skip if `INSTALL_MODE=new` and it already exists.
 
 **One extra file when Phase 0a set `REPO_TYPE` to `api`, `web` or `mobile`:** `.claude/rules/vendored-contract.md`, from `references/files-shared.md` → `## vendored-contract.md`, with that section's substitution table supplying `{SPEC_PATH}` and `{CODEGEN_OUT}`. It is the single source for the vendored-contract rule — the three consumer profiles point at it rather than restating it, which is what keeps the rule from drifting between them. Never write it for `REPO_TYPE = none`.

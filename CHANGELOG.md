@@ -5,6 +5,136 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.106.0] - 2026-10-06
+
+E2E suites in scaffolded repos stay small and cheap. The rules already kept each E2E run light (seeding, one login per worker, one spec while building) but nothing kept the suite small, and three templates told the agent to write one E2E test per acceptance criterion.
+
+### Changed
+
+- **One shared E2E rule, written once.** `files-shared.md` gains `## testing.md E2E addendum`: E2E covers critical user journeys only (one happy path per journey plus the failure paths a real user hits); one spec per criterion that needs the running system, and a criterion a lower tier can observe gets a lower-tier test; a budget of ~30 s per spec and ~10 min per suite, with an overrun treated as a harness finding; E2E runs at staging deploy or on a schedule against a deployed environment, never in pre-commit or the merge-gate CI; assert outcomes, not every step. `rule-files.md` and `SKILL.md` Phase 3 append it to `testing.md` on `nuxt`, `next`, `tauri`, `flutter` and `qa`. `nuxt-marketing` gets none: its `testing.md` scopes to `tests/**` and its scaffold ships no E2E runner. Each profile keeps its own stack-specific E2E text (nuxt's seeding and `storageState` bullets, tauri's WebdriverIO note) and drops what the shared block now says: nuxt's 429 clause, qa's "assert what the user sees".
+- **The 1:1 mandates are gone.** `profile-qa.md` no longer says "one spec per acceptance criterion": a spec is named for the criterion it covers, and a criterion the owning repo can test below E2E is noted on the story for that repo. `profile-tauri.md` and `profile-flutter.md` drop "each acceptance criterion maps 1:1 to one E2E / integration test"; their E2E / flows rows now read critical journeys, and criteria only the running app can show.
+- **`write-tests` picks the tier per criterion.** On the acceptance-criterion path it now chooses the lowest tier that can observe each criterion (unit, component, API/integration, E2E), writes E2E only for a criterion that needs the running system, and reports the tier chosen for each criterion with a one-line reason. The no-harness stop applies only to a criterion that needs E2E.
+- `README.md`, `docs/USER_GUIDE.md` and the handbook page describe the tier choice.
+
+No CI template changed: no `ci.md` job runs E2E in the merge-gate workflow (the only mention is flutter's note that `integration_test` is deliberately not in the job).
+
+- `next`'s `testing.md` `paths:` gains `e2e/**` and `playwright.config.ts`, so the E2E section loads where E2E is written. `write-tests`' description no longer promises one E2E spec per criterion.
+
+**Manual step for an existing `next` repo:** add `- "e2e/**"` and `- "playwright.config.ts"` to `.claude/rules/testing.md`'s `paths:`. Frontmatter can't be patched, because its `---` line is also a patch block's separator.
+
+Patch blocks below bring already-scaffolded repos in line. Each is `optional: true` because it targets one profile's `testing.md` and misses in the rest, and each is idempotent: its anchor is replaced, and its content never contains it. nuxt and qa carry one wording change and the E2E scope block; tauri and flutter carry the row softening and the E2E scope block; next's anchor is its last sentence, which gains parentheses so the block cannot re-apply.
+
+```patch
+target: .claude/rules/testing.md
+optional: true
+anchor: - **A 429, a timeout in fixture setup, or a red that passes on rerun is a harness finding, not a flake to retry.** Fix the fixture or the budget; re-running until green hides the one real failure the next time it happens.
+insert: replace
+---
+- **A timeout in fixture setup, or a red that passes on rerun, is a harness finding, not a flake to retry.** Fix the fixture or the budget; re-running until green hides the one real failure the next time it happens.
+
+## E2E scope and cost
+- **E2E covers critical user journeys only.** One happy path per journey, plus the failure paths a real user hits (rejected login, payment declined). Validation, edge cases and error branches go to the lowest tier that can observe them: unit, component or API/integration.
+- **One spec per criterion that needs the running system.** A criterion a lower tier can observe gets a lower-tier test, not an E2E spec.
+- **Budget: one spec ≤ ~30 s, the suite ≤ ~10 min.** A spec or suite over budget is a harness finding, like a 429: split the journey, seed instead of clicking, or move assertions down a tier.
+- **E2E runs at staging deploy, or on a schedule against a deployed environment** — never in pre-commit or the merge-gate CI. Same cadence as the integration tier.
+- **Assert outcomes, not every step.** Check what the user ends up seeing, not each intermediate DOM state.
+```
+
+```patch
+target: .claude/rules/testing.md
+optional: true
+anchor: Mock only the true I/O boundary — `fetch`, session read/write. Wire real implementations of internal collaborators (your own hooks, utils) instead of mocking them — mocking internals couples tests to implementation and hides real breakage.
+insert: replace
+---
+Mock only the true I/O boundary (`fetch`, session read/write). Wire real implementations of internal collaborators (your own hooks, utils) instead of mocking them — mocking internals couples tests to implementation and hides real breakage.
+
+## E2E scope and cost
+- **E2E covers critical user journeys only.** One happy path per journey, plus the failure paths a real user hits (rejected login, payment declined). Validation, edge cases and error branches go to the lowest tier that can observe them: unit, component or API/integration.
+- **One spec per criterion that needs the running system.** A criterion a lower tier can observe gets a lower-tier test, not an E2E spec.
+- **Budget: one spec ≤ ~30 s, the suite ≤ ~10 min.** A spec or suite over budget is a harness finding, like a 429: split the journey, seed instead of clicking, or move assertions down a tier.
+- **E2E runs at staging deploy, or on a schedule against a deployed environment** — never in pre-commit or the merge-gate CI. Same cadence as the integration tier.
+- **Assert outcomes, not every step.** Check what the user ends up seeing, not each intermediate DOM state.
+```
+
+```patch
+target: .claude/rules/testing.md
+optional: true
+anchor: | E2E | one per acceptance criterion | WebDriver — the **WebdriverIO service**, not `tauri-driver` directly |
+insert: replace
+---
+| E2E | critical journeys, and criteria only the running app can show | WebDriver — the **WebdriverIO service**, not `tauri-driver` directly |
+```
+
+```patch
+target: .claude/rules/testing.md
+optional: true
+anchor: - Cover the negative cases directly: offline, expired token, a concurrent-401 refresh race, a corrupt store file, a read-only data directory, a second instance of the app launching.
+- Each acceptance criterion maps 1:1 to one E2E test.
+insert: replace
+---
+- Cover the negative cases directly: offline, expired token, a concurrent-401 refresh race, a corrupt store file, a read-only data directory, a second instance of the app launching.
+
+## E2E scope and cost
+- **E2E covers critical user journeys only.** One happy path per journey, plus the failure paths a real user hits (rejected login, payment declined). Validation, edge cases and error branches go to the lowest tier that can observe them: unit, component or API/integration.
+- **One spec per criterion that needs the running system.** A criterion a lower tier can observe gets a lower-tier test, not an E2E spec.
+- **Budget: one spec ≤ ~30 s, the suite ≤ ~10 min.** A spec or suite over budget is a harness finding, like a 429: split the journey, seed instead of clicking, or move assertions down a tier.
+- **E2E runs at staging deploy, or on a schedule against a deployed environment** — never in pre-commit or the merge-gate CI. Same cadence as the integration tier.
+- **Assert outcomes, not every step.** Check what the user ends up seeing, not each intermediate DOM state.
+```
+
+```patch
+target: .claude/rules/testing.md
+optional: true
+anchor: | flows | one per acceptance criterion | `integration_test` on a real device/simulator |
+insert: replace
+---
+| flows | critical journeys, and criteria only a running app can show | `integration_test` on a real device/simulator |
+```
+
+```patch
+target: .claude/rules/testing.md
+optional: true
+anchor: - Each acceptance criterion maps 1:1 to one integration test. Where behavior is ambiguous, the app being replaced is the arbiter — run it, don't guess.
+- Cover the negative cases directly: offline, expired token, a concurrent-401 refresh race, a permission denied, a locale with a different plural rule.
+insert: replace
+---
+- Where behavior is ambiguous, the app being replaced is the arbiter — run it, don't guess.
+- Cover the negative cases directly: offline, expired token, a concurrent-401 refresh race, a permission denied, a locale with a different plural rule.
+
+## E2E scope and cost
+- **E2E covers critical user journeys only.** One happy path per journey, plus the failure paths a real user hits (rejected login, payment declined). Validation, edge cases and error branches go to the lowest tier that can observe them: unit, component or API/integration.
+- **One spec per criterion that needs the running system.** A criterion a lower tier can observe gets a lower-tier test, not an E2E spec.
+- **Budget: one spec ≤ ~30 s, the suite ≤ ~10 min.** A spec or suite over budget is a harness finding, like a 429: split the journey, seed instead of clicking, or move assertions down a tier.
+- **E2E runs at staging deploy, or on a schedule against a deployed environment** — never in pre-commit or the merge-gate CI. Same cadence as the integration tier.
+- **Assert outcomes, not every step.** Check what the user ends up seeing, not each intermediate DOM state.
+```
+
+```patch
+target: .claude/rules/testing.md
+optional: true
+anchor: - **One spec per acceptance criterion**, named for it. A spec that asserts four criteria reports one failure for four different reasons.
+insert: replace
+---
+- **Name each spec for the criterion it covers.** A spec that asserts four criteria reports one failure for four different reasons. A criterion the owning repo can test below E2E is noted on the story for that repo, not written here.
+```
+
+```patch
+target: .claude/rules/testing.md
+optional: true
+anchor: - **Assert what the user sees**, not the DOM's shape. A selector that breaks on a refactor tested the markup, not the behaviour.
+- **Unit and integration tests do not belong here.** They live with the code they cover, in the api/web/mobile repos.
+insert: replace
+---
+- **Unit and integration tests do not belong here.** They live with the code they cover, in the api/web/mobile repos.
+
+## E2E scope and cost
+- **E2E covers critical user journeys only.** One happy path per journey, plus the failure paths a real user hits (rejected login, payment declined). Validation, edge cases and error branches go to the lowest tier that can observe them: unit, component or API/integration.
+- **One spec per criterion that needs the running system.** A criterion a lower tier can observe gets a lower-tier test, not an E2E spec.
+- **Budget: one spec ≤ ~30 s, the suite ≤ ~10 min.** A spec or suite over budget is a harness finding, like a 429: split the journey, seed instead of clicking, or move assertions down a tier.
+- **E2E runs at staging deploy, or on a schedule against a deployed environment** — never in pre-commit or the merge-gate CI. Same cadence as the integration tier.
+- **Assert outcomes, not every step.** Check what the user ends up seeing, not each intermediate DOM state.
+```
+
 ## [1.105.2] - 2026-10-05
 
 ### Changed

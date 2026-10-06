@@ -194,6 +194,8 @@ paths:
   - "src/**/*.test.ts"
   - "src/**/*.test.tsx"
   - "vitest.config.ts"
+  - "e2e/**"
+  - "playwright.config.ts"
 ---
 # Testing Conventions
 
@@ -215,7 +217,7 @@ import { useUsers } from './use-users'
 ## Rendering hooks/components
 `@testing-library/react`'s `renderHook`/`render` run in a real `jsdom` environment — no auto-import shims needed the way Nuxt's Nitro context needs stubbing. Wrap any hook that depends on React context (TanStack Query, future providers) in the matching `Provider` inside the test itself; don't reach for a global test harness for one provider.
 
-Mock only the true I/O boundary — `fetch`, session read/write. Wire real implementations of internal collaborators (your own hooks, utils) instead of mocking them — mocking internals couples tests to implementation and hides real breakage.
+Mock only the true I/O boundary (`fetch`, session read/write). Wire real implementations of internal collaborators (your own hooks, utils) instead of mocking them — mocking internals couples tests to implementation and hides real breakage.
 ```
 
 ---

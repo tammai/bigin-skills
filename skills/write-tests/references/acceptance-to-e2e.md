@@ -1,8 +1,9 @@
 # Acceptance criterion → E2E spec
 
-The second path of `write-tests`: a PRD acceptance criterion in, one E2E spec (or one added
-case per criterion in an existing spec file) out, written in the style the target repo already
-uses. The seven-step unit path in `SKILL.md` is untouched by any rule here — a request naming a
+The second path of `write-tests`: a PRD acceptance criterion in, one test out at the lowest tier
+that can observe it: an E2E spec (or one added case in an existing spec file) when the criterion
+needs the running system, a lower-tier test otherwise. Written in the style the target repo
+already uses. The seven-step unit path in `SKILL.md` is untouched by any rule here — a request naming a
 file or function still goes there.
 
 Invoked as `write-tests FR-3/AC-2`, `write-tests FR-3`, or with a Given/When/Then criterion
@@ -28,7 +29,7 @@ above it — so the trace from spec back to contract survives a file move.
 | Input | Resolves to |
 | --- | --- |
 | `FR-3/AC-2` | The second numbered criterion under the `### FR-3` block |
-| `FR-3` (no `/AC-m`) | Every criterion under `### FR-3`, one spec case each — provided the requirement itself is `Status: active` |
+| `FR-3` (no `/AC-m`) | Every criterion under `### FR-3`, each with a test at its own tier — provided the requirement itself is `Status: active` |
 | `NFR-2/AC-1` | Same addressing. A threshold criterion is usually a performance-tier check rather than an E2E one — say so and name the tier it belongs in rather than asserting a millisecond budget from a browser driver |
 | A criterion quoted inline in the request | Itself. No PRD read is required, and none is invented — but a criterion given without an ID gets no ID in the spec either |
 
@@ -57,9 +58,30 @@ Every refusal above ends the run. Reporting the block *is* the deliverable in th
 there is no partial spec, no `TODO`-bodied placeholder, and no "best guess pending
 confirmation".
 
+### Pick the tier per criterion
+
+Before writing anything, take each resolved criterion and choose the **lowest tier that can
+observe it**:
+
+| The criterion's outcome is visible to… | Tier |
+| --- | --- |
+| a pure function or a single module's logic (validation, a rule, a mapping) | unit |
+| one rendered screen or component with its collaborators stubbed | component |
+| a request/response or a stored result, without a browser or device | API / integration |
+| only a user driving the running system through several steps | **E2E** |
+
+E2E is for a critical user journey, or for a criterion that cannot be seen from any lower tier.
+A criterion a lower tier can observe gets a lower-tier test in the repo's own tree and style, not
+an E2E spec: the suite stays small and fast, and the repo's `testing.md` budgets it. Report the
+tier chosen for **each** criterion with a one-line reason (`FR-3/AC-2 → unit: it is the
+email-format rule, no browser needed`).
+
+The no-harness rule below applies only to a criterion that needs E2E. If every cited criterion
+resolves to a lower tier, there is no harness question: write those tests and say so.
+
 ### The repo has no E2E harness — report and stop
 
-**If the repo has no E2E tier, this path produces no file.** Say so plainly, name the nearest
+**If a criterion needs E2E and the repo has no E2E tier, no spec is written for it.** Say so plainly, name the nearest
 tier that does exist (a `vitest` unit tree, a Flutter `integration_test/` flow tier, an API
 integration suite), and stop. Do **not** install Playwright, Cypress, or anything else; do not
 add a dependency, a config file, or an `e2e/` directory; and do not write a spec into a tree
@@ -105,9 +127,9 @@ tree, which tells you where an E2E tier would sit if the repo has added one:
 
 | Profile | What its `testing.md` encodes | Bearing on this path |
 | --- | --- | --- |
-| `nuxt` | A centralized `tests/` tree mirroring `app/`/`server/`, cross-tree imports via the `~~/` root alias, Nitro auto-imports stubbed from `tests/support/` | Vitest tiers only — no E2E tier is declared, so one either exists in the repo already or the no-harness rule applies |
-| `next` | Tests **co-located** with source under `src/**/*.test.ts(x)` | Same: Vitest only, no declared E2E tier |
-| `flutter` | A mirrored `test/**` tree plus `integration_test/**`, where flow tests live — and one flow test per acceptance criterion, on a real device or simulator | The closest thing to an E2E tier the profiles declare, and its 1:1 criterion mapping is exactly this path's shape |
+| `nuxt` | A centralized `tests/` tree mirroring `app/`/`server/`, cross-tree imports via the `~~/` root alias, Nitro auto-imports stubbed from `tests/support/`; an E2E section (Playwright seeding, `storageState`) and the E2E scope rule | An E2E tier exists only if the repo added Playwright; the rule file says how big it may be, never that one must exist |
+| `next` | Tests **co-located** with source under `src/**/*.test.ts(x)`, plus the E2E scope rule | Vitest only; no E2E runner is declared, so the no-harness rule applies to a criterion that needs one |
+| `flutter` | A mirrored `test/**` tree plus `integration_test/**`, where flow tests live, for critical journeys and for criteria only a running app can show, on a real device or simulator | The closest thing to an E2E tier the profiles declare; criteria a lower tier can observe stay in `test/**` |
 | `go`, `nodejs` | No testing rule — conventions live in a single `conventions.md` | Discover from the repo's own suites |
 | `generic` | No testing rule at all | Discover from the repo, or report no tier |
 

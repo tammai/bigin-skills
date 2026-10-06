@@ -24,6 +24,8 @@ Four of these files are the same for every profile and are described once, under
 
 Every conventions and testing template already carries its own `paths:` frontmatter — take it verbatim from the profile file, don't substitute anything. All of them come from `references/profile-{PROFILE}.md` → the `## <filename> Template` section of the same name.
 
+**`testing.md` on `nuxt`, `next`, `tauri`, `flutter` and `qa` ends with `references/files-shared.md` → `## testing.md E2E addendum`**, appended verbatim after one blank line: the E2E scope, budget and cadence rule, written once there so no profile restates it. `nuxt-marketing` gets no addendum, because it has no E2E tier — its `testing.md` scopes to `tests/**` and its scaffold ships no E2E runner; prerender is proved by the CI build step.
+
 **`generic` writes no conventions and no testing rule.** There is no known stack to write conventions for; the generated `CLAUDE.md`'s "match the surrounding code" rule stands in for them. It also gets **no** architecture addendum — `references/profile-generic.md` → `## architecture addendum` explains why.
 
 ## What differs, per profile

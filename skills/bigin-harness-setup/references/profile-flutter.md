@@ -186,14 +186,14 @@ paths:
 | data | repository impls | fake generated client + in-memory Drift |
 | presentation | controllers, one widget test per screen | `ProviderScope(overrides: [...])` |
 | design system | goldens, light/dark × the two extreme text scales | `flutter test`, one pinned platform |
-| flows | one per acceptance criterion | `integration_test` on a real device/simulator |
+| flows | critical journeys, and criteria only a running app can show | `integration_test` on a real device/simulator |
 
 ## Rules
 - Every dependency is a provider, so every dependency is overridable — override the provider, don't reach for a mocking framework to intercept HTTP.
 - **Fixtures come from the contract's examples**, never a JSON blob pasted from a browser. A pasted fixture keeps passing after the contract moves.
 - **Goldens need one pinned platform or they are worthless.** They are font- and platform-sensitive: run and regenerate them on a single pinned CI image (or shard per platform), or they fail on every machine that is not the author's and get deleted within a fortnight. `golden_toolkit` is unmaintained — use `alchemist` or plain `matchesGoldenFile`.
 - **A Drift `schemaVersion` bump ships a migration test for that step**, including the interrupted-and-resumed case. This is not optional: a migration that crashes on launch has no hotfix path.
-- Each acceptance criterion maps 1:1 to one integration test. Where behavior is ambiguous, the app being replaced is the arbiter — run it, don't guess.
+- Where behavior is ambiguous, the app being replaced is the arbiter — run it, don't guess.
 - Cover the negative cases directly: offline, expired token, a concurrent-401 refresh race, a permission denied, a locale with a different plural rule.
 ```
 

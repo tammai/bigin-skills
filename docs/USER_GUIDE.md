@@ -414,7 +414,7 @@ One `PLAN.md` per worktree. Spec-gate approval is **per-worktree** — approving
 | Build a feature / fix a tracked bug | "implement X", "fix Y" | `task-workflow` |
 | Break an initiative into shippable units | "this is too big for one task" | `epic-workflow` |
 | Work out what to build at all | "we want to build X", "write a PRD" | `discovery-workflow` |
-| Write tests for one function, or one PRD criterion | "write tests for `parseToken`" / "e2e test for FR-3/AC-2" | `write-tests` — routed on what the request names |
+| Write tests for one function, or one PRD criterion | "write tests for `parseToken`" / "e2e test for FR-3/AC-2" | `write-tests` — routed on what the request names; a PRD criterion gets the lowest tier that can observe it, and E2E only when it needs the running system |
 | Debug something not yet in a plan | "why is this flaky", "debug this" | `debug-workflow` |
 | Start a Nuxt / Next / Go / Node app from nothing | "scaffold nuxt", "create go rest api" | `*-scaffold` |
 | Start a Flutter app from nothing | "set up a harness" in an empty dir | `bigin-harness-setup` → `flutter create` (no scaffold skill — see below) |

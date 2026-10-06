@@ -229,6 +229,21 @@ Session start reports whether this repo is behind. Sitting on an older contract 
 
 ---
 
+## testing.md E2E addendum
+
+Appended to the end of `testing.md` for `nuxt`, `next`, `tauri`, `flutter` and `qa`, verbatim, after the profile's own template and one blank line. It is the one source for how large an E2E suite may grow and when it runs; a profile's template keeps only its stack-specific E2E text and never restates these bullets.
+
+```markdown
+## E2E scope and cost
+- **E2E covers critical user journeys only.** One happy path per journey, plus the failure paths a real user hits (rejected login, payment declined). Validation, edge cases and error branches go to the lowest tier that can observe them: unit, component or API/integration.
+- **One spec per criterion that needs the running system.** A criterion a lower tier can observe gets a lower-tier test, not an E2E spec.
+- **Budget: one spec ≤ ~30 s, the suite ≤ ~10 min.** A spec or suite over budget is a harness finding, like a 429: split the journey, seed instead of clicking, or move assertions down a tier.
+- **E2E runs at staging deploy, or on a schedule against a deployed environment** — never in pre-commit or the merge-gate CI. Same cadence as the integration tier.
+- **Assert outcomes, not every step.** Check what the user ends up seeing, not each intermediate DOM state.
+```
+
+---
+
 ## comments.md
 
 Written verbatim — frontmatter included, no paths substitution.

@@ -46,7 +46,7 @@
     },
     "write-tests": {
       "group": "core",
-      "summary": "On-demand test authoring (/write-tests): style-matched, edge-case-first unit tests for one unit, or an E2E spec from a PRD `FR-n/AC-m` criterion."
+      "summary": "On-demand test authoring (/write-tests): style-matched, edge-case-first tests for one unit, or for a PRD `FR-n/AC-m` criterion at the lowest tier that sees it."
     },
     "debug-workflow": {
       "group": "core",

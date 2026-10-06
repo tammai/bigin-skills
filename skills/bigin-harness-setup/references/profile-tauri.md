@@ -219,7 +219,7 @@ paths:
 | Rust integration | commands, store migrations, the API client against a stub | `src-tauri/tests/*.rs`; `tauri::test::mock_builder()` for commands (needs the `test` feature on the `tauri` crate) |
 | frontend unit | composables, stores, IPC wrappers | Vitest; `mockIPC` from `@tauri-apps/api/mocks`, `clearMocks()` in `afterEach` |
 | frontend component | one test per screen | Vitest + Testing Library, IPC mocked |
-| E2E | one per acceptance criterion | WebDriver — the **WebdriverIO service**, not `tauri-driver` directly |
+| E2E | critical journeys, and criteria only the running app can show | WebDriver — the **WebdriverIO service**, not `tauri-driver` directly |
 
 **Use the WebdriverIO service, not `tauri-driver` directly.** Driven directly, `tauri-driver` supports only Windows and Linux on desktop — macOS has no WKWebView driver tool. The WebdriverIO service works on all three because it embeds its own WebDriver server, which is the whole reason to prefer it: on a Mac team, driving `tauri-driver` directly means E2E runs in CI and on nobody's machine, and a suite no developer can run locally is a suite whose failures nobody reads.
 
@@ -229,7 +229,6 @@ paths:
 - The keychain and the clock are behind traits with fakes. Real keychain access in a test fails on CI (no Secret Service) and pollutes the developer's own login keychain.
 - **A schema bump ships a migration test for that step**, from the previous version's real database, including the interrupted-and-resumed case.
 - Cover the negative cases directly: offline, expired token, a concurrent-401 refresh race, a corrupt store file, a read-only data directory, a second instance of the app launching.
-- Each acceptance criterion maps 1:1 to one E2E test.
 ```
 
 ---

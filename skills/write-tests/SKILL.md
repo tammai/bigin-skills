@@ -1,6 +1,6 @@
 ---
 name: write-tests
-description: "Writes scoped, style-matched tests for one file or function, or one E2E spec per PRD acceptance criterion (`FR-3/AC-2`). Triggers: 'write tests for X', 'generate unit tests', 'e2e test for FR-3/AC-2'."
+description: "Writes scoped, style-matched tests for one file or function, or tests for PRD acceptance criteria (`FR-3/AC-2`) at the lowest tier that can observe each, E2E only where needed. Triggers: 'write tests for X', 'generate unit tests', 'e2e test for FR-3/AC-2'."
 argument-hint: [file | function | FR-n/AC-n]
 effort: medium
 ---
@@ -80,8 +80,12 @@ rule. The essentials:
   target repo's, discovered from its `.claude/rules/testing.md` and its existing specs. If the
   repo has **no** E2E tier, report that, name the nearest tier it does have, and stop — no
   Playwright, no Cypress, no invented `e2e/` directory.
+- **Pick the lowest tier that can observe each criterion.** Write an E2E spec only for a criterion
+  that needs the running system; a criterion a unit, component or API/integration test can observe
+  gets that test instead, in the repo's own tier and style. Never one E2E spec per criterion by
+  default: the suite stays small and journey-shaped.
 - **Never claim green on a spec you did not run.** The unit path's TDD order (step 5) does not
   transfer intact: an E2E spec usually cannot be driven red-then-green locally. Attempt the run,
   then report its true state — passed, failed, or **not run** with what running it needs.
-- Then report as the unit path does: criteria covered by ID, criteria deliberately excluded and
-  why, and the run output or the explicit statement that it was not run.
+- Then report as the unit path does: criteria covered by ID, **each with the tier chosen and a
+  one-line reason**, criteria deliberately excluded and why, and the run output or the explicit statement that it was not run.

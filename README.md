@@ -57,7 +57,7 @@ Everything else is situational:
 | _(automatic, inside task-workflow)_ | `model-router` picks the executing tier; `write-tests` and `debug-workflow` supply test and bug-fix discipline |
 | "This is too big for one task" / "break this epic down" | `epic-workflow` — decomposes it into ordered units, then feeds them back to `task-workflow` one at a time |
 | "We want to build X" / "write a PRD" / "what should we even build" | `discovery-workflow` — brief + PRD under `docs/product/`, architecture decisions into `knowledge/`, then hands the PRD to `epic-workflow` |
-| "Write tests for X" / "e2e test for FR-3/AC-2" | `write-tests` — one function or component, or one E2E spec per PRD acceptance criterion; no spec needed |
+| "Write tests for X" / "e2e test for FR-3/AC-2" | `write-tests` — one function or component, or a test per PRD acceptance criterion at the lowest tier that can observe it (E2E only for a journey); no spec needed |
 | "Why is this flaky" / "debug this" | `debug-workflow` — a bug not yet tied to a plan |
 | "Sprint distill" / end of sprint | `sprint-distill` — merged PRs → `knowledge/` + harness updates |
 | "Distill knowledge for nuxt@4.0.3" | `knowledge-distill` — a library's docs/source at a pinned version → audited `knowledge/libraries/<lib>/` |
@@ -91,26 +91,26 @@ Each scaffold skill's `SKILL.md` is the reference for what it generates. What se
 **Core** — the harness itself: setup and workflow.
 
 <!-- gen:skills-core -->
-| Skill                       | Purpose                                                                                                                                                      |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **ask-bigin**               | Routes a request to the right skill and hands off (/ask-bigin): reads the shared triage ladder for build work, the named subject otherwise.                  |
-| **bigin-harness-setup**     | Scaffolds an AI workflow harness — CLAUDE.md, rules, commit gates, Cursor mirror. 8 stack profiles plus the polyrepo repo types specs/contracts/qa.          |
-| **task-workflow**           | On-demand task workflow (/task-workflow): scope → spec → plan (approved) → implement/verify loop (capped, independent verifier) → review → cleanup.          |
-| **epic-workflow**           | Decomposes an initiative into ordered, shippable units plus a one-page design doc, then dispatches the units one at a time through task-workflow.            |
-| **discovery-workflow**      | Vague ask → approved brief + PRD under docs/product/ and architecture decisions in knowledge/, then hands the PRD to epic-workflow.                          |
-| **nuxt-scaffold**           | Scaffolds a Nuxt 4 BFF app from scratch via a deterministic Node.js script — npm create nuxt@latest + BFF preset + config/sample code. No GitHub clone.      |
-| **next-scaffold**           | Scaffolds a Next.js App Router BFF app from scratch via a deterministic Node.js script — create-next-app + BFF preset + shadcn/ui. No GitHub clone.          |
-| **go-scaffold**             | Scaffolds a Go modular-monolith REST API — Gin, contract-first oapi-codegen, GORM + Postgres, JWT access/refresh auth + RBAC, boundaries enforced by a test. |
-| **nodejs-scaffold**         | Scaffolds a Node.js modular-monolith REST API — users/posts, code-first OpenAPI (TypeBox) + Drizzle, JWT+argon2id, outbox/inbox + job queue.                 |
-| **sprint-distill**          | End-of-sprint distillation: merged PRs + touched knowledge/ concepts → proposal-first knowledge/ and bigin-skills updates. Compresses, never just appends.   |
-| **knowledge-distill**       | Distills a library's docs/source at a pinned version into audited knowledge/libraries/<lib>/ concept files, plus a version-drift commit guard.               |
-| **write-tests**             | On-demand test authoring (/write-tests): style-matched, edge-case-first unit tests for one unit, or an E2E spec from a PRD `FR-n/AC-m` criterion.            |
-| **debug-workflow**          | On-demand systematic debugging (/debug-workflow): triage → fast path for obvious bugs, full guarded workflow for flaky/env/repeat-failure bugs.              |
-| **model-router**            | Scores capability and verification needs separately, then routes to the worker or architect tier on a per-project model + effort ladder.                     |
-| **napkin**                  | Explains a topic as a picture (/napkin): offers 2-4 candidate shapes, then draws your pick as an HTML artifact or an embeddable SVG/PNG, geometry-checked.   |
-| **nuxt-marketing-scaffold** | Scaffolds a multi-locale Nuxt 4 marketing site — @nuxt/content, @nuxtjs/i18n, prerendered to Cloudflare Workers. No auth, so it detects as nuxt-marketing.   |
-| **contract-sync**           | Vendors an OpenAPI contract at a pinned commit and regenerates the client (check/sync/bump); the only writer of the vendored spec and api-contract.lock.     |
-| **project-scaffold**        | Stands up a whole polyrepo project: six repos, the right scaffold in each, locks and workflows wired between them, remotes and CI credentials opt-in.        |
+| Skill                       | Purpose                                                                                                                                                         |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **ask-bigin**               | Routes a request to the right skill and hands off (/ask-bigin): reads the shared triage ladder for build work, the named subject otherwise.                     |
+| **bigin-harness-setup**     | Scaffolds an AI workflow harness — CLAUDE.md, rules, commit gates, Cursor mirror. 8 stack profiles plus the polyrepo repo types specs/contracts/qa.             |
+| **task-workflow**           | On-demand task workflow (/task-workflow): scope → spec → plan (approved) → implement/verify loop (capped, independent verifier) → review → cleanup.             |
+| **epic-workflow**           | Decomposes an initiative into ordered, shippable units plus a one-page design doc, then dispatches the units one at a time through task-workflow.               |
+| **discovery-workflow**      | Vague ask → approved brief + PRD under docs/product/ and architecture decisions in knowledge/, then hands the PRD to epic-workflow.                             |
+| **nuxt-scaffold**           | Scaffolds a Nuxt 4 BFF app from scratch via a deterministic Node.js script — npm create nuxt@latest + BFF preset + config/sample code. No GitHub clone.         |
+| **next-scaffold**           | Scaffolds a Next.js App Router BFF app from scratch via a deterministic Node.js script — create-next-app + BFF preset + shadcn/ui. No GitHub clone.             |
+| **go-scaffold**             | Scaffolds a Go modular-monolith REST API — Gin, contract-first oapi-codegen, GORM + Postgres, JWT access/refresh auth + RBAC, boundaries enforced by a test.    |
+| **nodejs-scaffold**         | Scaffolds a Node.js modular-monolith REST API — users/posts, code-first OpenAPI (TypeBox) + Drizzle, JWT+argon2id, outbox/inbox + job queue.                    |
+| **sprint-distill**          | End-of-sprint distillation: merged PRs + touched knowledge/ concepts → proposal-first knowledge/ and bigin-skills updates. Compresses, never just appends.      |
+| **knowledge-distill**       | Distills a library's docs/source at a pinned version into audited knowledge/libraries/<lib>/ concept files, plus a version-drift commit guard.                  |
+| **write-tests**             | On-demand test authoring (/write-tests): style-matched, edge-case-first tests for one unit, or for a PRD `FR-n/AC-m` criterion at the lowest tier that sees it. |
+| **debug-workflow**          | On-demand systematic debugging (/debug-workflow): triage → fast path for obvious bugs, full guarded workflow for flaky/env/repeat-failure bugs.                 |
+| **model-router**            | Scores capability and verification needs separately, then routes to the worker or architect tier on a per-project model + effort ladder.                        |
+| **napkin**                  | Explains a topic as a picture (/napkin): offers 2-4 candidate shapes, then draws your pick as an HTML artifact or an embeddable SVG/PNG, geometry-checked.      |
+| **nuxt-marketing-scaffold** | Scaffolds a multi-locale Nuxt 4 marketing site — @nuxt/content, @nuxtjs/i18n, prerendered to Cloudflare Workers. No auth, so it detects as nuxt-marketing.      |
+| **contract-sync**           | Vendors an OpenAPI contract at a pinned commit and regenerates the client (check/sync/bump); the only writer of the vendored spec and api-contract.lock.        |
+| **project-scaffold**        | Stands up a whole polyrepo project: six repos, the right scaffold in each, locks and workflows wired between them, remotes and CI credentials opt-in.           |
 <!-- /gen:skills-core -->
 
 **Handoff skills** — add-ons for a specific cross-role handoff or mid-session handoff. Not required for the core harness; opt in per project.
