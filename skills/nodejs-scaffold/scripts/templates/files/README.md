@@ -96,9 +96,9 @@ pnpm test --run
 ## Key patterns
 
 - **Auth.** JWT (HS256) access tokens + rotating sha256-hashed refresh tokens
-  with family-based reuse detection. Passwords are argon2id. The BFF /
-  sealed-cookie half of this pattern belongs to the *frontend* scaffold — this
-  backend only issues/validates/revokes tokens. RBAC is a static in-code map
+  with family-based reuse detection. Passwords are argon2id. This
+  backend only issues/validates/revokes tokens; it has no browser cookie session
+  (the Go API owns that — see go-scaffold). RBAC is a static in-code map
   (`shared/auth/rbac.ts`), checked inside use-cases — a documented extension
   point, not a DB table.
 - **Events (outbox → relay → inbox).** `DELETE /v1/users/:id` hard-deletes the
