@@ -72,7 +72,7 @@ Setup detects the profile, or asks. It decides which templates get written. `tau
 
 | Profile | Stack | Scaffold |
 | --- | --- | --- |
-| `nuxt` | Nuxt 4 BFF on Cloudflare Pages — Pinia + Colada, Nuxt UI, nuxt-auth-utils, Zod, Vitest. No DB; the backend owns data | `nuxt-scaffold` |
+| `nuxt` | Nuxt 4 SPA on Cloudflare Workers — Pinia + Colada, Nuxt UI, Zod, Vitest, behind a tokenless `/api` pass-through to the API (HttpOnly cookie session, no BFF). No DB; the backend owns data | `nuxt-scaffold` |
 | `nuxt-marketing` | Multi-locale Nuxt 4 marketing site — `@nuxt/content` collections, `@nuxtjs/i18n`, Tailwind, prerendered onto Cloudflare Workers static assets. No auth, no BFF, no database; its `conventions-content.md` is the only rule file in any profile written for a non-developer editor | `nuxt-marketing-scaffold` |
 | `next` | Next.js App Router BFF on Vercel — shadcn/ui, Zustand, TanStack Query, iron-session, Zod, Vitest. No DB | `next-scaffold` |
 | `go` | Go modular-monolith REST API — Gin, contract-first `oapi-codegen`, GORM + Postgres, JWT access/refresh + cookie sessions + RBAC, boundaries enforced by a test | `go-scaffold` |
@@ -98,7 +98,7 @@ Each scaffold skill's `SKILL.md` is the reference for what it generates. What se
 | **task-workflow**           | On-demand task workflow (/task-workflow): scope → spec → plan (approved) → implement/verify loop (capped, independent verifier) → review → cleanup.             |
 | **epic-workflow**           | Decomposes an initiative into ordered, shippable units plus a one-page design doc, then dispatches the units one at a time through task-workflow.               |
 | **discovery-workflow**      | Vague ask → approved brief + PRD under docs/product/ and architecture decisions in knowledge/, then hands the PRD to epic-workflow.                             |
-| **nuxt-scaffold**           | Scaffolds a Nuxt 4 BFF app from scratch via a deterministic Node.js script — npm create nuxt@latest + BFF preset + config/sample code. No GitHub clone.         |
+| **nuxt-scaffold**           | Scaffolds a Nuxt 4 app from scratch via a deterministic Node.js script — npm create nuxt@latest + /api pass-through preset + samples. No GitHub clone.          |
 | **next-scaffold**           | Scaffolds a Next.js App Router BFF app from scratch via a deterministic Node.js script — create-next-app + BFF preset + shadcn/ui. No GitHub clone.             |
 | **go-scaffold**             | Scaffolds a Go modular-monolith REST API — Gin, contract-first oapi-codegen, GORM + Postgres, JWT + cookie-session auth, RBAC, boundaries enforced by a test.   |
 | **nodejs-scaffold**         | Scaffolds a Node.js modular-monolith REST API — users/posts, code-first OpenAPI (TypeBox) + Drizzle, JWT+argon2id, outbox/inbox + job queue.                    |

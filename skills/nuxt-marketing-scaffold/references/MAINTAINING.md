@@ -4,12 +4,12 @@ Not loaded at run time: `SKILL.md` keeps only what a scaffold run executes. Read
 
 ## Why this is not a `nuxt-scaffold` template
 
-`nuxt-scaffold` installs `nuxt-auth-utils` into every project it creates. That is
-exactly the auth marker condition 4 of the `nuxt-marketing` detection rung tests
-for, so a marketing site scaffolded through it resolves to `nuxt` on the next run
-and gets BFF-proxy and Pinia-Colada conventions written into a site that has
-neither — the failure the profile exists to prevent, and one that looks like
-success at install time.
+`nuxt-scaffold` never installs `@nuxtjs/i18n` (condition 3 of the `nuxt-marketing`
+detection rung), and until v1.109.0 it installed `nuxt-auth-utils`, the auth marker
+condition 4 tests for. A marketing site scaffolded
+through it resolves to `nuxt` on the next run and gets pass-through and Pinia-Colada
+conventions written into a site that has neither — the failure the profile exists to
+prevent, and one that looks like success at install time.
 
 **Do not merge the two scaffolders.** The separation is the safeguard.
 

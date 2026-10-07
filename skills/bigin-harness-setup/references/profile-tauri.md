@@ -275,7 +275,7 @@ devServer: { host: '127.0.0.1' }, // Tauri's devUrl; loopback, never 0.0.0.0
 
 - `ssr: false` alone is not enough: `nuxi build` still emits a Nitro server, so the Tauri build consumes `pnpm generate` → `.output/public`, which is what `frontendDist` points at.
 - `devServer.host` stays on loopback. A dev server on `0.0.0.0` is your whole app, plus HMR, offered to the local network.
-- Delete `server/` if the scaffold created one, and say so in the Phase 7 summary. Anything in it worked in dev and would have disappeared from the bundle.
+- Delete `server/` if the scaffold created one (it does: the `/api` pass-through), with `tests/server/`, `NUXT_API_ORIGIN` in `.env.example`, `nitro: { preset: 'cloudflare_module' }` and `runtimeConfig.apiOrigin` from `nuxt.config.ts`, and say so in the Phase 7 summary. Anything under `server/` worked in dev and would have disappeared from the bundle. `ssr: false` is already there — `nuxt-scaffold` sets it.
 
 ## tauri.conf.json — what the overlay checks
 

@@ -10,10 +10,9 @@ export type User = components['schemas']['User']
 export const userQueries = {
   list: {
     key: ['users', 'list'],
-    // Goes through the same-origin BFF proxy (apiClient's baseURL '/api/backend'):
-    // the proxy attaches the Bearer token and handles token refresh. This query
-    // never sees a token or NUXT_BACKEND_URL. $fetch throws on non-2xx, so the
-    // failure path needs no branch here — Colada surfaces it as `error`.
+    // Goes through the same-origin /api pass-through (apiClient's baseURL '/api'); the
+    // session cookie authenticates it. $fetch throws on non-2xx, so the failure path
+    // needs no branch here — Colada surfaces it as `error`.
     query: async (): Promise<User[]> => {
       const { data } = await apiClient<Ok<'/v1/users'>>('/v1/users')
       return data

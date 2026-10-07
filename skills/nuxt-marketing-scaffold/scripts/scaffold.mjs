@@ -7,12 +7,11 @@
  *                     [--locales en,vi] [--primary blue] [--neutral slate]
  *                     [--force] [--no-install] [--no-commit]
  *
- * Why this is NOT a template inside nuxt-scaffold: that script's TEMPLATE_PKGS
- * installs `nuxt-auth-utils` and `@pinia/nuxt` into every project it makes.
- * `nuxt-auth-utils` is exactly the auth marker condition 4 of the
- * `nuxt-marketing` detection rung tests for, so a marketing site scaffolded
- * through nuxt-scaffold would resolve to `nuxt` and be onboarded with
- * BFF-proxy conventions — the precise failure the profile exists to prevent.
+ * Why this is NOT a template inside nuxt-scaffold: it installs `@pinia/nuxt` into every
+ * project it makes (and, before v1.109.0, `nuxt-auth-utils` — the auth marker condition 4
+ * of the `nuxt-marketing` detection rung tests for) but never `@nuxtjs/i18n`, so a marketing site scaffolded through nuxt-scaffold would resolve to
+ * `nuxt` and be onboarded with pass-through conventions — the precise failure the profile
+ * exists to prevent.
  *
  * The repo this leaves behind is the profile's own reference layout:
  *   nuxt.config.ts + content.config.ts + content/<locale>/ tree

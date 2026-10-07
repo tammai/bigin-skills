@@ -44,7 +44,7 @@ There is no conflict for `api`/`web`/`mobile`, which expect a stack marker. A `-
 
 Two records, because they answer different questions:
 
-- The generated `CLAUDE.md`'s stack line names it (`Stack: Nuxt 4 BFF app · polyrepo repo type: web`), so every session sees it without a lookup.
+- The generated `CLAUDE.md`'s stack line names it (`Stack: Nuxt 4 SPA · polyrepo repo type: web`), so every session sees it without a lookup.
 - `api-contract.lock` at the repo root is the machine signal a consumer repo exists at all, and is what `contract_sync.mjs` and the guards key on.
 
 On a re-run, read the `CLAUDE.md` line first and the lock second; ask again only if neither is there and the name still matches a suffix.
@@ -57,7 +57,7 @@ The full detection ladder, the three narrowing tests (Tauri before Nuxt, marketi
 
 Check for stack indicators, first match wins:
 1. `src-tauri/tauri.conf.json` → profile = `tauri`. **This rung is above `nuxt` on purpose.** A Tauri desktop app with a Nuxt frontend has *both* markers, and `nuxt` matching first would onboard it as a web app: SSR left on, a `server/` BFF that does not exist at runtime, and no rule anywhere about capabilities, the IPC trust boundary, the updater key or code signing. Never reorder these two.
-2. `nuxt.config.ts` or `nuxt.config.js` **plus three more conditions** → profile = `nuxt-marketing`. **This rung is above `nuxt` for the same first-match-wins reason row 1 is.** A multi-locale marketing site carries the `nuxt.config.ts` marker too, and `nuxt` matching first would write BFF-proxy, sealed-session and Pinia-Colada conventions into a repo with no BFF half, no auth and no client state worth a store — and would have no way to say the thing that actually matters here, which is that a client's content editor may change content files and locale bundles and nothing else. All four conditions are required:
+2. `nuxt.config.ts` or `nuxt.config.js` **plus three more conditions** → profile = `nuxt-marketing`. **This rung is above `nuxt` for the same first-match-wins reason row 1 is.** A multi-locale marketing site carries the `nuxt.config.ts` marker too, and `nuxt` matching first would write pass-through, API-session and Pinia-Colada conventions into a repo with no API to pass through to, no auth and no client state worth a store — and would have no way to say the thing that actually matters here, which is that a client's content editor may change content files and locale bundles and nothing else. All four conditions are required:
    - **`nuxt.config.ts`/`.js` present** — same marker as row 3.
    - **`@nuxt/content` in `dependencies`.** `devDependencies` only is **not** a match: a site whose every page is built from a content collection declares the module as a runtime dependency, and a `devDependencies`-only entry is a docs or blog section bolted onto something else. Fall through to `nuxt`.
    - **`@nuxtjs/i18n` in `dependencies`, and a `content/` directory or `content.config.ts` present.** The positive marker for a multi-locale site built from collections.
@@ -82,8 +82,8 @@ Check for stack indicators, first match wins:
 ```
 Which stack profile should I scaffold and onboard?
 
-1. nuxt — Nuxt 4 fullstack (Cloudflare Pages): Nuxt UI, Pinia + Colada, VueUse,
-   nuxt-auth-utils, Vitest, Zod — BFF proxy layer, no direct DB access
+1. nuxt — Nuxt 4 SPA (Cloudflare Workers): Nuxt UI, Pinia + Colada, VueUse,
+   Vitest, Zod — tokenless /api pass-through to the API, no BFF, no direct DB access
 2. go — Go REST API backend: Gin, contract-first oapi-codegen, GORM + Postgres,
    JWT access/refresh, test-enforced module boundaries
 3. flutter — Flutter mobile client against an existing HTTP API: Riverpod, go_router,

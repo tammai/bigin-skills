@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.109.0] - 2026-10-07
+
+`nuxt-scaffold` drops the token-holding BFF for a tokenless `/api` pass-through — unit 3 of the drop-bff epic (`docs/design/drop-bff.md`). It is the web half of go-scaffold's cookie sessions (v1.107.0): the API owns the session, the app only forwards.
+
+### Changed
+
+- **Every template ships a catch-all `server/routes/api/[...path].ts`** (logic in `server/utils/pass-through.ts`) in place of `server/api/backend/[...path].ts`. It forwards only `/api/v<digits>/**` to the server-only `NUXT_API_ORIGIN` (`runtimeConfig.apiOrigin`) with `fetch` — streamed both ways (`duplex: 'half'`), `redirect: 'manual'`, every request header but `host` and the hop-by-hop ones, `Set-Cookie` / `Cookie` / `x-request-id` untouched — and answers any other `/api/*` path with a JSON 404. The allowlist runs on the decoded path with dot segments, backslashes and NULs rejected. An unset or invalid origin is a JSON 502 `upstream_not_configured`; an upstream 5xx or a network error is a JSON 502 `bad_gateway` carrying neither the upstream body nor its URL. It is a handler rather than `routeRules` because Nitro's proxy buffers SSE and cannot express the version allowlist (spike, unit 0).
+- **`ssr: false` and `nitro: { preset: 'cloudflare_module' }` are merged into `nuxt.config.ts`** for every template, beside `runtimeConfig.apiOrigin`. `insertRuntimeConfig()` is replaced by `mergeNuxtConfig()`, driven by a mirror of `@nuxt/eslint-plugin`'s full key order; a template that already sets `ssr`, a `nitro` block or a `runtimeConfig` is merged into. Verified against the eight cloned templates' `nuxt.config.ts`: order preserved, second run a no-op.
+- **`apiClient` is `$fetch.create({ baseURL: '/api', credentials: 'include' })`**; paths stay `/v1/...`. go-scaffold's contract omits `/v1` (its server URL is `/api/v1`), so replacing the placeholder `openapi.yaml` with it means setting `baseURL: '/api/v1'` — the file header and next steps say so.
+- **`saas` auth goes to the API.** `useAuth()` calls `POST /api/v1/auth/session` (login), `POST /api/v1/auth/signup` then login (sign-up, which does not sign you in), `DELETE /api/v1/auth/session` (sign-out) and `GET /api/v1/user/profile` (current user — go-scaffold has no GET on `/auth/session`). `auth.global.ts` sends `/dashboard/**` to `/login` on a 401 from that GET and rethrows anything else, so an API outage is not read as a sign-out. Tests pin each call's method, path and body and the middleware's redirects.
+- `.env.example` and the next-steps text name `NUXT_API_ORIGIN` (never `NUXT_PUBLIC_*`) and say plainly that the API sees the app's egress address, so every browser user shares one rate-limit bucket; nothing forwards `X-Forwarded-For` / `CF-Connecting-IP` and `TRUSTED_PROXY` stays unset. Forwarding the visitor IP in a header the API trusts, with the origin locked to the Worker, needs a go-scaffold change and is not done.
+- `profile-nuxt.md` is rewritten for the pass-through and cookie session (clears audit finding 9). `nuxt-scaffold`'s `SKILL.md`, `references/`, evals and the README, `docs-manifest.json`, `profile-detection.md`, `scaffold-delegation.md`, `profile-tauri.md` and `summary-checklist.md` are brought in line; the `nuxt-marketing` rationale no longer claims `nuxt-scaffold` installs `nuxt-auth-utils`, and the tauri overlay now also deletes the pass-through settings with `server/`.
+
+### Removed
+
+- **`nuxt-og-image` and its `defineOgImage(...)` calls and `ogImage` config key** from the `saas`, `docs` and `portfolio` clones (`dropOgImage()`, run right after the clone so the lockfile is rewritten without it; the other five clones don't ship it). The module registers no `defineOgImage` auto-import under `ssr: false`, so `pnpm type-check` failed on their pages and the call would throw in the browser; OG images are rendered server-side and an SPA has nowhere to render them. `useSeoMeta({ ogImage })` tags stay. `docs`' `useSiteConfig()` (only present through the module's `nuxt-site-config`) becomes the request origin.
+- `nuxt-auth-utils` (and `NUXT_SESSION_PASSWORD`), `NUXT_BACKEND_URL` and `runtimeConfig.backendUrl`; `server/utils/{proxy,backend}.ts`, `server/middleware/csrf.ts`, `shared/types/session.d.ts`, `tests/server/proxy.test.ts`. `saas` loses `server/api/{login,signup,logout,me}`, `server/utils/auth-flow.ts`, `server/middleware/auth.ts` and its auth-flow tests. CSRF now lives in the API (SameSite=Lax plus `WEB_ORIGINS`).
+
+### Notes
+
+- **No patch block:** a repo scaffolded before this release still runs its BFF, so its rules must keep describing one; existing apps move by the migration guide in unit 6. Already-scaffolded `tauri` repos keep the old `server/` wording for the same reason.
+- `regress.mjs --build` exercises `nuxt-marketing-scaffold` only, so `nuxt-scaffold` was checked by real scaffolds instead. `starter`: `pnpm lint`, `type-check` and `test` (44 tests) pass, and a dev server in front of a stub API returned `Set-Cookie` intact, a JSON 404 for `/api/other` and traversal paths, a JSON 502 for an upstream 500, and SSE chunks 2 s apart.
+
 ## [1.108.0] - 2026-10-07
 
 `go-scaffold` stops trusting forwarded client-IP headers — unit 2 of the drop-bff epic (`docs/design/drop-bff.md`).

@@ -1,6 +1,6 @@
 [
   {"query":"scaffold a new nuxt 4 app with the saas template","should_trigger":true},
-  {"query":"create a nuxt app for our BFF layer","should_trigger":true},
+  {"query":"create a nuxt app that passes /api through to our Go backend","should_trigger":true},
   {"query":"initialize a new nuxt project called my-app","should_trigger":true},
   {"query":"set up nuxt with the dashboard template","should_trigger":true},
   {"query":"set up the AI harness for this nuxt repo","should_trigger":false},

@@ -1,10 +1,7 @@
-export default defineNuxtRouteMiddleware((to) => {
-  const { loggedIn } = useUserSession()
-
-  if (to.path.startsWith('/dashboard') && !loggedIn.value) {
-    return navigateTo('/login')
-  }
-  if ((to.path === '/login' || to.path === '/signup') && loggedIn.value) {
-    return navigateTo('/dashboard')
-  }
+// Only /dashboard/** is private; the marketing site stays public and makes no API call.
+// The redirect rules live in app/utils/auth-redirect.ts.
+export default defineNuxtRouteMiddleware(async (to) => {
+  const { user, fetchUser } = useAuth()
+  const target = await authRedirect(to.path, user.value, fetchUser)
+  if (target) return navigateTo(target)
 })

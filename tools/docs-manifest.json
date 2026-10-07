@@ -22,7 +22,7 @@
     },
     "nuxt-scaffold": {
       "group": "core",
-      "summary": "Scaffolds a Nuxt 4 BFF app from scratch via a deterministic Node.js script — npm create nuxt@latest + BFF preset + config/sample code. No GitHub clone."
+      "summary": "Scaffolds a Nuxt 4 app from scratch via a deterministic Node.js script — npm create nuxt@latest + /api pass-through preset + samples. No GitHub clone."
     },
     "next-scaffold": {
       "group": "core",

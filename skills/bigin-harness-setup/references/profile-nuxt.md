@@ -1,8 +1,8 @@
 # Nuxt Profile Templates
 
-Stack: Nuxt 4 fullstack (Cloudflare Pages), Nuxt ESLint, Pinia + Pinia Colada, VueUse, Nuxt UI, nuxt-auth-utils, Zod, Vitest — BFF proxy layer (no Drizzle/D1/KV/R2; the backend owns data persistence)
+Stack: Nuxt 4 SPA (`ssr: false`, Cloudflare Workers), Nuxt ESLint, Pinia + Pinia Colada, VueUse, Nuxt UI, Zod, Vitest — a tokenless `/api` pass-through to the API, no BFF (no Drizzle/D1/KV/R2; the backend owns data persistence and the web session)
 
-Empty repo → scaffolded by the **`nuxt-scaffold`** skill (non-interactive `npm create nuxt@latest` + BFF preset; no GitHub clone). See `skills/nuxt-scaffold/`.
+Empty repo → scaffolded by the **`nuxt-scaffold`** skill (non-interactive `npm create nuxt@latest` + the `/api` pass-through preset; no GitHub clone). See `skills/nuxt-scaffold/`.
 
 ---
 
@@ -26,8 +26,8 @@ Every file created or edited is auto-formatted by the Nuxt ESLint module: the `P
 ```markdown
 # CLAUDE.md
 
-Stack: Nuxt 4 fullstack · Cloudflare Pages
-Auth: nuxt-auth-utils (sealed session cookie)
+Stack: Nuxt 4 SPA (`ssr: false`) · Cloudflare Workers
+Auth: the API's HttpOnly session cookie, reached through the `/api` pass-through
 Runtime: Node ≥22 · pnpm only
 
 ## Commands
@@ -47,8 +47,8 @@ See `.claude/rules/` — path-scoped conventions, security, architecture.
 - Nuxt ESLint auto-formats every file you create or edit (PostToolUse hook). Never disable it.
 - No `--no-verify`. No `eslint-disable`, `@ts-ignore`, or `as any` without a justifying comment. Never weaken eslint config to pass a check.
 - Commit messages are Conventional Commits — `type(scope): subject` (enforced by `commit-msg-guard.mjs`).
-- Auth/session via `nuxt-auth-utils` only — never roll your own session or token store.
-- The browser never calls the backend directly and never holds the access token: everything goes through `server/api/`, and `openapi.yaml` generates the server types. Rules: `.claude/rules/conventions-server.md`.
+- No token in the browser, ever: the API owns the session as an HttpOnly cookie — never store a token in `localStorage`, a cookie you set, or Pinia, and never add a server-side session store.
+- The browser reaches the API only through the same-origin `/api/v<N>/**` pass-through (`server/routes/api/[...path].ts`), which holds no token and no logic beyond a path allowlist. `openapi.yaml` generates the client types. Rules: `.claude/rules/conventions-server.md`.
 
 ## Task workflow
 Non-trivial features: /task-workflow.
@@ -114,8 +114,8 @@ export type User = components['schemas']['User']
 export const userQueries = {
   list: {
     key: ['users', 'list'],
-    // Goes through the same-origin BFF proxy (apiClient's baseURL is
-    // '/api/backend') — this query never sees a token or NUXT_BACKEND_URL.
+    // Goes through the same-origin /api pass-through (apiClient's baseURL is
+    // '/api'); the session cookie authenticates it — this query never sees a token.
     query: async (): Promise<User[]> => {
       const { data } = await apiClient<Ok<'/v1/users'>>('/v1/users')
       return data
@@ -131,8 +131,9 @@ export const useUsers = defineQuery(() => useQuery(userQueries.list))
 - Props typed with `defineProps<{}>()`. Events with `defineEmits<{}>()`.
 
 ## Auth (client)
-- Read session: `const { loggedIn, user } = useUserSession()`
-- Session secret via `NUXT_SESSION_PASSWORD` (env only — never committed).
+- The session is an HttpOnly cookie the browser can't read. "Signed in" is whatever the API says: ask `GET /api/v1/user/profile` and treat a 401 as signed out (a `useAuth()` composable, as the `saas` template ships).
+- Sign in with `POST /api/v1/auth/session`, out with `DELETE /api/v1/auth/session`; the API sets and clears the cookie. A request that changes state must come from an origin in the API's `WEB_ORIGINS`, or it answers 403.
+- `apiClient` is `$fetch.create({ baseURL: '/api', credentials: 'include' })` — keep `credentials: 'include'`, and never add an `Authorization` header from the browser.
 
 ## Formatting
 ESLint via `@nuxt/eslint` only. Prettier disabled. Auto-fixed on save via PostToolUse hook.
@@ -155,13 +156,13 @@ paths:
 ## Naming
 - API routes: kebab-case (`/api/<segment>/[id].ts`)
 
-## BFF Proxy
-`server/api/backend/[...path].ts` is a **single catch-all proxy** and the sole caller of the backend REST API. It unseals the session, attaches the Bearer token, forwards the path verbatim, and handles the 401 refresh-and-retry-once flow; a CSRF middleware guards mutating cross-site requests. Browser code calls same-origin `/api/backend/*` through `shared/api-client` — no auth headers, no backend URL in the browser.
+## API Pass-through
+`server/routes/api/[...path].ts` is a **tokenless catch-all** (logic in `server/utils/pass-through.ts`). It forwards `/api/v<digits>/**` — and nothing else — to the server-only `NUXT_API_ORIGIN` (`runtimeConfig.apiOrigin`), streaming the body both ways and not following redirects, with `Set-Cookie`, `Cookie` and `x-request-id` passing through unchanged; any other `/api/*` path is a JSON 404. The path allowlist is the only access control it has. The session cookie is set by the API, which makes it first-party to the app; CSRF is the API's job (SameSite=Lax plus its `WEB_ORIGINS` check). Browser code calls `/api/v1/*` through `shared/api-client`.
 
-Do **not** add a per-domain handler that calls the backend itself; a new backend endpoint needs no new route file, only a regenerated contract. Handlers of your own are for work that is genuinely Nuxt-side (webhooks, form posts, server-only integrations). Server code that must reach the backend directly (the auth routes, the proxy's own refresh step) uses `server/utils/backend.ts`.
+Do **not** add a token, a refresh flow, a session store, a per-domain handler or a body transform to the pass-through — a new API endpoint needs no new route file, only a regenerated contract. Never put the API origin in a `NUXT_PUBLIC_*` variable (it would ship to the browser). Handlers of your own under `server/` are for work that is genuinely Nuxt-side (webhooks, form posts, server-only integrations), outside `/api/v<N>/`. Behind the pass-through the API sees the app's egress address as the client, so every browser user shares one rate-limit bucket; do not forward `X-Forwarded-For`/`CF-Connecting-IP` or set the API's `TRUSTED_PROXY` to work around it.
 
 ```ts
-// A query composable reaches the backend through the proxy — not through a new route.
+// A query composable reaches the API through the pass-through — not through a new route.
 const { data } = await apiClient<Ok<'/v1/users'>>('/v1/users')
 ```
 
@@ -175,9 +176,8 @@ Import from `~~/shared/api-client/schema`: `import type { components } from '~~/
 Never define API response shapes inline — always use generated types.
 
 ## Auth (server)
-- Protect routes: `const { user } = await requireUserSession(event)`
-- Set session: `await setUserSession(event, { user })`
-- Backend access token stored in sealed session — never reaches the browser.
+- There is none in this app: no session module, no token store, no `requireUserSession`. The API authenticates the cookie on every `/api/v<N>/**` call.
+- A Nuxt-side handler that needs the user calls the API with the request's `cookie` header; it never mints or stores a credential of its own.
 ```
 
 ---
@@ -199,7 +199,7 @@ paths:
 ## Location
 Tests live under `tests/`, mirroring the source tree — never co-located with source.
 - `app/utils/foo.ts` → `tests/app/utils/foo.test.ts`
-- `server/api/bar.get.ts` → `tests/server/api/bar.get.test.ts`
+- `server/utils/pass-through.ts` → `tests/server/pass-through.test.ts`
 
 `vitest.config.ts`'s `test.include` is scoped to `tests/**/*.test.ts` — a stray `*.test.ts` next to source silently won't run.
 
@@ -214,13 +214,13 @@ import { foo } from '~~/app/utils/foo'
 ## Nitro auto-imports
 Server tests run outside Nitro's auto-import context — `defineEventHandler`, `useRuntimeConfig`, etc. aren't globally available. Stub them via a shared `tests/support/` helper, not per-test.
 
-Mock only the true I/O boundary — `$fetch`, session read/write (`getUserSession`/`setUserSession`). Wire real implementations of internal collaborators (your own composables, utils, server helpers) as globals instead of mocking them — mocking internals couples tests to implementation and hides real breakage.
+Mock only the true I/O boundary — `$fetch` / global `fetch` (the pass-through core takes a web `Request` and the origin and is tested by stubbing `fetch`). Wire real implementations of internal collaborators (your own composables, utils, server helpers) as globals instead of mocking them — mocking internals couples tests to implementation and hides real breakage.
 
 ## Workers
 `vitest.config.ts` caps `maxWorkers` at 4. Vitest's default is one fork per core, and each fork boots a Nuxt environment: at 12 workers one repo pegged its machine at load 25–48 and ran slower, not faster. Raise the cap only with a measurement that says more workers finished sooner.
 
 ## E2E (when the repo has Playwright)
-The suite is only as fast as its slowest shared resource, and in a BFF that is almost never the browser.
+The suite is only as fast as its slowest shared resource, and behind an API that rate-limits, that is almost never the browser.
 
 - **Arrange state without the UI, and without the rate limiter.** A fixture that signs up a user and creates a workspace through the app for every test spends the backend's rate-limit budget on setup. One repo's backend allowed 100 requests a minute from one address; with a fresh user per test, a second worker failed 24 of 43 specs on HTTP 429 pages, so the suite ran at one worker for ~25 minutes. Seed through a path the limiter does not count (a test-only seeding endpoint, direct database seeding, or a raised limit in the backend's E2E environment), and derive `workers` from that budget rather than hard-coding it.
 - **Log in once per worker, not once per test.** Save the session with `storageState` in a worker-scoped fixture; specs that only read share it. A spec that mutates what others read gets its own user.
@@ -235,10 +235,10 @@ The suite is only as fast as its slowest shared resource, and in a BFF that is a
 Prepend `paths: ["server/**", "app/**"]` as YAML frontmatter when writing `architecture.md` (see `references/files-shared.md` → `## paths substitutions`).
 
 ```markdown
-## [Nuxt] BFF Boundary
-- `server/api/` is the **sole caller** of the external backend REST API. Client-side code never calls the backend directly.
-- Backend access token lives in the `nuxt-auth-utils` sealed session (server-side only). It never reaches the browser.
-- `openapi.yaml` types are generated and consumed **server-side** (`server/types/api.d.ts`). Client components receive data already shaped by server routes — no raw API types on the client.
+## [Nuxt] Pass-through Boundary
+- The browser reaches the backend REST API only through the same-origin `/api/v<N>/**` pass-through. It holds no token and no logic beyond the path allowlist; the API owns the web session (HttpOnly cookie) and CSRF.
+- No SSR (`ssr: false`) and no server-side session or token store. `server/` is the pass-through plus genuinely Nuxt-side handlers outside `/api/v<N>/`.
+- `openapi.yaml` types are generated into `shared/api-client/schema.d.ts` and consumed by the query composables only (`app/composables/queries/`); components receive shaped data from them, not raw API types.
 
 ## [Nuxt] Layers & Boundaries
 - Use Nuxt Layers (`layers/`) for hard domain separation when the app grows beyond 3 domains.
@@ -420,7 +420,7 @@ Nuxt never authors a contract — `openapi.yaml` is always a snapshot of the pai
 
 | `REPO_TYPE` | Mode | How the snapshot arrives |
 |---|---|---|
-| `none` — a standalone Nuxt app | **hand-copied** | a developer copies the backend's contract over it and runs `pnpm openapi-types`. This is what `nuxt-scaffold`'s next-steps describes |
+| `none` — a standalone Nuxt app | **hand-copied** | a developer copies the backend's contract over it and runs `pnpm openapi-types`. This is what `nuxt-scaffold`'s next-steps describes; with go-scaffold's contract, set `apiClient`'s `baseURL` to `'/api/v1'` |
 | `web` — the web repo of a polyrepo project | **vendored** | `contract_sync.mjs` writes it from the contracts repo at a pinned commit. Hand-copying is blocked in-session and caught by the CI drift job |
 
 In **vendored** mode: `## OpenAPI Types` gains the line *"This file is vendored — see `.claude/rules/vendored-contract.md`. Do not copy a new one over it by hand,"* and `.claude/rules/vendored-contract.md` is written from `files-shared.md` → `## vendored-contract.md` with `{CODEGEN_OUT}` = `shared/api-client/schema.d.ts` (`layers/shared/api-client/schema.d.ts` on the `starter` template) and `{SPEC_PATH}` resolved per that section — a Nuxt repo vendoring to `api/openapi.yaml` is as common as one at the root.

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * scaffold.mjs — deterministic Nuxt 4 BFF scaffold.
+ * scaffold.mjs — deterministic Nuxt 4 scaffold.
  *
  * Usage: node scaffold.mjs --config <path-to-json>
  *
@@ -41,7 +41,7 @@ const PRIMARY_COLORS = ['blue', 'green', 'emerald', 'teal', 'cyan', 'sky', 'indi
 const NEUTRAL_COLORS = ['slate', 'gray', 'zinc', 'neutral', 'stone', 'taupe', 'mauve', 'mist', 'olive']
 const PROJECT_NAME_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/
 // Packages create-nuxt's `ui` template + `--modules` install; Stage 1b re-pins them.
-const TEMPLATE_PKGS = ['nuxt', '@nuxt/ui', '@nuxt/eslint', 'eslint', 'tailwindcss', 'vue-tsc', 'typescript', '@pinia/nuxt', 'nuxt-auth-utils', '@vueuse/nuxt']
+const TEMPLATE_PKGS = ['nuxt', '@nuxt/ui', '@nuxt/eslint', 'eslint', 'tailwindcss', 'vue-tsc', 'typescript', '@pinia/nuxt', '@vueuse/nuxt']
 // `starter` = today's from-scratch `--template ui` path (no repo). Everything else clones the
 // matching official ui.nuxt.com template (github.com/nuxt-ui-templates/<slug>) via `nuxi init`.
 const TEMPLATE_REPOS = {
@@ -248,11 +248,11 @@ function preflight() {
   if (CFG.resume) {
     if (!hasNuxtConfig) fail('resume=true but no nuxt.config.ts in targetDir — nothing to resume; run without resume')
     if (complete) fail('resume=true but the scaffold looks complete (vitest.config.ts + .claude/settings.json + node_modules present) — nothing to do')
-    log('partial scaffold detected — resuming from the BFF-preset stage')
+    log('partial scaffold detected — resuming from the preset stage')
   } else if (hasNuxtConfig) {
     fail(complete
       ? 'nuxt.config.ts found and the scaffold looks complete — refusing to overwrite. Nothing to do.'
-      : 'nuxt.config.ts found but vitest.config.ts, .claude/settings.json, or node_modules is missing — partial scaffold. Re-run with "resume": true to continue from the BFF-preset stage.')
+      : 'nuxt.config.ts found but vitest.config.ts, .claude/settings.json, or node_modules is missing — partial scaffold. Re-run with "resume": true to continue from the preset stage.')
   }
 
   // Monorepo hoisting warning (informational, matches bootstrap.md)
@@ -266,7 +266,7 @@ function preflight() {
   log(`preflight ok — Node ${process.version}, pnpm ${pnpmCheck.stdout.trim()}, target ${CFG.targetDir}`)
 }
 
-const CORE_MODULES = ['@pinia/nuxt', 'nuxt-auth-utils', '@vueuse/nuxt']
+const CORE_MODULES = ['@pinia/nuxt', '@vueuse/nuxt']
 // The runtime backend client (shared/api-client) is Nuxt's global `$fetch` typed against the
 // generated schema — no HTTP-client dependency to install.
 // `pinia` is explicit (not just a transitive peer of @pinia/nuxt): @pinia/colada peer-depends on it,
@@ -309,7 +309,7 @@ function stage1Init() {
   // anyway?" prompt that silently defaults to "No" non-interactively — so --modules is atomic
   // install-and-register and only ever passed when an install is actually happening.
   const noInstall = CFG.skipInstall ? ['--no-install'] : []
-  const modulesFlag = CFG.skipInstall ? [] : ['--modules', 'pinia,auth-utils,vueuse']
+  const modulesFlag = CFG.skipInstall ? [] : ['--modules', 'pinia,vueuse']
   const noInstallLabel = CFG.skipInstall ? ', --no-install' : ''
   if (CFG.template === 'starter') {
     log(`stage 1: npm create nuxt@latest (non-interactive, ui template, in-place${noInstallLabel})`)
@@ -343,23 +343,76 @@ function stage1Init() {
   } else {
     // Either a cloned template (arbitrary giget templates don't support --modules) or
     // skipInstall (which drops --modules on every template, see above) — add and register
-    // the BFF preset's core modules ourselves so Stage 1b's refresh step (which assumes
+    // the preset's core modules ourselves so Stage 1b's refresh step (which assumes
     // they're already installed) sees the same shape as the starter+install path.
     const registerVerb = CFG.skipInstall ? 'declaring' : 'installing'
     const registerReason = CFG.template === 'starter' ? 'skipInstall drops --modules' : 'not supported by --modules on a cloned template'
     const registerContext = CFG.template === 'starter' ? '(skipInstall path)' : 'after cloning the template'
-    log(`stage 1: ${registerVerb} core BFF modules (pinia, nuxt-auth-utils, vueuse) — ${registerReason}`)
+    log(`stage 1: ${registerVerb} core modules (pinia, vueuse) — ${registerReason}`)
     if (CFG.skipInstall) declareDepsUnresolved(CORE_MODULES, [])
     else pnpmAdd(CORE_MODULES)
     for (const mod of CORE_MODULES) ensureModuleRegistered(mod)
     verifyCoreModulesRegistered(`failed to register core modules ${registerContext}`)
   }
 
+  if (CFG.template !== 'starter') dropOgImage()
+
   const pkgPath = path.join(CFG.targetDir, 'package.json')
   const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'))
   pkg.name = CFG.projectName
   writeFileEnsured(pkgPath, JSON.stringify(pkg, null, 2))
   log(`stage 1 done — package.json name set to ${CFG.projectName}`)
+}
+
+/**
+ * Remove `nuxt-og-image` and its `defineOgImage(...)` calls from a cloned template (saas, docs and
+ * portfolio ship it). The scaffold sets `ssr: false`, and the module registers no `defineOgImage`
+ * auto-import without SSR, so `pnpm type-check` fails and the call throws in the browser. OG
+ * images are rendered on the server; an SPA has nowhere to render them. `useSiteConfig()` (docs'
+ * PageHeaderLinks) came in with the module's nuxt-site-config, so it is replaced by the request origin. `useSeoMeta({ ogImage })`
+ * meta tags stay — they need no module. Idempotent (resume re-runs it), and run right after the
+ * clone, before any `pnpm add`, so the lockfile is rewritten without the package.
+ */
+function dropOgImage() {
+  const root = CFG.targetDir
+  const pkgPath = path.join(root, 'package.json')
+  const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'))
+  let dropped = false
+  for (const field of ['dependencies', 'devDependencies']) {
+    if (pkg[field]?.['nuxt-og-image']) {
+      delete pkg[field]['nuxt-og-image']
+      dropped = true
+    }
+  }
+  if (dropped) writeFileEnsured(pkgPath, JSON.stringify(pkg, null, 2))
+
+  const configPath = path.join(root, 'nuxt.config.ts')
+  const config = fs.readFileSync(configPath, 'utf8')
+  const nextConfig = config
+    .replace(/^[ \t]*'nuxt-og-image',?[ \t]*\n/m, '')
+    .replace(/(,?)\n[ \t]*\n?[ \t]*ogImage:[ \t]*\{[^{}]*\}[ \t]*,?(?=\n)/, '')
+    .replace(/,(\s*\n[ \t]*\](?=,?\n))/, '$1') // `modules` loses its last entry: no trailing comma
+    .replace(/,(\s*\n\}\)\s*$)/, '$1') // the config object loses its last key
+  if (nextConfig !== config) fs.writeFileSync(configPath, nextConfig)
+
+  const appDir = path.join(root, 'app')
+  if (!fs.existsSync(appDir)) return
+  const call = String.raw`defineOgImage\((?:[^()]|\([^()]*\))*\)`
+  const elseCall = new RegExp(String.raw`[ \t]*else[ \t]*\{\s*${call}\s*\}`)
+  const lineCall = new RegExp(String.raw`^[ \t]*${call}[ \t]*\n`, 'gm')
+  for (const file of listFilesRecursive(appDir)) {
+    if (!/\.(vue|ts)$/.test(file)) continue
+    const src = fs.readFileSync(file, 'utf8')
+    if (!src.includes('defineOgImage') && !src.includes('useSiteConfig()')) continue
+    // `if (x) { useSeoMeta(...) } else { defineOgImage(...) }` → drop the else, keep the if.
+    // The if's closing brace and the else sit on one line (`} else {`), so match from that brace.
+    // `docs` reads its own origin from `useSiteConfig()`, which came with nuxt-og-image (nuxt-site-config).
+    const out = src.replace('const site = useSiteConfig()', 'const site = { url: useRequestURL().origin }').replace(new RegExp(String.raw`(\})[ \t]*${elseCall.source.trimStart()}`), '$1').replace(lineCall, '')
+      .replace(/\n{3,}/g, '\n\n') // a removed call leaves blank lines the stylistic rules reject
+      .replace(/\n\n(<\/script>)/g, '\n$1')
+    if (out.includes('defineOgImage') || out.includes('useSiteConfig')) fail(`${path.relative(root, file)}: a defineOgImage or useSiteConfig use this script cannot remove — template shape changed; re-verify artifacts.md`)
+    fs.writeFileSync(file, out)
+  }
 }
 
 function stage1bRefresh() {
@@ -388,7 +441,7 @@ function stage1bRefresh() {
   const nuxtConfig = fs.readFileSync(path.join(CFG.targetDir, 'nuxt.config.ts'), 'utf8')
   // `routeRules` is deliberately NOT part of this gate: 5 of the 8 cloned ui.nuxt.com templates
   // (landing, docs, portfolio, chat, editor) ship no routeRules key at all, and requiring it here
-  // rejected them as "shape changed" when nothing had. insertRuntimeConfig() positions the merge
+  // rejected them as "shape changed" when nothing had. mergeNuxtConfig() positions the merge
   // by key order instead of anchoring on that key.
   const missing = [
     !fs.existsSync(path.join(CFG.targetDir, 'app', 'app.config.ts')) && 'app/app.config.ts',
@@ -404,13 +457,13 @@ function stage1bRefresh() {
 function stage2Preset() {
   const devDeps = CFG.template === 'starter' ? [...PRESET_DEV_DEPS, ...STARTER_DEV_DEPS] : PRESET_DEV_DEPS
   if (CFG.skipInstall) {
-    log('stage 2: skipped installing BFF preset packages (skipInstall) — declaring them in package.json as "latest" for a later `pnpm install`')
+    log('stage 2: skipped installing preset packages (skipInstall) — declaring them in package.json as "latest" for a later `pnpm install`')
     declareDepsUnresolved(PRESET_DEPS, devDeps)
     // Required for useQuery/useMutation to work at all — registration is a text edit, not an install.
     ensureModuleRegistered('@pinia/colada-nuxt')
     return
   }
-  log('stage 2: installing BFF preset packages')
+  log('stage 2: installing preset packages')
   pnpmAdd(PRESET_DEPS)
   // Required for useQuery/useMutation to work at all (SSR-safe cache, auto PiniaColadaSSRNoGc) — not optional.
   ensureModuleRegistered('@pinia/colada-nuxt')
@@ -433,48 +486,86 @@ function ensureModuleRegistered(moduleName) {
   }
 }
 
-// Top-level nuxt.config keys that nuxt/nuxt-config-keys-order ranks BEFORE runtimeConfig
-// (mirrors ORDER_KEYS in @nuxt/eslint-plugin, up to and including `appConfig`; `$`-prefixed
-// env keys rank there too). Every other key — ranked after, or unknown to the rule, which
-// sorts unknown keys last — must follow runtimeConfig. `pnpm lint` at stage 5 is not run
-// with --fix, so a misplacement fails the scaffold rather than self-healing.
-const KEYS_BEFORE_RUNTIME_CONFIG = new Set([
-  'appId', 'buildId', 'extends', 'theme', 'modules', 'plugins', 'ssr', 'pages', 'components',
-  'imports', 'devtools', 'app', 'css', 'vue', 'router', 'unhead', 'site', 'colorMode',
-  'content', 'mdc', 'ui', 'spaLoadingTemplate', 'appConfig'
-])
+// Top-level nuxt.config key order, mirroring ORDER_KEYS in @nuxt/eslint-plugin's
+// nuxt/nuxt-config-keys-order (the plugin's `$`-prefixed env-key regex included). `pnpm lint` at
+// stage 5 is not run with --fix, so a misplaced key fails the scaffold rather than self-healing.
+// A key the rule doesn't know sorts last — Infinity here.
+const NUXT_KEY_ORDER = [
+  'appId', 'buildId', 'extends', 'theme', 'modules', 'plugins', /^\$/, 'ssr', 'pages', 'components',
+  'imports', 'devtools', 'app', 'css', 'vue', 'router', 'unhead', 'site', 'colorMode', 'content', 'mdc',
+  'ui', 'spaLoadingTemplate', 'appConfig', 'runtimeConfig', 'dir', 'rootDir', 'srcDir', 'appDir',
+  'workspaceDir', 'serverDir', 'buildDir', 'modulesDir', 'analyzeDir', 'alias', 'extensions', 'ignore',
+  'ignoreOptions', 'ignorePrefix', 'builder', 'build', 'generate', 'routeRules', 'sourcemap',
+  'optimization', 'dev', 'devServer', 'watch', 'watchers', 'future', 'features', 'experimental',
+  'compatibilityDate', 'nitro', 'hub', 'serverHandlers', 'devServerHandlers', 'vite', 'webpack',
+  'typescript', 'postcss', 'test', 'telemetry', 'debug', 'logLevel', 'hooks'
+]
+
+function keyRank(name) {
+  const i = NUXT_KEY_ORDER.findIndex((k) => (typeof k === 'string' ? k === name : k.test(name)))
+  return i === -1 ? Infinity : i
+}
 
 /**
- * Add `backendUrl` to nuxt.config.ts's runtimeConfig — the BFF proxy's only required setting.
- *
- * Anchoring on `routeRules` (the pre-v1.68.1 anchor) broke every template that ships without it
- * (landing, docs, portfolio, chat, editor), and anchoring on `css` would land ahead of the
- * client-module keys (`content`/`mdc`/`ui`) the order rule ranks earlier. So: scan top-level
- * keys in file order and insert before the first one that must come after runtimeConfig.
- * `editor` already ships a runtimeConfig (`public.partykitHost`) — that one gets backendUrl
- * merged into it rather than a second key, which the old `includes('runtimeConfig')` check
- * would have skipped silently, leaving the proxy without a backend URL.
+ * Insert a new top-level key (`text`: one or more whole lines, 2-space indented) into
+ * defineNuxtConfig({ … }) where nuxt/nuxt-config-keys-order wants it: before the first existing
+ * top-level key that ranks after it. Anchoring on one fixed key (`routeRules`, `css`) broke
+ * templates that ship without it, so the position comes from the rank table instead. The insert
+ * point backs up over a comment block directly above that key, so the comment stays with its key.
  */
-function insertRuntimeConfig(source) {
-  if (/backendUrl/.test(source)) return source
-  const comment = '// server-only; set via NUXT_BACKEND_URL env'
-  const existing = source.match(/^([ \t]*)runtimeConfig:\s*\{/m)
-  if (existing) {
-    const at = existing.index + existing[0].length
-    const indent = `${existing[1]}  `
-    return `${source.slice(0, at)}\n${indent}${comment}\n${indent}backendUrl: '',${source.slice(at)}`
-  }
+function insertTopLevelKey(source, name, text) {
   const open = source.match(/defineNuxtConfig\(\{[ \t]*\n/)
   if (!open) fail('cannot find defineNuxtConfig({ in nuxt.config.ts — template shape changed; re-verify artifacts.md')
-  const body = source.slice(open.index + open[0].length)
-  const key = [...body.matchAll(/^([ \t]{2})(\$?[A-Za-z_][\w$]*)\s*:/gm)]
-    .find((m) => !KEYS_BEFORE_RUNTIME_CONFIG.has(m[2]) && !m[2].startsWith('$'))
-  // Every template ends on keys that rank after runtimeConfig (`compatibilityDate`, `eslint`,
-  // …), so no anchor at all means a shape this script hasn't seen — fail rather than guess.
-  if (!key) fail('no nuxt.config.ts key ranks after runtimeConfig — template shape changed; re-verify artifacts.md')
-  const block = `${key[1]}${comment}\n${key[1]}runtimeConfig: { backendUrl: '' },\n`
-  const at = open.index + open[0].length + key.index
-  return source.slice(0, at) + block + source.slice(at)
+  const start = open.index + open[0].length
+  const rank = keyRank(name)
+  const next = [...source.slice(start).matchAll(/^[ \t]{2}(\$?[A-Za-z_][\w$]*)\s*:/gm)]
+    .find((m) => keyRank(m[1]) > rank)
+  // Every template ends on keys that rank after what we insert (`compatibilityDate`, `eslint`, …),
+  // so no anchor at all means a shape this script hasn't seen — fail rather than guess.
+  if (!next) fail(`no nuxt.config.ts key ranks after ${name} — template shape changed; re-verify artifacts.md`)
+  let at = start + next.index
+  const lines = source.slice(0, at).split('\n')
+  lines.pop() // the partial line before the key
+  while (lines.length && /^\s*\/\//.test(lines[lines.length - 1])) lines.pop()
+  at = lines.join('\n').length + 1
+  return source.slice(0, at) + text + source.slice(at)
+}
+
+/**
+ * Merge the pass-through's three settings into nuxt.config.ts: `ssr: false` (no SSR, ever),
+ * the `cloudflare_module` Nitro preset, and `runtimeConfig.apiOrigin` — the server-only
+ * NUXT_API_ORIGIN the /api pass-through forwards to. A template that already sets `ssr`, a
+ * `nitro` block or a `runtimeConfig` (`editor` ships `public.partykitHost`) is merged into rather
+ * than given a second key, which the old `includes('runtimeConfig')` check would have skipped
+ * silently. Idempotent — resume re-runs it.
+ */
+function mergeNuxtConfig(source) {
+  let out = source
+  if (/^[ \t]{2}ssr:/m.test(out)) out = out.replace(/^([ \t]{2}ssr:)[ \t]*\w+/m, '$1 false')
+  else out = insertTopLevelKey(out, 'ssr', '  ssr: false,\n')
+
+  const nitro = out.match(/^([ \t]{2})nitro:[ \t]*\{/m)
+  if (!nitro) out = insertTopLevelKey(out, 'nitro', "  nitro: { preset: 'cloudflare_module' },\n")
+  else if (/\bpreset:/.test(out.slice(nitro.index))) {
+    out = out.slice(0, nitro.index) + out.slice(nitro.index).replace(/\bpreset:[ \t]*(['"])[\w-]+\1/, "preset: 'cloudflare_module'")
+  }
+  else {
+    const at = nitro.index + nitro[0].length
+    out = `${out.slice(0, at)}\n${nitro[1]}  preset: 'cloudflare_module',${out.slice(at)}`
+  }
+
+  if (!/\bapiOrigin\b/.test(out)) {
+    const comment = '// server-only; set via NUXT_API_ORIGIN env'
+    const existing = out.match(/^([ \t]*)runtimeConfig:\s*\{/m)
+    if (existing) {
+      const at = existing.index + existing[0].length
+      const indent = `${existing[1]}  `
+      out = `${out.slice(0, at)}\n${indent}${comment}\n${indent}apiOrigin: '',${out.slice(at)}`
+    } else {
+      out = insertTopLevelKey(out, 'runtimeConfig', `  ${comment}\n  runtimeConfig: { apiOrigin: '' },\n`)
+    }
+  }
+  return out
 }
 
 function applyArtifacts() {
@@ -494,7 +585,7 @@ function applyArtifacts() {
   // Template-specific overlays (same write-fresh mechanism as `files/`, gated by CFG.template):
   // `starter` gets the Nuxt Layers scaffolding (per-layer nuxt.config.ts + eslint.boundaries.mjs)
   // that restructureStarterLayers() then wires up — openapi.yaml + the api-client are universal now,
-  // shipped via `files/`; `saas` gets the backend-wired auth routes (login/signup/logout) + private
+  // shipped via `files/`; `saas` gets the cookie-session pages (login/signup) + private
   // dashboard the official template doesn't ship.
   const templateOverlay = CFG.template === 'starter' ? 'starter' : CFG.template === 'saas' ? 'saas' : null
   if (templateOverlay) {
@@ -505,11 +596,13 @@ function applyArtifacts() {
       writeFileEnsured(path.join(CFG.targetDir, rel), substitute(fs.readFileSync(src, 'utf8'), subs))
     }
   }
-  // nuxt.config.ts merge: runtimeConfig.backendUrl, placed per nuxt/nuxt-config-keys-order
-  // (comment on its own line — a trailing comment trips @stylistic/no-multi-spaces).
+  if (CFG.template !== 'starter') dropOgImage()
+  // nuxt.config.ts merge: ssr false, cloudflare_module preset, runtimeConfig.apiOrigin, each placed
+  // per nuxt/nuxt-config-keys-order (comment on its own line — a trailing comment trips
+  // @stylistic/no-multi-spaces).
   const nuxtConfigPath = path.join(CFG.targetDir, 'nuxt.config.ts')
-  let nuxtConfig = insertRuntimeConfig(fs.readFileSync(nuxtConfigPath, 'utf8'))
-  // devtools: BFF preset ships with devtools off by default.
+  let nuxtConfig = mergeNuxtConfig(fs.readFileSync(nuxtConfigPath, 'utf8'))
+  // devtools: the preset ships with devtools off by default.
   if (!nuxtConfig.includes('devtools: { enabled: false }')) {
     const before = nuxtConfig
     nuxtConfig = nuxtConfig.replace(/devtools:\s*\{\s*enabled:\s*true\s*\}/, 'devtools: { enabled: false }')
@@ -694,9 +787,8 @@ function activateHooks() {
 function verify() {
   // Collapse duplicate transitive versions the staged `pnpm add` sequence leaves behind.
   // Stages 1/1b/2 install in four passes, and pnpm keeps whatever a pass already resolved —
-  // on the `docs` template that stranded both h3 v1 (via nuxt-auth-utils) and h3 v2 (via
-  // nitro) in the server type graph, and `nuxt typecheck` failed on the template's OWN
-  // routes as well as ours. A single `pnpm install` of the same package set resolves one h3
+  // on the `docs` template that stranded two h3 majors in the server type graph, and
+  // `nuxt typecheck` failed on the template's OWN routes as well as ours. A single `pnpm install` of the same package set resolves one h3
   // and type-checks clean, so this is an install-order artifact, not a version conflict.
   log('stage 4b: pnpm dedupe — collapsing duplicate transitive versions from the staged installs')
   must('pnpm', ['dedupe'], 'pnpm dedupe')
@@ -713,43 +805,46 @@ function commitIfDirty() {
   if (status.stdout.trim() === '') return
   log('creating initial commit')
   must('git', ['add', '-A'], 'git add')
-  must('git', ['commit', '-m', 'chore: scaffold Nuxt 4 BFF app'], 'git commit')
+  must('git', ['commit', '-m', 'chore: scaffold Nuxt 4 app'], 'git commit')
 }
 
 function printNextSteps() {
   const lines = [
     '',
-    `Nuxt 4 BFF app scaffolded (template: ${CFG.template}).`,
+    `Nuxt 4 app scaffolded (template: ${CFG.template}).`,
     '',
     'Next:'
   ]
+  const apiOrigin = [
+    '  1. Copy .env.example → .env and set NUXT_API_ORIGIN (the paired API\'s origin, e.g. https://api.example.com;',
+    '     server-only). The app\'s /api/v<N>/** pass-through forwards there, so the API\'s HttpOnly session cookie',
+    '     is first-party to this app; the browser never holds a token. Set WEB_ORIGINS on the API to this app\'s origin.',
+    '     Client IP: the API sees this app\'s egress address, so all browser users share one rate-limit bucket —',
+    '     nothing forwards X-Forwarded-For / CF-Connecting-IP and TRUSTED_PROXY must stay unset (see .env.example).'
+  ]
   if (CFG.template === 'starter') {
     lines.push(
-      '  1. Copy .env.example → .env and set:',
-      '     - NUXT_SESSION_PASSWORD (openssl rand -base64 32)',
-      '     - NUXT_BACKEND_URL     (paired Go backend REST API; server-only)',
-      '  2. openapi.yaml is a committed snapshot of the paired backend contract. Standalone:',
-      '     copy the backend\'s api/openapi.yaml over it and run: pnpm openapi-types. In a',
-      '     polyrepo project the contracts repo owns it — use contract-sync, not a hand-copy.',
+      ...apiOrigin,
+      '  2. openapi.yaml is a placeholder contract. Standalone: copy the backend\'s openapi.yaml over it,',
+      '     set apiClient\'s baseURL to \'/api/v1\' (shared/api-client or layers/shared/api-client), and run:',
+      '     pnpm openapi-types. In a polyrepo project the contracts repo owns it — use contract-sync.',
       '  3. Structure: layers/<feature>/app + layers/shared (api-client), boundaries lint on.',
       '  4. Overlay governance: run bigin-harness-setup (CLAUDE.md, rules, bash-guard).',
       '  5. Start: pnpm dev'
     )
   } else if (CFG.template === 'saas') {
     lines.push(
-      '  1. Copy .env.example → .env and set:',
-      '     - NUXT_SESSION_PASSWORD (openssl rand -base64 32)',
-      '     - NUXT_BACKEND_URL     (paired Go backend REST API; server-only)',
-      '  2. /api/login + /api/signup call the backend and store the token pair in the session\'s',
-      '     server-only `secure` key; browser data calls go through the /api/backend proxy.',
+      ...apiOrigin,
+      '  2. Login/signup call POST /api/v1/auth/session and POST /api/v1/auth/signup; sign-out is',
+      '     DELETE /api/v1/auth/session; the current user is GET /api/v1/user/profile (a 401 sends the',
+      '     visitor to /login). Local dev needs HTTPS for the __Host- cookie, or the API\'s SESSION_COOKIE_SECURE=false.',
       '  3. Overlay governance: run bigin-harness-setup (CLAUDE.md, rules, bash-guard).',
-      '  4. Start: pnpm dev — public site at /, private area at /dashboard (needs the backend running).'
+      '  4. Start: pnpm dev — public site at /, private area at /dashboard (needs the API running).'
     )
   } else {
     lines.push(
-      '  1. Copy .env.example → .env and set NUXT_SESSION_PASSWORD (openssl rand -base64 32)',
-      '     and NUXT_BACKEND_URL (paired backend REST API; server-only, used by the /api/backend proxy).',
-      `  2. This is the official nuxt-ui-templates/${CFG.template} starter layered with the BFF preset — see its own README for template-specific usage.`,
+      ...apiOrigin,
+      `  2. This is the official nuxt-ui-templates/${CFG.template} starter layered with the pass-through preset — see its own README for template-specific usage.`,
       '  3. Overlay governance: run bigin-harness-setup (CLAUDE.md, rules, bash-guard).',
       '  4. Start: pnpm dev'
     )

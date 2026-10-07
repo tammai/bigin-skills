@@ -12,7 +12,7 @@ useSeoMeta({
 })
 
 const toast = useToast()
-const { fetch: refreshSession } = useUserSession()
+const { signup } = useAuth()
 
 const fields = [{
   name: 'name',
@@ -41,8 +41,7 @@ type Schema = z.output<typeof schema>
 
 async function onSubmit(payload: FormSubmitEvent<Schema>) {
   try {
-    await $fetch('/api/signup', { method: 'POST', body: payload.data })
-    await refreshSession()
+    await signup(payload.data.name, payload.data.email, payload.data.password)
     await navigateTo('/dashboard')
   } catch {
     toast.add({ title: 'Sign up failed', description: 'Check your details and try again.', color: 'error' })

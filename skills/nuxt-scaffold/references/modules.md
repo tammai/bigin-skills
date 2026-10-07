@@ -1,12 +1,12 @@
 # Modules — what gets installed
 
-The BFF preset is installed for every `template` (`starter` and every cloned template alike — see `references/bootstrap.md`'s "Stage 1 (cloned templates)" section for how `@pinia/nuxt`/`nuxt-auth-utils`/`@vueuse/nuxt` get added and registered on the clone path). There is no optional-module menu — the scaffolder never installs `@nuxt/image` or `@nuxt/content`. BFF is a proxy layer only — the Nuxt app never accesses a database directly; there is no DB opt-in.
+The pass-through preset is installed for every `template` (`starter` and every cloned template alike — see `references/bootstrap.md`'s "Stage 1 (cloned templates)" section for how `@pinia/nuxt`/`@vueuse/nuxt` get added and registered on the clone path). There is no optional-module menu — the scaffolder never installs `@nuxt/image` or `@nuxt/content`. The Nuxt app is a static SPA behind a tokenless pass-through — it never accesses a database directly; there is no DB opt-in.
 
-Installing `nuxt-auth-utils` doesn't mean a template ships an auth *flow* — only `saas` writes login/signup/logout routes (they call the paired backend and seal the token pair in the session's server-only `secure` key; see `references/artifacts.md`'s `## saas opt-in`). For `starter` and every other cloned template, the module is present but unused until hand-wired.
+No auth module is installed: the Go API owns the web session as an HttpOnly cookie. Only `saas` writes login/signup pages and the `useAuth()` composable that call it (see `references/artifacts.md`'s `## saas opt-in`). `starter` and every other cloned template get the pass-through and the typed client, with auth pages left to hand-wiring.
 
 ---
 
-## BFF Preset (default — always installed)
+## Pass-through preset (default — always installed)
 
 ### Provided by the `--template ui` init, refreshed by Stage 1b
 
@@ -17,23 +17,22 @@ Installing `nuxt-auth-utils` doesn't mean a template ships an auth *flow* — on
 | `tailwindcss` | Styling engine (via `@nuxt/ui`) |
 | `vue-tsc`, `typescript` | Required by `nuxt typecheck` |
 
-The `--template ui` init installs whatever versions the resolved `create-nuxt@latest` release bundled at publish time — not necessarily current. `references/bootstrap.md` → Stage 1b immediately refreshes all of these (plus `nuxt`, `@pinia/nuxt`, `nuxt-auth-utils`, `@vueuse/nuxt`) per `VERSION_POLICY`, so a stale template snapshot never reaches the scaffolded app.
+The `--template ui` init installs whatever versions the resolved `create-nuxt@latest` release bundled at publish time — not necessarily current. `references/bootstrap.md` → Stage 1b immediately refreshes all of these (plus `nuxt`, `@pinia/nuxt`, `@vueuse/nuxt`) per `VERSION_POLICY`, so a stale template snapshot never reaches the scaffolded app.
 
 The template also ships the eslint stylistic config — explicit override `commaDangle: 'never'` (default `'always-multiline'`) plus `braceStyle: '1tbs'` (same as `@stylistic/eslint-plugin`'s own default, restated); the rest of the effective rules (`indent: 2`, `quotes: 'single'`, `semi: false`) come from that plugin's defaults, not from anything the template writes. Also ships `app.vue`, `app.config.ts`, `pages/index.vue`, `eslint.config.mjs`, and `main.css`.
 
-### Stage 2 — BFF preset packages
+### Stage 2 — preset packages
 
 Universal `PRESET_DEPS` land via one `pnpm add`, `PRESET_DEV_DEPS` via one `pnpm add -D`; `STARTER_DEV_DEPS` are appended to the `-D` set only when `template === 'starter'` (the arrays live at the top of `scaffold.mjs`).
 
 | Command | npm package | Why |
 | --- | --- | --- |
 | *(Stage 1 `--modules`)* | `@pinia/nuxt` | Vue state management, auto-imported stores |
-| *(Stage 1 `--modules`)* | `nuxt-auth-utils` | Sealed session cookie + OAuth/password helpers — the only auth path |
 | *(Stage 1 `--modules`)* | `@vueuse/nuxt` | Vue composition utilities, auto-imported |
 | `pnpm add pinia` | `pinia` | Declared explicitly (not just as `@pinia/nuxt`'s transitive peer): `@pinia/colada` peer-depends on it, and on the cloned templates pnpm won't hoist the peer, so vitest can't resolve `pinia` without it |
 | `pnpm add @pinia/colada` | `@pinia/colada` | Async data (`useQuery` / `useMutation`) on top of Pinia |
 | `pnpm add @pinia/colada-nuxt` | `@pinia/colada-nuxt` | Nuxt module for `@pinia/colada` — **required**, not optional (see [official guide](https://pinia-colada.esm.dev/nuxt.html)); without it `useQuery`/`useMutation` throw. Registered in `nuxt.config.ts` by the script itself (`ensureModuleRegistered`), not `nuxi module add` |
-| `pnpm add zod` | `zod` | Runtime schema validation (validate backend responses in API routes, request bodies) |
+| `pnpm add zod` | `zod` | Runtime schema validation (validate API responses and form input) |
 | `pnpm add -D vitest` | `vitest` | Unit test runner |
 | `pnpm add -D @nuxt/test-utils` | `@nuxt/test-utils` | Nuxt-aware Vitest environment (`defineVitestConfig`) |
 | `pnpm add -D happy-dom` | `happy-dom` | DOM implementation required by `@nuxt/test-utils`'s `environment: 'nuxt'` — `pnpm test` fails without it |
