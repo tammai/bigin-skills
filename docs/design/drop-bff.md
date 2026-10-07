@@ -87,3 +87,9 @@ What this changes:
 - **Next strips a trailing slash before forwarding** (`/api/v1/x/` → `/v1/x`); Nuxt keeps it. The API must not distinguish the two — chi already serves paths exactly as written without trailing slashes.
 - **`__Host-` needs HTTPS, localhost included** (MDN; not browser-tested). Local dev runs `wrangler dev --local-protocol https`, or the cookie name is configurable in dev — unit 1 decides.
 - Nuxt 4.6 wants Node ≥ 22.21.
+
+Unit 2 (go-scaffold client IP), 2026-10-07 — Cloudflare docs, not an edge test.
+
+- **The pass-through cannot deliver the real client IP to the API in `CF-Connecting-IP`.** A Worker `fetch()` to another zone reaches the origin with `CF-Connecting-IP` set to a Cloudflare address (`2a06:98c0:3600::103`), not the visitor's. For a same-zone subrequest the header reflects the Worker-alterable `x-real-ip`. Neither carries the visitor's address for a Worker-to-API hop. The API's `TRUSTED_PROXY=cloudflare` mode is correct for browser traffic that reaches the origin through Cloudflare directly, but not for the pass-through.
+- **Consequence for units 3, 5 and 6** (the pass-through templates): behind the pass-through, the Go API sees the Worker egress address as the client, so every browser user shares one rate-limit bucket. Those units must either forward the visitor's IP in a header the API is configured to trust (a decision that unit 2 deliberately did not make, and one that needs the origin locked to the Worker) or accept per-egress limiting and say so in their README.
+- Unit 2 ships the safe default: `SetTrustedProxies(nil)` makes `X-Forwarded-For` and `X-Real-IP` inert, which closes the rate-limit bypass `gin.Default()` allowed (it trusts all proxies), and `X-Forwarded-Host` is never read.

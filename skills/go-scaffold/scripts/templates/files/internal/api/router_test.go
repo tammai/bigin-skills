@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -49,6 +50,11 @@ func (testSessions) ResolveSession(_ context.Context, rawID string) (auth.Claims
 // Session lookups go to testSessions for the same reason.
 func newTestRouter(t *testing.T) *gin.Engine {
 	t.Helper()
+	return newTestRouterWithProxy(t, "")
+}
+
+func newTestRouterWithProxy(t *testing.T, trustedProxy string) *gin.Engine {
+	t.Helper()
 	gin.SetMode(gin.TestMode)
 
 	issuer := auth.NewTokenIssuer([]byte("test-secret"), 15*time.Minute, 7*24*time.Hour)
@@ -59,6 +65,7 @@ func newTestRouter(t *testing.T) *gin.Engine {
 		Sessions:      testSessions{},
 		SessionCookie: testSessionCookie,
 		WebOrigins:    []string{testWebOrigin},
+		TrustedProxy:  trustedProxy,
 		Ping:          func() error { return db.Ping(nil) },
 		Users: users.New(nil, issuer, users.Options{
 			SessionIdleTTL:     72 * time.Hour,
@@ -299,6 +306,132 @@ func TestProtectedRoutesAcceptTheSessionCookie(t *testing.T) {
 			w := do(t, r, tc.method, middleware.BaseURL+tc.path, tc.body, tc.headers)
 			if w.Code != tc.want {
 				t.Errorf("%s %s returned %d, want %d (body %s)", tc.method, tc.path, w.Code, tc.want, w.Body)
+			}
+		})
+	}
+}
+
+// clientIPOf asks the real router what ClientIP() resolves to, through a probe
+// route added after construction. It is the same call the rate limiter keys on.
+func clientIPOf(t *testing.T, r *gin.Engine, remoteAddr string, headers map[string][]string) string {
+	t.Helper()
+	r.GET("/_probe/ip", func(c *gin.Context) { c.String(http.StatusOK, c.ClientIP()) })
+	req := httptest.NewRequest(http.MethodGet, "/_probe/ip", nil)
+	req.RemoteAddr = remoteAddr
+	for k, vs := range headers {
+		for _, v := range vs {
+			req.Header.Add(k, v)
+		}
+	}
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	return w.Body.String()
+}
+
+// Default: no proxy is trusted. A client can write any forwarding header it
+// likes, so none of them may move the client IP off the TCP peer — that is
+// the whole defence against minting a fresh rate-limit bucket per request.
+func TestClientIPIgnoresForwardingHeadersByDefault(t *testing.T) {
+	r := newTestRouter(t)
+	got := clientIPOf(t, r, "198.51.100.7:5000", map[string][]string{
+		"X-Forwarded-For":  {"203.0.113.9"},
+		"X-Real-Ip":        {"203.0.113.10"},
+		"Cf-Connecting-Ip": {"203.0.113.11"},
+		"Forwarded":        {"for=203.0.113.12"},
+	})
+	if got != "198.51.100.7" {
+		t.Errorf("ClientIP() = %q, want the TCP peer 198.51.100.7", got)
+	}
+}
+
+func TestClientIPCloudflareHonoursAValidHeader(t *testing.T) {
+	cases := []struct{ name, header, want string }{
+		{"ipv4", "203.0.113.11", "203.0.113.11"},
+		{"ipv6", "2001:db8::1", "2001:db8::1"},
+		{"mapped ipv4 shares the plain bucket", "::ffff:203.0.113.11", "203.0.113.11"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := newTestRouterWithProxy(t, "cloudflare")
+			got := clientIPOf(t, r, "198.51.100.7:5000", map[string][]string{"CF-Connecting-IP": {tc.header}})
+			if got != tc.want {
+				t.Errorf("ClientIP() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+// Gin returns the platform header unvalidated, so the middleware has to. Every
+// malformed shape must land on the TCP peer, never become the client "IP".
+func TestClientIPCloudflareFallsBackOnABadHeader(t *testing.T) {
+	cases := []struct {
+		name   string
+		values []string
+	}{
+		{"missing", nil},
+		{"empty", []string{""}},
+		{"garbage", []string{"not-an-ip"}},
+		{"injected text", []string{"203.0.113.11\nforged-log-line"}},
+		{"comma list", []string{"203.0.113.11, 203.0.113.12"}},
+		{"repeated header", []string{"203.0.113.11", "203.0.113.12"}},
+		{"ipv6 zone", []string{"fe80::1%eth0"}},
+		{"with port", []string{"203.0.113.11:443"}},
+		{"cidr", []string{"203.0.113.0/24"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := newTestRouterWithProxy(t, "cloudflare")
+			headers := map[string][]string{}
+			if tc.values != nil {
+				headers["CF-Connecting-IP"] = tc.values
+			}
+			got := clientIPOf(t, r, "198.51.100.7:5000", headers)
+			if got != "198.51.100.7" {
+				t.Errorf("ClientIP() = %q, want the TCP peer 198.51.100.7", got)
+			}
+		})
+	}
+}
+
+// X-Forwarded-For is ignored in cloudflare mode too: only CF-Connecting-IP is
+// believed, and only because Cloudflare overwrites it.
+func TestClientIPCloudflareStillIgnoresForwardedFor(t *testing.T) {
+	r := newTestRouterWithProxy(t, "cloudflare")
+	got := clientIPOf(t, r, "198.51.100.7:5000", map[string][]string{
+		"X-Forwarded-For": {"203.0.113.9"},
+		"X-Real-Ip":       {"203.0.113.10"},
+	})
+	if got != "198.51.100.7" {
+		t.Errorf("ClientIP() = %q, want the TCP peer 198.51.100.7", got)
+	}
+}
+
+// The exploit this closes: rotating X-Forwarded-For used to give every request
+// its own rate-limit bucket. Now they all share the TCP peer's.
+func TestRateLimitCannotBeBypassedWithRotatingForwardedFor(t *testing.T) {
+	for _, mode := range []string{"", "cloudflare"} {
+		t.Run("mode="+mode, func(t *testing.T) {
+			r := newTestRouterWithProxy(t, mode)
+			path := middleware.BaseURL + "/auth/session"
+			// An address no other test uses, so the budget starts full.
+			remote := "198.51.100.40:4242"
+			if mode != "" {
+				remote = "198.51.100.41:4242"
+			}
+
+			var last int
+			for i := range 12 {
+				req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(`{}`))
+				req.Header.Set("Content-Type", "application/json")
+				req.Header.Set("Origin", testWebOrigin)
+				req.Header.Set("X-Forwarded-For", "203.0.113."+strconv.Itoa(i+1))
+				req.RemoteAddr = remote
+				w := httptest.NewRecorder()
+				r.ServeHTTP(w, req)
+				last = w.Code
+			}
+			if last != http.StatusTooManyRequests {
+				t.Errorf("12 requests with rotating X-Forwarded-For ended on %d, want 429 — the header is minting new buckets", last)
 			}
 		})
 	}

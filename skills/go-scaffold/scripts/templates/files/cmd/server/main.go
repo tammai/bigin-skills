@@ -56,6 +56,7 @@ func main() {
 		Sessions:      usersModule.Sessions(),
 		SessionCookie: sessionCookie,
 		WebOrigins:    cfg.WebOrigins,
+		TrustedProxy:  cfg.TrustedProxy,
 		Ping:          func() error { return db.Ping(gormDB) },
 		Users:         usersModule,
 	})

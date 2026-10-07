@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.108.0] - 2026-10-07
+
+`go-scaffold` stops trusting forwarded client-IP headers — unit 2 of the drop-bff epic (`docs/design/drop-bff.md`).
+
+### Fixed
+
+- **The rate limit could be bypassed by rotating `X-Forwarded-For`.** `gin.Default()` trusts every proxy, so `c.ClientIP()` — the rate limiter's key — believed whatever a client sent and each request got a fresh bucket. `NewRouter` now calls `SetTrustedProxies(nil)`: the client IP is the TCP peer, and `X-Forwarded-For` / `X-Real-IP` are ignored. `X-Forwarded-Host` is never read.
+
+### Added
+
+- **`TRUSTED_PROXY`** (empty or `cloudflare`). `cloudflare` takes the client IP from `CF-Connecting-IP`, validated by the `CloudflareClientIP` middleware (one plain IP via `net/netip`; a comma list, repeated header, zone, port or garbage is dropped and the TCP peer is used) because gin's `TrustedPlatform` returns the header unvalidated. Any other value refuses to boot, like `CORS_ORIGINS=*`. The README says the header is only trustworthy when the origin is reachable solely through Cloudflare.
+- Router, rate-limit and config tests for both modes, checked to fail with either the `SetTrustedProxies(nil)` call or the middleware removed.
+
+### Changed
+
+- `docs/design/drop-bff.md` § Spike results records the Cloudflare finding: a Worker pass-through cannot deliver the visitor's IP in `CF-Connecting-IP` (cross-zone subrequests get a Cloudflare address, same-zone reflects the Worker-alterable `x-real-ip`), so units 3, 5 and 6 must handle client IP behind the pass-through.
+- **No patch block:** `profile-go.md` is untouched, so already-scaffolded `go` repos change only if they adopt the router edit by hand.
+
 ## [1.107.0] - 2026-10-07
 
 `go-scaffold` gains browser cookie sessions beside Bearer JWT — unit 1 of the drop-bff epic (`docs/design/drop-bff.md`), the API half of replacing the web scaffolds' token-holding BFF.

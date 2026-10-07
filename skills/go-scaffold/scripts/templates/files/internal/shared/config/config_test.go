@@ -210,3 +210,36 @@ func TestLoadKeepsTheCookieSecureOnGarbage(t *testing.T) {
 		t.Error("SESSION_COOKIE_SECURE=nope downgraded the cookie to insecure")
 	}
 }
+
+// The client IP feeds the rate limiter, so the proxy mode is a security
+// setting: empty and "cloudflare" are the only values, and anything else —
+// including a typo — refuses to boot instead of quietly trusting nothing.
+func TestLoadParsesTrustedProxy(t *testing.T) {
+	t.Setenv("JWT_SECRET", "test-secret")
+	cases := []struct{ raw, want string }{
+		{"", ""},
+		{"  ", ""},
+		{"cloudflare", "cloudflare"},
+		{" Cloudflare ", "cloudflare"},
+	}
+	for _, tc := range cases {
+		t.Setenv("TRUSTED_PROXY", tc.raw)
+		cfg, err := Load()
+		if err != nil {
+			t.Fatalf("Load() with TRUSTED_PROXY=%q: %v", tc.raw, err)
+		}
+		if cfg.TrustedProxy != tc.want {
+			t.Errorf("TRUSTED_PROXY=%q -> %q, want %q", tc.raw, cfg.TrustedProxy, tc.want)
+		}
+	}
+}
+
+func TestLoadRefusesAnUnknownTrustedProxy(t *testing.T) {
+	t.Setenv("JWT_SECRET", "test-secret")
+	for _, raw := range []string{"cloudflair", "nginx", "*", "10.0.0.0/8", "cloudflare,nginx"} {
+		t.Setenv("TRUSTED_PROXY", raw)
+		if _, err := Load(); err == nil {
+			t.Errorf("Load() accepted TRUSTED_PROXY=%q — an unknown proxy must refuse to start", raw)
+		}
+	}
+}

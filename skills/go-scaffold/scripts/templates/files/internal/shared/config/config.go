@@ -39,7 +39,17 @@ type Config struct {
 	SessionAbsoluteTTL  time.Duration
 	SessionCookieSecure bool
 	SessionCookieName   string
+
+	// TrustedProxy names the proxy in front of this service, or is empty for
+	// none. Empty means the client IP is the TCP peer and every forwarding
+	// header is ignored; TrustedProxyCloudflare additionally honours a valid
+	// CF-Connecting-IP. See api.Options.TrustedProxy.
+	TrustedProxy string
 }
+
+// TrustedProxyCloudflare is the one proxy mode besides "none". It is only safe
+// when the origin is reachable solely through Cloudflare — see the README.
+const TrustedProxyCloudflare = "cloudflare"
 
 // Session cookie names. The __Host- prefix makes the browser refuse the cookie
 // unless it is Secure, has Path=/ and no Domain — so a sibling subdomain or a
@@ -78,6 +88,11 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 
+	trustedProxy, err := parseTrustedProxy(os.Getenv("TRUSTED_PROXY"))
+	if err != nil {
+		return Config{}, err
+	}
+
 	secure := envBoolDefaultTrue("SESSION_COOKIE_SECURE")
 	cookieName := secureSessionCookieName
 	if !secure {
@@ -97,7 +112,21 @@ func Load() (Config, error) {
 		SessionAbsoluteTTL:  time.Duration(envInt("SESSION_ABSOLUTE_DAYS", 30)) * 24 * time.Hour,
 		SessionCookieSecure: secure,
 		SessionCookieName:   cookieName,
+		TrustedProxy:        trustedProxy,
 	}, nil
+}
+
+// parseTrustedProxy accepts empty (no trusted proxy) or "cloudflare". Anything
+// else refuses to boot: a typo such as "cloudflair" would otherwise silently
+// fall back to RemoteAddr, and behind Cloudflare every client would then share
+// one rate-limit bucket with no hint why.
+func parseTrustedProxy(raw string) (string, error) {
+	switch v := strings.ToLower(strings.TrimSpace(raw)); v {
+	case "", TrustedProxyCloudflare:
+		return v, nil
+	default:
+		return "", fmt.Errorf("TRUSTED_PROXY=%q is not supported — refusing to start: leave it empty or set %q", raw, TrustedProxyCloudflare)
+	}
 }
 
 // parseWebOrigins normalises every entry, and refuses to boot on one that can

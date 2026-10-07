@@ -16,6 +16,7 @@ import (
 	"{{MODULE}}/internal/modules/users"
 	"{{MODULE}}/internal/openapi"
 	"{{MODULE}}/internal/shared/auth"
+	"{{MODULE}}/internal/shared/config"
 	"{{MODULE}}/internal/shared/httpx"
 	"{{MODULE}}/internal/shared/validate"
 )
@@ -39,6 +40,9 @@ type Options struct {
 	// WebOrigins is the normalised CSRF allowlist for cookie requests. Empty
 	// refuses every cookie mutation.
 	WebOrigins []string
+	// TrustedProxy is "" (default) or config.TrustedProxyCloudflare. See
+	// the client-IP block in NewRouter.
+	TrustedProxy string
 	// Ping backs GET /readyz. A nil Ping means "no database wired", which
 	// reports unavailable rather than panicking.
 	Ping func() error
@@ -61,6 +65,23 @@ func NewRouter(opts Options) *gin.Engine {
 	}
 
 	r := gin.Default()
+
+	// Client IP, which keys the rate limiter. gin.Default() trusts every
+	// proxy, so X-Forwarded-For would be believed from anyone and a client
+	// could mint a fresh rate-limit bucket per request. Trust none: ClientIP()
+	// is the TCP peer and X-Forwarded-For / X-Real-IP are never read.
+	// TrustedPlatform is cleared too, because a gin build tag can preset it.
+	if err := r.SetTrustedProxies(nil); err != nil {
+		panic(err) // unreachable: nil is always valid
+	}
+	r.TrustedPlatform = ""
+	if opts.TrustedProxy == config.TrustedProxyCloudflare {
+		// Gin returns this header raw, so the middleware validates it first
+		// and drops it when invalid, which falls back to the TCP peer.
+		r.TrustedPlatform = middleware.CloudflareIPHeader
+		r.Use(middleware.CloudflareClientIP())
+	}
+
 	r.Use(middleware.CORS(opts.CORSOrigins))
 
 	// Liveness: the process is up. It never touches the database — a DB outage

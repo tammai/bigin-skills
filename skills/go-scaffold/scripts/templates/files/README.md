@@ -115,6 +115,18 @@ an N+1 the boundary hides.
 - The rate limiter is in-memory and per-process. With more than one replica the
   effective limit multiplies by the replica count — swap in a shared store
   (Redis) before scaling out.
+- **Client IP and `TRUSTED_PROXY`.** The rate limiter keys on `c.ClientIP()`.
+  By default the router trusts no proxy, so that is the TCP peer and
+  `X-Forwarded-For` / `X-Real-IP` are ignored — a client cannot dodge the limit
+  by rotating them. Behind Cloudflare set `TRUSTED_PROXY=cloudflare` to read
+  `CF-Connecting-IP` (accepted only when it is a single valid IP; otherwise the
+  TCP peer is used). That header is only trustworthy if the origin is reachable
+  **solely** through Cloudflare — firewall it to Cloudflare's published ranges
+  or use Cloudflare Tunnel / authenticated origin pulls; otherwise any caller can
+  set it and the rate limit is bypassable again. A Cloudflare Worker that
+  proxies to this API does not forward the visitor's IP in that header, so
+  limits behind one apply per Worker egress address. Any other `TRUSTED_PROXY`
+  value refuses to boot. `X-Forwarded-Host` is never read.
 - Refresh tokens are opaque, stored only as a SHA-256 hash, and rotated on every
   use, so a replayed token is detected instead of silently accepted.
 
