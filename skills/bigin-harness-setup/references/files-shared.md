@@ -84,7 +84,7 @@ paths:
   - "src/shared/**"
   - "src/components/**"
   - "src/lib/**"
-  - "src/proxy.ts"
+  - "next.config.ts"
   - "openapi.json"
 ---
 ```

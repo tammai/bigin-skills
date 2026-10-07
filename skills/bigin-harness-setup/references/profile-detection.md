@@ -90,8 +90,8 @@ Which stack profile should I scaffold and onboard?
    Drift, generated dio client — the API is frozen input, not a decision made here
 4. Another stack — type the slug at the Other prompt:
    `nodejs` (Node.js TypeScript REST API: Fastify, TypeBox OpenAPI, Drizzle + Postgres),
-   `next` (Next.js App Router fullstack on Vercel: shadcn/ui, Zustand, TanStack Query,
-   iron-session — BFF proxy layer, no direct DB access),
+   `next` (Next.js App Router on Cloudflare Workers via OpenNext: shadcn/ui, Zustand,
+   TanStack Query — tokenless /api pass-through to the API, no BFF, no direct DB access),
    `tauri` (Tauri 2 desktop app: Nuxt 4 SPA frontend, Rust shell owning HTTP, tokens
    and the local cache — the webview makes no network call),
    `nuxt-marketing` (multi-locale Nuxt 4 marketing site on Cloudflare Workers:

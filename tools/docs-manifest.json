@@ -26,7 +26,7 @@
     },
     "next-scaffold": {
       "group": "core",
-      "summary": "Scaffolds a Next.js App Router BFF app from scratch via a deterministic Node.js script — create-next-app + BFF preset + shadcn/ui. No GitHub clone."
+      "summary": "Scaffolds a Next.js App Router app from scratch via a deterministic Node.js script — create-next-app + /api pass-through + OpenNext on Cloudflare + shadcn/ui."
     },
     "go-scaffold": {
       "group": "core",

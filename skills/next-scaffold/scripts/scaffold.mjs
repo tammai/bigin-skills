@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * scaffold.mjs — deterministic Next.js BFF scaffold.
+ * scaffold.mjs — deterministic Next.js scaffold (OpenNext/Cloudflare, tokenless /api pass-through).
  *
  * Usage: node scaffold.mjs --config <path-to-json>
  *
@@ -37,8 +37,15 @@ const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url))
 const TEMPLATES = path.join(SCRIPT_DIR, 'templates')
 
 const PROJECT_NAME_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/
-// Packages create-next-app's template installs; Stage 1b re-pins them.
-const TEMPLATE_PKGS = ['next', 'react', 'react-dom', 'typescript', 'eslint', 'eslint-config-next', 'tailwindcss', '@tailwindcss/postcss']
+// `next` is pinned EXACTLY, never refreshed: @opennextjs/cloudflare@1.20.9 builds against 16.3.8, while
+// create-next-app 16.4.0's `next` builds but 500s every non-rewrite request under it (design doc, Spike
+// results). Stage 1 therefore runs create-next-app@NEXT_VERSION, and Stage 1b leaves `next` and
+// `eslint-config-next` at it under both version policies.
+const NEXT_VERSION = '16.3.8'
+const OPENNEXT_VERSION = '1.20.9'
+// Packages create-next-app's template installs; Stage 1b re-pins them (the next pair excepted, see above).
+const PINNED_PKGS = ['next', 'eslint-config-next']
+const TEMPLATE_PKGS = ['react', 'react-dom', 'typescript', 'eslint', 'tailwindcss', '@tailwindcss/postcss']
 // shadcn/ui components are copied into the repo's own source tree by the CLI, not installed as
 // a versioned dependency — nothing to re-pin the way @nuxt/ui is. `base` = every template gets
 // these; the rest are added on top per template, same tiering as nuxt-scaffold's saas/dashboard.
@@ -260,11 +267,11 @@ function preflight() {
   if (CFG.resume) {
     if (!hasConfig) fail('resume=true but no next.config.* in targetDir — nothing to resume; run without resume')
     if (complete) fail('resume=true but the scaffold looks complete (vitest.config.ts + .claude/settings.json + node_modules present) — nothing to do')
-    log('partial scaffold detected — resuming from the BFF-preset stage')
+    log('partial scaffold detected — resuming from the preset stage')
   } else if (hasConfig) {
     fail(complete
       ? 'next.config.* found and the scaffold looks complete — refusing to overwrite. Nothing to do.'
-      : 'next.config.* found but vitest.config.ts, .claude/settings.json, or node_modules is missing — partial scaffold. Re-run with "resume": true to continue from the BFF-preset stage.')
+      : 'next.config.* found but vitest.config.ts, .claude/settings.json, or node_modules is missing — partial scaffold. Re-run with "resume": true to continue from the preset stage.')
   }
 
   // Monorepo hoisting warning (informational, matches bootstrap.md)
@@ -278,19 +285,23 @@ function preflight() {
   log(`preflight ok — Node ${process.version}, pnpm ${pnpmCheck.stdout.trim()}, target ${CFG.targetDir}`)
 }
 
-// openapi-fetch is the runtime typed backend client (src/shared/api-client) — universal now
-// that every template ships the BFF proxy + generated client, not just an unauthenticated sample.
-const PRESET_DEPS = ['zustand', '@tanstack/react-query', 'zod', 'iron-session', 'openapi-fetch']
+// openapi-fetch is the runtime typed API client (src/shared/api-client), which every template ships.
+// @opennextjs/cloudflare is exact-pinned (see NEXT_VERSION); wrangler stays on its ^4 peer range.
+const PRESET_DEPS = ['zustand', '@tanstack/react-query', 'zod', 'openapi-fetch', `@opennextjs/cloudflare@${OPENNEXT_VERSION}`]
 // openapi-typescript regenerates the committed client-types snapshot (pnpm openapi:generate);
 // eslint-plugin-boundaries + eslint-import-resolver-typescript enforce the feature-folder
 // boundaries in eslint.config.mjs (the resolver is load-bearing — see eslint.boundaries.mjs).
-const PRESET_DEV_DEPS = ['vitest', '@vitejs/plugin-react', 'jsdom', '@testing-library/react', '@testing-library/jest-dom', 'simple-git-hooks', 'lint-staged', 'openapi-typescript', 'eslint-plugin-boundaries', 'eslint-import-resolver-typescript']
+const PRESET_DEV_DEPS = ['vitest', '@vitejs/plugin-react', 'jsdom', '@testing-library/react', '@testing-library/jest-dom', 'simple-git-hooks', 'lint-staged', 'openapi-typescript', 'eslint-plugin-boundaries', 'eslint-import-resolver-typescript', 'wrangler@^4']
 
-/** skipInstall-only: declare deps in package.json as the "latest" dist-tag (no registry lookup, no pnpm add) so a later `pnpm install` resolves them. */
+/** skipInstall-only: declare deps in package.json (no registry lookup, no pnpm add) so a later `pnpm install` resolves them — a bare name becomes the "latest" dist-tag, `name@spec` keeps its spec. */
 function declareDepsUnresolved(deps, devDeps) {
+  const entry = (d) => {
+    const at = d.lastIndexOf('@')
+    return at > 0 ? [d.slice(0, at), d.slice(at + 1)] : [d, 'latest']
+  }
   const fragment = {
-    dependencies: Object.fromEntries(deps.map((d) => [d, 'latest'])),
-    devDependencies: Object.fromEntries(devDeps.map((d) => [d, 'latest']))
+    dependencies: Object.fromEntries(deps.map(entry)),
+    devDependencies: Object.fromEntries(devDeps.map(entry))
   }
   mergeJsonFile(path.join(CFG.targetDir, 'package.json'), fragment)
 }
@@ -301,9 +312,9 @@ function stage1Init() {
   // as nuxt-scaffold; see SKILL.md Phase 2's note). --skip-install mirrors nuxt-scaffold's
   // --no-install: writes files + package.json but skips the dependency install.
   const skipInstall = CFG.skipInstall ? ['--skip-install'] : []
-  log(`stage 1: create-next-app@latest (non-interactive, in-place${CFG.skipInstall ? ', --skip-install' : ''})`)
+  log(`stage 1: create-next-app@${NEXT_VERSION} (non-interactive, in-place${CFG.skipInstall ? ', --skip-install' : ''})`)
   must('npx', [
-    'create-next-app@latest', '.',
+    `create-next-app@${NEXT_VERSION}`, '.',
     '--ts', '--tailwind', '--eslint', '--app', '--src-dir',
     '--import-alias', '@/*',
     '--use-pnpm', '--turbopack',
@@ -328,47 +339,49 @@ function stage1Init() {
 
 function stage1bRefresh() {
   if (CFG.skipInstall) {
-    log('stage 1b: skipped (skipInstall) — package.json keeps whatever versions create-next-app@latest shipped, unrefreshed')
+    log(`stage 1b: skipped (skipInstall) — package.json keeps whatever versions create-next-app@${NEXT_VERSION} shipped, unrefreshed`)
     return
   }
   log(`stage 1b: refreshing template-installed packages (policy: ${CFG.versionPolicy})`)
-  const specs = TEMPLATE_PKGS.map((p) => {
+  const specs = PINNED_PKGS.map((p) => `${p}@${NEXT_VERSION}`)
+  specs.push(...TEMPLATE_PKGS.map((p) => {
     if (CFG.versionPolicy === 'latest') return `${p}@latest`
     const pkgJson = path.join(CFG.targetDir, 'node_modules', ...p.split('/'), 'package.json')
     if (!fs.existsSync(pkgJson)) {
-      fail(`stage 1b: ${p} was not installed by stage 1 — create-next-app@latest's default package set may have changed; re-verify bootstrap.md Stage 1`)
+      fail(`stage 1b: ${p} was not installed by stage 1 — create-next-app's default package set may have changed; re-verify bootstrap.md Stage 1`)
     }
     // Read the file directly — require()/import of '<pkg>/package.json' breaks on restrictive `exports` maps.
     const v = JSON.parse(fs.readFileSync(pkgJson, 'utf8')).version
     return `${p}@^${v.split('.')[0]}`
-  })
+  }))
   pnpmAdd(specs)
 
   // Safety checks: catch an unwanted major or a changed template shape before later stages build on it.
   const nextVersion = JSON.parse(fs.readFileSync(path.join(CFG.targetDir, 'node_modules', 'next', 'package.json'), 'utf8')).version
-  if (nextVersion.split('.')[0] !== '16') {
-    fail(`next is now v${nextVersion} (expected v16) — stop, re-validate this skill before continuing`)
+  if (nextVersion !== NEXT_VERSION) {
+    fail(`next is v${nextVersion} (expected the pinned ${NEXT_VERSION}) — stop; OpenNext ${OPENNEXT_VERSION} is only verified against ${NEXT_VERSION}, see bootstrap.md Stage 1`)
   }
   if (!hasNextConfig(CFG.targetDir) || !fs.existsSync(path.join(CFG.targetDir, 'src', 'app', 'layout.tsx'))) {
-    fail("create-next-app@latest's template shape changed — re-verify artifacts.md merge instructions (src/app/layout.tsx, next.config.*) before continuing")
+    fail("create-next-app's template shape changed — re-verify artifacts.md merge instructions (src/app/layout.tsx, next.config.*) before continuing")
   }
   const globalsCss = fs.readFileSync(path.join(CFG.targetDir, 'src', 'app', 'globals.css'), 'utf8')
   if (!globalsCss.includes('tailwindcss')) {
     fail('src/app/globals.css does not import tailwindcss — Tailwind v4 CSS-first shape changed; re-verify artifacts.md')
   }
-  log('stage 1b done — next v16 confirmed, template shape ok')
+  log(`stage 1b done — next ${NEXT_VERSION} confirmed, template shape ok`)
 }
 
 function stage2Preset() {
   if (CFG.skipInstall) {
-    log('stage 2: skipped installing BFF preset + shadcn/ui (skipInstall) — declaring preset deps in package.json as "latest" for a later `pnpm install`; shadcn/ui itself must be initialized manually (`npx shadcn@latest init`) since it needs a real install to detect the project shape')
+    log('stage 2: skipped installing the preset + shadcn/ui (skipInstall) — declaring preset deps in package.json (unresolved dist-tags, pinned specs kept) for a later `pnpm install`; shadcn/ui itself must be initialized manually (`npx shadcn@latest init`) since it needs a real install to detect the project shape')
     declareDepsUnresolved(PRESET_DEPS, PRESET_DEV_DEPS)
     return
   }
-  log('stage 2: installing BFF preset packages')
-  pnpmAdd(PRESET_DEPS)
+  log('stage 2: installing preset packages')
+  // @opennextjs/cloudflare pulls in wrangler's esbuild + workerd, whose install scripts pnpm 10+ defers pending approval.
+  pnpmAdd(PRESET_DEPS, ['esbuild', 'workerd'])
   // simple-git-hooks trips ERR_PNPM_IGNORED_BUILDS — expected; approved right after.
-  pnpmAdd(['-D', ...PRESET_DEV_DEPS], ['simple-git-hooks'])
+  pnpmAdd(['-D', ...PRESET_DEV_DEPS], ['simple-git-hooks', 'esbuild', 'workerd'])
 
   // components.json is shadcn init's own signature file — re-running init on a resume would
   // rewrite components.json/globals.css even though nothing needs it; `shadcn add` below is
@@ -395,10 +408,10 @@ function applyArtifacts() {
     writeFileEnsured(path.join(CFG.targetDir, rel), substitute(fs.readFileSync(src, 'utf8'), subs))
   }
   // Template-specific overlay (same write-fresh mechanism as `files/`, gated by CFG.template):
-  // `saas` gets the real-backend auth flow (login/signup/logout routes + private dashboard +
-  // route-protection middleware) that a bare create-next-app + shadcn init doesn't ship. The
-  // base `files/` template already ships the BFF proxy, generated API client, and feature-folder
-  // structure for every template — `saas` only adds the auth UI + routes on top. `starter` and
+  // `saas` gets the cookie-session auth flow (login/signup pages, client AuthGate + private
+  // dashboard) that a bare create-next-app + shadcn init doesn't ship. The base `files/` template
+  // already ships the OpenNext/Cloudflare config, generated API client, and feature-folder
+  // structure for every template — `saas` only adds the auth UI on top. `starter` and
   // `dashboard` get nothing bespoke: `dashboard`'s deliverable is the shadcn `dashboard-01` block
   // added in stage2Preset (same as 6 of nuxt-scaffold's 8 non-starter templates getting zero
   // extra files).
@@ -410,6 +423,26 @@ function applyArtifacts() {
       writeFileEnsured(path.join(CFG.targetDir, rel), substitute(fs.readFileSync(src, 'utf8'), subs))
     }
   }
+
+  // next.config.ts: the tokenless /api pass-through (rewrites) + OpenNext dev init. create-next-app's
+  // own file is empty config, so it is replaced wholesale — but only after checking it still is,
+  // so a template that grew options fails loudly instead of losing them.
+  patchFile(path.join(CFG.targetDir, 'next.config.ts'), {
+    marker: 'API_ORIGIN',
+    transform: (current) => {
+      const body = current.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\s+/g, ' ')
+      return body.includes('const nextConfig: NextConfig = { };') ? readTemplate(path.join('patch', 'next.config.ts'), subs) : current
+    },
+    failMsg: 'next.config.ts is not the empty create-next-app shape — re-verify artifacts.md and merge the pass-through by hand'
+  })
+
+  // .open-next / .wrangler are build output (the OpenNext bundle is megabytes of generated JS) —
+  // ESLint must not lint it and git must not track it.
+  patchFile(path.join(CFG.targetDir, 'eslint.config.mjs'), {
+    marker: '.open-next',
+    transform: (eslintConfig) => eslintConfig.replace(/(globalIgnores\(\[\n(?:.*\n)*?\s*"next-env\.d\.ts",\n)/, `$1    ".open-next/**",\n    ".wrangler/**",\n`),
+    failMsg: 'cannot add .open-next to eslint.config.mjs globalIgnores — create-next-app config shape changed; re-verify artifacts.md'
+  })
 
   // src/app/layout.tsx: wrap children in <Providers> so TanStack Query's client is available
   // app-wide. Import inserted at the top, wrapper inserted around <body>'s children.
@@ -466,12 +499,17 @@ function applyArtifacts() {
   mergeJsonFile(path.join(CFG.targetDir, '.claude', 'settings.json'), JSON.parse(readTemplate(path.join('merge', 'claude-settings.json'), subs)))
   mergeJsonFile(path.join(CFG.targetDir, '.vscode', 'settings.json'), JSON.parse(readTemplate(path.join('merge', 'vscode-settings.json'), subs)))
 
-  // .env must never be committed.
+  // .env must never be committed; .open-next / .wrangler are OpenNext + wrangler build output;
+  // create-next-app's own `.env*` would also swallow .env.example, which documents API_ORIGIN, so
+  // it is re-included (after .env*, since the last match wins).
   const gitignorePath = path.join(CFG.targetDir, '.gitignore')
-  const gitignore = fs.existsSync(gitignorePath) ? fs.readFileSync(gitignorePath, 'utf8') : ''
-  if (!gitignore.split(/\r?\n/).includes('.env')) {
-    fs.writeFileSync(gitignorePath, `${gitignore}${gitignore.endsWith('\n') || gitignore === '' ? '' : '\n'}.env\n`)
+  let gitignore = fs.existsSync(gitignorePath) ? fs.readFileSync(gitignorePath, 'utf8') : ''
+  for (const entry of ['.env', '.open-next', '.wrangler', '!.env.example']) {
+    if (!gitignore.split(/\r?\n/).includes(entry)) {
+      gitignore = `${gitignore}${gitignore.endsWith('\n') || gitignore === '' ? '' : '\n'}${entry}\n`
+    }
   }
+  fs.writeFileSync(gitignorePath, gitignore)
   log('stage 3 done — artifacts written/merged')
 }
 
@@ -514,39 +552,43 @@ function printNextSteps() {
     '',
     'Next:'
   ]
+  const apiOrigin = [
+    '  1. Copy .env.example → .env and set API_ORIGIN (the paired API\'s origin, e.g. https://api.example.com or',
+    '     http://localhost:8090; server-only, and read at BUILD time — set it wherever pnpm build / preview / run deploy run).',
+    '     The /api/v<N>/** rewrite in next.config.ts forwards there, so the API\'s HttpOnly session cookie is',
+    '     first-party to this app; the browser never holds a token. Set WEB_ORIGINS on the API to this app\'s origin.',
+    '     Client IP: the API sees this app\'s egress address, so all browser users share one rate-limit bucket —',
+    '     nothing forwards X-Forwarded-For / CF-Connecting-IP and TRUSTED_PROXY must stay unset (see .env.example).'
+  ]
+  const deploy = '  5. Preview on the Workers runtime: pnpm preview. Deploy: pnpm run deploy (not bare `pnpm deploy`, which is pnpm\'s own command; wrangler login first).'
   if (CFG.template === 'starter') {
     lines.push(
-      '  1. Copy .env.example → .env and set:',
-      '     - SESSION_PASSWORD (openssl rand -base64 32)',
-      '     - BACKEND_URL      (backend REST API origin; server-only — a go-scaffold app, e.g. http://localhost:8090)',
-      '  2. The BFF proxy (src/app/api/backend/[...path]/route.ts) forwards browser calls to',
-      '     BACKEND_URL with the session Bearer token. The typed client + generated types live in',
-      '     src/shared/api-client (committed snapshot of the backend contract, openapi.json).',
-      '     Refresh the types after a backend change: pnpm openapi:generate (point openapi.json at',
-      '     go-scaffold\'s openapi.yaml converted to JSON first). The client expects the backend under',
-      '     /api/v1 (go-scaffold\'s default) — see the comment in src/shared/api-client/index.ts.',
+      ...apiOrigin,
+      '  2. The typed client + generated types live in src/shared/api-client (baseUrl /api/v1, credentials included;',
+      '     committed snapshot of the API contract, openapi.json). Refresh the types after an API change:',
+      '     pnpm openapi:generate (point openapi.json at go-scaffold\'s openapi.yaml converted to JSON first).',
       '  3. Overlay governance: run bigin-harness-setup (CLAUDE.md, rules, bash-guard).',
-      '  4. Start: pnpm dev',
-      '  5. Deploy: vercel (or the Vercel GitHub integration) — zero-config for Next.js.'
+      '  4. Start: pnpm dev (needs the API running)',
+      deploy
     )
   } else if (CFG.template === 'saas') {
     lines.push(
-      '  1. Copy .env.example → .env and set SESSION_PASSWORD (openssl rand -base64 32) and',
-      '     BACKEND_URL (the paired go-scaffold backend REST API origin, e.g. http://localhost:8090).',
-      '  2. Auth is wired to the real backend: /api/login + /api/signup call BACKEND_URL and store',
-      '     the returned token pair in the sealed session; the /api/backend/* proxy attaches the',
-      '     Bearer token and does the 401→refresh→retry flow. Start the backend before signing in.',
+      ...apiOrigin,
+      '  2. Login/signup call POST /api/v1/auth/session and POST /api/v1/auth/signup; sign-out is',
+      '     DELETE /api/v1/auth/session; the current user is GET /api/v1/user/profile, and AuthGate sends a',
+      '     visitor on a 401 to /login. No SSR and no server-side route protection. Local dev needs HTTPS for the',
+      '     __Host- cookie, or the API\'s SESSION_COOKIE_SECURE=false. Start the API before signing in.',
       '  3. Overlay governance: run bigin-harness-setup (CLAUDE.md, rules, bash-guard).',
       '  4. Start: pnpm dev — public site at /, private area at /dashboard.',
-      '  5. Deploy: vercel (or the Vercel GitHub integration) — zero-config for Next.js.'
+      deploy
     )
   } else {
     lines.push(
-      '  1. Copy .env.example → .env and set SESSION_PASSWORD and BACKEND_URL.',
-      '  2. The shadcn `dashboard-01` block wrote a working admin shell straight to /dashboard (sidebar, charts, data table — currently on sample data). Wire it to real data via the BFF proxy (src/app/api/backend/[...path]/route.ts) + a feature hook in src/features/, as needed.',
+      ...apiOrigin,
+      '  2. The shadcn `dashboard-01` block wrote a working admin shell straight to /dashboard (sidebar, charts, data table — currently on sample data). Wire it to real data with a feature hook in src/features/ calling the typed client, as needed.',
       '  3. Overlay governance: run bigin-harness-setup (CLAUDE.md, rules, bash-guard).',
       '  4. Start: pnpm dev — admin shell at /dashboard.',
-      '  5. Deploy: vercel (or the Vercel GitHub integration) — zero-config for Next.js.'
+      deploy
     )
   }
   if (CFG.versionPolicy === 'latest') {
@@ -556,11 +598,11 @@ function printNextSteps() {
     lines.push(
       '  ⚠ skipInstall=true — no dependency is installed and nothing was verified. Before anything else:',
       '     a. pnpm install',
-      '     b. pnpm approve-builds simple-git-hooks   (deferred build script)',
+      '     b. pnpm approve-builds simple-git-hooks; pnpm approve-builds esbuild; pnpm approve-builds workerd   (deferred build scripts, one call each)',
       '     c. pnpm simple-git-hooks                  (activates the pre-commit hook)',
       `     d. npx shadcn@latest init -y -d && npx shadcn@latest add ${[...BASE_BLOCKS, ...TEMPLATE_BLOCKS[CFG.template]].join(' ')} -y   (skipped above)`,
       '     e. pnpm lint && pnpm type-check && pnpm test',
-      '  Preset packages (zustand, @tanstack/react-query, zod, iron-session, vitest, etc.) are pinned to the "latest" dist-tag in package.json, unresolved — pin exact versions once installed if you want reproducible installs.'
+      '  Preset packages (zustand, @tanstack/react-query, zod, vitest, etc.) are pinned to the "latest" dist-tag in package.json, unresolved (@opennextjs/cloudflare and wrangler keep their pinned specs) — pin exact versions once installed if you want reproducible installs.'
     )
   }
   console.log(lines.join('\n'))

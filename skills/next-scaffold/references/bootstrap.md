@@ -2,9 +2,9 @@
 
 > **Executed by `../scripts/scaffold.mjs`** — this doc is the rationale/maintenance reference for that script's command sequence, not instructions to run by hand. If you change a stage here, change the matching function in `scaffold.mjs` (and vice versa).
 
-The canonical command sequence. Scaffolds **in-place** into the current directory (`.`), installs the BFF preset + shadcn/ui, then leaves the project ready for artifact application.
+The canonical command sequence. Scaffolds **in-place** into the current directory (`.`), installs the preset (pass-through + OpenNext/Cloudflare) + shadcn/ui, then leaves the project ready for artifact application.
 
-Uses `create-next-app@latest` (unpinned) — non-interactive flag behavior was last verified live against Next.js docs dated 2026-03-03 (`create-next-app` bundled with Next.js **16.2.10**; https://nextjs.org/docs/app/api-reference/cli/create-next-app) and confirmed with an actual scaffold run on 2026-07-14. A future `create-next-app` release could change flag behavior without notice, so re-verify Stage 1 if it starts failing. Stage 1b separately refreshes the packages the CLI installs to current releases per `VERSION_POLICY`, so scaffolded apps don't inherit a stale `next`/`tailwindcss`/etc. snapshot regardless of which CLI version ran.
+Uses **`create-next-app@16.3.8`** (pinned) — non-interactive flag behavior was verified against the Next.js CLI reference (https://nextjs.org/docs/app/api-reference/cli/create-next-app) and confirmed with an actual scaffold run on 2026-10-07. The pin is not a freshness choice: `@opennextjs/cloudflare@1.20.9` builds against `next` 16.3.8, while `create-next-app`'s 16.4.0 installs a `next` that builds but returns 500 on every non-rewrite request (`Unexpected loadManifest(.../preview-props.json)`), despite the adapter's peer range (`>=16.3.8`) — the unit 0 spike in `docs/design/drop-bff.md`. 16.4.0 also installs `@tailwindcss/turbopack`, which stage 1b's `@tailwindcss/postcss` re-pin choked on; 16.3.8 installs `@tailwindcss/postcss`, so `TEMPLATE_PKGS` is unchanged. Bump `next`, `create-next-app` and `@opennextjs/cloudflare` together, and only after a `pnpm preview` against a stub API (see `MAINTAINING.md`). Stage 1b refreshes the *other* packages the CLI installs per `VERSION_POLICY`.
 
 > Requires: Node 20+, pnpm. Run from the repo root (for a brand-new project: `mkdir my-app && cd my-app` first).
 
@@ -29,11 +29,11 @@ pnpm --version >/dev/null 2>&1 || { echo "pnpm is required but not installed. In
 ## Stage 1 — Non-interactive init
 
 ```sh
-npx create-next-app@latest . --ts --tailwind --eslint --app --src-dir --import-alias "@/*" --use-pnpm --turbopack --no-agents-md
+npx create-next-app@16.3.8 . --ts --tailwind --eslint --app --src-dir --import-alias "@/*" --use-pnpm --turbopack --no-agents-md
 ```
 
-Flag rationale (verified against the Next.js 16.2.10 CLI reference):
-- `create-next-app@latest .` — unpinned; always takes the current release. `.` = scaffold into the current dir (in-place).
+Flag rationale (verified against the Next.js CLI reference):
+- `create-next-app@16.3.8 .` — pinned (see above). `.` = scaffold into the current dir (in-place).
 - `--ts --tailwind --eslint --app --src-dir --import-alias "@/*"` — explicit (not `--yes`/defaults) so the result doesn't depend on a machine's stored CLI preferences: TypeScript, Tailwind CSS v4 (CSS-first, no `tailwind.config.ts`), ESLint (the sole formatter — no Prettier, matching the nuxt profile's convention), App Router, `src/` layout, `@/*` import alias.
 - `--use-pnpm` — non-interactive package-manager choice (no prompt).
 - `--turbopack` — explicit even though it's the current default, for the same "don't rely on defaults" reasoning as the flags above.
@@ -65,32 +65,32 @@ Block names verified live against `ui.shadcn.com/blocks` on 2026-07-14: `dashboa
 
 ## Stage 1b — Refresh template-installed packages
 
-`create-next-app@latest`'s flags install whatever `next` / `react` / `tailwindcss` / `eslint-config-next` / etc. versions were current when that release was published — not necessarily current *now*. This stage re-pins all of them to fresh releases, per `VERSION_POLICY` (set in `SKILL.md` Step 2; default `capped`), using the same `execFileSync`-with-argument-array approach as `nuxt-scaffold` (avoids shell word-splitting and `exports`-map read failures — see that skill's `bootstrap.md` for the full rationale, identical here):
+`create-next-app@16.3.8` installs the `react` / `tailwindcss` / `eslint` / `typescript` versions that were current when that release was published — not necessarily current *now*. This stage re-pins them to fresh releases, per `VERSION_POLICY` (set in `SKILL.md` Step 2; default `capped`), using the same argument-array approach as `nuxt-scaffold` (avoids shell word-splitting and `exports`-map read failures — see that skill's `bootstrap.md` for the full rationale, identical here). **`next` and `eslint-config-next` are exempt from the policy:** they are pinned exactly to 16.3.8 (`NEXT_VERSION` in `scaffold.mjs`) under both `capped` and `latest`, because that is the only `next` OpenNext 1.20.9 is verified against.
 
 ```sh
 node -e "
 const fs = require('fs');
 const { execFileSync } = require('child_process');
 const policy = process.env.VERSION_POLICY || 'capped';
-const pkgs = 'next react react-dom typescript eslint eslint-config-next tailwindcss @tailwindcss/postcss'.split(' ');
-const specs = pkgs.map(function (p) {
+const pkgs = 'react react-dom typescript eslint tailwindcss @tailwindcss/postcss'.split(' ');
+const specs = ['next@16.3.8', 'eslint-config-next@16.3.8'].concat(pkgs.map(function (p) {
   if (policy === 'latest') return p + '@latest';
   var pkgPath = 'node_modules/' + p + '/package.json';
-  if (!fs.existsSync(pkgPath)) { console.error('Stage 1b: ' + p + ' was not installed by Stage 1 — create-next-app@latest default package set may have changed; stop and re-verify Stage 1'); process.exit(1); }
+  if (!fs.existsSync(pkgPath)) { console.error('Stage 1b: ' + p + ' was not installed by Stage 1 — create-next-app default package set may have changed; stop and re-verify Stage 1'); process.exit(1); }
   var v = JSON.parse(fs.readFileSync(pkgPath, 'utf8')).version;
   return p + '@^' + v.split('.')[0];
-});
+}));
 execFileSync('pnpm', ['add'].concat(specs), { stdio: 'inherit' });
 "
 ```
 
 shadcn/ui components are copied source files, not a versioned npm dependency of the app — there is nothing to re-pin the way `@nuxt/ui` is re-pinned in the Nuxt profile.
 
-**Safety check** (catches an unwanted major, and a changed template shape, before Stage 2/3 do more work on top of it):
+**Safety check** (catches a drifted `next`, and a changed template shape, before Stage 2/3 do more work on top of it):
 ```sh
-NEXT_MAJOR=$(node -e "console.log(require('next/package.json').version.split('.')[0])")
-[ "$NEXT_MAJOR" = "16" ] || { echo "next is now v$NEXT_MAJOR (expected v16) — stop, re-validate this skill before continuing"; exit 1; }
-test -f src/app/layout.tsx && (test -f next.config.ts || test -f next.config.js || test -f next.config.mjs) || { echo "create-next-app@latest's template shape changed — re-verify artifacts.md merge instructions before continuing"; exit 1; }
+NEXT_VERSION=$(node -e "console.log(require('next/package.json').version)")
+[ "$NEXT_VERSION" = "16.3.8" ] || { echo "next is v$NEXT_VERSION (expected the pinned 16.3.8) — stop"; exit 1; }
+test -f src/app/layout.tsx && (test -f next.config.ts || test -f next.config.js || test -f next.config.mjs) || { echo "create-next-app's template shape changed — re-verify artifacts.md merge instructions before continuing"; exit 1; }
 grep -q "tailwindcss" src/app/globals.css || { echo "src/app/globals.css does not import tailwindcss — Tailwind v4 CSS-first shape changed; re-verify artifacts.md"; exit 1; }
 ```
 
@@ -98,21 +98,21 @@ If any `pnpm add` fails, report which package and stop — do not continue with 
 
 ---
 
-## Stage 2 — Install the BFF preset + shadcn/ui
+## Stage 2 — Install the preset + shadcn/ui
 
 ```sh
-pnpm add zustand @tanstack/react-query zod iron-session openapi-fetch
-pnpm add -D vitest @vitejs/plugin-react jsdom @testing-library/react @testing-library/jest-dom simple-git-hooks lint-staged openapi-typescript eslint-plugin-boundaries eslint-import-resolver-typescript
-pnpm approve-builds simple-git-hooks || true
+pnpm add zustand @tanstack/react-query zod openapi-fetch @opennextjs/cloudflare@1.20.9
+pnpm add -D vitest @vitejs/plugin-react jsdom @testing-library/react @testing-library/jest-dom simple-git-hooks lint-staged openapi-typescript eslint-plugin-boundaries eslint-import-resolver-typescript wrangler@^4
+for pkg in simple-git-hooks esbuild workerd; do pnpm approve-builds $pkg || true; done
 
 npx shadcn@latest init -y -d
 npx shadcn@latest add button card tooltip -y
 # + template-specific blocks, see TEMPLATE_BLOCKS in scaffold.mjs
 ```
 
-The BFF preset is universal (every template ships the backend proxy + generated API client + feature-folder boundaries now, not just an unauthenticated sample): `openapi-fetch` (runtime typed backend client, `src/shared/api-client`), `openapi-typescript` (regenerates the committed client-types snapshot via `pnpm openapi:generate`), and `eslint-plugin-boundaries` + `eslint-import-resolver-typescript` (enforce the feature-folder boundaries in `eslint.config.mjs` — the resolver is load-bearing, see `files/eslint.boundaries.mjs`). There is no longer a `starter`-only devDependency set.
+The preset is universal (every template ships the OpenNext/Cloudflare config + `/api` rewrite + generated API client + feature-folder boundaries, not just an unauthenticated sample): `openapi-fetch` (runtime typed API client, `src/shared/api-client`), `openapi-typescript` (regenerates the committed client-types snapshot via `pnpm openapi:generate`), and `eslint-plugin-boundaries` + `eslint-import-resolver-typescript` (enforce the feature-folder boundaries in `eslint.config.mjs` — the resolver is load-bearing, see `files/eslint.boundaries.mjs`). `@opennextjs/cloudflare` is exact-pinned (see Stage 1) and `wrangler` stays on its `^4` peer range. `esbuild` and `workerd` — pulled in by wrangler — carry install scripts that pnpm 10+ defers, so their `pnpm add` exits `ERR_PNPM_IGNORED_BUILDS` like `simple-git-hooks` does and is approved the same way. There is no `starter`-only devDependency set.
 
-`zustand` (state), `@tanstack/react-query` (server-state cache — same role as Pinia Colada, and TanStack Query is what Pinia Colada is itself modeled on), `zod` (validation), and `iron-session` (stateless sealed-cookie sessions — the direct Next.js analog of `nuxt-auth-utils`, same author lineage/design) are plain packages, consumed in code — no config-file registration step exists in Next the way Nuxt modules need `nuxt.config.ts` registration. `iron-session` is installed and **exercised by every template**: the base BFF proxy reads the sealed session in all of them (only `saas` also ships the login/signup UI that populates it).
+`zustand` (state), `@tanstack/react-query` (server-state cache — same role as Pinia Colada, and TanStack Query is what Pinia Colada is itself modeled on) and `zod` (validation) are plain packages, consumed in code — no config-file registration step exists in Next the way Nuxt modules need `nuxt.config.ts` registration. There is no session package: the API owns the web session as an HttpOnly cookie, and the app only forwards it.
 
 `shadcn@latest init -y -d` (`--yes --defaults`, i.e. `--template=next --preset=nova`) is fully non-interactive. **There is no `--base-color` flag** (verified live against `ui.shadcn.com/docs/cli` on 2026-07-14 — the `init` flag list has `--template`/`--base`/`--preset`/`--css-variables`/etc. but no color flag), so `next-scaffold` does not ask a base-color question and accepts whatever the `nova` preset's default is. If a future CLI version adds a non-interactive color flag, this is the place to wire a `baseColor` config field the way `nuxt-scaffold` has `theme.primary`/`theme.neutral` — do not fabricate CSS custom-property values by hand instead; shadcn's palette values (`neutral`/`stone`/`zinc`/`mauve`/`olive`/`mist`/`taupe` per `components.json`'s `tailwind.baseColor` docs) were not independently re-derived/verified here.
 
@@ -146,4 +146,4 @@ pnpm type-check
 pnpm test
 ```
 
-`lint`, `type-check`, and `test` must pass before the scaffold is considered complete. Stage 3 writes the test files (`src/features/users/hooks/use-profile.test.tsx` for the Vitest + React Testing Library + TanStack Query chain, and `src/app/api/backend/[...path]/route.test.ts` for the BFF proxy; `saas` adds login/signup route tests too), so `pnpm test` validates them. Verify the Next.js major version (`node -e "console.log(require('next/package.json').version)"` — must start with `16`). Stop and fix any errors before the initial commit.
+`lint`, `type-check`, and `test` must pass before the scaffold is considered complete. Stage 3 writes the test files (`use-profile.test.tsx` for the Vitest + React Testing Library + TanStack Query chain, `src/shared/api-client/index.test.ts` for the client's base URL and credentials, `src/next-config.test.ts` for the pass-through allowlist; `saas` adds login, signup, dashboard and `AuthGate` tests too), so `pnpm test` validates them. Verify `next` is exactly 16.3.8 (`node -e "console.log(require('next/package.json').version)"`). None of the three runs `next build`, so a broken OpenNext setup would pass them — `MAINTAINING.md` carries the preview check that covers it. Stop and fix any errors before the initial commit.

@@ -49,7 +49,7 @@ export const boundariesConfig = {
           },
           // shared: the reusable kernel. May lean on lib + other shared only.
           { from: { element: { type: 'shared' } }, allow: [{ element: { type: ['shared', 'lib'] } }] },
-          // lib: low-level server helpers (session, backend client). lib + shared.
+          // lib: low-level helpers (shadcn's utils.ts). lib + shared.
           { from: { element: { type: 'lib' } }, allow: [{ element: { type: ['lib', 'shared'] } }] },
           // app (routes + pages): the composition layer. May pull in any
           // feature, plus shared/lib and sibling app files.

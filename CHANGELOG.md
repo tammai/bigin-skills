@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.110.0] - 2026-10-07
+
+`next-scaffold` drops the token-holding BFF for a tokenless `/api` pass-through on OpenNext/Cloudflare — unit 5 of the drop-bff epic (`docs/design/drop-bff.md`). It is the Next half of go-scaffold's cookie sessions (v1.107.0) and the counterpart of `nuxt-scaffold`'s v1.109.0: the API owns the session, the app only forwards.
+
+### Changed
+
+- **Every template forwards `/api/v<digits>/**` with a `rewrites()` in `next.config.ts`:** `/api/v:ver(\\d+)/:path*` → `${API_ORIGIN}/api/v:ver/:path*`. Any other `/api/*` path matches nothing and is Next's 404; the digits-only pattern keeps `/api/v1x`, `/api/v/…` and encoded traversal out. `API_ORIGIN` is server-only (never `NEXT_PUBLIC_`) and read inside `rewrites()`, so an unset or non-origin value fails `next build` and `next dev` with a message naming it, while lint, type-check and tests are unaffected. `create-next-app`'s empty `next.config.ts` is replaced only after checking it is still empty. **It is build-time:** Next bakes the destination into the build, so it must be set where `pnpm build`, `pnpm preview` and `pnpm run deploy` run — a Worker variable set later changes nothing (checked with a `.dev.vars` carrying a different origin), and the origin is absent from the client bundle (grepped `.next/static` and `.open-next/assets`).
+- **OpenNext on Cloudflare Workers replaces Vercel as the deploy target:** `@opennextjs/cloudflare@1.20.9` and `wrangler@^4`, `open-next.config.ts`, `wrangler.jsonc`, `preview` / `deploy` scripts (`pnpm run deploy` — bare `pnpm deploy` is pnpm's own command), `initOpenNextCloudflareForDev()` in the config, and `.open-next` / `.wrangler` ignored by git and ESLint. `esbuild` and `workerd` join `simple-git-hooks` in the build-script approvals.
+- **`next` is pinned to exactly 16.3.8**, and stage 1 runs `create-next-app@16.3.8`. Stage 1b leaves `next` and `eslint-config-next` alone under both version policies. `create-next-app` 16.4.0 builds with OpenNext 1.20.9 but 500s every non-rewrite request (spike, unit 0), and installs `@tailwindcss/turbopack`, which broke stage 1b on a clean repo (found in unit 4); 16.3.8 installs `@tailwindcss/postcss`, so `TEMPLATE_PKGS` is unchanged.
+- **`apiClient` is `createClient<paths>({ baseUrl: '/api/v1', credentials: 'include' })`**, path keys unchanged (`/user/profile`). Its `fetch` is late-bound so a stub or instrumentation installed after load is honoured. Non-2xx answers become `ApiError(status)` (`src/shared/api-client/errors.ts`); the sample `useProfile` does not retry a 4xx.
+- **`saas` auth goes to the API.** Login is `POST /api/v1/auth/session`, sign-out `DELETE /api/v1/auth/session`, sign-up `POST /api/v1/auth/signup` then login (go-scaffold's sign-up does not sign you in), all `credentials: 'include'`. The dashboard is a client component using `useProfile`; a client `AuthGate` redirects to `/login` on a 401 from `GET /api/v1/user/profile` and shows a retry on anything else, so an API outage is not read as a sign-out; login and signup redirect to `/dashboard` when that read succeeds. There is no server-side route protection — no SSR data path, no middleware. The sample hooks live in `src/features/users/hooks/`; `src/lib/auth-errors.ts` goes because its status mapping now sits in the two pages.
+- `.env.example` and the next-steps text name `API_ORIGIN` and say plainly that the API sees the app's egress address, so every browser user shares one rate-limit bucket; nothing forwards `X-Forwarded-For` / `CF-Connecting-IP` and `TRUSTED_PROXY` stays unset on the API. Forwarding the visitor IP in a header the API trusts, with the origin locked to the Worker, needs a go-scaffold change and is not done. The ignore rules now re-include `.env.example`, which `create-next-app`'s own `.env*` entry swallowed, so the file never reached the repo before.
+- `vitest.setup.ts` registers Testing Library's `cleanup` (Vitest runs without `globals`, so components rendered by one test leaked into the next) and resolves relative `new Request('/api/v1/…')` against jsdom's origin, which a browser does and Node does not.
+- `profile-next.md` is rewritten for the pass-through and cookie session (`use-users` examples become `use-profile`); `next-scaffold`'s `SKILL.md`, `references/`, evals, the README rows, `docs-manifest.json`, both manifests' keywords (`iron-session` / `vercel` out, `opennext` / `cloudflare-workers` in), `profile-detection.md`, `summary-checklist.md` and the `next` paths in `files-shared.md` are brought in line.
+
+### Removed
+
+- `iron-session`, `SESSION_PASSWORD`, `BACKEND_URL`; `src/lib/{session,csrf,backend}.ts`, the `/api/backend/[...path]` proxy route and its test, `src/proxy.ts`; `saas` loses `api/{login,signup,logout,me}`, their tests and `src/lib/auth-errors.ts`. CSRF now lives in the API (SameSite=Lax plus `WEB_ORIGINS`).
+
+### Notes
+
+- **No patch block:** a repo scaffolded before this release still runs its BFF, so its rules must keep describing one; existing apps move by the migration guide in unit 6.
+- `regress.mjs --build` does not build `next-scaffold`, so it was checked by a real `saas` scaffold instead: `pnpm lint`, `type-check` and `test` pass, and `opennextjs-cloudflare build` plus `preview` in front of a stub API returned `Set-Cookie` intact, forwarded `Cookie`, streamed SSE chunks seconds apart, 404'd `/api/other`, `/api/v1x/y`, `/api/v/x` and encoded traversal without reaching the stub, and served `/login` and `/dashboard`.
+- Pre-existing, left alone: `eslint-plugin-boundaries` prints a v5-to-v6 migration warning for the policy shape in `eslint.boundaries.mjs`.
+
 ## [1.109.1] - 2026-10-07
 
 `next-scaffold` pairs with go-scaffold instead of nodejs-scaffold/Fastify — unit 4 of the drop-bff epic (`docs/design/drop-bff.md`). The BFF, iron-session custody and the 401→refresh→retry proxy stay as they were; only the backend they talk to changes. Unit 5 removes the BFF.

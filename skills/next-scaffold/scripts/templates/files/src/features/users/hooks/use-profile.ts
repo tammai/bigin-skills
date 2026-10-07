@@ -1,23 +1,25 @@
 import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/shared/api-client'
+import { ApiError, isApiError } from '@/shared/api-client/errors'
 import type { components } from '@/shared/api-client/schema'
 
 // User shape comes straight from the generated contract (schemas.User) — no
 // hand-maintained duplicate. Regenerate the contract types with
-// `pnpm openapi:generate` when the backend changes.
+// `pnpm openapi:generate` when the API changes.
 export type User = components['schemas']['User']
 
 export const userQueries = {
   profile: {
     queryKey: ['users', 'profile'] as const,
     queryFn: async (): Promise<User> => {
-      // Goes through the same-origin BFF proxy (baseUrl '/api/backend/api/v1'):
-      // the proxy attaches the Bearer token and handles token refresh. This hook
-      // never sees a token or BACKEND_URL.
-      const { data, error } = await apiClient.GET('/user/profile')
-      if (error || !data) throw new Error('failed to fetch profile')
+      // Same-origin through the /api/v1 pass-through; the API's session cookie rides along
+      // (credentials: 'include'). A 401 is an ApiError(401): "no session", not a failure.
+      const { data, response } = await apiClient.GET('/user/profile')
+      if (!data) throw new ApiError(response.status)
       return data
-    }
+    },
+    // Retrying a 4xx cannot help and would delay the redirect to /login by seconds.
+    retry: (failureCount: number, error: unknown) => !(isApiError(error) && error.status < 500) && failureCount < 2
   }
 }
 

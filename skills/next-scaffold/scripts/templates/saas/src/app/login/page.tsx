@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { isApiError } from '@/shared/api-client/errors'
+import { useLogin, useRedirectIfSignedIn } from '@/features/users/hooks/use-session'
 
 const schema = z.object({
   email: z.email('Invalid email'),
@@ -15,7 +17,9 @@ const schema = z.object({
 
 export default function LoginPage() {
   const router = useRouter()
+  const login = useLogin()
   const [error, setError] = useState<string | null>(null)
+  useRedirectIfSignedIn()
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -29,13 +33,10 @@ export default function LoginPage() {
       setError(parsed.error.issues[0]?.message ?? 'Invalid input')
       return
     }
-    const res = await fetch('/api/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(parsed.data)
-    })
-    if (!res.ok) {
-      setError('Login failed — check your details and try again.')
+    try {
+      await login.mutateAsync(parsed.data)
+    } catch (err) {
+      setError(isApiError(err, 401) ? 'Invalid email or password.' : 'Login failed — try again.')
       return
     }
     router.push('/dashboard')
@@ -61,7 +62,7 @@ export default function LoginPage() {
               <Input id="password" name="password" type="password" required />
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" className="w-full">Sign in</Button>
+            <Button type="submit" className="w-full" disabled={login.isPending}>Sign in</Button>
           </form>
         </CardContent>
       </Card>

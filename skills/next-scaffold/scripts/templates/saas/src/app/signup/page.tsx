@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { isApiError } from '@/shared/api-client/errors'
+import { useRedirectIfSignedIn, useSignup } from '@/features/users/hooks/use-session'
 
 const schema = z.object({
   full_name: z.string().min(2, 'Name must be at least 2 characters').max(100, 'Name must be at most 100 characters'),
@@ -16,7 +18,9 @@ const schema = z.object({
 
 export default function SignupPage() {
   const router = useRouter()
+  const signup = useSignup()
   const [error, setError] = useState<string | null>(null)
+  useRedirectIfSignedIn()
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -31,13 +35,12 @@ export default function SignupPage() {
       setError(parsed.error.issues[0]?.message ?? 'Invalid input')
       return
     }
-    const res = await fetch('/api/signup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(parsed.data)
-    })
-    if (!res.ok) {
-      setError('Sign up failed — check your details and try again.')
+    try {
+      await signup.mutateAsync(parsed.data)
+    } catch (err) {
+      if (isApiError(err, 409)) setError('That email is already registered.')
+      else if (isApiError(err, 400)) setError('Invalid sign-up details.')
+      else setError('Sign up failed — try again.')
       return
     }
     router.push('/dashboard')
@@ -67,7 +70,7 @@ export default function SignupPage() {
               <Input id="password" name="password" type="password" required />
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" className="w-full">Create account</Button>
+            <Button type="submit" className="w-full" disabled={signup.isPending}>Create account</Button>
           </form>
         </CardContent>
       </Card>

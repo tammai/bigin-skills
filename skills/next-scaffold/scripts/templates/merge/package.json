@@ -4,6 +4,8 @@
     "type-check": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
     "openapi:generate": "openapi-typescript openapi.json -o src/shared/api-client/schema.d.ts",
     "prepare": "simple-git-hooks"
   },
