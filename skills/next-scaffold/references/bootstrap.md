@@ -124,7 +124,7 @@ If any `pnpm add`/`npx shadcn` command fails, report which one and stop — do n
 
 ## Stage 3 — Apply artifacts
 
-Write/merge the files in `references/artifacts.md` (substitute `{PROJECT_NAME}`). `src/app/layout.tsx`, `package.json`, `.claude/settings.json`, and `.vscode/settings.json` are **merged/patched**, never overwritten wholesale. All templates: `next.config.ts` gets `skipTrailingSlashRedirect: true` and `eslint.config.mjs` gets the `eslint-plugin-boundaries` wiring (`dashboard` additionally gets a scoped `react-hooks` override for the `dashboard-01` block) — see `artifacts.md`'s per-file notes for why and exactly what each patch does.
+Write/merge the files in `references/artifacts.md` (substitute `{PROJECT_NAME}`). `src/app/layout.tsx`, `package.json`, `.claude/settings.json`, and `.vscode/settings.json` are **merged/patched**, never overwritten wholesale. All templates: `eslint.config.mjs` gets the `eslint-plugin-boundaries` wiring (`dashboard` additionally gets a scoped `react-hooks` override for the `dashboard-01` block) — see `artifacts.md`'s per-file notes for why and exactly what each patch does.
 
 ---
 
@@ -146,4 +146,4 @@ pnpm type-check
 pnpm test
 ```
 
-`lint`, `type-check`, and `test` must pass before the scaffold is considered complete. Stage 3 writes the test files (`src/features/users/hooks/use-users.test.tsx` for the Vitest + React Testing Library + TanStack Query chain, and `src/app/api/backend/[...path]/route.test.ts` for the BFF proxy; `saas` adds login/signup route tests too), so `pnpm test` validates them. Verify the Next.js major version (`node -e "console.log(require('next/package.json').version)"` — must start with `16`). Stop and fix any errors before the initial commit.
+`lint`, `type-check`, and `test` must pass before the scaffold is considered complete. Stage 3 writes the test files (`src/features/users/hooks/use-profile.test.tsx` for the Vitest + React Testing Library + TanStack Query chain, and `src/app/api/backend/[...path]/route.test.ts` for the BFF proxy; `saas` adds login/signup route tests too), so `pnpm test` validates them. Verify the Next.js major version (`node -e "console.log(require('next/package.json').version)"` — must start with `16`). Stop and fix any errors before the initial commit.

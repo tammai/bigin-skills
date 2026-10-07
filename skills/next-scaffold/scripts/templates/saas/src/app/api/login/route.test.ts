@@ -11,6 +11,7 @@ vi.mock('@/lib/session', () => ({
 }))
 
 const BACKEND = 'http://backend.test'
+const USER = { id: 1, email: 'user@example.com', full_name: 'User Example', role: 'user' }
 
 type FetchFn = (url: string | URL, init?: RequestInit) => Promise<Response>
 
@@ -37,35 +38,34 @@ afterEach(() => {
 })
 
 describe('POST /api/login', () => {
-  it('on a valid login, stores the token pair + email in the session', async () => {
+  it('on a valid login, stores the token pair + user in the session', async () => {
     const fetchMock = vi.fn<FetchFn>().mockResolvedValue(
-      jsonResponse(200, { access_token: 'a1', refresh_token: 'r1', token_type: 'Bearer', expires_in: 900 })
+      jsonResponse(200, { access_token: 'a1', refresh_token: 'r1', user: USER })
     )
     vi.stubGlobal('fetch', fetchMock)
 
     const res = await POST(loginRequest({ email: 'user@example.com', password: 'secret12' }))
 
     expect(res.status).toBe(200)
-    expect(fetchMock.mock.calls[0][0]).toBe('http://backend.test/v1/auth/login')
+    expect(fetchMock.mock.calls[0][0]).toBe('http://backend.test/api/v1/auth/login')
     expect(mockSession.tokens?.access_token).toBe('a1')
     expect(mockSession.tokens?.refresh_token).toBe('r1')
-    expect(typeof mockSession.tokens?.expires_at).toBe('number')
-    expect(mockSession.user?.email).toBe('user@example.com')
+    expect(mockSession.user).toEqual({ id: 1, email: 'user@example.com', full_name: 'User Example', role: 'user' })
     expect(mockSession.save).toHaveBeenCalledTimes(1)
   })
 
   it('surfaces a clean 401 on bad credentials without leaking the backend body', async () => {
     const fetchMock = vi.fn(async () =>
-      jsonResponse(401, { error: { code: 'users.invalid_credentials', message: 'wrong', request_id: 'req-9' } })
+      jsonResponse(401, { error: 'invalid credentials' })
     )
     vi.stubGlobal('fetch', fetchMock)
 
     const res = await POST(loginRequest({ email: 'user@example.com', password: 'secret12' }))
 
     expect(res.status).toBe(401)
-    const body = (await res.json()) as { error: { code: string, message: string, request_id?: string } }
+    const body = (await res.json()) as { error: { code: string, message: string } }
     expect(body.error.code).toBe('unauthenticated')
-    expect(body.error.request_id).toBeUndefined() // backend internals not forwarded
+    expect(JSON.stringify(body)).not.toContain('invalid credentials') // backend message not forwarded
     expect(mockSession.save).not.toHaveBeenCalled()
     expect(mockSession.tokens).toBeUndefined()
   })

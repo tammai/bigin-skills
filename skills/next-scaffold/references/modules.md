@@ -2,7 +2,7 @@
 
 The BFF preset is installed for every `template`. There is no optional-module menu — the scaffolder never installs a database driver or ORM. BFF is a proxy layer only — the Next app never accesses a database directly; there is no DB opt-in.
 
-Every template ships the **real BFF wiring** — a catch-all backend proxy (`src/app/api/backend/[...path]`), a generated `openapi-fetch` client (`src/shared/api-client`), and the feature-folder structure with `eslint-plugin-boundaries` enforcement. `iron-session` seals the session the proxy reads, so it is exercised in all templates. Only `saas` additionally writes the login/signup UI + auth routes that populate that session (calling a **real** backend — `nodejs-scaffold`/Fastify; see `references/artifacts.md`'s `## saas opt-in`). For `starter`/`dashboard` the session is simply never populated until you add a login flow.
+Every template ships the **real BFF wiring** — a catch-all backend proxy (`src/app/api/backend/[...path]`), a generated `openapi-fetch` client (`src/shared/api-client`), and the feature-folder structure with `eslint-plugin-boundaries` enforcement. `iron-session` seals the session the proxy reads, so it is exercised in all templates. Only `saas` additionally writes the login/signup UI + auth routes that populate that session (calling a **real** backend — `go-scaffold`; see `references/artifacts.md`'s `## saas opt-in`). For `starter`/`dashboard` the session is simply never populated until you add a login flow.
 
 ---
 

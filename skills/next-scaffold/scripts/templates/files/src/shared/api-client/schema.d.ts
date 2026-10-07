@@ -4,308 +4,7 @@
  */
 
 export interface paths {
-    "/healthz": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Default Response */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/readyz": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Default Response */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/users/": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: {
-            parameters: {
-                query?: {
-                    cursor?: string;
-                    limit?: number;
-                    sort?: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Default Response */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            data: {
-                                /** Format: uuid */
-                                id: string;
-                                /** Format: email */
-                                email: string;
-                                name: string;
-                                /** Format: date-time */
-                                created_at: string;
-                            }[];
-                            next_cursor: string | null;
-                        };
-                    };
-                };
-                /** @description Default Response */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: {
-                                /** @enum {string} */
-                                code: "bad_request" | "unauthenticated" | "unauthorized" | "not_found" | "conflict" | "unprocessable_entity" | "rate_limited" | "internal_error" | "validation_failed" | "idempotency_key_required" | "request_in_progress" | "idempotency_key_reused" | "pagination.cursor_mismatch" | "users.not_found" | "users.email_taken" | "users.invalid_credentials" | "users.invalid_refresh_token" | "posts.not_found" | "posts.version_conflict";
-                                message: string;
-                                request_id: string;
-                                details?: unknown;
-                            };
-                        };
-                    };
-                };
-            };
-        };
-        put?: never;
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        /** Format: email */
-                        email: string;
-                        name: string;
-                        password: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description Default Response */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** Format: uuid */
-                            id: string;
-                            /** Format: email */
-                            email: string;
-                            name: string;
-                            /** Format: date-time */
-                            created_at: string;
-                        };
-                    };
-                };
-                /** @description Default Response */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: {
-                                /** @enum {string} */
-                                code: "bad_request" | "unauthenticated" | "unauthorized" | "not_found" | "conflict" | "unprocessable_entity" | "rate_limited" | "internal_error" | "validation_failed" | "idempotency_key_required" | "request_in_progress" | "idempotency_key_reused" | "pagination.cursor_mismatch" | "users.not_found" | "users.email_taken" | "users.invalid_credentials" | "users.invalid_refresh_token" | "posts.not_found" | "posts.version_conflict";
-                                message: string;
-                                request_id: string;
-                                details?: unknown;
-                            };
-                        };
-                    };
-                };
-                /** @description Default Response */
-                422: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: {
-                                /** @enum {string} */
-                                code: "bad_request" | "unauthenticated" | "unauthorized" | "not_found" | "conflict" | "unprocessable_entity" | "rate_limited" | "internal_error" | "validation_failed" | "idempotency_key_required" | "request_in_progress" | "idempotency_key_reused" | "pagination.cursor_mismatch" | "users.not_found" | "users.email_taken" | "users.invalid_credentials" | "users.invalid_refresh_token" | "posts.not_found" | "posts.version_conflict";
-                                message: string;
-                                request_id: string;
-                                details?: unknown;
-                            };
-                        };
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/users/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Default Response */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** Format: uuid */
-                            id: string;
-                            /** Format: email */
-                            email: string;
-                            name: string;
-                            /** Format: date-time */
-                            created_at: string;
-                        };
-                    };
-                };
-                /** @description Default Response */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: {
-                                /** @enum {string} */
-                                code: "bad_request" | "unauthenticated" | "unauthorized" | "not_found" | "conflict" | "unprocessable_entity" | "rate_limited" | "internal_error" | "validation_failed" | "idempotency_key_required" | "request_in_progress" | "idempotency_key_reused" | "pagination.cursor_mismatch" | "users.not_found" | "users.email_taken" | "users.invalid_credentials" | "users.invalid_refresh_token" | "posts.not_found" | "posts.version_conflict";
-                                message: string;
-                                request_id: string;
-                                details?: unknown;
-                            };
-                        };
-                    };
-                };
-                /** @description Default Response */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: {
-                                /** @enum {string} */
-                                code: "bad_request" | "unauthenticated" | "unauthorized" | "not_found" | "conflict" | "unprocessable_entity" | "rate_limited" | "internal_error" | "validation_failed" | "idempotency_key_required" | "request_in_progress" | "idempotency_key_reused" | "pagination.cursor_mismatch" | "users.not_found" | "users.email_taken" | "users.invalid_credentials" | "users.invalid_refresh_token" | "posts.not_found" | "posts.version_conflict";
-                                message: string;
-                                request_id: string;
-                                details?: unknown;
-                            };
-                        };
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Default Response */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/auth/login": {
+    "/auth/signup": {
         parameters: {
             query?: never;
             header?: never;
@@ -314,63 +13,14 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        /** Format: email */
-                        email: string;
-                        password: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description Default Response */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            access_token: string;
-                            refresh_token: string;
-                            token_type: string;
-                            expires_in: number;
-                        };
-                    };
-                };
-                /** @description Default Response */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: {
-                                /** @enum {string} */
-                                code: "bad_request" | "unauthenticated" | "unauthorized" | "not_found" | "conflict" | "unprocessable_entity" | "rate_limited" | "internal_error" | "validation_failed" | "idempotency_key_required" | "request_in_progress" | "idempotency_key_reused" | "pagination.cursor_mismatch" | "users.not_found" | "users.email_taken" | "users.invalid_credentials" | "users.invalid_refresh_token" | "posts.not_found" | "posts.version_conflict";
-                                message: string;
-                                request_id: string;
-                                details?: unknown;
-                            };
-                        };
-                    };
-                };
-            };
-        };
+        post: operations["signUp"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/v1/auth/refresh": {
+    "/auth/login": {
         parameters: {
             query?: never;
             header?: never;
@@ -379,61 +29,14 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        refresh_token: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description Default Response */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            access_token: string;
-                            refresh_token: string;
-                            token_type: string;
-                            expires_in: number;
-                        };
-                    };
-                };
-                /** @description Default Response */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: {
-                                /** @enum {string} */
-                                code: "bad_request" | "unauthenticated" | "unauthorized" | "not_found" | "conflict" | "unprocessable_entity" | "rate_limited" | "internal_error" | "validation_failed" | "idempotency_key_required" | "request_in_progress" | "idempotency_key_reused" | "pagination.cursor_mismatch" | "users.not_found" | "users.email_taken" | "users.invalid_credentials" | "users.invalid_refresh_token" | "posts.not_found" | "posts.version_conflict";
-                                message: string;
-                                request_id: string;
-                                details?: unknown;
-                            };
-                        };
-                    };
-                };
-            };
-        };
+        post: operations["login"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/v1/auth/logout": {
+    "/auth/refresh": {
         parameters: {
             query?: never;
             header?: never;
@@ -442,178 +45,105 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        refresh_token: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description Default Response */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        post: operations["refresh"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/v1/posts/": {
+    "/auth/logout": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: {
-            parameters: {
-                query?: {
-                    cursor?: string;
-                    limit?: number;
-                    sort?: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Default Response */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            data: {
-                                /** Format: uuid */
-                                id: string;
-                                /** Format: uuid */
-                                author_id?: string | null;
-                                author_name?: string | null;
-                                title: string;
-                                body: string;
-                                /** Format: date-time */
-                                created_at: string;
-                                version: number;
-                            }[];
-                            next_cursor: string | null;
-                        };
-                    };
-                };
-                /** @description Default Response */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: {
-                                /** @enum {string} */
-                                code: "bad_request" | "unauthenticated" | "unauthorized" | "not_found" | "conflict" | "unprocessable_entity" | "rate_limited" | "internal_error" | "validation_failed" | "idempotency_key_required" | "request_in_progress" | "idempotency_key_reused" | "pagination.cursor_mismatch" | "users.not_found" | "users.email_taken" | "users.invalid_credentials" | "users.invalid_refresh_token" | "posts.not_found" | "posts.version_conflict";
-                                message: string;
-                                request_id: string;
-                                details?: unknown;
-                            };
-                        };
-                    };
-                };
-            };
-        };
+        get?: never;
         put?: never;
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        title: string;
-                        body: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description Default Response */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** Format: uuid */
-                            id: string;
-                            /** Format: uuid */
-                            author_id?: string | null;
-                            author_name?: string | null;
-                            title: string;
-                            body: string;
-                            /** Format: date-time */
-                            created_at: string;
-                            version: number;
-                        };
-                    };
-                };
-                /** @description Default Response */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: {
-                                /** @enum {string} */
-                                code: "bad_request" | "unauthenticated" | "unauthorized" | "not_found" | "conflict" | "unprocessable_entity" | "rate_limited" | "internal_error" | "validation_failed" | "idempotency_key_required" | "request_in_progress" | "idempotency_key_reused" | "pagination.cursor_mismatch" | "users.not_found" | "users.email_taken" | "users.invalid_credentials" | "users.invalid_refresh_token" | "posts.not_found" | "posts.version_conflict";
-                                message: string;
-                                request_id: string;
-                                details?: unknown;
-                            };
-                        };
-                    };
-                };
-                /** @description Default Response */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: {
-                                /** @enum {string} */
-                                code: "bad_request" | "unauthenticated" | "unauthorized" | "not_found" | "conflict" | "unprocessable_entity" | "rate_limited" | "internal_error" | "validation_failed" | "idempotency_key_required" | "request_in_progress" | "idempotency_key_reused" | "pagination.cursor_mismatch" | "users.not_found" | "users.email_taken" | "users.invalid_credentials" | "users.invalid_refresh_token" | "posts.not_found" | "posts.version_conflict";
-                                message: string;
-                                request_id: string;
-                                details?: unknown;
-                            };
-                        };
-                    };
-                };
-            };
-        };
+        post: operations["logout"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/v1/posts/{id}": {
+    "/auth/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Browser login. Same credentials and the same enumeration-safe 401 as
+         *     /auth/login, but the result is a server-side session whose opaque ID is
+         *     set as an HttpOnly cookie instead of tokens in the body. The request
+         *     must carry an Origin listed in WEB_ORIGINS (login CSRF), else 403.
+         */
+        post: operations["createSession"];
+        /**
+         * @description Browser logout. Deletes the session server-side and clears the cookie.
+         *     An unknown or missing session is not an error. Requires an allowlisted
+         *     Origin, like every cookie request that changes state.
+         */
+        delete: operations["deleteSession"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/user/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getProfile"];
+        put: operations["updateProfile"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listUsers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users/{id}/role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["updateUserRole"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -623,129 +153,388 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        delete: operations["deleteUser"];
         options?: never;
         head?: never;
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        title?: string;
-                        body?: string;
-                        version: number;
-                    };
-                };
-            };
-            responses: {
-                /** @description Default Response */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** Format: uuid */
-                            id: string;
-                            /** Format: uuid */
-                            author_id?: string | null;
-                            author_name?: string | null;
-                            title: string;
-                            body: string;
-                            /** Format: date-time */
-                            created_at: string;
-                            version: number;
-                        };
-                    };
-                };
-                /** @description Default Response */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: {
-                                /** @enum {string} */
-                                code: "bad_request" | "unauthenticated" | "unauthorized" | "not_found" | "conflict" | "unprocessable_entity" | "rate_limited" | "internal_error" | "validation_failed" | "idempotency_key_required" | "request_in_progress" | "idempotency_key_reused" | "pagination.cursor_mismatch" | "users.not_found" | "users.email_taken" | "users.invalid_credentials" | "users.invalid_refresh_token" | "posts.not_found" | "posts.version_conflict";
-                                message: string;
-                                request_id: string;
-                                details?: unknown;
-                            };
-                        };
-                    };
-                };
-                /** @description Default Response */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: {
-                                /** @enum {string} */
-                                code: "bad_request" | "unauthenticated" | "unauthorized" | "not_found" | "conflict" | "unprocessable_entity" | "rate_limited" | "internal_error" | "validation_failed" | "idempotency_key_required" | "request_in_progress" | "idempotency_key_reused" | "pagination.cursor_mismatch" | "users.not_found" | "users.email_taken" | "users.invalid_credentials" | "users.invalid_refresh_token" | "posts.not_found" | "posts.version_conflict";
-                                message: string;
-                                request_id: string;
-                                details?: unknown;
-                            };
-                        };
-                    };
-                };
-                /** @description Default Response */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: {
-                                /** @enum {string} */
-                                code: "bad_request" | "unauthenticated" | "unauthorized" | "not_found" | "conflict" | "unprocessable_entity" | "rate_limited" | "internal_error" | "validation_failed" | "idempotency_key_required" | "request_in_progress" | "idempotency_key_reused" | "pagination.cursor_mismatch" | "users.not_found" | "users.email_taken" | "users.invalid_credentials" | "users.invalid_refresh_token" | "posts.not_found" | "posts.version_conflict";
-                                message: string;
-                                request_id: string;
-                                details?: unknown;
-                            };
-                        };
-                    };
-                };
-                /** @description Default Response */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: {
-                                /** @enum {string} */
-                                code: "bad_request" | "unauthenticated" | "unauthorized" | "not_found" | "conflict" | "unprocessable_entity" | "rate_limited" | "internal_error" | "validation_failed" | "idempotency_key_required" | "request_in_progress" | "idempotency_key_reused" | "pagination.cursor_mismatch" | "users.not_found" | "users.email_taken" | "users.invalid_credentials" | "users.invalid_refresh_token" | "posts.not_found" | "posts.version_conflict";
-                                message: string;
-                                request_id: string;
-                                details?: unknown;
-                            };
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
 }
 export type webhooks = Record<string, never>;
 export interface components {
-    schemas: never;
-    responses: never;
+    schemas: {
+        User: {
+            /** Format: int64 */
+            id: number;
+            /** Format: email */
+            email: string;
+            full_name?: string;
+            role: string;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        SignUpRequest: {
+            /** Format: email */
+            email: string;
+            password: string;
+            full_name: string;
+        };
+        LoginRequest: {
+            /** Format: email */
+            email: string;
+            password: string;
+        };
+        RefreshRequest: {
+            refresh_token: string;
+        };
+        LogoutRequest: {
+            refresh_token: string;
+        };
+        UpdateProfileRequest: {
+            full_name?: string;
+        };
+        UpdateRoleRequest: {
+            /** @enum {string} */
+            role: "user" | "admin";
+        };
+        LoginResponse: {
+            access_token: string;
+            refresh_token: string;
+            user: components["schemas"]["User"];
+        };
+        SessionResponse: {
+            user: components["schemas"]["User"];
+        };
+        TokenResponse: {
+            access_token: string;
+            refresh_token: string;
+        };
+        UserListResponse: {
+            data: components["schemas"]["User"][];
+            page: number;
+            limit: number;
+            total: number;
+        };
+        MessageResponse: {
+            message: string;
+        };
+        Error: {
+            error: string;
+        };
+    };
+    responses: {
+        /** @description Error response */
+        Error: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+    };
     parameters: never;
     requestBodies: never;
     headers: never;
     pathItems: never;
 }
 export type $defs = Record<string, never>;
-export type operations = Record<string, never>;
+export interface operations {
+    signUp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SignUpRequest"];
+            };
+        };
+        responses: {
+            /** @description User created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            400: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    login: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description Access and refresh tokens */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginResponse"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+        };
+    };
+    refresh: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefreshRequest"];
+            };
+        };
+        responses: {
+            /** @description New token pair */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenResponse"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+        };
+    };
+    logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LogoutRequest"];
+            };
+        };
+        responses: {
+            /** @description Logged out */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponse"];
+                };
+            };
+            400: components["responses"]["Error"];
+            500: components["responses"]["Error"];
+        };
+    };
+    createSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description Session created */
+            201: {
+                headers: {
+                    /**
+                     * @description `__Host-session=<opaque>; Path=/; Max-Age=<absolute lifetime>;
+                     *     HttpOnly; Secure; SameSite=Lax` (`session`, without Secure,
+                     *     when SESSION_COOKIE_SECURE=false)
+                     */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionResponse"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    deleteSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Logged out */
+            200: {
+                headers: {
+                    /** @description The session cookie with Max-Age=0 */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponse"];
+                };
+            };
+            403: components["responses"]["Error"];
+            500: components["responses"]["Error"];
+        };
+    };
+    getProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current user profile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    updateProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateProfileRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated profile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    listUsers: {
+        parameters: {
+            query?: {
+                /** @description Page number, starting at 1 */
+                page?: number;
+                /** @description Items per page (1-100) */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated list of users */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserListResponse"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    updateUserRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User ID */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateRoleRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated user */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    deleteUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User ID */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponse"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+}

@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.109.1] - 2026-10-07
+
+`next-scaffold` pairs with go-scaffold instead of nodejs-scaffold/Fastify — unit 4 of the drop-bff epic (`docs/design/drop-bff.md`). The BFF, iron-session custody and the 401→refresh→retry proxy stay as they were; only the backend they talk to changes. Unit 5 removes the BFF.
+
+### Changed
+
+- **`openapi.json` is go-scaffold's `openapi.yaml` converted to JSON** (title `Backend API`), and `schema.d.ts` is regenerated from it with `openapi-typescript`. The client's `baseUrl` is `/api/backend/api/v1` and its path keys are the contract's (`/user/profile`, `/auth/login`, ...). The proxy still forwards `/api/backend/<rest>` verbatim to `BACKEND_URL/<rest>`; `.env.example` and the `api-client` comment say that `middleware.BaseURL` and `baseUrl`/`API_PREFIX` change together.
+- **`backend.ts` calls `${BACKEND_URL}/api/v1/auth/{login,refresh,signup,logout}`.** `BackendTokenPair`/`BackendUser` are the generated `TokenResponse`/`User` types. Sign-up is `POST /auth/signup` (`full_name`) followed by a login; `backendLogin` returns the token pair and the `user` from `LoginResponse`, so the session holds the real profile (`id`, `email`, `full_name`, `role`) instead of just the request email. The signup form field is `full_name`.
+- **`BackendError` carries the status only.** go-scaffold's error body is `{ "error": "<message>" }` with no code, so `auth-errors.ts` maps by status: 409 email taken, 400 validation (was 422), other 4xx pass through, 5xx become 502. The raw backend body still never reaches the browser.
+- `SessionTokens` loses `expires_at`: the contract's `TokenResponse` has no `expires_in`, and nothing read the field (refresh is reactive on a 401). `SessionUser` uses the backend's field names.
+- The sample hook is `useProfile` on `GET /user/profile` (go-scaffold has no public user list), in `src/features/users/hooks/use-profile.ts`; same TanStack Query shape. The proxy also exports `PUT`, which go-scaffold's profile and role routes use. Route tests moved to the new paths and shapes, plus a signup 400 case.
+- `scaffold.mjs` next steps, `.env.example`, `SKILL.md`, `references/{artifacts,bootstrap,modules}.md` name go-scaffold and drop the Fastify wording.
+
+### Removed
+
+- **The `skipTrailingSlashRedirect` patch to `next.config.ts`** (the `scaffold.mjs` step and its `artifacts.md` text). go-scaffold has no trailing-slash routes, so Next's default 308 strip is correct.
+- The `Idempotency-Key` header and comments, and the trailing-slash comments in `backend.ts`, the proxy and the hook.
+
 ## [1.109.0] - 2026-10-07
 
 `nuxt-scaffold` drops the token-holding BFF for a tokenless `/api` pass-through — unit 3 of the drop-bff epic (`docs/design/drop-bff.md`). It is the web half of go-scaffold's cookie sessions (v1.107.0): the API owns the session, the app only forwards.

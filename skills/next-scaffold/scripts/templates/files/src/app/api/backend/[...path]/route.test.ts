@@ -26,18 +26,20 @@ function jsonResponse(status: number, body?: unknown): Response {
   })
 }
 
-function errorBody(code: string) {
-  return { error: { code, message: 'nope', request_id: 'req-1' } }
+const PROFILE = { id: 1, email: 'user@example.com', full_name: 'User Example', role: 'user' }
+
+function errorBody(message: string) {
+  return { error: message }
 }
 
 function tokenPair(access: string, refresh: string) {
-  return { access_token: access, refresh_token: refresh, token_type: 'Bearer', expires_in: 900 }
+  return { access_token: access, refresh_token: refresh }
 }
 
 beforeEach(() => {
   process.env.BACKEND_URL = BACKEND
   mockSession = {
-    tokens: { access_token: 'access-1', refresh_token: 'refresh-1', expires_at: Date.now() + 900_000 },
+    tokens: { access_token: 'access-1', refresh_token: 'refresh-1' },
     save: vi.fn(async () => {}),
     destroy: vi.fn(() => {
       mockSession.tokens = undefined
@@ -52,10 +54,10 @@ afterEach(() => {
 
 describe('backend proxy — auth forwarding', () => {
   it('attaches the session access token as a Bearer header and forwards to BACKEND_URL', async () => {
-    const fetchMock = vi.fn<FetchFn>().mockResolvedValue(jsonResponse(200, { data: [], next_cursor: null }))
+    const fetchMock = vi.fn<FetchFn>().mockResolvedValue(jsonResponse(200, PROFILE))
     vi.stubGlobal('fetch', fetchMock)
 
-    const req = new NextRequest('http://localhost:3000/api/backend/v1/users/', {
+    const req = new NextRequest('http://localhost:3000/api/backend/api/v1/user/profile', {
       method: 'GET',
       headers: { 'sec-fetch-site': 'same-origin' }
     })
@@ -64,8 +66,8 @@ describe('backend proxy — auth forwarding', () => {
     expect(res.status).toBe(200)
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const [url, init] = fetchMock.mock.calls[0]
-    // version-agnostic passthrough: path (incl. trailing slash) preserved verbatim
-    expect(url).toBe('http://backend.test/v1/users/')
+    // version-agnostic passthrough: path preserved verbatim
+    expect(url).toBe('http://backend.test/api/v1/user/profile')
     expect(new Headers(init?.headers).get('authorization')).toBe('Bearer access-1')
   })
 })
@@ -75,18 +77,18 @@ describe('backend proxy — 401 → refresh → retry (ADR §7.3)', () => {
     let forwardCalls = 0
     let refreshCalls = 0
     const fetchMock = vi.fn<FetchFn>().mockImplementation(async (url) => {
-      if (String(url).endsWith('/v1/auth/refresh')) {
+      if (String(url).endsWith('/api/v1/auth/refresh')) {
         refreshCalls++
         return jsonResponse(200, tokenPair('access-2', 'refresh-2'))
       }
       forwardCalls++
       return forwardCalls === 1
-        ? jsonResponse(401, errorBody('unauthenticated'))
-        : jsonResponse(200, { data: [], next_cursor: null })
+        ? jsonResponse(401, errorBody('unauthorized'))
+        : jsonResponse(200, PROFILE)
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    const req = new NextRequest('http://localhost:3000/api/backend/v1/users/', {
+    const req = new NextRequest('http://localhost:3000/api/backend/api/v1/user/profile', {
       method: 'GET',
       headers: { 'sec-fetch-site': 'same-origin' }
     })
@@ -107,16 +109,16 @@ describe('backend proxy — 401 → refresh → retry (ADR §7.3)', () => {
     let forwardCalls = 0
     let refreshCalls = 0
     const fetchMock = vi.fn<FetchFn>().mockImplementation(async (url) => {
-      if (String(url).endsWith('/v1/auth/refresh')) {
+      if (String(url).endsWith('/api/v1/auth/refresh')) {
         refreshCalls++
-        return jsonResponse(401, errorBody('users.invalid_refresh_token')) // refresh rejected
+        return jsonResponse(401, errorBody('invalid refresh token')) // refresh rejected
       }
       forwardCalls++
-      return jsonResponse(401, errorBody('unauthenticated'))
+      return jsonResponse(401, errorBody('unauthorized'))
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    const req = new NextRequest('http://localhost:3000/api/backend/v1/users/', {
+    const req = new NextRequest('http://localhost:3000/api/backend/api/v1/user/profile', {
       method: 'GET',
       headers: { 'sec-fetch-site': 'same-origin' }
     })
@@ -138,12 +140,12 @@ describe('backend proxy — 401 → refresh → retry (ADR §7.3)', () => {
     // session, notice the refresh token changed, and retry with the new access
     // token — NOT sign the user out over a lost race.
     const staleSession = {
-      tokens: { access_token: 'access-1', refresh_token: 'refresh-1', expires_at: Date.now() + 900_000 } as SessionTokens,
+      tokens: { access_token: 'access-1', refresh_token: 'refresh-1' } as SessionTokens,
       save: vi.fn(async () => {}),
       destroy: vi.fn()
     }
     const rotatedSession = {
-      tokens: { access_token: 'access-2', refresh_token: 'refresh-2', expires_at: Date.now() + 900_000 } as SessionTokens,
+      tokens: { access_token: 'access-2', refresh_token: 'refresh-2' } as SessionTokens,
       save: vi.fn(async () => {}),
       destroy: vi.fn()
     }
@@ -155,18 +157,18 @@ describe('backend proxy — 401 → refresh → retry (ADR §7.3)', () => {
 
     let forwardCalls = 0
     const fetchMock = vi.fn<FetchFn>().mockImplementation(async (url) => {
-      if (String(url).endsWith('/v1/auth/refresh')) {
+      if (String(url).endsWith('/api/v1/auth/refresh')) {
         // our own refresh loses the race — the family was already revoked
-        return jsonResponse(401, errorBody('users.invalid_refresh_token'))
+        return jsonResponse(401, errorBody('invalid refresh token'))
       }
       forwardCalls++
       return forwardCalls === 1
-        ? jsonResponse(401, errorBody('unauthenticated'))
-        : jsonResponse(200, { data: [], next_cursor: null })
+        ? jsonResponse(401, errorBody('unauthorized'))
+        : jsonResponse(200, PROFILE)
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    const req = new NextRequest('http://localhost:3000/api/backend/v1/users/', {
+    const req = new NextRequest('http://localhost:3000/api/backend/api/v1/user/profile', {
       method: 'GET',
       headers: { 'sec-fetch-site': 'same-origin' }
     })
@@ -182,10 +184,10 @@ describe('backend proxy — 401 → refresh → retry (ADR §7.3)', () => {
 
   it('relays the 401 straight through without refreshing when the session holds no refresh token', async () => {
     mockSession.tokens = undefined // anonymous / expired session
-    const fetchMock = vi.fn<FetchFn>().mockResolvedValue(jsonResponse(401, errorBody('unauthenticated')))
+    const fetchMock = vi.fn<FetchFn>().mockResolvedValue(jsonResponse(401, errorBody('unauthorized')))
     vi.stubGlobal('fetch', fetchMock)
 
-    const req = new NextRequest('http://localhost:3000/api/backend/v1/users/', {
+    const req = new NextRequest('http://localhost:3000/api/backend/api/v1/user/profile', {
       method: 'GET',
       headers: { 'sec-fetch-site': 'same-origin' }
     })
@@ -194,7 +196,7 @@ describe('backend proxy — 401 → refresh → retry (ADR §7.3)', () => {
     expect(res.status).toBe(401)
     // exactly one call — the forward; the refresh endpoint was never hit
     expect(fetchMock).toHaveBeenCalledTimes(1)
-    expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith('/v1/auth/refresh'))).toBe(false)
+    expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith('/api/v1/auth/refresh'))).toBe(false)
     expect(mockSession.destroy).not.toHaveBeenCalled()
   })
 })
@@ -204,7 +206,7 @@ describe('backend proxy — backend unreachable', () => {
     const fetchMock = vi.fn<FetchFn>().mockRejectedValue(new TypeError('fetch failed'))
     vi.stubGlobal('fetch', fetchMock)
 
-    const req = new NextRequest('http://localhost:3000/api/backend/v1/users/', {
+    const req = new NextRequest('http://localhost:3000/api/backend/api/v1/user/profile', {
       method: 'GET',
       headers: { 'sec-fetch-site': 'same-origin' }
     })
@@ -221,7 +223,7 @@ describe('backend proxy — CSRF defense', () => {
     const fetchMock = vi.fn<FetchFn>().mockResolvedValue(jsonResponse(200))
     vi.stubGlobal('fetch', fetchMock)
 
-    const req = new NextRequest('http://localhost:3000/api/backend/v1/users/', {
+    const req = new NextRequest('http://localhost:3000/api/backend/api/v1/user/profile', {
       method: 'POST',
       headers: { 'sec-fetch-site': 'cross-site', 'content-type': 'application/json' },
       body: JSON.stringify({ name: 'x', email: 'a@b.c', password: 'secret12' })

@@ -1,1428 +1,769 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "bigin-backend API",
-    "version": "0.1.0"
+    "title": "Backend API",
+    "description": "Two ways to authenticate: JWT access + refresh tokens (Bearer) for API and\nmobile clients, and an opaque server-side session in an HttpOnly cookie for\nbrowsers. Rate limiting, password policy, and input sanitization. Cookie\nrequests that change state must carry an allowlisted Origin. Contract-first API — server code is generated from\nthis spec with oapi-codegen.\n",
+    "version": "1.0.0"
   },
-  "components": {
-    "schemas": {}
-  },
+  "servers": [
+    {
+      "url": "http://localhost:8090/api/v1"
+    }
+  ],
+  "tags": [
+    {
+      "name": "auth",
+      "description": "Registration, login, token refresh, logout, and browser sessions"
+    },
+    {
+      "name": "user",
+      "description": "Authenticated user profile operations"
+    },
+    {
+      "name": "admin",
+      "description": "Admin user management"
+    }
+  ],
   "paths": {
-    "/healthz": {
-      "get": {
-        "responses": {
-          "200": {
-            "description": "Default Response"
-          }
-        }
-      }
-    },
-    "/readyz": {
-      "get": {
-        "responses": {
-          "200": {
-            "description": "Default Response"
-          }
-        }
-      }
-    },
-    "/v1/users/": {
+    "/auth/signup": {
       "post": {
+        "operationId": "signUp",
+        "tags": [
+          "auth"
+        ],
+        "security": [],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "required": [
-                  "email",
-                  "name",
-                  "password"
-                ],
-                "properties": {
-                  "email": {
-                    "format": "email",
-                    "type": "string"
-                  },
-                  "name": {
-                    "minLength": 1,
-                    "type": "string"
-                  },
-                  "password": {
-                    "minLength": 8,
-                    "type": "string"
-                  }
-                }
+                "$ref": "#/components/schemas/SignUpRequest"
               }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "Default Response",
+            "description": "User created",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "id",
-                    "email",
-                    "name",
-                    "created_at"
-                  ],
-                  "properties": {
-                    "id": {
-                      "format": "uuid",
-                      "type": "string"
-                    },
-                    "email": {
-                      "format": "email",
-                      "type": "string"
-                    },
-                    "name": {
-                      "type": "string"
-                    },
-                    "created_at": {
-                      "format": "date-time",
-                      "type": "string"
-                    }
-                  }
+                  "$ref": "#/components/schemas/User"
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
           },
           "409": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "error"
-                  ],
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "required": [
-                        "code",
-                        "message",
-                        "request_id"
-                      ],
-                      "properties": {
-                        "code": {
-                          "type": "string",
-                          "enum": [
-                            "bad_request",
-                            "unauthenticated",
-                            "unauthorized",
-                            "not_found",
-                            "conflict",
-                            "unprocessable_entity",
-                            "rate_limited",
-                            "internal_error",
-                            "validation_failed",
-                            "idempotency_key_required",
-                            "request_in_progress",
-                            "idempotency_key_reused",
-                            "pagination.cursor_mismatch",
-                            "users.not_found",
-                            "users.email_taken",
-                            "users.invalid_credentials",
-                            "users.invalid_refresh_token",
-                            "posts.not_found",
-                            "posts.version_conflict"
-                          ]
-                        },
-                        "message": {
-                          "type": "string"
-                        },
-                        "request_id": {
-                          "type": "string"
-                        },
-                        "details": {}
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "error"
-                  ],
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "required": [
-                        "code",
-                        "message",
-                        "request_id"
-                      ],
-                      "properties": {
-                        "code": {
-                          "type": "string",
-                          "enum": [
-                            "bad_request",
-                            "unauthenticated",
-                            "unauthorized",
-                            "not_found",
-                            "conflict",
-                            "unprocessable_entity",
-                            "rate_limited",
-                            "internal_error",
-                            "validation_failed",
-                            "idempotency_key_required",
-                            "request_in_progress",
-                            "idempotency_key_reused",
-                            "pagination.cursor_mismatch",
-                            "users.not_found",
-                            "users.email_taken",
-                            "users.invalid_credentials",
-                            "users.invalid_refresh_token",
-                            "posts.not_found",
-                            "posts.version_conflict"
-                          ]
-                        },
-                        "message": {
-                          "type": "string"
-                        },
-                        "request_id": {
-                          "type": "string"
-                        },
-                        "details": {}
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "get": {
-        "parameters": [
-          {
-            "schema": {
-              "type": "string"
-            },
-            "in": "query",
-            "name": "cursor",
-            "required": false
-          },
-          {
-            "schema": {
-              "minimum": 1,
-              "maximum": 100,
-              "type": "integer"
-            },
-            "in": "query",
-            "name": "limit",
-            "required": false
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "in": "query",
-            "name": "sort",
-            "required": false
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "data",
-                    "next_cursor"
-                  ],
-                  "properties": {
-                    "data": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "id",
-                          "email",
-                          "name",
-                          "created_at"
-                        ],
-                        "properties": {
-                          "id": {
-                            "format": "uuid",
-                            "type": "string"
-                          },
-                          "email": {
-                            "format": "email",
-                            "type": "string"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "created_at": {
-                            "format": "date-time",
-                            "type": "string"
-                          }
-                        }
-                      }
-                    },
-                    "next_cursor": {
-                      "type": "string",
-                      "nullable": true
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "error"
-                  ],
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "required": [
-                        "code",
-                        "message",
-                        "request_id"
-                      ],
-                      "properties": {
-                        "code": {
-                          "type": "string",
-                          "enum": [
-                            "bad_request",
-                            "unauthenticated",
-                            "unauthorized",
-                            "not_found",
-                            "conflict",
-                            "unprocessable_entity",
-                            "rate_limited",
-                            "internal_error",
-                            "validation_failed",
-                            "idempotency_key_required",
-                            "request_in_progress",
-                            "idempotency_key_reused",
-                            "pagination.cursor_mismatch",
-                            "users.not_found",
-                            "users.email_taken",
-                            "users.invalid_credentials",
-                            "users.invalid_refresh_token",
-                            "posts.not_found",
-                            "posts.version_conflict"
-                          ]
-                        },
-                        "message": {
-                          "type": "string"
-                        },
-                        "request_id": {
-                          "type": "string"
-                        },
-                        "details": {}
-                      }
-                    }
-                  }
-                }
-              }
-            }
+            "$ref": "#/components/responses/Error"
           }
         }
       }
     },
-    "/v1/users/{id}": {
-      "get": {
-        "parameters": [
-          {
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            },
-            "in": "path",
-            "name": "id",
-            "required": true
-          }
+    "/auth/login": {
+      "post": {
+        "operationId": "login",
+        "tags": [
+          "auth"
         ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
-            "description": "Default Response",
+            "description": "Access and refresh tokens",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "id",
-                    "email",
-                    "name",
-                    "created_at"
-                  ],
-                  "properties": {
-                    "id": {
-                      "format": "uuid",
-                      "type": "string"
-                    },
-                    "email": {
-                      "format": "email",
-                      "type": "string"
-                    },
-                    "name": {
-                      "type": "string"
-                    },
-                    "created_at": {
-                      "format": "date-time",
-                      "type": "string"
-                    }
-                  }
+                  "$ref": "#/components/schemas/LoginResponse"
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
           },
           "401": {
-            "description": "Default Response",
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "operationId": "refresh",
+        "tags": [
+          "auth"
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "New token pair",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "error"
-                  ],
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "required": [
-                        "code",
-                        "message",
-                        "request_id"
-                      ],
-                      "properties": {
-                        "code": {
-                          "type": "string",
-                          "enum": [
-                            "bad_request",
-                            "unauthenticated",
-                            "unauthorized",
-                            "not_found",
-                            "conflict",
-                            "unprocessable_entity",
-                            "rate_limited",
-                            "internal_error",
-                            "validation_failed",
-                            "idempotency_key_required",
-                            "request_in_progress",
-                            "idempotency_key_reused",
-                            "pagination.cursor_mismatch",
-                            "users.not_found",
-                            "users.email_taken",
-                            "users.invalid_credentials",
-                            "users.invalid_refresh_token",
-                            "posts.not_found",
-                            "posts.version_conflict"
-                          ]
-                        },
-                        "message": {
-                          "type": "string"
-                        },
-                        "request_id": {
-                          "type": "string"
-                        },
-                        "details": {}
-                      }
-                    }
-                  }
+                  "$ref": "#/components/schemas/TokenResponse"
                 }
               }
             }
           },
-          "404": {
-            "description": "Default Response",
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "operationId": "logout",
+        "tags": [
+          "auth"
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LogoutRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Logged out",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "error"
-                  ],
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "required": [
-                        "code",
-                        "message",
-                        "request_id"
-                      ],
-                      "properties": {
-                        "code": {
-                          "type": "string",
-                          "enum": [
-                            "bad_request",
-                            "unauthenticated",
-                            "unauthorized",
-                            "not_found",
-                            "conflict",
-                            "unprocessable_entity",
-                            "rate_limited",
-                            "internal_error",
-                            "validation_failed",
-                            "idempotency_key_required",
-                            "request_in_progress",
-                            "idempotency_key_reused",
-                            "pagination.cursor_mismatch",
-                            "users.not_found",
-                            "users.email_taken",
-                            "users.invalid_credentials",
-                            "users.invalid_refresh_token",
-                            "posts.not_found",
-                            "posts.version_conflict"
-                          ]
-                        },
-                        "message": {
-                          "type": "string"
-                        },
-                        "request_id": {
-                          "type": "string"
-                        },
-                        "details": {}
-                      }
-                    }
-                  }
+                  "$ref": "#/components/schemas/MessageResponse"
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/auth/session": {
+      "post": {
+        "operationId": "createSession",
+        "tags": [
+          "auth"
+        ],
+        "description": "Browser login. Same credentials and the same enumeration-safe 401 as\n/auth/login, but the result is a server-side session whose opaque ID is\nset as an HttpOnly cookie instead of tokens in the body. The request\nmust carry an Origin listed in WEB_ORIGINS (login CSRF), else 403.\n",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Session created",
+            "headers": {
+              "Set-Cookie": {
+                "description": "`__Host-session=<opaque>; Path=/; Max-Age=<absolute lifetime>;\nHttpOnly; Secure; SameSite=Lax` (`session`, without Secure,\nwhen SESSION_COOKIE_SECURE=false)\n",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
           }
         }
       },
       "delete": {
-        "parameters": [
-          {
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            },
-            "in": "path",
-            "name": "id",
-            "required": true
-          }
+        "operationId": "deleteSession",
+        "tags": [
+          "auth"
         ],
+        "description": "Browser logout. Deletes the session server-side and clears the cookie.\nAn unknown or missing session is not an error. Requires an allowlisted\nOrigin, like every cookie request that changes state.\n",
+        "security": [],
         "responses": {
           "200": {
-            "description": "Default Response"
-          }
-        }
-      }
-    },
-    "/v1/auth/login": {
-      "post": {
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "email",
-                  "password"
-                ],
-                "properties": {
-                  "email": {
-                    "format": "email",
-                    "type": "string"
-                  },
-                  "password": {
-                    "minLength": 1,
-                    "type": "string"
-                  }
+            "description": "Logged out",
+            "headers": {
+              "Set-Cookie": {
+                "description": "The session cookie with Max-Age=0",
+                "schema": {
+                  "type": "string"
                 }
               }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Default Response",
+            },
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "access_token",
-                    "refresh_token",
-                    "token_type",
-                    "expires_in"
-                  ],
-                  "properties": {
-                    "access_token": {
-                      "type": "string"
-                    },
-                    "refresh_token": {
-                      "type": "string"
-                    },
-                    "token_type": {
-                      "type": "string"
-                    },
-                    "expires_in": {
-                      "type": "integer"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "error"
-                  ],
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "required": [
-                        "code",
-                        "message",
-                        "request_id"
-                      ],
-                      "properties": {
-                        "code": {
-                          "type": "string",
-                          "enum": [
-                            "bad_request",
-                            "unauthenticated",
-                            "unauthorized",
-                            "not_found",
-                            "conflict",
-                            "unprocessable_entity",
-                            "rate_limited",
-                            "internal_error",
-                            "validation_failed",
-                            "idempotency_key_required",
-                            "request_in_progress",
-                            "idempotency_key_reused",
-                            "pagination.cursor_mismatch",
-                            "users.not_found",
-                            "users.email_taken",
-                            "users.invalid_credentials",
-                            "users.invalid_refresh_token",
-                            "posts.not_found",
-                            "posts.version_conflict"
-                          ]
-                        },
-                        "message": {
-                          "type": "string"
-                        },
-                        "request_id": {
-                          "type": "string"
-                        },
-                        "details": {}
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/auth/refresh": {
-      "post": {
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "refresh_token"
-                ],
-                "properties": {
-                  "refresh_token": {
-                    "minLength": 1,
-                    "type": "string"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "access_token",
-                    "refresh_token",
-                    "token_type",
-                    "expires_in"
-                  ],
-                  "properties": {
-                    "access_token": {
-                      "type": "string"
-                    },
-                    "refresh_token": {
-                      "type": "string"
-                    },
-                    "token_type": {
-                      "type": "string"
-                    },
-                    "expires_in": {
-                      "type": "integer"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "error"
-                  ],
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "required": [
-                        "code",
-                        "message",
-                        "request_id"
-                      ],
-                      "properties": {
-                        "code": {
-                          "type": "string",
-                          "enum": [
-                            "bad_request",
-                            "unauthenticated",
-                            "unauthorized",
-                            "not_found",
-                            "conflict",
-                            "unprocessable_entity",
-                            "rate_limited",
-                            "internal_error",
-                            "validation_failed",
-                            "idempotency_key_required",
-                            "request_in_progress",
-                            "idempotency_key_reused",
-                            "pagination.cursor_mismatch",
-                            "users.not_found",
-                            "users.email_taken",
-                            "users.invalid_credentials",
-                            "users.invalid_refresh_token",
-                            "posts.not_found",
-                            "posts.version_conflict"
-                          ]
-                        },
-                        "message": {
-                          "type": "string"
-                        },
-                        "request_id": {
-                          "type": "string"
-                        },
-                        "details": {}
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/auth/logout": {
-      "post": {
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "refresh_token"
-                ],
-                "properties": {
-                  "refresh_token": {
-                    "minLength": 1,
-                    "type": "string"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Default Response"
-          }
-        }
-      }
-    },
-    "/v1/posts/": {
-      "post": {
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "title",
-                  "body"
-                ],
-                "properties": {
-                  "title": {
-                    "minLength": 1,
-                    "type": "string"
-                  },
-                  "body": {
-                    "minLength": 1,
-                    "type": "string"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "id",
-                    "title",
-                    "body",
-                    "created_at",
-                    "version"
-                  ],
-                  "properties": {
-                    "id": {
-                      "format": "uuid",
-                      "type": "string"
-                    },
-                    "author_id": {
-                      "format": "uuid",
-                      "type": "string",
-                      "nullable": true
-                    },
-                    "author_name": {
-                      "type": "string",
-                      "nullable": true
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "body": {
-                      "type": "string"
-                    },
-                    "created_at": {
-                      "format": "date-time",
-                      "type": "string"
-                    },
-                    "version": {
-                      "type": "integer"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "error"
-                  ],
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "required": [
-                        "code",
-                        "message",
-                        "request_id"
-                      ],
-                      "properties": {
-                        "code": {
-                          "type": "string",
-                          "enum": [
-                            "bad_request",
-                            "unauthenticated",
-                            "unauthorized",
-                            "not_found",
-                            "conflict",
-                            "unprocessable_entity",
-                            "rate_limited",
-                            "internal_error",
-                            "validation_failed",
-                            "idempotency_key_required",
-                            "request_in_progress",
-                            "idempotency_key_reused",
-                            "pagination.cursor_mismatch",
-                            "users.not_found",
-                            "users.email_taken",
-                            "users.invalid_credentials",
-                            "users.invalid_refresh_token",
-                            "posts.not_found",
-                            "posts.version_conflict"
-                          ]
-                        },
-                        "message": {
-                          "type": "string"
-                        },
-                        "request_id": {
-                          "type": "string"
-                        },
-                        "details": {}
-                      }
-                    }
-                  }
+                  "$ref": "#/components/schemas/MessageResponse"
                 }
               }
             }
           },
           "403": {
-            "description": "Default Response",
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/user/profile": {
+      "get": {
+        "operationId": "getProfile",
+        "tags": [
+          "user"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current user profile",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "error"
-                  ],
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "required": [
-                        "code",
-                        "message",
-                        "request_id"
-                      ],
-                      "properties": {
-                        "code": {
-                          "type": "string",
-                          "enum": [
-                            "bad_request",
-                            "unauthenticated",
-                            "unauthorized",
-                            "not_found",
-                            "conflict",
-                            "unprocessable_entity",
-                            "rate_limited",
-                            "internal_error",
-                            "validation_failed",
-                            "idempotency_key_required",
-                            "request_in_progress",
-                            "idempotency_key_reused",
-                            "pagination.cursor_mismatch",
-                            "users.not_found",
-                            "users.email_taken",
-                            "users.invalid_credentials",
-                            "users.invalid_refresh_token",
-                            "posts.not_found",
-                            "posts.version_conflict"
-                          ]
-                        },
-                        "message": {
-                          "type": "string"
-                        },
-                        "request_id": {
-                          "type": "string"
-                        },
-                        "details": {}
-                      }
-                    }
-                  }
+                  "$ref": "#/components/schemas/User"
                 }
               }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "put": {
+        "operationId": "updateProfile",
+        "tags": [
+          "user"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProfileRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/admin/users": {
+      "get": {
+        "operationId": "listUsers",
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number, starting at 1",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Items per page (1-100)",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of users",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/admin/users/{id}/role": {
+      "put": {
+        "operationId": "updateUserRole",
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "User ID",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRoleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/admin/users/{id}": {
+      "delete": {
+        "operationId": "deleteUser",
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "User ID",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      },
+      "cookieAuth": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Host-session"
+      }
+    },
+    "responses": {
+      "Error": {
+        "description": "Error response",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "User": {
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "role"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "full_name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SignUpRequest": {
+        "type": "object",
+        "required": [
+          "email",
+          "password",
+          "full_name"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "x-oapi-codegen-extra-tags": {
+              "binding": "required,email"
+            }
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "x-oapi-codegen-extra-tags": {
+              "binding": "required,min=8"
+            }
+          },
+          "full_name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 100,
+            "x-oapi-codegen-extra-tags": {
+              "binding": "required,min=2,max=100,notags"
             }
           }
         }
       },
-      "get": {
-        "parameters": [
-          {
-            "schema": {
-              "type": "string"
-            },
-            "in": "query",
-            "name": "cursor",
-            "required": false
-          },
-          {
-            "schema": {
-              "minimum": 1,
-              "maximum": 100,
-              "type": "integer"
-            },
-            "in": "query",
-            "name": "limit",
-            "required": false
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "in": "query",
-            "name": "sort",
-            "required": false
-          }
+      "LoginRequest": {
+        "type": "object",
+        "required": [
+          "email",
+          "password"
         ],
-        "responses": {
-          "200": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "data",
-                    "next_cursor"
-                  ],
-                  "properties": {
-                    "data": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "id",
-                          "title",
-                          "body",
-                          "created_at",
-                          "version"
-                        ],
-                        "properties": {
-                          "id": {
-                            "format": "uuid",
-                            "type": "string"
-                          },
-                          "author_id": {
-                            "format": "uuid",
-                            "type": "string",
-                            "nullable": true
-                          },
-                          "author_name": {
-                            "type": "string",
-                            "nullable": true
-                          },
-                          "title": {
-                            "type": "string"
-                          },
-                          "body": {
-                            "type": "string"
-                          },
-                          "created_at": {
-                            "format": "date-time",
-                            "type": "string"
-                          },
-                          "version": {
-                            "type": "integer"
-                          }
-                        }
-                      }
-                    },
-                    "next_cursor": {
-                      "type": "string",
-                      "nullable": true
-                    }
-                  }
-                }
-              }
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "x-oapi-codegen-extra-tags": {
+              "binding": "required,email"
             }
           },
-          "401": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "error"
-                  ],
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "required": [
-                        "code",
-                        "message",
-                        "request_id"
-                      ],
-                      "properties": {
-                        "code": {
-                          "type": "string",
-                          "enum": [
-                            "bad_request",
-                            "unauthenticated",
-                            "unauthorized",
-                            "not_found",
-                            "conflict",
-                            "unprocessable_entity",
-                            "rate_limited",
-                            "internal_error",
-                            "validation_failed",
-                            "idempotency_key_required",
-                            "request_in_progress",
-                            "idempotency_key_reused",
-                            "pagination.cursor_mismatch",
-                            "users.not_found",
-                            "users.email_taken",
-                            "users.invalid_credentials",
-                            "users.invalid_refresh_token",
-                            "posts.not_found",
-                            "posts.version_conflict"
-                          ]
-                        },
-                        "message": {
-                          "type": "string"
-                        },
-                        "request_id": {
-                          "type": "string"
-                        },
-                        "details": {}
-                      }
-                    }
-                  }
-                }
-              }
+          "password": {
+            "type": "string",
+            "x-oapi-codegen-extra-tags": {
+              "binding": "required"
             }
           }
         }
-      }
-    },
-    "/v1/posts/{id}": {
-      "patch": {
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "version"
-                ],
-                "properties": {
-                  "title": {
-                    "minLength": 1,
-                    "type": "string"
-                  },
-                  "body": {
-                    "minLength": 1,
-                    "type": "string"
-                  },
-                  "version": {
-                    "minimum": 1,
-                    "type": "integer"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            },
-            "in": "path",
-            "name": "id",
-            "required": true
-          }
+      },
+      "RefreshRequest": {
+        "type": "object",
+        "required": [
+          "refresh_token"
         ],
-        "responses": {
-          "200": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "id",
-                    "title",
-                    "body",
-                    "created_at",
-                    "version"
-                  ],
-                  "properties": {
-                    "id": {
-                      "format": "uuid",
-                      "type": "string"
-                    },
-                    "author_id": {
-                      "format": "uuid",
-                      "type": "string",
-                      "nullable": true
-                    },
-                    "author_name": {
-                      "type": "string",
-                      "nullable": true
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "body": {
-                      "type": "string"
-                    },
-                    "created_at": {
-                      "format": "date-time",
-                      "type": "string"
-                    },
-                    "version": {
-                      "type": "integer"
-                    }
-                  }
-                }
-              }
+        "properties": {
+          "refresh_token": {
+            "type": "string",
+            "x-oapi-codegen-extra-tags": {
+              "binding": "required"
+            }
+          }
+        }
+      },
+      "LogoutRequest": {
+        "type": "object",
+        "required": [
+          "refresh_token"
+        ],
+        "properties": {
+          "refresh_token": {
+            "type": "string",
+            "x-oapi-codegen-extra-tags": {
+              "binding": "required"
+            }
+          }
+        }
+      },
+      "UpdateProfileRequest": {
+        "type": "object",
+        "properties": {
+          "full_name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 100,
+            "x-oapi-codegen-extra-tags": {
+              "binding": "omitempty,min=2,max=100,notags"
+            }
+          }
+        }
+      },
+      "UpdateRoleRequest": {
+        "type": "object",
+        "required": [
+          "role"
+        ],
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "admin"
+            ],
+            "x-oapi-codegen-extra-tags": {
+              "binding": "required,oneof=user admin"
+            }
+          }
+        }
+      },
+      "LoginResponse": {
+        "type": "object",
+        "required": [
+          "access_token",
+          "refresh_token",
+          "user"
+        ],
+        "properties": {
+          "access_token": {
+            "type": "string"
+          },
+          "refresh_token": {
+            "type": "string"
+          },
+          "user": {
+            "$ref": "#/components/schemas/User"
+          }
+        }
+      },
+      "SessionResponse": {
+        "type": "object",
+        "required": [
+          "user"
+        ],
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/User"
+          }
+        }
+      },
+      "TokenResponse": {
+        "type": "object",
+        "required": [
+          "access_token",
+          "refresh_token"
+        ],
+        "properties": {
+          "access_token": {
+            "type": "string"
+          },
+          "refresh_token": {
+            "type": "string"
+          }
+        }
+      },
+      "UserListResponse": {
+        "type": "object",
+        "required": [
+          "data",
+          "page",
+          "limit",
+          "total"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/User"
             }
           },
-          "401": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "error"
-                  ],
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "required": [
-                        "code",
-                        "message",
-                        "request_id"
-                      ],
-                      "properties": {
-                        "code": {
-                          "type": "string",
-                          "enum": [
-                            "bad_request",
-                            "unauthenticated",
-                            "unauthorized",
-                            "not_found",
-                            "conflict",
-                            "unprocessable_entity",
-                            "rate_limited",
-                            "internal_error",
-                            "validation_failed",
-                            "idempotency_key_required",
-                            "request_in_progress",
-                            "idempotency_key_reused",
-                            "pagination.cursor_mismatch",
-                            "users.not_found",
-                            "users.email_taken",
-                            "users.invalid_credentials",
-                            "users.invalid_refresh_token",
-                            "posts.not_found",
-                            "posts.version_conflict"
-                          ]
-                        },
-                        "message": {
-                          "type": "string"
-                        },
-                        "request_id": {
-                          "type": "string"
-                        },
-                        "details": {}
-                      }
-                    }
-                  }
-                }
-              }
-            }
+          "page": {
+            "type": "integer"
           },
-          "403": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "error"
-                  ],
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "required": [
-                        "code",
-                        "message",
-                        "request_id"
-                      ],
-                      "properties": {
-                        "code": {
-                          "type": "string",
-                          "enum": [
-                            "bad_request",
-                            "unauthenticated",
-                            "unauthorized",
-                            "not_found",
-                            "conflict",
-                            "unprocessable_entity",
-                            "rate_limited",
-                            "internal_error",
-                            "validation_failed",
-                            "idempotency_key_required",
-                            "request_in_progress",
-                            "idempotency_key_reused",
-                            "pagination.cursor_mismatch",
-                            "users.not_found",
-                            "users.email_taken",
-                            "users.invalid_credentials",
-                            "users.invalid_refresh_token",
-                            "posts.not_found",
-                            "posts.version_conflict"
-                          ]
-                        },
-                        "message": {
-                          "type": "string"
-                        },
-                        "request_id": {
-                          "type": "string"
-                        },
-                        "details": {}
-                      }
-                    }
-                  }
-                }
-              }
-            }
+          "limit": {
+            "type": "integer"
           },
-          "404": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "error"
-                  ],
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "required": [
-                        "code",
-                        "message",
-                        "request_id"
-                      ],
-                      "properties": {
-                        "code": {
-                          "type": "string",
-                          "enum": [
-                            "bad_request",
-                            "unauthenticated",
-                            "unauthorized",
-                            "not_found",
-                            "conflict",
-                            "unprocessable_entity",
-                            "rate_limited",
-                            "internal_error",
-                            "validation_failed",
-                            "idempotency_key_required",
-                            "request_in_progress",
-                            "idempotency_key_reused",
-                            "pagination.cursor_mismatch",
-                            "users.not_found",
-                            "users.email_taken",
-                            "users.invalid_credentials",
-                            "users.invalid_refresh_token",
-                            "posts.not_found",
-                            "posts.version_conflict"
-                          ]
-                        },
-                        "message": {
-                          "type": "string"
-                        },
-                        "request_id": {
-                          "type": "string"
-                        },
-                        "details": {}
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "error"
-                  ],
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "required": [
-                        "code",
-                        "message",
-                        "request_id"
-                      ],
-                      "properties": {
-                        "code": {
-                          "type": "string",
-                          "enum": [
-                            "bad_request",
-                            "unauthenticated",
-                            "unauthorized",
-                            "not_found",
-                            "conflict",
-                            "unprocessable_entity",
-                            "rate_limited",
-                            "internal_error",
-                            "validation_failed",
-                            "idempotency_key_required",
-                            "request_in_progress",
-                            "idempotency_key_reused",
-                            "pagination.cursor_mismatch",
-                            "users.not_found",
-                            "users.email_taken",
-                            "users.invalid_credentials",
-                            "users.invalid_refresh_token",
-                            "posts.not_found",
-                            "posts.version_conflict"
-                          ]
-                        },
-                        "message": {
-                          "type": "string"
-                        },
-                        "request_id": {
-                          "type": "string"
-                        },
-                        "details": {}
-                      }
-                    }
-                  }
-                }
-              }
-            }
+          "total": {
+            "type": "integer"
+          }
+        }
+      },
+      "MessageResponse": {
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "string"
           }
         }
       }

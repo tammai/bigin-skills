@@ -20,7 +20,7 @@ Stack: Next.js (App Router, TypeScript), Tailwind CSS v4, shadcn/ui, Zustand, Ta
 | --- | --- | --- |
 | `starter` (default) | `create-next-app` (no clone, no block) | minimal Next + shadcn/ui base (Button/Card/Tooltip) + BFF preset, no auth wired |
 | `dashboard` | `create-next-app` + shadcn `dashboard-01` block | working admin shell straight at `/dashboard` (sidebar, charts, data table on sample data) |
-| `saas` | `create-next-app` + shadcn `input`/`label` primitives + hand-authored pages | public site **+ private `/dashboard`** — real-backend auth: login/signup/logout call the paired backend, the returned token pair is sealed into the iron-session cookie, and `/api/backend/*` proxies all authenticated data calls (see `references/artifacts.md`) |
+| `saas` | `create-next-app` + shadcn `input`/`label` primitives + hand-authored pages | public site **+ private `/dashboard`** — real-backend auth: login/signup/logout call the paired go-scaffold backend, the returned token pair is sealed into the iron-session cookie, and `/api/backend/*` proxies all authenticated data calls (see `references/artifacts.md`) |
 
 Unlike `nuxt-scaffold`'s 9 templates (6 of which clone a whole separate GitHub repo from `nuxt-ui-templates`), shadcn/ui has no equivalent gallery of full standalone app templates — only an official **block registry** (`dashboard-01`, `login-03`, etc.) of individual compositions added into an existing app via `shadcn add`. `next-scaffold` therefore ships exactly the two templates that get real bespoke treatment in the Nuxt world (`saas`, `dashboard`) plus the default — not a 1:1 count match. See `references/bootstrap.md` for the full rationale.
 

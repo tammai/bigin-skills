@@ -424,22 +424,6 @@ function applyArtifacts() {
     failMsg: 'cannot wire <Providers> into src/app/layout.tsx — template shape changed; re-verify artifacts.md'
   })
 
-  // All templates: the BFF proxy (src/app/api/backend/[...path]) forwards paths verbatim to the
-  // backend, whose collection routes are served WITH a trailing slash (e.g. /v1/users/ — Fastify
-  // prefix + '/'). Next's default trailing-slash redirect (308) would strip that slash before the
-  // proxy handler runs, so the forwarded path would 404. `skipTrailingSlashRedirect` disables that
-  // redirect so the proxy preserves the path exactly as the generated openapi-fetch client sends
-  // it. (This is the documented Next option for exactly this proxy-preservation case.)
-  patchFile(path.join(CFG.targetDir, 'next.config.ts'), {
-    marker: 'skipTrailingSlashRedirect',
-    transform: (nextConfig) => nextConfig.replace(
-      /(const nextConfig: NextConfig = \{\n)/,
-      `$1  // Preserve trailing slashes so the /api/backend proxy can forward e.g. /v1/users/ verbatim.\n  skipTrailingSlashRedirect: true,\n`
-    ),
-    failMsg: 'cannot patch next.config.ts (skipTrailingSlashRedirect) — create-next-app config shape changed; re-verify artifacts.md',
-    optional: true
-  })
-
   // All templates: wire eslint-plugin-boundaries into the generated eslint.config.mjs so the
   // feature-folder structure (src/features/<f>, src/shared, src/lib, src/app) is a REAL boundary
   // — the config body lives in the shipped files/eslint.boundaries.mjs (source of truth); here we
@@ -534,12 +518,13 @@ function printNextSteps() {
     lines.push(
       '  1. Copy .env.example → .env and set:',
       '     - SESSION_PASSWORD (openssl rand -base64 32)',
-      '     - BACKEND_URL      (backend REST API; server-only — e.g. a nodejs-scaffold/Fastify app)',
+      '     - BACKEND_URL      (backend REST API origin; server-only — a go-scaffold app, e.g. http://localhost:8090)',
       '  2. The BFF proxy (src/app/api/backend/[...path]/route.ts) forwards browser calls to',
       '     BACKEND_URL with the session Bearer token. The typed client + generated types live in',
       '     src/shared/api-client (committed snapshot of the backend contract, openapi.json).',
       '     Refresh the types after a backend change: pnpm openapi:generate (point openapi.json at',
-      '     the paired backend\'s exported src/api/openapi.json first).',
+      '     go-scaffold\'s openapi.yaml converted to JSON first). The client expects the backend under',
+      '     /api/v1 (go-scaffold\'s default) — see the comment in src/shared/api-client/index.ts.',
       '  3. Overlay governance: run bigin-harness-setup (CLAUDE.md, rules, bash-guard).',
       '  4. Start: pnpm dev',
       '  5. Deploy: vercel (or the Vercel GitHub integration) — zero-config for Next.js.'
@@ -547,7 +532,7 @@ function printNextSteps() {
   } else if (CFG.template === 'saas') {
     lines.push(
       '  1. Copy .env.example → .env and set SESSION_PASSWORD (openssl rand -base64 32) and',
-      '     BACKEND_URL (the paired backend REST API — e.g. a nodejs-scaffold/Fastify app).',
+      '     BACKEND_URL (the paired go-scaffold backend REST API origin, e.g. http://localhost:8090).',
       '  2. Auth is wired to the real backend: /api/login + /api/signup call BACKEND_URL and store',
       '     the returned token pair in the sealed session; the /api/backend/* proxy attaches the',
       '     Bearer token and does the 401→refresh→retry flow. Start the backend before signing in.',

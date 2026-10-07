@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 
 const schema = z.object({
-  name: z.string().min(1, 'Name is required'),
+  full_name: z.string().min(2, 'Name must be at least 2 characters').max(100, 'Name must be at most 100 characters'),
   email: z.email('Invalid email'),
   password: z.string().min(8, 'Must be at least 8 characters')
 })
@@ -23,7 +23,7 @@ export default function SignupPage() {
     setError(null)
     const formData = new FormData(event.currentTarget)
     const parsed = schema.safeParse({
-      name: formData.get('name'),
+      full_name: formData.get('full_name'),
       email: formData.get('email'),
       password: formData.get('password')
     })
@@ -55,8 +55,8 @@ export default function SignupPage() {
         <CardContent>
           <form onSubmit={onSubmit} className="grid gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="name">Name</Label>
-              <Input id="name" name="name" type="text" required />
+              <Label htmlFor="full_name">Name</Label>
+              <Input id="full_name" name="full_name" type="text" required />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>

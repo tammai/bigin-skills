@@ -11,7 +11,7 @@ export async function POST() {
   // expires on its own server-side. So the local session is torn down
   // regardless of the backend call's outcome.
   if (tokens) {
-    await backendLogout(tokens.access_token, tokens.refresh_token)
+    await backendLogout(tokens.refresh_token)
   }
   session.destroy()
   return NextResponse.json({ ok: true })

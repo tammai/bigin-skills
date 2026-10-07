@@ -16,15 +16,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: { code: 'validation_failed', message: 'Invalid request body' } }, { status: 422 })
   }
   try {
-    const tokens = await backendLogin(parsed.data.email, parsed.data.password)
+    // The backend's login response carries the user alongside the token pair,
+    // so the session holds the real profile — no JWT decoding needed.
+    const { tokens, user } = await backendLogin(parsed.data.email, parsed.data.password)
     const session = await getSession()
-    // The login response carries no user object — store the email from the
-    // request body for display. We deliberately do NOT decode the JWT just to
-    // recover an email; the token pair is all the proxy needs.
-    session.user = { email: parsed.data.email }
+    session.user = { id: user.id, email: user.email, full_name: user.full_name, role: user.role }
     session.tokens = tokens
     await session.save()
-    return NextResponse.json({ email: parsed.data.email })
+    return NextResponse.json(session.user)
   } catch (err) {
     return loginErrorResponse(err)
   }

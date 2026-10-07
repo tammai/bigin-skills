@@ -5,12 +5,10 @@ import { getIronSession, type SessionOptions } from 'iron-session'
 // plus the backend token pair the proxy replays as `Authorization: Bearer`.
 // The access/refresh tokens never reach the browser — they live only inside
 // this AES-sealed cookie, unsealed server-side (route handlers + proxy).
-export type SessionUser = { id?: string, email: string, name?: string }
+// Field names follow the backend's User schema (id, email, full_name, role).
+export type SessionUser = { id?: number, email: string, full_name?: string, role?: string }
 
-// `expires_at` is an absolute epoch-ms deadline computed from the backend's
-// `expires_in` at write time, so the proxy can cheaply check "is the access
-// token stale?" without decoding/verifying the JWT on every request.
-export type SessionTokens = { access_token: string, refresh_token: string, expires_at: number }
+export type SessionTokens = { access_token: string, refresh_token: string }
 
 export type SessionData = { user?: SessionUser, tokens?: SessionTokens }
 

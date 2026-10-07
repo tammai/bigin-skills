@@ -12,16 +12,17 @@ import { isCrossSiteMutation } from '@/lib/csrf'
 //   4. on a 401, refreshes the token once and retries (ADR §7.3).
 //
 // It is a *version-agnostic passthrough*: the incoming path after /api/backend
-// (e.g. /v1/users/) is forwarded verbatim to `${BACKEND_URL}<path>`. The API
-// version lives in the path, not in this file — so a future /v2/* route needs
-// no change here, and the generated openapi-fetch client's path keys line up
-// 1:1 with what the backend actually serves (including trailing slashes).
+// (e.g. /api/v1/user/profile) is forwarded verbatim to `${BACKEND_URL}<path>`.
+// The API version lives in the path, not in this file — so a future /api/v2/*
+// route needs no change here, and the generated openapi-fetch client (baseUrl
+// '/api/backend/api/v1') lines up 1:1 with what the backend actually serves.
 
 const BFF_PREFIX = '/api/backend'
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 
 function json(code: string, message: string, status: number): NextResponse {
-  // Mirrors the backend's nested error envelope so client code sees one shape.
+  // This file's own error envelope. Responses relayed from the backend keep the
+  // backend's own shape ({ error: '<message>' }).
   return NextResponse.json({ error: { code, message } }, { status })
 }
 
@@ -84,10 +85,10 @@ async function handle(request: NextRequest, method: string): Promise<NextRespons
       // Two requests sharing one session can both hit a 401 and both read the
       // same refresh_token; only one wins the rotate, and a backend with
       // reuse-detection revokes the token family when the loser replays the now
-      // stale token (see nodejs-scaffold's refresh.ts). Re-read the session: if
-      // the refresh_token has since changed, a sibling already rotated it
-      // successfully, so retry the original forward with the current access
-      // token instead of destroying a session that is actually still valid.
+      // stale token. Re-read the session: if the refresh_token has since
+      // changed, a sibling already rotated it successfully, so retry the
+      // original forward with the current access token instead of destroying a
+      // session that is actually still valid.
       const fresh = await getSession()
       if (fresh.tokens?.refresh_token && fresh.tokens.refresh_token !== attemptedRefreshToken) {
         res = await forward(targetUrl, method, request.headers, body, fresh.tokens.access_token)
@@ -109,6 +110,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 }
 export async function POST(request: NextRequest): Promise<NextResponse> {
   return handle(request, 'POST')
+}
+export async function PUT(request: NextRequest): Promise<NextResponse> {
+  return handle(request, 'PUT')
 }
 export async function PATCH(request: NextRequest): Promise<NextResponse> {
   return handle(request, 'PATCH')
