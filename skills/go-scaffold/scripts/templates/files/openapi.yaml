@@ -2,8 +2,10 @@ openapi: 3.0.3
 info:
   title: {{PROJECT_NAME}}
   description: |
-    JWT access + refresh token authentication, rate limiting, password policy,
-    and input sanitization. Contract-first API — server code is generated from
+    Two ways to authenticate: JWT access + refresh tokens (Bearer) for API and
+    mobile clients, and an opaque server-side session in an HttpOnly cookie for
+    browsers. Rate limiting, password policy, and input sanitization. Cookie
+    requests that change state must carry an allowlisted Origin. Contract-first API — server code is generated from
     this spec with oapi-codegen.
   version: 1.0.0
 servers:
@@ -13,7 +15,7 @@ servers:
   - url: http://localhost:8090/api/v1
 tags:
   - name: auth
-    description: Registration, login, token refresh, and logout
+    description: Registration, login, token refresh, logout, and browser sessions
   - name: user
     description: Authenticated user profile operations
   - name: admin
@@ -108,12 +110,74 @@ paths:
           $ref: '#/components/responses/Error'
         '500':
           $ref: '#/components/responses/Error'
+  /auth/session:
+    post:
+      operationId: createSession
+      tags: [auth]
+      description: |
+        Browser login. Same credentials and the same enumeration-safe 401 as
+        /auth/login, but the result is a server-side session whose opaque ID is
+        set as an HttpOnly cookie instead of tokens in the body. The request
+        must carry an Origin listed in WEB_ORIGINS (login CSRF), else 403.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '201':
+          description: Session created
+          headers:
+            Set-Cookie:
+              description: |
+                `__Host-session=<opaque>; Path=/; Max-Age=<absolute lifetime>;
+                HttpOnly; Secure; SameSite=Lax` (`session`, without Secure,
+                when SESSION_COOKIE_SECURE=false)
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+    delete:
+      operationId: deleteSession
+      tags: [auth]
+      description: |
+        Browser logout. Deletes the session server-side and clears the cookie.
+        An unknown or missing session is not an error. Requires an allowlisted
+        Origin, like every cookie request that changes state.
+      security: []
+      responses:
+        '200':
+          description: Logged out
+          headers:
+            Set-Cookie:
+              description: The session cookie with Max-Age=0
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '403':
+          $ref: '#/components/responses/Error'
+        '500':
+          $ref: '#/components/responses/Error'
   /user/profile:
     get:
       operationId: getProfile
       tags: [user]
       security:
         - BearerAuth: []
+        - cookieAuth: []
       responses:
         '200':
           description: Current user profile
@@ -130,6 +194,7 @@ paths:
       tags: [user]
       security:
         - BearerAuth: []
+        - cookieAuth: []
       requestBody:
         required: true
         content:
@@ -155,6 +220,7 @@ paths:
       tags: [admin]
       security:
         - BearerAuth: []
+        - cookieAuth: []
       parameters:
         - name: page
           in: query
@@ -186,6 +252,7 @@ paths:
       tags: [admin]
       security:
         - BearerAuth: []
+        - cookieAuth: []
       parameters:
         - name: id
           in: path
@@ -220,6 +287,7 @@ paths:
       tags: [admin]
       security:
         - BearerAuth: []
+        - cookieAuth: []
       parameters:
         - name: id
           in: path
@@ -249,6 +317,13 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+    # Browser sessions. Either scheme satisfies a protected route; when a
+    # request carries both, the Bearer token decides. The cookie is named
+    # `session` instead when SESSION_COOKIE_SECURE=false (plain-HTTP dev).
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: __Host-session
 
   responses:
     Error:
@@ -361,6 +436,13 @@ components:
           type: string
         refresh_token:
           type: string
+        user:
+          $ref: '#/components/schemas/User'
+
+    SessionResponse:
+      type: object
+      required: [user]
+      properties:
         user:
           $ref: '#/components/schemas/User'
 

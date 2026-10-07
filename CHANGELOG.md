@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.107.0] - 2026-10-07
+
+`go-scaffold` gains browser cookie sessions beside Bearer JWT — unit 1 of the drop-bff epic (`docs/design/drop-bff.md`), the API half of replacing the web scaffolds' token-holding BFF.
+
+### Added
+
+- **Cookie sessions for browsers.** `POST /auth/session` signs in and sets `__Host-session` (HttpOnly, Secure, SameSite=Lax, `Path=/`, no `Domain`); `DELETE /auth/session` deletes the row and clears the cookie. The cookie holds 32 random bytes; the new `sessions` table (migration `000003`) stores only their SHA-256 hash, with an idle expiry that slides at most once per `min(1h, idle/2)` and an absolute one. Roles are read fresh from `users` on every cookie request, so a demotion applies on the next request. `SESSION_IDLE_HOURS` (72), `SESSION_ABSOLUTE_DAYS` (30), `SESSION_COOKIE_SECURE` (true; `false` drops the `__Host-` prefix for plain-HTTP dev and logs a warning). A login also deletes that user's expired sessions.
+- **Bearer or cookie.** `/user/*` and `/admin/*` accept either. An invalid `Authorization` header is a 401 and never falls back to the cookie. Flutter and other Bearer clients are unchanged, refresh rotation included.
+- **CSRF check.** A state-changing request authenticated by the cookie, and both `/auth/session` operations, need an `Origin` in `WEB_ORIGINS` or get a 403. Bearer requests are exempt. The CSRF-checked public routes are a named `csrfPublicRoutes` set in `selector.go`.
+
+### Changed
+
+- **`CORS_ORIGINS=*` now refuses to boot**, as `*` in `WEB_ORIGINS` does: with an ambient session cookie, a wildcard plus `Allow-Credentials` would let any page read a signed-in user's data. CORS and CSRF now compare origins through one `NormalizeOrigin` (lowercased, default ports stripped, no path/query/userinfo).
+- **`scaffold.mjs --cors`** validates with that same origin rule, so it can no longer write a value the server refuses at boot.
+- `profile-go.md`'s security wiring and negative-case lists cover sessions and CSRF. **No patch block:** an existing `go` repo has no sessions, and a rule describing code it doesn't have would be wrong. Repos that adopt the feature copy the two lines from `profile-go.md` by hand.
+
 ## [1.106.1] - 2026-10-06
 
 The `go` profile gets its own `testing.md`, and its merge gate stays database-free.

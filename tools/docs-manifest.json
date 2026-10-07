@@ -30,7 +30,7 @@
     },
     "go-scaffold": {
       "group": "core",
-      "summary": "Scaffolds a Go modular-monolith REST API — Gin, contract-first oapi-codegen, GORM + Postgres, JWT access/refresh auth + RBAC, boundaries enforced by a test."
+      "summary": "Scaffolds a Go modular-monolith REST API — Gin, contract-first oapi-codegen, GORM + Postgres, JWT + cookie-session auth, RBAC, boundaries enforced by a test."
     },
     "nodejs-scaffold": {
       "group": "core",

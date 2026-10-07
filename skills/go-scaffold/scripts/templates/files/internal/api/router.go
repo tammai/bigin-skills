@@ -30,6 +30,15 @@ type Options struct {
 	CORSOrigins []string
 	// TokenIssuer verifies bearer tokens for the protected prefixes.
 	TokenIssuer auth.TokenIssuer
+	// Sessions resolves the browser-session cookie for the same prefixes.
+	// cmd/server passes the users module's resolver; nil disables cookie auth.
+	Sessions auth.SessionResolver
+	// SessionCookie is the cookie's name and Secure flag, shared by the guard
+	// that reads it and the handler that sets it.
+	SessionCookie httpx.SessionCookie
+	// WebOrigins is the normalised CSRF allowlist for cookie requests. Empty
+	// refuses every cookie mutation.
+	WebOrigins []string
 	// Ping backs GET /readyz. A nil Ping means "no database wired", which
 	// reports unavailable rather than panicking.
 	Ping func() error
@@ -75,13 +84,23 @@ func NewRouter(opts Options) *gin.Engine {
 	})
 
 	// Routing is generated from openapi.yaml. SECURITY IS NOT: the generated
-	// code ignores the contract's `security:` schemes, so auth and rate limits
-	// are applied as selectors that match each route by path.
+	// code ignores the contract's `security:` schemes, so auth, CSRF and rate
+	// limits are applied as selectors that match each route by path.
+	//
+	// Order matters. The rate limit runs first so a refused request costs
+	// nothing; CSRF runs after auth because it acts on how the caller
+	// authenticated — a cookie is the one credential a forged request carries.
+	authenticator := middleware.Authenticator{
+		Tokens:   opts.TokenIssuer,
+		Sessions: opts.Sessions,
+		Cookie:   opts.SessionCookie,
+	}
 	openapi.RegisterHandlersWithOptions(r, newServer(opts.Users), openapi.GinServerOptions{
 		BaseURL: middleware.BaseURL,
 		Middlewares: []openapi.MiddlewareFunc{
 			openapi.MiddlewareFunc(middleware.RateLimitByPath()),
-			openapi.MiddlewareFunc(middleware.AuthByPath(opts.TokenIssuer)),
+			openapi.MiddlewareFunc(middleware.AuthByPath(authenticator)),
+			openapi.MiddlewareFunc(middleware.CSRF(opts.WebOrigins)),
 		},
 		// The generated router's own parameter-binding errors use {"msg": ...}.
 		// Route them through the same {"error": ...} shape as everything else,

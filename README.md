@@ -75,7 +75,7 @@ Setup detects the profile, or asks. It decides which templates get written. `tau
 | `nuxt` | Nuxt 4 BFF on Cloudflare Pages — Pinia + Colada, Nuxt UI, nuxt-auth-utils, Zod, Vitest. No DB; the backend owns data | `nuxt-scaffold` |
 | `nuxt-marketing` | Multi-locale Nuxt 4 marketing site — `@nuxt/content` collections, `@nuxtjs/i18n`, Tailwind, prerendered onto Cloudflare Workers static assets. No auth, no BFF, no database; its `conventions-content.md` is the only rule file in any profile written for a non-developer editor | `nuxt-marketing-scaffold` |
 | `next` | Next.js App Router BFF on Vercel — shadcn/ui, Zustand, TanStack Query, iron-session, Zod, Vitest. No DB | `next-scaffold` |
-| `go` | Go modular-monolith REST API — Gin, contract-first `oapi-codegen`, GORM + Postgres, JWT access/refresh + RBAC, boundaries enforced by a test | `go-scaffold` |
+| `go` | Go modular-monolith REST API — Gin, contract-first `oapi-codegen`, GORM + Postgres, JWT access/refresh + cookie sessions + RBAC, boundaries enforced by a test | `go-scaffold` |
 | `nodejs` | Node.js modular-monolith REST API — Fastify, code-first OpenAPI (TypeBox), Drizzle + Postgres, JWT + argon2id, outbox/inbox + job queue | `nodejs-scaffold` |
 | `flutter` | Flutter mobile client against an existing HTTP API — Riverpod, `go_router`, Drift, generated dio client. The contract is frozen input, not a decision made here | `flutter create` (pinned args) |
 | `tauri` | Tauri 2 desktop app against an existing HTTP API — Nuxt 4 SPA frontend, Rust shell owning the HTTP client, the tokens and the local cache. The webview makes no network call and holds no secret | `nuxt-scaffold` + `pnpm tauri init` |
@@ -100,7 +100,7 @@ Each scaffold skill's `SKILL.md` is the reference for what it generates. What se
 | **discovery-workflow**      | Vague ask → approved brief + PRD under docs/product/ and architecture decisions in knowledge/, then hands the PRD to epic-workflow.                             |
 | **nuxt-scaffold**           | Scaffolds a Nuxt 4 BFF app from scratch via a deterministic Node.js script — npm create nuxt@latest + BFF preset + config/sample code. No GitHub clone.         |
 | **next-scaffold**           | Scaffolds a Next.js App Router BFF app from scratch via a deterministic Node.js script — create-next-app + BFF preset + shadcn/ui. No GitHub clone.             |
-| **go-scaffold**             | Scaffolds a Go modular-monolith REST API — Gin, contract-first oapi-codegen, GORM + Postgres, JWT access/refresh auth + RBAC, boundaries enforced by a test.    |
+| **go-scaffold**             | Scaffolds a Go modular-monolith REST API — Gin, contract-first oapi-codegen, GORM + Postgres, JWT + cookie-session auth, RBAC, boundaries enforced by a test.   |
 | **nodejs-scaffold**         | Scaffolds a Node.js modular-monolith REST API — users/posts, code-first OpenAPI (TypeBox) + Drizzle, JWT+argon2id, outbox/inbox + job queue.                    |
 | **sprint-distill**          | End-of-sprint distillation: merged PRs + touched knowledge/ concepts → proposal-first knowledge/ and bigin-skills updates. Compresses, never just appends.      |
 | **knowledge-distill**       | Distills a library's docs/source at a pinned version into audited knowledge/libraries/<lib>/ concept files, plus a version-drift commit guard.                  |

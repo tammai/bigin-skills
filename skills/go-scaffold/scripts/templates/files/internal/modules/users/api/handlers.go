@@ -21,10 +21,13 @@ import (
 
 type Handlers struct {
 	svc *application.Service
+	// cookie is the session cookie definition shared with the auth
+	// middleware, so the name the handler sets is the name the guard reads.
+	cookie httpx.SessionCookie
 }
 
-func NewHandlers(svc *application.Service) *Handlers {
-	return &Handlers{svc: svc}
+func NewHandlers(svc *application.Service, cookie httpx.SessionCookie) *Handlers {
+	return &Handlers{svc: svc, cookie: cookie}
 }
 
 // toAPIUser maps the domain entity to the contract's response type. It is the

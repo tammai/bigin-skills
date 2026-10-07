@@ -8,6 +8,7 @@
 package auth
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
@@ -31,6 +32,18 @@ const (
 type Claims struct {
 	UserID uint
 	Role   string
+}
+
+// SessionResolver turns a browser session ID into the caller's identity. It is
+// declared here, in the kernel, so the auth middleware can depend on the
+// capability without importing the module that provides it — the users module
+// implements it, and the composition root hands it over.
+//
+// An unknown, expired, or logged-out session is an apperr Unauthorized error,
+// and the three are indistinguishable by design. Any other error is a storage
+// failure, not a verdict on the caller.
+type SessionResolver interface {
+	ResolveSession(ctx context.Context, rawID string) (Claims, error)
 }
 
 // TokenIssuer mints and verifies both token types.
@@ -100,6 +113,13 @@ func (t TokenIssuer) Verify(tokenStr string) (Claims, error) {
 // and its hash, which is the only form that reaches the database. A leaked
 // database dump therefore yields no usable refresh tokens.
 func (t TokenIssuer) NewRefreshToken() (raw string, hash string, err error) {
+	return NewOpaqueToken()
+}
+
+// NewOpaqueToken is 32 bytes of crypto/rand, hex-encoded, plus its hash. Both
+// refresh tokens and browser session IDs are minted here, so the two secrets
+// that stand in for a password share one generator and one storage rule.
+func NewOpaqueToken() (raw string, hash string, err error) {
 	b := make([]byte, 32)
 	if _, err = rand.Read(b); err != nil {
 		return "", "", err
@@ -108,9 +128,9 @@ func (t TokenIssuer) NewRefreshToken() (raw string, hash string, err error) {
 	return raw, HashToken(raw), nil
 }
 
-// HashToken is SHA-256, not bcrypt: refresh tokens are 256 bits of CSPRNG
+// HashToken is SHA-256, not bcrypt: opaque tokens are 256 bits of CSPRNG
 // output, so there is no low-entropy secret to slow a brute force against, and
-// the lookup happens on every refresh.
+// the lookup happens on every refresh and every cookie-authenticated request.
 func HashToken(raw string) string {
 	sum := sha256.Sum256([]byte(raw))
 	return hex.EncodeToString(sum[:])

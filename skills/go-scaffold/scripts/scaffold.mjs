@@ -48,7 +48,21 @@ const OAPI_OUTPUT_DIR = path.join('internal', 'openapi')
 
 const NAME_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/
 const MODULE_RE = /^[A-Za-z0-9][A-Za-z0-9._~-]*(\/[A-Za-z0-9][A-Za-z0-9._~-]*)*$/
-const ORIGIN_RE = /^https?:\/\/[^\s,"]+$/
+// An origin is scheme://host[:port] and nothing else — the rule the generated
+// server's config.NormalizeOrigin applies to WEB_ORIGINS at boot, where an
+// entry with a path, query, fragment or userinfo refuses to start. --cors seeds
+// that variable, so it has to pass the same rule here (one trailing slash is
+// tolerated on both sides).
+const ORIGIN_RE = /^https?:\/\/[^/?#@\s,"]+$/i
+function isOrigin(raw) {
+  const o = raw.endsWith('/') ? raw.slice(0, -1) : raw
+  if (!ORIGIN_RE.test(o)) return false
+  try {
+    return new URL(o).hostname !== ''
+  } catch {
+    return false
+  }
+}
 
 function log(msg) {
   console.log(`[scaffold] ${msg}`)
@@ -106,7 +120,7 @@ Optional:
 
   const origins = values.cors.split(',').map((s) => s.trim())
   for (const o of origins) {
-    if (!ORIGIN_RE.test(o)) fail(`--cors origin "${o}" must be an http(s) URL`, 2)
+    if (!isOrigin(o)) fail(`--cors origin "${o}" must be an http(s) origin — scheme://host[:port], no path, query, fragment or userinfo`, 2)
   }
 
   return {

@@ -20,6 +20,9 @@ Not loaded at run time: `SKILL.md` keeps only what a scaffold run executes. Read
 - **`arch_test.go` tests the checker, not just the repo.** A checker whose patterns silently match nothing keeps the suite green while every boundary rots — the classic dead-gate failure. The fixture table asserts both directions for each rule: the illegal import is caught, and the legal shape of the same import is not.
 - **Why is routing generated but security hand-wired?** `oapi-codegen`'s gin-server registers every operation on one router and does **not** enforce `security:` from the contract. `internal/api/middleware/selector.go` closes that gap by matching `c.FullPath()` prefixes (`/api/v1/user` → user role, `/api/v1/admin` → admin role) and applying per-route rate limits. **The BaseURL drift that used to be this scaffold's sharpest edge is now structurally impossible**: `middleware.BaseURL` is one constant, read both by the router's `GinServerOptions.BaseURL` and by the selectors, so the two cannot disagree. What remains is a *new* path prefix with no selector case — public, compiling, answering 200 — which is why `internal/api/router_test.go` still asserts both directions against the real `NewRouter`.
 
+- **Why does the auth guard take an interface for sessions?** `internal/api/middleware` must not import a module, but a cookie is only meaningful to the module that stores sessions. `auth.SessionResolver` is declared in the kernel; the users module's `Service` implements it (asserted at compile time), `users.Module.Sessions()` hands it out, and `cmd/server` passes it into `api.Options`. The same seam is what lets `router_test.go` assert cookie handling with a fake and no database.
+- **Why is CSRF keyed on how the request authenticated, not on whether a cookie is present?** A cookie the guard never read can't be abused, and checking every request that happens to carry one would 403 a browser calling a public route with a stale cookie. `Require` marks cookie-authenticated requests and `middleware.CSRF` — run after it — checks only those, plus the two `/auth/session` operations, which are public by necessity and forgeable by design (login CSRF, forced logout). `WEB_ORIGINS` stays separate from `CORS_ORIGINS`: one decides who may *read*, the other who may *change state* with a user's cookie, and widening one must not silently widen the other.
+
 ### Stack choices
 
 - **Why not vendor `oapi-codegen` in the scaffolded module's own `go.mod`?** Go 1.24's `go get -tool` would pin it reproducibly, but pulls its whole dependency tree into `go.sum` for a tool that never ships in the built binary. `go run pkg@version` avoids that: no `go.mod` pollution, version still pinned (kept in sync between the Makefile template and `scaffold.mjs`'s own constant).
@@ -86,8 +89,16 @@ PORT=18090 ./bin/server &
 | logout, then refresh with the same token | 200 then 401 |
 | stop Postgres → `GET /healthz` / `GET /readyz` | 200 / 503 |
 | 6 rapid `POST /api/v1/auth/login` | the tail returns 429 |
+| `POST /api/v1/auth/session` with `Origin: http://localhost:3000` (in `WEB_ORIGINS`) | 201, `Set-Cookie: __Host-session=…; HttpOnly; Secure; SameSite=Lax` |
+| same, with no `Origin` or `Origin: null` | 403 — login CSRF |
+| `GET /api/v1/user/profile` with that cookie | 200 |
+| `PUT /api/v1/user/profile` with the cookie, no `Origin` / foreign `Origin` / allowlisted `Origin` | 403 / 403 / 200 |
+| the same `PUT` with a Bearer token and no `Origin` | 200 — Bearer is CSRF-exempt |
+| an invalid Bearer plus the valid cookie | 401 — no fallback |
+| `DELETE /api/v1/auth/session` with the cookie, then `GET /api/v1/user/profile` with it | 200 then 401 |
+| `WEB_ORIGINS=*` | the binary refuses to boot |
 
-Also worth a look in `psql`: `token_hash` is 64 hex chars (SHA-256) and no raw refresh token appears anywhere in the table.
+Also worth a look in `psql`: `token_hash` is 64 hex chars (SHA-256) and no raw refresh token or session ID appears anywhere in `refresh_tokens` or `sessions`.
 
 That rate limit is per-IP and per-route with a one-minute window, so re-running the login probes inside the same minute keeps returning 429 — wait it out rather than debugging a phantom failure. If host port 5454 is already taken by another Postgres, remap it in the *test copy* only; don't change the template to dodge a local collision.
 

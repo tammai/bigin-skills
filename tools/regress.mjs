@@ -699,6 +699,27 @@ t('go-scaffold builds with VCS stamping off', () => {
   return 'stamping off'
 })
 
+// --cors seeds both CORS_ORIGINS and WEB_ORIGINS, and the generated server
+// refuses to boot on a WEB_ORIGINS entry config.NormalizeOrigin rejects. The
+// scaffolder's own check must apply the same rule, or it writes a .env.example
+// whose first `make run` dies — the old ORIGIN_RE accepted any http(s) URL,
+// path included.
+t('go-scaffold --cors accepts exactly what the server accepts', () => {
+  const GS = join(REPO, 'skills', 'go-scaffold', 'scripts', 'scaffold.mjs')
+  let n = 0
+  const run = cors => {
+    const dir = join(TMP, `gcors${n++}`)
+    return spawnSync('node', [GS, '--module', 'github.com/acme/x', '--dir', dir, '--cors', cors, '--skip-verify'], { encoding: 'utf8' }).status
+  }
+  for (const bad of ['https://app.example.com/app', 'https://app.example.com?x=1', 'https://app.example.com#f',
+    'https://user@app.example.com', 'ftp://app.example.com', 'app.example.com', '*', 'null', 'https://'])
+    eq(run(bad), 2, `--cors ${bad}`)
+  for (const good of ['http://localhost:3000', 'https://App.Example.com/', 'https://app.example.com:443',
+    'http://localhost:3000,https://app.example.com'])
+    eq(run(good), 0, `--cors ${good}`)
+  return 'path/query/fragment/userinfo rejected'
+})
+
 console.log('\n6. WIRING')
 const rd = f => readFileSync(join(REPO,f),'utf8')
 t('Phase 0.5 table has a nuxt-marketing row', () => {

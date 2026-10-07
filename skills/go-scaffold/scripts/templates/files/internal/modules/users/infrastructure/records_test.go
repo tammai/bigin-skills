@@ -45,6 +45,24 @@ func TestRefreshTokenRecordRoundTrip(t *testing.T) {
 	}
 }
 
+func TestSessionRecordRoundTrip(t *testing.T) {
+	now := time.Now().Truncate(time.Second)
+	original := domain.Session{
+		ID:                4,
+		UserID:            7,
+		TokenHash:         "def456",
+		CreatedAt:         now,
+		LastSeenAt:        now.Add(time.Minute),
+		IdleExpiresAt:     now.Add(72 * time.Hour),
+		AbsoluteExpiresAt: now.Add(30 * 24 * time.Hour),
+	}
+
+	got := sessionRecordOf(&original).toDomain()
+	if got != original {
+		t.Errorf("round trip lost data:\n got  %+v\n want %+v", got, original)
+	}
+}
+
 // GORM pluralises the struct name unless TableName says otherwise, so without
 // these the queries would target user_records / refresh_token_records — tables
 // the migrations never create.
@@ -54,5 +72,8 @@ func TestTableNamesMatchTheMigrations(t *testing.T) {
 	}
 	if got := (refreshTokenRecord{}).TableName(); got != "refresh_tokens" {
 		t.Errorf("refreshTokenRecord table = %q, want refresh_tokens", got)
+	}
+	if got := (sessionRecord{}).TableName(); got != "sessions" {
+		t.Errorf("sessionRecord table = %q, want sessions", got)
 	}
 }

@@ -1,6 +1,6 @@
 ---
 name: go-scaffold
-description: "Scaffolds a new Go modular-monolith REST API from scratch (no go.mod yet) — Gin, contract-first oapi-codegen, GORM + Postgres, JWT auth. Triggers: 'scaffold go api', 'create go rest api', 'new go backend'."
+description: "Scaffolds a new Go modular-monolith REST API from scratch (no go.mod yet) — Gin, contract-first oapi-codegen, GORM + Postgres, JWT + cookie-session auth. Triggers: 'scaffold go api', 'create go rest api', 'new go backend'."
 effort: low
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/scaffold.mjs *)
 ---
@@ -13,7 +13,7 @@ Scaffolds a Go REST API from a single template. The mechanical work is done by a
 
 Stack: Go ≥1.24, Gin, contract-first via `oapi-codegen` (`openapi.yaml` → `internal/openapi/openapi.gen.go`: gin-server interface + request/response models), GORM + `pgx` on Postgres, `godotenv` config, `golang-migrate` for schema, `air` for hot reload.
 
-One template only — no variant menu like nuxt-scaffold's. The generated app is a **modular monolith**: `cmd/server` is the composition root, `internal/modules/<mod>/` holds each module's four layers (`domain`, `application`, `infrastructure`, `api`) behind a `module.go` public contract, and `internal/shared/` holds the cross-cutting kernel. It ships **one module** (`users`) carrying the full auth kernel: signup with password-complexity + HTML-rejection validation, login, refresh-token **rotation** (opaque, stored hashed, replay-detecting), logout, an authenticated profile, and admin user management (list/paginate, role change, delete) with self-demotion and self-deletion blocked. Per-route rate limiting, an origin-allowlisted CORS layer, liveness/readiness probes. `internal/arch` enforces the boundaries as a test. Everything else about the shape is fixed.
+One template only — no variant menu like nuxt-scaffold's. The generated app is a **modular monolith**: `cmd/server` is the composition root, `internal/modules/<mod>/` holds each module's four layers (`domain`, `application`, `infrastructure`, `api`) behind a `module.go` public contract, and `internal/shared/` holds the cross-cutting kernel. It ships **one module** (`users`) carrying the full auth kernel: signup with password-complexity + HTML-rejection validation, login, refresh-token **rotation** (opaque, stored hashed, replay-detecting), logout, browser **cookie sessions** (server-side, hashed IDs, idle + absolute expiry, `Origin`-allowlist CSRF on cookie mutations) accepted beside Bearer on every protected route, an authenticated profile, and admin user management (list/paginate, role change, delete) with self-demotion and self-deletion blocked. Per-route rate limiting, an origin-allowlisted CORS layer, liveness/readiness probes. `internal/arch` enforces the boundaries as a test. Everything else about the shape is fixed.
 
 > Governance (CLAUDE.md, `.claude/rules/`, AI guides, `bash-guard.mjs`) is **not** this skill's job — run `bigin-harness-setup` afterward to overlay it.
 

@@ -10,6 +10,7 @@ package application
 
 import (
 	"context"
+	"time"
 
 	"{{MODULE}}/internal/modules/users/domain"
 	"{{MODULE}}/internal/shared/auth"
@@ -39,17 +40,53 @@ type RefreshTokenRepository interface {
 	Revoke(ctx context.Context, hash string) error
 }
 
+// SessionRepository is the browser-session port. Like refresh tokens, sessions
+// are addressed by hash because the cookie value is never stored.
+// UpdateActivity persists only what sliding changes (LastSeenAt and
+// IdleExpiresAt); Delete of an unknown hash is not an error.
+// DeleteExpiredForUser removes that user's sessions whose idle or absolute
+// expiry is at or before now.
+type SessionRepository interface {
+	Create(ctx context.Context, s *domain.Session) error
+	ByHash(ctx context.Context, hash string) (*domain.Session, error)
+	UpdateActivity(ctx context.Context, s *domain.Session) error
+	Delete(ctx context.Context, hash string) error
+	DeleteExpiredForUser(ctx context.Context, userID uint, now time.Time) error
+}
+
 // Service is the module's use-case surface. Dependencies arrive through
 // NewService, so nothing here reaches for a package-level database handle.
 type Service struct {
-	users  UserRepository
-	tokens RefreshTokenRepository
-	issuer auth.TokenIssuer
+	users    UserRepository
+	tokens   RefreshTokenRepository
+	sessions SessionRepository
+	issuer   auth.TokenIssuer
+	policy   domain.SessionPolicy
+	// now is the clock. A field rather than time.Now at each call site so the
+	// session tests can move time instead of sleeping through it.
+	now func() time.Time
 }
 
-func NewService(users UserRepository, tokens RefreshTokenRepository, issuer auth.TokenIssuer) *Service {
-	return &Service{users: users, tokens: tokens, issuer: issuer}
+func NewService(
+	users UserRepository,
+	tokens RefreshTokenRepository,
+	sessions SessionRepository,
+	issuer auth.TokenIssuer,
+	policy domain.SessionPolicy,
+) *Service {
+	return &Service{
+		users:    users,
+		tokens:   tokens,
+		sessions: sessions,
+		issuer:   issuer,
+		policy:   policy,
+		now:      time.Now,
+	}
 }
+
+// The users module is the auth middleware's session resolver; this assertion
+// keeps the method signature and the kernel's interface from drifting apart.
+var _ auth.SessionResolver = (*Service)(nil)
 
 // Tokens is a freshly issued pair. The refresh value here is the RAW token —
 // the only moment it exists outside the client, since storage keeps the hash.

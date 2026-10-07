@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -28,17 +29,21 @@ const (
 	userPrefix  = BaseURL + "/user"
 	adminPrefix = BaseURL + "/admin"
 
-	signupRoute = BaseURL + "/auth/signup"
-	loginRoute  = BaseURL + "/auth/login"
+	signupRoute  = BaseURL + "/auth/signup"
+	loginRoute   = BaseURL + "/auth/login"
+	sessionRoute = BaseURL + "/auth/session"
 )
 
 // AuthByPath applies role-based auth by matched-route prefix. It exists because
 // oapi-codegen's gin-server registers every operation on one router and does
 // NOT enforce the contract's `security:` schemes — the generated code knows
 // which routes are protected and does nothing about it.
-func AuthByPath(issuer auth.TokenIssuer) gin.HandlerFunc {
-	requireUser := Require(issuer, auth.RoleUser)
-	requireAdmin := Require(issuer, auth.RoleAdmin)
+//
+// Either credential satisfies these selectors — Bearer or session cookie — so
+// the contract's two `security:` alternatives map to one guard per prefix.
+func AuthByPath(a Authenticator) gin.HandlerFunc {
+	requireUser := Require(a, auth.RoleUser)
+	requireAdmin := Require(a, auth.RoleAdmin)
 
 	return func(c *gin.Context) {
 		switch {
@@ -52,19 +57,36 @@ func AuthByPath(issuer auth.TokenIssuer) gin.HandlerFunc {
 	}
 }
 
+// csrfPublicRoutes are the public routes CSRF checks even though no credential
+// authenticated the request. Every other public route carries nothing to
+// forge; these two create and destroy the credential itself — a forged
+// session create is login CSRF (the victim is signed into the attacker's
+// account), a forged delete is a forced logout. A new public route that sets
+// or clears the session cookie belongs here.
+var csrfPublicRoutes = map[string]bool{
+	sessionRoute: true, // POST create, DELETE logout
+}
+
 // RateLimitByPath gives the public auth endpoints their own budgets. Each route
 // is limited independently, so a burst of signups cannot exhaust login's
-// allowance and lock out legitimate users.
+// allowance and lock out legitimate users — and the browser login gets a budget
+// of its own rather than sharing the token login's, for the same reason.
+//
+// Only POST /auth/session is limited: it is the one that checks a password.
+// DELETE on the same path is logout, which guesses nothing.
 func RateLimitByPath() gin.HandlerFunc {
 	signup := RateLimit("signup", 5, 5)
 	login := RateLimit("login", 5, 5)
+	session := RateLimit("session", 5, 5)
 
 	return func(c *gin.Context) {
-		switch c.FullPath() {
-		case signupRoute:
+		switch {
+		case c.FullPath() == signupRoute:
 			signup(c)
-		case loginRoute:
+		case c.FullPath() == loginRoute:
 			login(c)
+		case c.FullPath() == sessionRoute && c.Request.Method == http.MethodPost:
+			session(c)
 		default:
 			c.Next()
 		}

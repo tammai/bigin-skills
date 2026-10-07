@@ -148,14 +148,98 @@ func (f *fakeTokens) Revoke(_ context.Context, hash string) error {
 	return nil
 }
 
+type fakeSessions struct {
+	byHash map[string]*domain.Session
+	nextID uint
+	// activityWrites counts UpdateActivity calls, so the slide tests can prove
+	// a request inside the interval does not write at all.
+	activityWrites int
+	// failPrune makes DeleteExpiredForUser fail, to prove a cleanup failure
+	// never blocks a login.
+	failPrune error
+}
+
+func newFakeSessions() *fakeSessions {
+	return &fakeSessions{byHash: map[string]*domain.Session{}, nextID: 1}
+}
+
+var _ SessionRepository = (*fakeSessions)(nil)
+
+func (f *fakeSessions) Create(_ context.Context, s *domain.Session) error {
+	s.ID = f.nextID
+	f.nextID++
+	stored := *s
+	f.byHash[s.TokenHash] = &stored
+	return nil
+}
+
+func (f *fakeSessions) ByHash(_ context.Context, hash string) (*domain.Session, error) {
+	s, ok := f.byHash[hash]
+	if !ok {
+		return nil, apperr.NotFound("Session not found")
+	}
+	copied := *s
+	return &copied, nil
+}
+
+func (f *fakeSessions) UpdateActivity(_ context.Context, s *domain.Session) error {
+	f.activityWrites++
+	for _, stored := range f.byHash {
+		if stored.ID == s.ID {
+			stored.LastSeenAt = s.LastSeenAt
+			stored.IdleExpiresAt = s.IdleExpiresAt
+		}
+	}
+	return nil
+}
+
+func (f *fakeSessions) DeleteExpiredForUser(_ context.Context, userID uint, now time.Time) error {
+	if f.failPrune != nil {
+		return f.failPrune
+	}
+	for hash, s := range f.byHash {
+		if s.UserID == userID && s.Expired(now) {
+			delete(f.byHash, hash)
+		}
+	}
+	return nil
+}
+
+func (f *fakeSessions) Delete(_ context.Context, hash string) error {
+	delete(f.byHash, hash)
+	return nil
+}
+
+// testSessionPolicy matches the config defaults, so the expiry tests read in
+// the same units an operator thinks in.
+var testSessionPolicy = domain.SessionPolicy{IdleTTL: 72 * time.Hour, AbsoluteTTL: 30 * 24 * time.Hour}
+
 // newTestService wires the fakes with a real TokenIssuer — tokens are pure
 // computation, so there is nothing to gain from faking them and something to
 // lose: the rotation tests below would stop proving that hashes actually match.
 func newTestService(t *testing.T) (*Service, *fakeUsers, *fakeTokens) {
 	t.Helper()
-	users, tokens := newFakeUsers(), newFakeTokens()
+	svc, users, tokens, _ := newTestServiceWithSessions(t)
+	return svc, users, tokens
+}
+
+func newTestServiceWithSessions(t *testing.T) (*Service, *fakeUsers, *fakeTokens, *fakeSessions) {
+	t.Helper()
+	users, tokens, sessions := newFakeUsers(), newFakeTokens(), newFakeSessions()
 	issuer := auth.NewTokenIssuer([]byte("test-secret"), 15*time.Minute, 7*24*time.Hour)
-	return NewService(users, tokens, issuer), users, tokens
+	return NewService(users, tokens, sessions, issuer, testSessionPolicy), users, tokens, sessions
+}
+
+// testClock is a settable Service.now, so expiry is tested by moving time
+// rather than by sleeping or by editing rows behind the service's back.
+type testClock struct{ t time.Time }
+
+func (c *testClock) now() time.Time          { return c.t }
+func (c *testClock) advance(d time.Duration) { c.t = c.t.Add(d) }
+func useClock(svc *Service, start time.Time) *testClock {
+	c := &testClock{t: start}
+	svc.now = c.now
+	return c
 }
 
 // seedUser registers a user through the real SignUp path so the stored password

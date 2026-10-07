@@ -15,6 +15,7 @@ import (
 	"{{MODULE}}/internal/shared/auth"
 	"{{MODULE}}/internal/shared/config"
 	"{{MODULE}}/internal/shared/db"
+	"{{MODULE}}/internal/shared/httpx"
 )
 
 func main() {
@@ -38,15 +39,25 @@ func main() {
 	}
 
 	issuer := auth.NewTokenIssuer(cfg.JWTSecret, cfg.AccessTokenTTL, cfg.RefreshTokenTTL)
+	sessionCookie := httpx.SessionCookie{Name: cfg.SessionCookieName, Secure: cfg.SessionCookieSecure}
+
+	// One line per module. Adding a module means adding it here and embedding
+	// its handlers in internal/api/server.go.
+	usersModule := users.New(gormDB, issuer, users.Options{
+		SessionIdleTTL:     cfg.SessionIdleTTL,
+		SessionAbsoluteTTL: cfg.SessionAbsoluteTTL,
+		SessionCookie:      sessionCookie,
+	})
 
 	router := api.NewRouter(api.Options{
-		Spec:        spec,
-		CORSOrigins: cfg.CORSOrigins,
-		TokenIssuer: issuer,
-		Ping:        func() error { return db.Ping(gormDB) },
-		// One line per module. Adding a module means adding it here and
-		// embedding its handlers in internal/api/server.go.
-		Users: users.New(gormDB, issuer),
+		Spec:          spec,
+		CORSOrigins:   cfg.CORSOrigins,
+		TokenIssuer:   issuer,
+		Sessions:      usersModule.Sessions(),
+		SessionCookie: sessionCookie,
+		WebOrigins:    cfg.WebOrigins,
+		Ping:          func() error { return db.Ping(gormDB) },
+		Users:         usersModule,
 	})
 
 	log.Printf("listening on :%s", cfg.Port)

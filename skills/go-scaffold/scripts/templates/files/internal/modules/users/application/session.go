@@ -16,16 +16,9 @@ import (
 // them turns the login endpoint into an account-enumeration oracle, which is
 // why the lookup failure is not passed through as a 404.
 func (s *Service) Login(ctx context.Context, email, password string) (*domain.User, Tokens, error) {
-	user, err := s.users.ByEmail(ctx, validate.NormalizeEmail(email))
+	user, err := s.authenticate(ctx, email, password)
 	if err != nil {
-		if apperr.KindOf(err) == apperr.KindNotFound {
-			return nil, Tokens{}, apperr.Unauthorized("Invalid email or password")
-		}
 		return nil, Tokens{}, err
-	}
-
-	if err := auth.CheckPassword(user.PasswordHash, password); err != nil {
-		return nil, Tokens{}, apperr.Unauthorized("Invalid email or password")
 	}
 
 	tokens, err := s.issue(ctx, user)
@@ -78,6 +71,25 @@ func (s *Service) Refresh(ctx context.Context, rawToken string) (Tokens, error) 
 // and it is, and saying "no such token" would confirm which tokens exist.
 func (s *Service) Logout(ctx context.Context, rawToken string) error {
 	return s.tokens.Revoke(ctx, auth.HashToken(rawToken))
+}
+
+// authenticate is the one credential check. Token login and browser login both
+// call it, so they cannot drift into giving different answers for the same
+// wrong password — which would reopen the enumeration oracle on whichever one
+// drifted.
+func (s *Service) authenticate(ctx context.Context, email, password string) (*domain.User, error) {
+	user, err := s.users.ByEmail(ctx, validate.NormalizeEmail(email))
+	if err != nil {
+		if apperr.KindOf(err) == apperr.KindNotFound {
+			return nil, apperr.Unauthorized("Invalid email or password")
+		}
+		return nil, err
+	}
+
+	if err := auth.CheckPassword(user.PasswordHash, password); err != nil {
+		return nil, apperr.Unauthorized("Invalid email or password")
+	}
+	return user, nil
 }
 
 func (s *Service) issue(ctx context.Context, user *domain.User) (Tokens, error) {

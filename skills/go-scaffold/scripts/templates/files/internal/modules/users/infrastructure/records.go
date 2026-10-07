@@ -93,3 +93,39 @@ func refreshTokenRecordOf(t *domain.RefreshToken) refreshTokenRecord {
 		CreatedAt: t.CreatedAt,
 	}
 }
+
+type sessionRecord struct {
+	ID                uint `gorm:"primaryKey"`
+	UserID            uint
+	TokenHash         string
+	CreatedAt         time.Time
+	LastSeenAt        time.Time
+	IdleExpiresAt     time.Time
+	AbsoluteExpiresAt time.Time
+}
+
+func (sessionRecord) TableName() string { return "sessions" }
+
+func (r sessionRecord) toDomain() domain.Session {
+	return domain.Session{
+		ID:                r.ID,
+		UserID:            r.UserID,
+		TokenHash:         r.TokenHash,
+		CreatedAt:         r.CreatedAt,
+		LastSeenAt:        r.LastSeenAt,
+		IdleExpiresAt:     r.IdleExpiresAt,
+		AbsoluteExpiresAt: r.AbsoluteExpiresAt,
+	}
+}
+
+func sessionRecordOf(s *domain.Session) sessionRecord {
+	return sessionRecord{
+		ID:                s.ID,
+		UserID:            s.UserID,
+		TokenHash:         s.TokenHash,
+		CreatedAt:         s.CreatedAt,
+		LastSeenAt:        s.LastSeenAt,
+		IdleExpiresAt:     s.IdleExpiresAt,
+		AbsoluteExpiresAt: s.AbsoluteExpiresAt,
+	}
+}

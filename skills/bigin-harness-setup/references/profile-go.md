@@ -138,6 +138,7 @@ If you find yourself writing an `if` in a handler that isn't about the wire form
 - `internal/api/middleware/selector.go` maps route prefixes to roles and rate limits by matching `c.FullPath()`. Those prefixes are built from `middleware.BaseURL`, the same constant the router registers with — so the two can't drift. What still bites: a **new** path prefix with no case falls through to `default: c.Next()` and is public, compiling, answering 200. `internal/api/router_test.go` asserts both directions; keep it passing.
 - Free-text fields get two layers: the `notags` binding tag rejects markup at bind time, `validate.SanitizeText` cleans at write time — call it from the domain constructor/mutator, not the handler, so every caller gets it.
 - Refresh tokens are opaque, stored only as a SHA-256 hash, and rotated on use. Never store or log a raw refresh token.
+- Browser sessions follow the same rule: the `__Host-session` cookie carries random bytes, the `sessions` table only their hash. A request authenticates by Bearer **or** the cookie, never both — an invalid Bearer is a 401, not a fallback. Every state-changing route a cookie can reach goes through the CSRF `Origin` check (`WEB_ORIGINS`); a new public route that touches the session joins `csrfPublicRoutes` in `selector.go`.
 - Never trust a client-supplied `role`; it is set server-side.
 - The caller's identity comes from `httpx.ClaimsFrom(c)`, populated by the auth middleware. Never take a user ID from a body or query parameter.
 - Nothing below `cmd/server` reads `os.Getenv` — config is resolved once and passed down. Add a field to `shared/config.Config` rather than reaching for the environment.
@@ -200,7 +201,7 @@ Co-located `_test.go` files (idiomatic Go), not a mirrored `tests/` tree. `_test
 - **`go test ./...` stays database-free.** It is the pre-commit and merge-gate command. A test that needs Postgres carries `//go:build integration` as its first line; untagged, it either fails every CI run or gets `t.Skip`ped into silence.
 - If a new use case can't be tested with fakes, the dependency direction is wrong — fix the port, don't reach for the integration tier.
 - A test that rebuilds its own router proves nothing about the wiring that ships.
-- Cover the negative cases directly: expired token, foreign signing secret, `alg=none`, unlisted CORS origin, replayed refresh token, and an unclassified error not leaking its text.
+- Cover the negative cases directly: expired token, foreign signing secret, `alg=none`, unlisted CORS origin, replayed refresh token, a cookie-authenticated mutation with a missing or unlisted `Origin`, an invalid Bearer beside a valid cookie, and an unclassified error not leaking its text.
 - Keep nil-guard tests (e.g. `/readyz` with no DB connected): they catch the bug that only shows up when a dependency is legitimately absent.
 - `internal/arch` tests the checker as well as the repo. A new boundary rule adds both fixtures: the illegal import it catches and the legal shape it must not.
 

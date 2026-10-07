@@ -24,12 +24,16 @@
 package users
 
 import (
+	"time"
+
 	"gorm.io/gorm"
 
 	usersapi "{{MODULE}}/internal/modules/users/api"
 	"{{MODULE}}/internal/modules/users/application"
+	"{{MODULE}}/internal/modules/users/domain"
 	"{{MODULE}}/internal/modules/users/infrastructure"
 	"{{MODULE}}/internal/shared/auth"
+	"{{MODULE}}/internal/shared/httpx"
 )
 
 // Handlers is the module's HTTP surface, re-exported as an alias so the
@@ -37,20 +41,45 @@ import (
 // importing the module's api package directly.
 type Handlers = usersapi.Handlers
 
+// Options is the module's configuration, resolved from the environment by
+// cmd/server. Plain types only: this file is the module's public contract, and
+// a field typed from domain would force every caller to import a package the
+// encapsulation rule says it may not.
+type Options struct {
+	// SessionIdleTTL and SessionAbsoluteTTL bound a browser session: the first
+	// slides with activity, the second never moves.
+	SessionIdleTTL     time.Duration
+	SessionAbsoluteTTL time.Duration
+	// SessionCookie names the cookie and decides whether it is Secure.
+	SessionCookie httpx.SessionCookie
+}
+
 // Module is the assembled module. New performs the module's own wiring — which
 // repository backs which port, which use cases the handlers get — so the
 // composition root only has to know that a users module exists.
 type Module struct {
 	handlers *Handlers
+	service  *application.Service
 }
 
-func New(db *gorm.DB, issuer auth.TokenIssuer) *Module {
+func New(db *gorm.DB, issuer auth.TokenIssuer, opts Options) *Module {
 	service := application.NewService(
 		infrastructure.NewUserRepository(db),
 		infrastructure.NewRefreshTokenRepository(db),
+		infrastructure.NewSessionRepository(db),
 		issuer,
+		domain.SessionPolicy{IdleTTL: opts.SessionIdleTTL, AbsoluteTTL: opts.SessionAbsoluteTTL},
 	)
-	return &Module{handlers: usersapi.NewHandlers(service)}
+	return &Module{
+		handlers: usersapi.NewHandlers(service, opts.SessionCookie),
+		service:  service,
+	}
 }
 
 func (m *Module) HTTPHandlers() *Handlers { return m.handlers }
+
+// Sessions is the module's browser-session lookup, handed to the auth
+// middleware as the kernel's interface. The middleware sees a capability, not
+// the module — which is what keeps internal/api/middleware free of any module
+// import.
+func (m *Module) Sessions() auth.SessionResolver { return m.service }

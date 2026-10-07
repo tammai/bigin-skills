@@ -1,7 +1,9 @@
 # {{PROJECT_NAME}}
 
 Go REST API — a **modular monolith**. Gin, contract-first via `oapi-codegen`,
-GORM + Postgres, JWT access tokens with rotating refresh tokens.
+GORM + Postgres. Two ways in: JWT access tokens with rotating refresh tokens
+for API and mobile clients, and server-side sessions in an HttpOnly cookie for
+browsers.
 
 ## Quick start
 
@@ -40,7 +42,7 @@ cmd/server/                     ← entrypoint + composition root: reads env, op
 internal/
   openapi/openapi.gen.go        ← GENERATED from openapi.yaml — never hand-edit
   api/                          ← HTTP composition: router, health probes, module assembly
-    middleware/                 ← auth guard, CORS, rate limit, path selectors
+    middleware/                 ← auth guard (Bearer or cookie), CSRF, CORS, rate limit, path selectors
   modules/
     users/                      ← module.go IS the module's public API; everything below is private
       domain/                   ← entity + invariants. No gin, no gorm, no generated types
@@ -79,7 +81,9 @@ is a test rather than a note in a README.
    handler method in that module's `api/` package.
 4. If the route sits under a new path prefix that needs auth or a rate limit,
    add a case in `internal/api/middleware/selector.go` — routing is generated,
-   **security is not**, and a missing case leaves the route public.
+   **security is not**, and a missing case leaves the route public. A protected
+   prefix accepts both credentials, so list both schemes under its `security:`
+   (`BearerAuth` and `cookieAuth`).
 
 ## Adding a module
 
@@ -113,3 +117,27 @@ an N+1 the boundary hides.
   (Redis) before scaling out.
 - Refresh tokens are opaque, stored only as a SHA-256 hash, and rotated on every
   use, so a replayed token is detected instead of silently accepted.
+
+## Authentication
+
+| Client | Log in | Then send | Log out |
+|---|---|---|---|
+| API / mobile | `POST /auth/login` → tokens in the body | `Authorization: Bearer <access>`; renew with `POST /auth/refresh` | `POST /auth/logout` |
+| Browser | `POST /auth/session` → `Set-Cookie` | the cookie, automatically | `DELETE /auth/session` |
+
+- `/user/*` and `/admin/*` accept either. With both on one request the Bearer
+  token decides, and an invalid one is a 401 — it never falls back to the cookie.
+- The session cookie is `__Host-session`: HttpOnly, Secure, SameSite=Lax,
+  `Max-Age` = `SESSION_ABSOLUTE_DAYS`. The ID is 32 random bytes, stored only as
+  a SHA-256 hash in `sessions`. Activity slides the idle expiry
+  (`SESSION_IDLE_HOURS`, written at most once an hour); the absolute one never
+  moves. Logout deletes the row, so it takes effect immediately, and the role is
+  re-read from `users` on every request.
+- **CSRF.** A cookie request that changes state (anything but GET/HEAD/OPTIONS),
+  and every call to `/auth/session`, must carry an `Origin` listed in
+  `WEB_ORIGINS`; otherwise 403. Bearer requests are exempt. `WEB_ORIGINS` is
+  separate from `CORS_ORIGINS`, empty refuses every cookie mutation, and `*`
+  refuses to boot — in either variable. Both compare origins normalised:
+  lowercase, no trailing slash, no default port.
+- `SESSION_COOKIE_SECURE=false` is for plain-HTTP development only: the cookie
+  becomes `session` without `Secure`, and the server logs a warning at boot.

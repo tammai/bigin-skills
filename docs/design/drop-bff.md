@@ -25,17 +25,17 @@ sequenceDiagram
   participant B as Browser (acme-app.com)
   participant E as Pass-through /api/v*/**
   participant G as Go API (acme-api.io)
-  B->>E: POST /api/v1/sessions {email,password}
-  E->>G: POST /v1/sessions
+  B->>E: POST /api/v1/auth/session {email,password}
+  E->>G: POST /api/v1/auth/session
   G-->>E: 201 + Set-Cookie: __Host-session (HttpOnly)
   E-->>B: 201 + Set-Cookie (first-party on acme-app.com)
-  B->>E: GET /api/v1/users (cookie)
-  E->>G: GET /v1/users (cookie)
+  B->>E: GET /api/v1/user/profile (cookie)
+  E->>G: GET /api/v1/user/profile (cookie)
   G->>G: session lookup + slide expiry; mutations: Origin ∈ WEB_ORIGINS
   G-->>B: 200 (streamed through)
 ```
 
-The Go API gains a second auth mode beside Bearer: an opaque session ID in a `__Host-session` cookie (HttpOnly, Secure, SameSite=Lax, no `Domain`), backed by a `sessions` table with sliding expiry. Cookie-authenticated mutations must carry an `Origin` in `WEB_ORIGINS`. Each web app's domain passes `/api/v*/**` through to the API — a catch-all handler for Nuxt, `rewrites` for Next — so the cookie is first-party to the app. Flutter calls the API's own domain with Bearer + refresh, as today.
+The Go API gains a second auth mode beside Bearer: an opaque session ID in a `__Host-session` cookie (HttpOnly, Secure, SameSite=Lax, no `Domain`), backed by a `sessions` table with sliding expiry. Cookie-authenticated mutations must carry an `Origin` in `WEB_ORIGINS`. Each web app's domain passes `/api/v*/**` through to the API verbatim (the API's own `BaseURL` is `/api/v1`, so nothing is stripped) — a catch-all handler for Nuxt, `rewrites` for Next — so the cookie is first-party to the app. Flutter calls the API's own domain with Bearer + refresh, as today.
 
 **Forced:** the web app and the API can be on different sites, and a cookie the API sets on its own domain is then third-party, which Safari blocks — so the cookie must arrive through the app's domain. Flutter has no browser cookie jar, so Bearer stays.
 **Chosen:** server-side sessions with no refresh token on the web — refresh exists for mobile and is what produced the race. A pass-through with no tokens and no logic beyond a path allowlist — `rewrites` config for Next, a catch-all handler for Nuxt, because Nitro's `routeRules` proxy buffers responses and can't express the allowlist (see Spike results).
