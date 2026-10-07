@@ -10,6 +10,7 @@ The agent writes a spec before it writes code. A second, memoryless agent audits
 | **Day to day** | [User Guide](docs/USER_GUIDE.md) — setup, the daily loop, what each gate blocks and how to unblock it, troubleshooting |
 | **Going deeper** | [Spec gate](docs/SPEC-GATE.md) · [Enforcement gates](docs/GATES.md) · [Model routing](docs/ROUTING.md) · [Knowledge bundle](docs/KNOWLEDGE.md) · [Code graph](docs/GRAPHIFY.md) |
 | **Multi-repo projects** | [Polyrepo standard](docs/polyrepo/README.md) — the six-repo project layout, contract vendoring, story sync, and the repo types the harness installs for each |
+| **Upgrading** | [Migrating off the BFF](docs/migrating-off-bff.md) — moving a Nuxt or Next app scaffolded before v1.109.0 / v1.110.0 to the API's cookie sessions |
 
 ---
 

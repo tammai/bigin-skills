@@ -1,6 +1,6 @@
 # Design: Drop the BFF for API-owned cookie sessions
 
-- **Status:** approved
+- **Status:** shipped (v1.107.0 – v1.110.1)
 - **Epic:** `.claude/memory/EPIC.md` → drop-bff
 - **PRD:** none — no PRD for this initiative
 - **Date:** 2026-10-07
@@ -52,7 +52,7 @@ The Go API gains a second auth mode beside Bearer: an opaque session ID in a `__
 - **Security and privacy** — no token is reachable by XSS, though XSS can still act within the session, as under the BFF. CSRF: SameSite=Lax plus the `Origin` allowlist. Sessions are revocable server-side immediately, which the JWT design could not do.
 - **Observability** — `x-request-id` passes through in both directions.
 - **Performance** — the same hop count as the BFF, without buffering or request replay.
-- **Migration and rollout** — a manual guide; existing repos keep their BFF and their BFF rules, so no patch blocks.
+- **Migration and rollout** — a manual guide, [`docs/migrating-off-bff.md`](../migrating-off-bff.md); existing repos keep their BFF and their BFF rules, so no patch blocks. Existing BFF apps get no interim refresh-before-expiry fix: they stay as they are until they move with the guide.
 - **Failure modes** — an unreachable API yields a 502 from the edge; an expired session yields a 401 the client handles by sending the user to sign in.
 
 ## Risks
@@ -62,10 +62,29 @@ The Go API gains a second auth mode beside Bearer: an opaque session ID in a `__
 - `__Host-` + `Secure` misbehaves on `http://localhost` in some browser — signal: local login works in Chrome but not Safari.
 - The pass-through forwards client headers the API trusts — signal: unit 2's spoofing test.
 
+Outcome: the first two did not occur (unit 0: `Set-Cookie` intact on all three paths, OpenNext accepted the external rewrite). The third was never browser-tested, so the migration guide gives both local options (HTTPS, or `SESSION_COOKIE_SECURE=false` on a local API). The fourth was closed by unit 2: the API trusts no forwarding header by default.
+
 ## Open questions
 
-- Should existing BFF apps get the refresh-before-expiry fix as an interim patch? Owner: maintainer; by unit 6's spec gate.
-- Session lifetime and idle-timeout defaults. Owner: unit 1's spec gate.
+None remain.
+
+- **Resolved:** existing BFF apps get no interim refresh-before-expiry patch. They move through the migration guide, because the BFF is the thing being removed and a fix would keep two copies alive.
+- **Resolved:** session lifetime defaults are 72 hours idle and 30 days absolute (`SESSION_IDLE_HOURS`, `SESSION_ABSOLUTE_DAYS`), set in unit 1.
+
+## What shipped
+
+| Release | Unit | Result |
+| --- | --- | --- |
+| v1.107.0 | 1 | `go-scaffold` cookie sessions: `sessions` table, `POST` / `DELETE /api/v1/auth/session`, `Origin` check against `WEB_ORIGINS`, Bearer unchanged |
+| v1.108.0 | 2 | `go-scaffold` trusts no forwarded client-IP header; `TRUSTED_PROXY=cloudflare` is opt-in |
+| v1.109.0 | 3 | `nuxt-scaffold`: catch-all pass-through to server-only `NUXT_API_ORIGIN`, `nuxt-auth-utils` and the proxy removed |
+| v1.109.1 | 4 | `next-scaffold` paired with Go (BFF kept for one release) |
+| v1.110.0 | 5 | `next-scaffold`: `rewrites` to build-time `API_ORIGIN` on OpenNext/Cloudflare, `iron-session` and the proxy removed |
+| v1.110.1 | 6 | `project-scaffold --web-origin` / `--api-origin` wiring, polyrepo routing docs, the migration guide |
+
+Reconciled with what the spike found: the Nuxt pass-through is the catch-all handler, not `routeRules`; Next is pinned to 16.3.8; the Next origin is read at build time, the Nuxt one at runtime. The current user is `GET /api/v1/user/profile`, since `go-scaffold` has no `GET /auth/session`.
+
+**Client IP stayed a trade-off.** Behind the pass-through the API sees the Worker's egress address, so browser users share one rate-limit bucket; the scaffolds and the [polyrepo standard](../polyrepo/SPEC-polyrepo-standard.md#browser-and-mobile-paths-to-the-api) say so. The fix path is not built: forward the visitor's IP in a header the API is configured to trust, with the API origin locked to the Worker, which needs a `go-scaffold` change.
 
 ## Spike results
 

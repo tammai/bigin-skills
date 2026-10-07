@@ -1658,6 +1658,101 @@ if (!psReady) {
     return 'refused'
   })
 
+  // ── --web-origin / --api-origin wiring ────────────────────────────────────
+  // The two origins the pass-through needs agreeing on: the API's WEB_ORIGINS (its CSRF
+  // allowlist) and the web app's server-only NUXT_API_ORIGIN. Written into
+  // `.env.example` only, never `.env`. The fixtures plant the `.env.example` files the
+  // app scaffolds would have written (go/pnpm are absent on this PATH), so the repos
+  // read as adopted and only the wiring runs.
+  const wireFix = (name, { api, web } = {}) => {
+    const D = join(TMP, `ps-wire-${name}`)
+    rmSync(D, { recursive: true, force: true })
+    for (const [type, body] of [['api', api], ['web', web]]) {
+      if (body === undefined) continue
+      mkdirSync(join(D, `demo-${type}`), { recursive: true })
+      writeFileSync(join(D, `demo-${type}`, '.env.example'), body)
+    }
+    return D
+  }
+  const wireRun = (D, extra = []) => spawnSync('node', [PS, '--project', 'demo', '--dir', D, ...extra], {
+    cwd: REPO, encoding: 'utf8', env: { ...PS_ENV, HOME: D }
+  })
+  const API_ENV = 'PORT=8090\nWEB_ORIGINS=http://localhost:3000\nSESSION_IDLE_HOURS=72\n'
+  const WEB_ENV = '# comment\nNUXT_API_ORIGIN=\n'
+
+  t('--web-origin and --api-origin land in each repo\'s .env.example, never .env', () => {
+    const D = wireFix('values', { api: API_ENV, web: WEB_ENV })
+    const r = wireRun(D, ['--repos', 'api,web', '--web-origin', 'https://app.acme.com', '--api-origin', 'https://api.acme.io'])
+    eq(r.status, 0, 'exit')
+    eq(read(join(D, 'demo-api', '.env.example')), 'PORT=8090\nWEB_ORIGINS=https://app.acme.com\nSESSION_IDLE_HOURS=72\n', 'api .env.example')
+    eq(read(join(D, 'demo-web', '.env.example')), '# comment\nNUXT_API_ORIGIN=https://api.acme.io\n', 'web .env.example')
+    for (const type of ['api', 'web']) {
+      if (existsSync(join(D, `demo-${type}`, '.env'))) throw new Error(`demo-${type} got a .env`)
+    }
+    for (const needle of ['https://app.acme.com', 'https://api.acme.io', 'NUXT_API_ORIGIN', 'WEB_ORIGINS']) {
+      if (!r.stdout.includes(needle)) throw new Error(`summary does not name ${needle}`)
+    }
+    return 'written, summary names both'
+  })
+
+  t('with no flags the local-dev defaults are written', () => {
+    const D = wireFix('defaults', { api: API_ENV, web: WEB_ENV })
+    const r = wireRun(D, ['--repos', 'api,web'])
+    eq(r.status, 0, 'exit')
+    if (!read(join(D, 'demo-api', '.env.example')).includes('WEB_ORIGINS=http://localhost:3000\n')) throw new Error('api default')
+    if (!read(join(D, 'demo-web', '.env.example')).includes('NUXT_API_ORIGIN=http://localhost:8090\n')) throw new Error('web default')
+    return 'localhost:3000 / localhost:8090'
+  })
+
+  t('a value already set in an adopted repo is never overwritten', () => {
+    const api = 'WEB_ORIGINS=https://kept.example.com\n'
+    const web = 'NUXT_API_ORIGIN=https://kept-api.example.com\n'
+    const D = wireFix('adopted', { api, web })
+    const r = wireRun(D, ['--repos', 'api,web', '--web-origin', 'https://app.acme.com', '--api-origin', 'https://api.acme.io'])
+    eq(r.status, 0, 'exit')
+    eq(read(join(D, 'demo-api', '.env.example')), api, 'api untouched')
+    eq(read(join(D, 'demo-web', '.env.example')), web, 'web untouched')
+    if (!r.stdout.includes('left alone')) throw new Error('did not say it left the values alone')
+    return 'left alone, named'
+  })
+
+  t('a missing key or file is noted and nothing is written', () => {
+    const D = wireFix('missing', { api: 'PORT=8090\n' })   // api lacks the key, web has no .env.example at all
+    mkdirSync(join(D, 'demo-web'), { recursive: true })
+    writeFileSync(join(D, 'demo-web', 'package.json'), '{}\n')
+    const r = wireRun(D, ['--repos', 'api,web', '--web-origin', 'https://app.acme.com'])
+    eq(r.status, 0, 'exit')
+    eq(read(join(D, 'demo-api', '.env.example')), 'PORT=8090\n', 'api untouched')
+    if (existsSync(join(D, 'demo-web', '.env.example'))) throw new Error('created a .env.example that was not there')
+    if (!/demo-api: .*WEB_ORIGINS/.test(r.stdout)) throw new Error('no note for the missing WEB_ORIGINS')
+    if (!/demo-web: .*NUXT_API_ORIGIN/.test(r.stdout)) throw new Error('no note for the missing NUXT_API_ORIGIN')
+    return 'noted, untouched'
+  })
+
+  t('a --repos run that skips a side skips that side of the wiring', () => {
+    const D = wireFix('oneside', { api: API_ENV, web: WEB_ENV })
+    const r = wireRun(D, ['--repos', 'web', '--web-origin', 'https://app.acme.com', '--api-origin', 'https://api.acme.io'])
+    eq(r.status, 0, 'exit')
+    eq(read(join(D, 'demo-api', '.env.example')), API_ENV, 'api untouched')
+    if (!read(join(D, 'demo-web', '.env.example')).includes('NUXT_API_ORIGIN=https://api.acme.io')) throw new Error('web side not wired')
+    return 'web only'
+  })
+
+  t('an origin with a trailing slash, a path or a wildcard is refused before anything is created', () => {
+    for (const [flag, bad] of [
+      ['--web-origin', 'https://app.acme.com/'], ['--api-origin', 'https://api.acme.io/'],
+      ['--web-origin', 'https://app.acme.com/app'], ['--web-origin', '*'], ['--api-origin', 'api.acme.io']
+    ]) {
+      const D = join(TMP, 'ps-wire-bad')
+      rmSync(D, { recursive: true, force: true })
+      const r = wireRun(D, [flag, bad])
+      eq(r.status, 2, `${flag} ${bad}: exit`)
+      if (!r.stderr.includes(flag)) throw new Error(`${flag} ${bad}: did not name the flag`)
+      eq(existsSync(D), false, `${flag} ${bad}: created nothing`)
+    }
+    return '5 refused'
+  })
+
   // ── STORY_CONSUMERS on an incremental add ─────────────────────────────────
   // The variable is the project's consumer list, and deriving it from this run's
   // `built` alone was wrong in both directions: `--repos mobile` never wrote it, so

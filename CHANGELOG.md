@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.110.1] - 2026-10-07
+
+`project-scaffold` wires the two origins the pass-through needs, the polyrepo standard documents the browser path, and `docs/migrating-off-bff.md` moves existing BFF apps to cookie sessions — unit 6 of the drop-bff epic (`docs/design/drop-bff.md`), which closes it.
+
+### Added
+
+- **`project_scaffold.mjs --web-origin` (default `http://localhost:3000`) and `--api-origin` (default `http://localhost:8090`).** After the app scaffolds, the web origin becomes `WEB_ORIGINS` in `<project>-api/.env.example` and the API origin becomes `NUXT_API_ORIGIN` in `<project>-web/.env.example`. Only `.env.example` is written, never `.env`. An existing value is never overwritten (only an empty one, or go-scaffold's own `WEB_ORIGINS=http://localhost:3000` placeholder, is replaced); a missing file or key is named in the summary and nothing is written; a `--repos` run without `api` or `web` skips that side. A trailing slash, a path, a wildcard or a non-canonical origin exits 2 before anything is created, since the API matches origins exactly. The summary names both values and the deploy-time reminders.
+- **`docs/migrating-off-bff.md`**, linked from the README: Nuxt and Next, upgrade the API, swap in the pass-through, move auth calls to `/api/v1/auth/session`, drop `nuxt-auth-utils` / `iron-session` and the old env vars, set the origin (`NUXT_API_ORIGIN` at runtime, `API_ORIGIN` at build time), `__Host-` and local HTTPS, a before/after diagram, a rollback note and a checklist.
+- **A "Browser and mobile paths to the API" section** in `SPEC-polyrepo-standard.md` and a "Browser to API" section in the `REPO_MAP.md` template, each with a mermaid diagram: the browser reaches the API only through the web app's `/api/v*` pass-through, Flutter calls it directly with Bearer, `WEB_ORIGINS` lists exact origins, the Cloudflare routing with an optional Tunnel, and the client-IP trade-off with its fix path.
+- Six `regress.mjs` cases for the new flags (written values, defaults, adopted values kept, missing key noted, one side skipped, bad origins refused).
+
+### Changed
+
+- `docs/design/drop-bff.md` is `Status: shipped`: both open questions are resolved (no interim refresh patch for BFF apps; 72 h idle / 30 d absolute sessions), and a what-shipped table records each unit.
+- `project-scaffold`'s `SKILL.md` and `docs/USER_GUIDE.md` describe the origin wiring.
+
+### Notes
+
+- **No patch block.** `REPO_MAP.md` reaches repos through `story_sync.mjs` from the specs repo, and no `references/` template changed.
+- Not done, as scoped: visitor-IP forwarding (a `go-scaffold` change), Next in `project-scaffold` (still Nuxt-only), and any automated migration.
+
 ## [1.110.0] - 2026-10-07
 
 `next-scaffold` drops the token-holding BFF for a tokenless `/api` pass-through on OpenNext/Cloudflare — unit 5 of the drop-bff epic (`docs/design/drop-bff.md`). It is the Next half of go-scaffold's cookie sessions (v1.107.0) and the counterpart of `nuxt-scaffold`'s v1.109.0: the API owns the session, the app only forwards.

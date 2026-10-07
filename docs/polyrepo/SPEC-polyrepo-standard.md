@@ -60,6 +60,27 @@ Sync is event-driven; sessions never write on start. SessionStart reports lock v
 
 **Dispatch auth is an org-installed GitHub App** minting short-lived installation tokens per run. Actions' own `GITHUB_TOKEN` cannot fire `repository_dispatch` at another repo, and (C10) a PR opened with it does not trigger workflows — so the *consumer* side mints an App token too, or the auto-PR's own drift check never runs.
 
+### Browser and mobile paths to the API
+
+Data flow in the table above is between repos. This is how the apps reach `acme-api` at runtime, and the two clients take different paths on purpose.
+
+```mermaid
+flowchart LR
+  B["Browser<br/>acme-app.com"] -->|"/api/v1/... + __Host-session cookie"| W["acme-web (Worker)<br/>/api/v* pass-through"]
+  W -->|"fetch NUXT_API_ORIGIN/api/v1/..."| A["acme-api (Go)"]
+  W -.->|"optional: API has no public address"| T["Cloudflare Tunnel hostname"]
+  T -.-> A
+  M["acme-mobile (Flutter)"] -->|"Bearer access + refresh token, direct"| A
+  A --- D[("Postgres: users, sessions,<br/>refresh tokens")]
+```
+
+- **Browser.** It talks only to the web app's own `/api/v<digits>/**` on the web domain, which forwards verbatim to the API. The API sets `__Host-session` (HttpOnly, Secure, SameSite=Lax, no `Domain`) on that response, so the cookie is first-party to the web domain and no token is readable by page JavaScript. The API's own domain is not a browser endpoint: a cookie it set there would be third-party to a web app on another site, which Safari blocks, and calling it directly would need credentialed CORS. The sign-in endpoints are `POST` and `DELETE /api/v1/auth/session`; the current user is `GET /api/v1/user/profile`.
+- **Flutter.** No browser cookie jar, so it calls the API's own domain with Bearer access and refresh tokens, unchanged.
+- **The pass-through holds no tokens and no logic** beyond a path allowlist (`/api/v` plus digits). `nuxt-scaffold` ships it as a catch-all handler reading the server-only `NUXT_API_ORIGIN` at runtime; `next-scaffold` ships it as `rewrites` reading `API_ORIGIN` at **build** time, so a Next app is rebuilt, not just restarted, when the API origin changes. `project-scaffold` wires the Nuxt web repo (it is Nuxt-only).
+- **CSRF lives in the API.** A cookie-authenticated mutation, and both session endpoints, need an `Origin` in the API's `WEB_ORIGINS`. It must list only the web app's exact origins, scheme and host and port, with no wildcard and no trailing slash; the API refuses to boot on `*`. `project-scaffold --web-origin` and `--api-origin` write both values into the two repos' `.env.example` (never `.env`); the deployed environments are set by hand.
+- **Cloudflare routing.** The web app is a Worker on the web domain; its pass-through fetches the API's public origin. An API with no public address can be published through a Cloudflare Tunnel hostname, and that hostname becomes the API origin; lock the API so it accepts only the Worker's traffic (see client IP below). Workers VPC (beta) can bind a Worker to a tunnelled service without a public hostname, but the scaffolded pass-through is a plain `fetch` to an origin URL and does not use a binding, so that is a change to the pass-through rather than a setting.
+- **Client IP is a known trade-off.** The pass-through forwards no `X-Forwarded-For` or `CF-Connecting-IP`, and a Worker subrequest to another zone reaches the origin with a Cloudflare address in `CF-Connecting-IP` rather than the visitor's. The API therefore sees the Worker's egress address for every browser user, and they share one rate-limit bucket (Flutter traffic keeps its own). Leave `TRUSTED_PROXY` unset on the API; setting it would trust a header a visitor can influence. **Fix path, not yet built:** the pass-through forwards the visitor's IP in a dedicated header, the API is configured to trust that header, and the API origin accepts only the Worker (Tunnel, Access service token, or a shared secret header). The API half needs a `go-scaffold` change.
+
 ## 5. Story metadata — sidecar convention
 
 Synced artifacts are never edited in consumer repos. Dev-side context attaches as a sidecar:

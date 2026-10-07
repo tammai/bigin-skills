@@ -34,6 +34,7 @@ If they want remotes, confirm the **owner** explicitly. Never infer it from `gh 
 node ${CLAUDE_SKILL_DIR}/scripts/project_scaffold.mjs --project <slug> [--dir <path>]
      [--owner <login>] [--app-id <id> --app-key <path.pem>]
      [--repos specs,contracts,api,web,mobile,qa] [--no-install]
+     [--web-origin <origin>] [--api-origin <origin>]
 ```
 
 Stream its output. It creates each repo, seeds it, wires it, commits, and — with `--owner` — creates and pushes the remote. Every skipped step is named in the summary rather than passed over: a missing toolchain, an unreachable API, a repo it adopted rather than created.
@@ -41,6 +42,14 @@ Stream its output. It creates each repo, seeds it, wires it, commits, and — wi
 `--app-id`/`--app-key` set `CONTRACT_APP_ID` and `CONTRACT_APP_PRIVATE_KEY` on every repo. The script reads the key only to pipe it to `gh secret set` on stdin; it is never logged, passed as an argument, or copied. They need `--owner`, since there is nothing to set them on otherwise.
 
 `STORY_CONSUMERS` on the specs repo is **wiring, not a credential** — the story-dispatch workflow reads it whoever created the App — so `--owner` alone sets it. It is the project's consumer list, so a `--repos` run that adds one repo **unions** it into whatever is already there rather than replacing it, and a value it cannot read or parse is reported and left alone, since a wrong list here fails silently.
+
+`--web-origin` (default `http://localhost:3000`) and `--api-origin` (default `http://localhost:8090`) wire the browser path in `${CLAUDE_PLUGIN_ROOT}/docs/polyrepo/SPEC-polyrepo-standard.md` → "Browser and mobile paths to the API": the web origin becomes `WEB_ORIGINS` in `<project>-api/.env.example` (the API's CSRF allowlist), the API origin becomes `NUXT_API_ORIGIN` in `<project>-web/.env.example`. Only `.env.example` is written, never `.env`.
+
+- An origin is `scheme://host[:port]` and nothing else. A trailing slash, a path or `*` is refused with exit 2 before anything is created, because the API matches origins exactly.
+- An existing value is never overwritten. The only things replaced are an empty value and go-scaffold's own `WEB_ORIGINS=http://localhost:3000` placeholder. A conflicting value is named in the summary and left alone.
+- A `.env.example` without the key (the scaffold was skipped or failed) is named in the summary and nothing is written.
+- A `--repos` run that omits `api` or `web` skips that side of the wiring.
+- The summary names both values and says what carries over to deployment: nothing does by itself. Set `NUXT_API_ORIGIN` on the deployed web app and `WEB_ORIGINS` on the API to the real origins, with no wildcard.
 
 ## Step 3: Install the harness in each repo
 

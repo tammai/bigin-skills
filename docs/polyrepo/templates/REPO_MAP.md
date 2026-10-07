@@ -33,6 +33,20 @@
 - **Design:** frames come from the {{project}} fork of the design kit; dev pulls them via `flutter-figma-handoff` (mobile) or `nuxt-ui-figma-handoff` (web), using the node-id in the story sidecar.
 - **Cross-stack story order:** contracts session → api / web / mobile sessions in parallel → qa session.
 
+## Browser to API
+
+```mermaid
+flowchart LR
+  B["Browser"] -->|"/api/v1/... on the web domain"| W["{{project}}-web<br/>pass-through"]
+  W --> A["{{project}}-api"]
+  M["{{project}}-mobile"] -->|"Bearer, direct"| A
+```
+
+- The browser reaches the API only through the web app's own `/api/v*` pass-through, so the session cookie stays first-party to the web domain. Never point browser code at the API's own domain.
+- Flutter calls the API directly with Bearer tokens.
+- The API's `WEB_ORIGINS` lists the web app's exact origins, no wildcard. The web app's `NUXT_API_ORIGIN` (Next: `API_ORIGIN`, set at build time) is the API's origin. Both are set per environment at deploy time.
+- Behind the pass-through the API sees the web app's egress address as the client, so browser users share one rate-limit bucket.
+
 ## Rules that bite
 
 - The vendored spec (`{{vendored-spec-path}}`) and `api-contract.lock` are written only by `contract_sync.mjs`. Need an API change? The task belongs to the contracts repo — stop and say so.

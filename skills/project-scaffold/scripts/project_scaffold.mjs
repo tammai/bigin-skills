@@ -6,6 +6,7 @@
  *   node project_scaffold.mjs --project acme [--dir .] [--owner <login>]
  *                             [--app-id <id> --app-key <path/to.pem>]
  *                             [--repos specs,contracts,api,web,mobile,qa]
+ *                             [--web-origin <origin>] [--api-origin <origin>]
  *                             [--no-install] [--force]
  *
  * Node >=20 stdlib only. Exit 0 ok, 1 runtime failure, 2 bad usage.
@@ -60,6 +61,11 @@ const ADAPTER = {
   }
 }
 
+// Where the browser-facing apps run, and where the pass-through sends /api/v*. The
+// defaults are the scaffolds' local-dev values: nuxt on 3000, go-scaffold on 8090.
+const DEFAULT_WEB_ORIGIN = 'http://localhost:3000'
+const DEFAULT_API_ORIGIN = 'http://localhost:8090'
+
 const PROJECT_RE = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/
 
 function fail(msg, code = 1) {
@@ -104,6 +110,8 @@ try {
       'app-id': { type: 'string' },
       'app-key': { type: 'string' },
       'repos': { type: 'string', default: TYPES.join(',') },
+      'web-origin': { type: 'string', default: DEFAULT_WEB_ORIGIN },
+      'api-origin': { type: 'string', default: DEFAULT_API_ORIGIN },
       'no-install': { type: 'boolean', default: false },
       'force': { type: 'boolean', default: false },
       'help': { type: 'boolean', default: false }
@@ -116,7 +124,9 @@ try {
 if (values.help || !values.project) {
   console.log(`Usage: project_scaffold.mjs --project <slug> [--dir .] [--owner <login>]
                             [--app-id <id> --app-key <path.pem>]
-                            [--repos ${TYPES.join(',')}] [--no-install] [--force]`)
+                            [--repos ${TYPES.join(',')}]
+                            [--web-origin ${DEFAULT_WEB_ORIGIN}] [--api-origin ${DEFAULT_API_ORIGIN}]
+                            [--no-install] [--force]`)
   process.exit(values.help ? 0 : 2)
 }
 if (!PROJECT_RE.test(values.project)) fail(`--project must be kebab-case, got "${values.project}"`, 2)
@@ -129,7 +139,24 @@ if ((values['app-id'] && !values['app-key']) || (!values['app-id'] && values['ap
 if (values['app-key'] && !existsSync(values['app-key'])) fail(`no such key file: ${values['app-key']}`, 2)
 if (values['app-id'] && !values.owner) fail('--app-id needs --owner: credentials are set on remote repos', 2)
 
+// The API matches Origin exactly and the pass-through forwards to it verbatim, so an
+// origin here is scheme://host[:port] and nothing else — a trailing slash, a path, a
+// wildcard or a non-canonical spelling would silently never match.
+function checkOrigin(flag, v) {
+  const bad = why => fail(`--${flag} ${why}, got "${v}"`, 2)
+  if (v.endsWith('/')) bad('must not end with a slash (origin matching is exact)')
+  let u
+  try { u = new URL(v) } catch { bad('must be an origin like https://app.example.com') }
+  if (!/^https?:$/.test(u.protocol) || u.origin !== v) {
+    bad('must be exactly scheme://host[:port] — http(s), lowercase, no path, credentials or default port')
+  }
+}
+checkOrigin('web-origin', values['web-origin'])
+checkOrigin('api-origin', values['api-origin'])
+
 const PROJECT = values.project
+const WEB_ORIGIN = values['web-origin']
+const API_ORIGIN = values['api-origin']
 const ROOT = resolve(values.dir)
 const OWNER = values.owner ?? null
 const repoName = t => `${PROJECT}-${t}`
@@ -281,6 +308,41 @@ function scaffoldApp(dir, type) {
   return false
 }
 
+// ── origin wiring ───────────────────────────────────────────────────────
+//
+// The pass-through only works when two values agree: the API's WEB_ORIGINS (its CSRF
+// allowlist) and the web app's server-only NUXT_API_ORIGIN. Both land in the repo's
+// `.env.example` — never `.env`, which is the developer's own and may hold secrets.
+// An existing value is never overwritten; the one thing replaced besides an empty value
+// is the app scaffold's own placeholder (`replaceable`), because a fresh go-scaffold
+// ships WEB_ORIGINS=http://localhost:3000 and that is exactly what a custom origin must
+// displace. A repo with no such line (scaffold skipped or failed) is named, not guessed at.
+const WIRING = {
+  api: { key: 'WEB_ORIGINS', value: () => WEB_ORIGIN, replaceable: DEFAULT_WEB_ORIGIN },
+  web: { key: 'NUXT_API_ORIGIN', value: () => API_ORIGIN, replaceable: '' }
+}
+
+function wireOrigins(dir, type) {
+  const { key, value, replaceable } = WIRING[type]
+  const want = value()
+  const file = join(dir, '.env.example')
+  const body = existsSync(file) ? readFileSync(file, 'utf8') : null
+  const re = new RegExp(`^${key}=(.*)$`, 'm')
+  const m = body === null ? null : re.exec(body)
+  if (!m) {
+    note(`${repoName(type)}: no ${key}= line in .env.example — nothing written. Set ${key}=${want} wherever that app reads its environment.`)
+    return
+  }
+  const current = m[1].trim()
+  if (current === want) return
+  if (current !== '' && current !== replaceable) {
+    note(`${repoName(type)}: ${key} is already ${current} in .env.example — left alone (this run asked for ${want})`)
+    return
+  }
+  writeFileSync(file, body.replace(re, () => `${key}=${want}`))
+  log(`${repoName(type)}: .env.example ${key}=${want}`)
+}
+
 // ── build ───────────────────────────────────────────────────────────────
 
 log(`project "${PROJECT}" → ${ROOT}`)
@@ -300,6 +362,7 @@ for (const type of wanted) {
     else scaffoldApp(dir, type)
   }
   if (STORY_CONSUMERS.includes(type)) wireConsumer(dir, type)
+  if (type in WIRING) wireOrigins(dir, type)
   writeWorkflows(dir, type)
 
   if (!existsSync(join(dir, '.git'))) run('git', ['init', '-q', '-b', 'main', '.'], dir)
@@ -415,6 +478,20 @@ Next, and this script deliberately does none of it:
      \`node scripts/contract_sync.mjs bump <tag>\` in each consumer.
   3. ${OWNER ? 'Install your GitHub App on ' + OWNER + ' with access to these repos.' : 'Re-run with --owner <login> when you want remotes.'}
 `)
+if (built.some(t => t in WIRING)) {
+  console.log(`Origins (local-dev values unless you passed the flags; only .env.example is written):
+  web origin  ${WEB_ORIGIN}  → ${repoName('api')}: WEB_ORIGINS
+  API origin  ${API_ORIGIN}  → ${repoName('web')}: NUXT_API_ORIGIN
+At deploy time, none of this carries over by itself:
+  - Set NUXT_API_ORIGIN on the deployed web app (server-only, never NUXT_PUBLIC_*) to the API's
+    public origin, and WEB_ORIGINS on the API to the web app's deployed origin — exact, no wildcard.
+    Redeploy the web app after changing either.
+  - Browsers reach the API only through the web app's /api/v* pass-through. Don't expose it on the
+    API's own domain for browsers.
+  - Behind the pass-through the API sees the web app's egress address as the client, so every browser
+    user shares one rate-limit bucket (see docs/polyrepo/SPEC-polyrepo-standard.md).
+`)
+}
 if (notes.length > 0) {
   console.log('[project-scaffold] worth knowing:')
   for (const n of notes) console.log(`  - ${n}`)
